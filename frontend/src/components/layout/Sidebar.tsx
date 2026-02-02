@@ -61,11 +61,11 @@ export function Sidebar() {
     : studentNavItems;
 
   const NavContent = () => (
-    <div className="flex h-full flex-col gradient-sidebar">
+    <div className="flex h-full flex-col bg-sidebar-background border-r border-sidebar-border">
       {/* Logo */}
       <div className="flex items-center gap-3 px-6 py-6">
-        <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-sidebar-primary/20">
-          <GraduationCap className="h-6 w-6 text-sidebar-foreground" />
+        <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary/10">
+          <GraduationCap className="h-6 w-6 text-primary" />
         </div>
         <span className="font-display text-xl font-bold text-sidebar-foreground">
           EduLearn
@@ -94,12 +94,12 @@ export function Sidebar() {
       </nav>
 
       {/* User Section */}
-      <div className="border-t border-sidebar-border/30 p-4">
-        <div className="flex items-center gap-3 rounded-lg bg-sidebar-accent/20 p-3">
+      <div className="border-t border-sidebar-border p-4">
+        <div className="flex items-center gap-3 rounded-lg bg-sidebar-accent/50 p-3">
           <img
             src={user?.avatar}
             alt={user?.name}
-            className="h-10 w-10 rounded-full ring-2 ring-sidebar-foreground/20"
+            className="h-10 w-10 rounded-full ring-2 ring-background"
           />
           <div className="flex-1 min-w-0">
             <p className="truncate text-sm font-medium text-sidebar-foreground">

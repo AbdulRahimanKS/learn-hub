@@ -5,7 +5,7 @@ import { cva, type VariantProps } from "class-variance-authority";
 import { cn } from "@/lib/utils";
 
 const buttonVariants = cva(
-  "inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-lg text-sm font-medium ring-offset-background transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:size-4 [&_svg]:shrink-0",
+  "inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-full text-sm font-medium ring-offset-background transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:size-4 [&_svg]:shrink-0",
   {
     variants: {
       variant: {
@@ -15,12 +15,12 @@ const buttonVariants = cva(
         secondary: "bg-secondary text-secondary-foreground hover:bg-secondary/80",
         ghost: "hover:bg-accent/10 hover:text-accent-foreground",
         link: "text-primary underline-offset-4 hover:underline",
-        gradient: "bg-gradient-to-r from-[hsl(234,89%,54%)] to-[hsl(262,83%,58%)] text-white shadow-md hover:shadow-lg hover:scale-[1.02] active:scale-[0.98]",
+        gradient: "bg-gradient-to-r from-[hsl(221,100%,50%)] to-[hsl(210,100%,50%)] text-white shadow-md hover:shadow-lg hover:scale-[1.02] active:scale-[0.98]",
         success: "bg-[hsl(142,71%,45%)] text-white hover:bg-[hsl(142,71%,40%)] shadow-md",
-        hero: "bg-gradient-to-r from-[hsl(234,89%,54%)] to-[hsl(262,83%,58%)] text-white shadow-lg hover:shadow-xl hover:scale-[1.02] active:scale-[0.98] font-semibold",
+        hero: "bg-gradient-to-r from-[hsl(221,100%,50%)] to-[hsl(221,100%,60%)] text-white shadow-lg hover:shadow-xl hover:scale-[1.02] active:scale-[0.98] font-semibold",
         "hero-outline": "border-2 border-white/30 bg-white/10 text-white hover:bg-white/20 backdrop-blur-sm",
-        sidebar: "bg-white/10 text-white hover:bg-white/20",
-        "sidebar-active": "bg-white text-[hsl(234,89%,54%)] shadow-md",
+        sidebar: "bg-transparent text-sidebar-foreground hover:bg-sidebar-accent/50 hover:text-sidebar-accent-foreground",
+        "sidebar-active": "bg-sidebar-accent text-sidebar-accent-foreground shadow-sm font-semibold",
       },
       size: {
         default: "h-10 px-4 py-2",

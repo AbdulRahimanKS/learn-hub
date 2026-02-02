@@ -1,24 +1,53 @@
-# Logs
-logs
+# ----------------------
+# General / OS / IDE
+# ----------------------
+.DS_Store
+Thumbs.db
+*.swp
+.idea/
+.vscode/
+*.sublime-*
+
+# ----------------------
+# Python / Django
+# ----------------------
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Virtual environments
+venv/
+.venv/
+env/
+.env
+backend/.env
+
+# Django
 *.log
+*.pot
+*.pyc
+*.pyo
+db.sqlite3
+db.sqlite3-journal
+media/
+staticfiles/
+
+# ----------------------
+# Node / Frontend
+# ----------------------
+node_modules/
+dist/
+build/
+coverage/
+
+# Logs
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 pnpm-debug.log*
-lerna-debug.log*
 
-node_modules
-dist
-dist-ssr
-*.local
-
-# Editor directories and files
-.vscode/*
-!.vscode/extensions.json
-.idea
-.DS_Store
-*.suo
-*.ntvs*
-*.njsproj
-*.sln
-*.sw?
+# Local Env Files
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local

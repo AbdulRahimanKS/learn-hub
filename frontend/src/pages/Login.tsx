@@ -35,19 +35,19 @@ export default function Login() {
       icon: Shield,
       title: 'Administrator',
       description: 'Manage teachers, students, and content',
-      color: 'from-primary to-purple-600',
+      color: 'from-primary to-blue-600',
     },
     teacher: {
       icon: BookOpen,
       title: 'Teacher',
       description: 'Create content and evaluate students',
-      color: 'from-accent to-blue-500',
+      color: 'from-sky-500 to-blue-500',
     },
     student: {
       icon: User,
       title: 'Student',
       description: 'Access courses and assessments',
-      color: 'from-success to-emerald-500',
+      color: 'from-indigo-500 to-primary',
     },
   };
 
@@ -55,23 +55,23 @@ export default function Login() {
     <div className="min-h-screen flex">
       {/* Left Panel - Branding */}
       <div className="hidden lg:flex lg:w-1/2 gradient-hero relative overflow-hidden">
-        <div className="absolute inset-0 bg-[url('data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNjAiIGhlaWdodD0iNjAiIHZpZXdCb3g9IjAgMCA2MCA2MCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48ZyBmaWxsPSJub25lIiBmaWxsLXJ1bGU9ImV2ZW5vZGQiPjxnIGZpbGw9IiNmZmZmZmYiIGZpbGwtb3BhY2l0eT0iMC4wNSI+PGNpcmNsZSBjeD0iMzAiIGN5PSIzMCIgcj0iMiIvPjwvZz48L2c+PC9zdmc+')] opacity-50" />
+        <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top_right,_var(--tw-gradient-stops))] from-primary/20 via-background to-background" />
         
         <div className="relative z-10 flex flex-col justify-center px-12 xl:px-20">
           <div className="flex items-center gap-4 mb-8">
-            <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-white/20 backdrop-blur-sm">
-              <GraduationCap className="h-10 w-10 text-white" />
+            <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-primary/10 backdrop-blur-sm">
+              <GraduationCap className="h-10 w-10 text-primary" />
             </div>
-            <h1 className="font-display text-4xl font-bold text-white">EduLearn</h1>
+            <h1 className="font-display text-4xl font-bold text-foreground">EduLearn</h1>
           </div>
           
-          <h2 className="font-display text-5xl font-bold text-white leading-tight mb-6">
+          <h2 className="font-display text-5xl font-bold text-foreground leading-tight mb-6">
             Transform Your
             <br />
             Learning Journey
           </h2>
           
-          <p className="text-xl text-white/80 max-w-md">
+          <p className="text-xl text-muted-foreground max-w-md">
             Access world-class courses, interactive assessments, and live sessions. 
             Join thousands of learners achieving their goals.
           </p>
@@ -83,8 +83,8 @@ export default function Login() {
               { value: '95%', label: 'Success Rate' },
             ].map((stat) => (
               <div key={stat.label} className="text-center">
-                <div className="text-3xl font-bold text-white">{stat.value}</div>
-                <div className="text-sm text-white/70">{stat.label}</div>
+                <div className="text-3xl font-bold text-primary">{stat.value}</div>
+                <div className="text-sm text-muted-foreground">{stat.label}</div>
               </div>
             ))}
           </div>
@@ -96,8 +96,8 @@ export default function Login() {
         <div className="w-full max-w-md space-y-8 animate-fade-in">
           {/* Mobile Logo */}
           <div className="flex items-center justify-center gap-3 lg:hidden mb-8">
-            <div className="flex h-12 w-12 items-center justify-center rounded-xl gradient-primary">
-              <GraduationCap className="h-7 w-7 text-white" />
+            <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-primary/10">
+              <GraduationCap className="h-7 w-7 text-primary" />
             </div>
             <span className="font-display text-2xl font-bold text-foreground">EduLearn</span>
           </div>
@@ -107,7 +107,7 @@ export default function Login() {
             <p className="mt-2 text-muted-foreground">Sign in to continue your learning journey</p>
           </div>
 
-          <Card className="border-0 shadow-card">
+          <Card className="border-0 shadow-card rounded-3xl">
             <CardHeader className="space-y-1 pb-4">
               <CardTitle className="text-xl">Choose your role</CardTitle>
               <CardDescription>Select how you want to sign in</CardDescription>

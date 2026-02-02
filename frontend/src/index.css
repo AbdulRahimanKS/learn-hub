@@ -1,13 +1,13 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap');
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap');
-
 @layer base {
   :root {
-    /* Core brand colors - Education/Trust focused */
-    --background: 210 20% 98%;
+    /* Core brand colors - "LaunchHub Enterprise" */
+    --background: 0 0% 100%;
     --foreground: 222 47% 11%;
 
     --card: 0 0% 100%;
@@ -16,29 +16,29 @@
     --popover: 0 0% 100%;
     --popover-foreground: 222 47% 11%;
 
-    /* Primary - Deep Indigo */
-    --primary: 234 89% 54%;
+    /* Primary - Electric Blue (#0052FF) */
+    --primary: 221 100% 50%;
     --primary-foreground: 0 0% 100%;
 
-    /* Secondary - Soft blue-gray */
-    --secondary: 214 32% 91%;
-    --secondary-foreground: 222 47% 11%;
+    /* Secondary - Slate 100 */
+    --secondary: 210 40% 96.1%;
+    --secondary-foreground: 222 47% 11.2%;
 
-    --muted: 210 40% 96%;
-    --muted-foreground: 215 16% 47%;
+    --muted: 210 40% 96.1%;
+    --muted-foreground: 215.4 16.3% 46.9%;
 
-    /* Accent - Vibrant teal for highlights */
-    --accent: 172 66% 50%;
-    --accent-foreground: 0 0% 100%;
+    /* Accent - Light Blue Wash */
+    --accent: 214 100% 97%;
+    --accent-foreground: 221 100% 50%;
 
-    --destructive: 0 84% 60%;
-    --destructive-foreground: 0 0% 100%;
+    --destructive: 0 84.2% 60.2%;
+    --destructive-foreground: 210 40% 98%;
 
-    --border: 214 32% 91%;
-    --input: 214 32% 91%;
-    --ring: 234 89% 54%;
+    --border: 214.3 31.8% 91.4%;
+    --input: 214.3 31.8% 91.4%;
+    --ring: 221 100% 50%;
 
-    --radius: 0.75rem;
+    --radius: 1rem;
 
     /* Custom tokens */
     --success: 142 71% 45%;
@@ -49,28 +49,28 @@
     --info-foreground: 0 0% 100%;
 
     /* Gradients */
-    --gradient-primary: linear-gradient(135deg, hsl(234 89% 54%) 0%, hsl(262 83% 58%) 100%);
-    --gradient-accent: linear-gradient(135deg, hsl(172 66% 50%) 0%, hsl(199 89% 48%) 100%);
-    --gradient-hero: linear-gradient(135deg, hsl(234 89% 54%) 0%, hsl(262 83% 58%) 50%, hsl(172 66% 50%) 100%);
-    --gradient-card: linear-gradient(180deg, hsl(0 0% 100%) 0%, hsl(210 40% 98%) 100%);
-    --gradient-sidebar: linear-gradient(180deg, hsl(234 89% 54%) 0%, hsl(262 83% 58%) 100%);
+    --gradient-primary: linear-gradient(135deg, hsl(221 100% 50%) 0%, hsl(210 100% 50%) 100%);
+    --gradient-accent: linear-gradient(135deg, hsl(214 100% 97%) 0%, hsl(210 100% 96%) 100%);
+    --gradient-hero: linear-gradient(180deg, hsl(214 100% 97%) 0%, hsl(0 0% 100%) 100%);
+    --gradient-card: linear-gradient(180deg, hsl(0 0% 100%) 0%, hsl(214 100% 99%) 100%);
+    --gradient-sidebar: linear-gradient(180deg, hsl(0 0% 100%) 0%, hsl(0 0% 100%) 100%);
 
     /* Shadows */
-    --shadow-sm: 0 1px 2px 0 hsl(222 47% 11% / 0.05);
-    --shadow-md: 0 4px 6px -1px hsl(222 47% 11% / 0.1), 0 2px 4px -2px hsl(222 47% 11% / 0.1);
-    --shadow-lg: 0 10px 15px -3px hsl(222 47% 11% / 0.1), 0 4px 6px -4px hsl(222 47% 11% / 0.1);
-    --shadow-xl: 0 20px 25px -5px hsl(222 47% 11% / 0.1), 0 8px 10px -6px hsl(222 47% 11% / 0.1);
-    --shadow-glow: 0 0 20px hsl(234 89% 54% / 0.3);
-    --shadow-card: 0 4px 20px hsl(222 47% 11% / 0.08);
+    --shadow-sm: 0 1px 2px 0 rgba(0, 82, 255, 0.05);
+    --shadow-md: 0 4px 6px -1px rgba(0, 82, 255, 0.08), 0 2px 4px -2px rgba(0, 82, 255, 0.08);
+    --shadow-lg: 0 10px 15px -3px rgba(0, 82, 255, 0.08), 0 4px 6px -4px rgba(0, 82, 255, 0.08);
+    --shadow-xl: 0 20px 25px -5px rgba(0, 82, 255, 0.08), 0 8px 10px -6px rgba(0, 82, 255, 0.08);
+    --shadow-glow: 0 0 20px rgba(0, 82, 255, 0.3);
+    --shadow-card: 0 4px 20px rgba(0, 0, 0, 0.03);
 
-    --sidebar-background: 234 89% 54%;
-    --sidebar-foreground: 0 0% 100%;
-    --sidebar-primary: 0 0% 100%;
-    --sidebar-primary-foreground: 234 89% 54%;
-    --sidebar-accent: 234 89% 64%;
-    --sidebar-accent-foreground: 0 0% 100%;
-    --sidebar-border: 234 89% 64%;
-    --sidebar-ring: 0 0% 100%;
+    --sidebar-background: 0 0% 100%;
+    --sidebar-foreground: 222 47% 11%;
+    --sidebar-primary: 221 100% 50%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 214 100% 97%;
+    --sidebar-accent-foreground: 221 100% 50%;
+    --sidebar-border: 220 13% 91%;
+    --sidebar-ring: 221 100% 50%;
   }
 
   .dark {
