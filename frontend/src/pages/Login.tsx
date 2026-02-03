@@ -4,8 +4,9 @@ import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { Checkbox } from '@/components/ui/checkbox';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { UserRole } from '@/types';
 import { GraduationCap, Shield, User, BookOpen, Loader2 } from 'lucide-react';
 
@@ -14,11 +15,37 @@ export default function Login() {
   const { login } = useAuth();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [emailError, setEmailError] = useState('');
+  const [passwordError, setPasswordError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [selectedRole, setSelectedRole] = useState<UserRole>('student');
 
+  const validateForm = () => {
+    let isValid = true;
+    setEmailError('');
+    setPasswordError('');
+
+    if (!email) {
+      setEmailError('Email is required');
+      isValid = false;
+    } else if (!/\S+@\S+\.\S+/.test(email)) {
+      setEmailError('Please enter a valid email address');
+      isValid = false;
+    }
+
+    if (!password) {
+      setPasswordError('Password is required');
+      isValid = false;
+    } 
+
+    return isValid;
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    
+    if (!validateForm()) return;
+
     setIsLoading(true);
     
     const success = await login(email, password, selectedRole);
@@ -30,32 +57,11 @@ export default function Login() {
     setIsLoading(false);
   };
 
-  const roleConfig = {
-    admin: {
-      icon: Shield,
-      title: 'Administrator',
-      description: 'Manage teachers, students, and content',
-      color: 'from-primary to-blue-600',
-    },
-    teacher: {
-      icon: BookOpen,
-      title: 'Teacher',
-      description: 'Create content and evaluate students',
-      color: 'from-sky-500 to-blue-500',
-    },
-    student: {
-      icon: User,
-      title: 'Student',
-      description: 'Access courses and assessments',
-      color: 'from-indigo-500 to-primary',
-    },
-  };
-
   return (
     <div className="min-h-screen flex">
       {/* Left Panel - Branding */}
-      <div className="hidden lg:flex lg:w-1/2 gradient-hero relative overflow-hidden">
-        <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top_right,_var(--tw-gradient-stops))] from-primary/20 via-background to-background" />
+      <div className="hidden lg:flex lg:w-1/2 gradient-sidebar relative overflow-hidden">
+        <div className="absolute inset-0 bg-primary/5" />
         
         <div className="relative z-10 flex flex-col justify-center px-12 xl:px-20">
           <div className="flex items-center gap-4 mb-8">
@@ -76,7 +82,7 @@ export default function Login() {
             Join thousands of learners achieving their goals.
           </p>
           
-          <div className="mt-12 grid grid-cols-3 gap-6">
+          {/* <div className="mt-12 grid grid-cols-3 gap-6">
             {[
               { value: '50+', label: 'Courses' },
               { value: '1000+', label: 'Students' },
@@ -87,12 +93,12 @@ export default function Login() {
                 <div className="text-sm text-muted-foreground">{stat.label}</div>
               </div>
             ))}
-          </div>
+          </div> */}
         </div>
       </div>
 
       {/* Right Panel - Login Form */}
-      <div className="flex-1 flex items-center justify-center p-6 lg:p-12 bg-background">
+      <div className="flex-1 flex items-center justify-center p-6 lg:p-12 bg-muted/40">
         <div className="w-full max-w-md space-y-8 animate-fade-in">
           {/* Mobile Logo */}
           <div className="flex items-center justify-center gap-3 lg:hidden mb-8">
@@ -114,68 +120,76 @@ export default function Login() {
             </CardHeader>
             <CardContent>
               <Tabs value={selectedRole} onValueChange={(v) => setSelectedRole(v as UserRole)}>
-                <TabsList className="grid w-full grid-cols-3 mb-6">
-                  <TabsTrigger value="student" className="gap-2">
+                <TabsList className="grid w-full grid-cols-3 mb-6 p-1 bg-muted/50 rounded-xl h-12">
+                  <TabsTrigger 
+                    value="student" 
+                    className="gap-2 h-full rounded-lg data-[state=active]:gradient-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-md transition-all duration-300"
+                  >
                     <User className="h-4 w-4" />
                     <span className="hidden sm:inline">Student</span>
                   </TabsTrigger>
-                  <TabsTrigger value="teacher" className="gap-2">
+                  <TabsTrigger 
+                    value="teacher" 
+                    className="gap-2 h-full rounded-lg data-[state=active]:gradient-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-md transition-all duration-300"
+                  >
                     <BookOpen className="h-4 w-4" />
                     <span className="hidden sm:inline">Teacher</span>
                   </TabsTrigger>
-                  <TabsTrigger value="admin" className="gap-2">
+                  <TabsTrigger 
+                    value="admin" 
+                    className="gap-2 h-full rounded-lg data-[state=active]:gradient-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-md transition-all duration-300"
+                  >
                     <Shield className="h-4 w-4" />
                     <span className="hidden sm:inline">Admin</span>
                   </TabsTrigger>
                 </TabsList>
-
-                {Object.entries(roleConfig).map(([role, config]) => (
-                  <TabsContent key={role} value={role} className="mt-0">
-                    <div className={`p-4 rounded-lg bg-gradient-to-r ${config.color} mb-6`}>
-                      <div className="flex items-center gap-3">
-                        <config.icon className="h-6 w-6 text-white" />
-                        <div>
-                          <h3 className="font-semibold text-white">{config.title}</h3>
-                          <p className="text-sm text-white/80">{config.description}</p>
-                        </div>
-                      </div>
-                    </div>
-                  </TabsContent>
-                ))}
               </Tabs>
 
-              <form onSubmit={handleSubmit} className="space-y-4">
+              <form onSubmit={handleSubmit} className="space-y-4" noValidate>
                 <div className="space-y-2">
                   <Label htmlFor="email">Email</Label>
                   <Input
                     id="email"
                     type="email"
-                    placeholder="you@example.com"
+                    placeholder="user@example.com"
                     value={email}
-                    onChange={(e) => setEmail(e.target.value)}
-                    required
-                    className="h-11"
+                    onChange={(e) => {
+                      setEmail(e.target.value);
+                      if (emailError) setEmailError('');
+                    }}
+                    className={`h-11 ${emailError ? 'border-destructive focus-visible:ring-destructive' : ''}`}
                   />
+                  {emailError && <p className="text-sm text-destructive mt-1">{emailError}</p>}
                 </div>
                 <div className="space-y-2">
-                  <div className="flex items-center justify-between">
-                    <Label htmlFor="password">Password</Label>
-                    <a href="#" className="text-sm text-primary hover:underline">
-                      Forgot password?
-                    </a>
-                  </div>
+                  <Label htmlFor="password">Password</Label>
                   <Input
                     id="password"
                     type="password"
                     placeholder="••••••••"
                     value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                    required
-                    className="h-11"
+                    onChange={(e) => {
+                      setPassword(e.target.value);
+                      if (passwordError) setPasswordError('');
+                    }}
+                    className={`h-11 ${passwordError ? 'border-destructive focus-visible:ring-destructive' : ''}`}
                   />
+                  {passwordError && <p className="text-sm text-destructive mt-1">{passwordError}</p>}
                 </div>
 
-                <Button type="submit" variant="gradient" size="lg" className="w-full" disabled={isLoading}>
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center space-x-2">
+                    <Checkbox id="remember" />
+                    <Label htmlFor="remember" className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">
+                      Remember me
+                    </Label>
+                  </div>
+                  <a href="#" className="text-sm font-medium text-primary hover:underline">
+                    Forgot password?
+                  </a>
+                </div>
+
+                <Button type="submit" variant="gradient" size="lg" className="w-full shadow-lg hover:shadow-xl transition-all duration-300" disabled={isLoading}>
                   {isLoading ? (
                     <>
                       <Loader2 className="h-4 w-4 animate-spin" />
@@ -186,10 +200,6 @@ export default function Login() {
                   )}
                 </Button>
               </form>
-
-              <p className="text-center text-sm text-muted-foreground mt-6">
-                Demo: Enter any credentials to sign in
-              </p>
             </CardContent>
           </Card>
         </div>

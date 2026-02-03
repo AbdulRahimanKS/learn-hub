@@ -7,7 +7,7 @@
 @layer base {
   :root {
     /* Core brand colors - "LaunchHub Enterprise" */
-    --background: 0 0% 100%;
+    --background: 210 40% 98%; /* Slate 50 - Off-white background */
     --foreground: 222 47% 11%;
 
     --card: 0 0% 100%;
@@ -16,8 +16,8 @@
     --popover: 0 0% 100%;
     --popover-foreground: 222 47% 11%;
 
-    /* Primary - Electric Blue (#0052FF) */
-    --primary: 221 100% 50%;
+    /* Primary - Harder Professional Blue (#1e40af - Blue 800-ish) */
+    --primary: 222 65% 35%;
     --primary-foreground: 0 0% 100%;
 
     /* Secondary - Slate 100 */
@@ -27,16 +27,16 @@
     --muted: 210 40% 96.1%;
     --muted-foreground: 215.4 16.3% 46.9%;
 
-    /* Accent - Light Blue Wash */
-    --accent: 214 100% 97%;
-    --accent-foreground: 221 100% 50%;
+    /* Accent - Blue Wash */
+    --accent: 214 60% 95%;
+    --accent-foreground: 222 65% 35%;
 
     --destructive: 0 84.2% 60.2%;
     --destructive-foreground: 210 40% 98%;
 
     --border: 214.3 31.8% 91.4%;
     --input: 214.3 31.8% 91.4%;
-    --ring: 221 100% 50%;
+    --ring: 222 65% 35%;
 
     --radius: 1rem;
 
@@ -49,19 +49,19 @@
     --info-foreground: 0 0% 100%;
 
     /* Gradients */
-    --gradient-primary: linear-gradient(135deg, hsl(221 100% 50%) 0%, hsl(210 100% 50%) 100%);
-    --gradient-accent: linear-gradient(135deg, hsl(214 100% 97%) 0%, hsl(210 100% 96%) 100%);
-    --gradient-hero: linear-gradient(180deg, hsl(214 100% 97%) 0%, hsl(0 0% 100%) 100%);
-    --gradient-card: linear-gradient(180deg, hsl(0 0% 100%) 0%, hsl(214 100% 99%) 100%);
-    --gradient-sidebar: linear-gradient(180deg, hsl(0 0% 100%) 0%, hsl(0 0% 100%) 100%);
+    --gradient-primary: linear-gradient(135deg, hsl(222 65% 35%) 0%, hsl(222 55% 45%) 100%);
+    --gradient-accent: linear-gradient(135deg, hsl(214 60% 95%) 0%, hsl(210 40% 96%) 100%);
+    --gradient-hero: linear-gradient(180deg, hsl(214 60% 95%) 0%, hsl(0 0% 100%) 100%);
+    --gradient-card: linear-gradient(180deg, hsl(0 0% 100%) 0%, hsl(214 60% 98%) 100%);
+    --gradient-sidebar: linear-gradient(135deg, hsl(222 70% 92%) 0%, hsl(0 0% 100%) 100%);
 
     /* Shadows */
-    --shadow-sm: 0 1px 2px 0 rgba(0, 82, 255, 0.05);
-    --shadow-md: 0 4px 6px -1px rgba(0, 82, 255, 0.08), 0 2px 4px -2px rgba(0, 82, 255, 0.08);
-    --shadow-lg: 0 10px 15px -3px rgba(0, 82, 255, 0.08), 0 4px 6px -4px rgba(0, 82, 255, 0.08);
-    --shadow-xl: 0 20px 25px -5px rgba(0, 82, 255, 0.08), 0 8px 10px -6px rgba(0, 82, 255, 0.08);
-    --shadow-glow: 0 0 20px rgba(0, 82, 255, 0.3);
-    --shadow-card: 0 4px 20px rgba(0, 0, 0, 0.03);
+    --shadow-sm: 0 1px 2px 0 rgba(30, 64, 175, 0.05);
+    --shadow-md: 0 4px 6px -1px rgba(30, 64, 175, 0.08), 0 2px 4px -2px rgba(30, 64, 175, 0.08);
+    --shadow-lg: 0 10px 15px -3px rgba(30, 64, 175, 0.08), 0 4px 6px -4px rgba(30, 64, 175, 0.08);
+    --shadow-xl: 0 20px 25px -5px rgba(30, 64, 175, 0.08), 0 8px 10px -6px rgba(30, 64, 175, 0.08);
+    --shadow-glow: 0 0 20px rgba(30, 64, 175, 0.3);
+    --shadow-card: 0 8px 30px rgba(0, 0, 0, 0.06);
 
     --sidebar-background: 0 0% 100%;
     --sidebar-foreground: 222 47% 11%;

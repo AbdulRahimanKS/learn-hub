@@ -96,7 +96,7 @@ export default function Dashboard() {
           <CardContent>
             <div className="space-y-4">
               {recentSubmissions.map((submission) => (
-                <div key={submission.id} className="flex items-center justify-between p-3 rounded-lg bg-muted/50">
+                <div key={submission.id} className="flex items-center justify-between p-4 rounded-xl bg-slate-50 border border-slate-100 hover:bg-white hover:shadow-sm transition-all">
                   <div className="flex items-center gap-3">
                     <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center">
                       <span className="text-sm font-semibold text-primary">
@@ -134,7 +134,7 @@ export default function Dashboard() {
           <CardContent>
             <div className="space-y-4">
               {upcomingEvents.map((event) => (
-                <div key={event.id} className="flex items-center justify-between p-3 rounded-lg bg-muted/50">
+                <div key={event.id} className="flex items-center justify-between p-4 rounded-xl bg-slate-50 border border-slate-100 hover:bg-white hover:shadow-sm transition-all">
                   <div className="flex items-center gap-3">
                     <div className={`p-2 rounded-lg ${
                       event.type === 'live' ? 'bg-destructive/10' : 
@@ -250,7 +250,7 @@ export default function Dashboard() {
           <CardContent>
             <div className="space-y-4">
               {upcomingEvents.map((event) => (
-                <div key={event.id} className="flex items-start gap-3 p-3 rounded-lg bg-muted/50">
+                <div key={event.id} className="flex items-start gap-3 p-4 rounded-xl bg-slate-50 border border-slate-100 hover:bg-white hover:shadow-sm transition-all">
                   <div className={`p-2 rounded-lg ${
                     event.type === 'live' ? 'bg-destructive/10' : 
                     event.type === 'assessment' ? 'bg-warning/10' : 'bg-primary/10'
