@@ -3,6 +3,7 @@ import { useNavigate, useLocation } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { ModeToggle } from '@/components/mode-toggle';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { GraduationCap, Loader2, Lock, Eye, EyeOff, CheckCircle2 } from 'lucide-react';
 import { resetPassword } from '@/lib/password-reset-api';
@@ -64,7 +65,10 @@ export default function ResetPassword() {
 
   if (success) {
     return (
-      <div className="min-h-screen w-full flex">
+      <div className="min-h-screen w-full flex relative">
+        <div className="absolute top-4 right-4 z-50">
+          <ModeToggle />
+        </div>
          {/* Left Side - Hero/Branding */}
          <div className="hidden lg:flex w-1/2 gradient-sidebar items-center justify-center p-12 relative overflow-hidden">
           <div className="absolute inset-0 bg-primary/5" />
@@ -93,10 +97,10 @@ export default function ResetPassword() {
         {/* Right Side - Success Message */}
         <div className="w-full lg:w-1/2 flex items-center justify-center p-8 bg-background">
           <div className="w-full max-w-md animate-in fade-in slide-in-from-right-10 duration-500">
-            <Card className="border-border/50 shadow-2xl backdrop-blur-xl bg-white/80">
+            <Card className="border-border/50 shadow-2xl backdrop-blur-xl bg-card/80">
               <CardContent className="pt-10 pb-10 text-center space-y-6">
-                <div className="w-20 h-20 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4 animate-in zoom-in duration-300">
-                  <CheckCircle2 className="h-10 w-10 text-green-600" />
+                <div className="w-20 h-20 bg-green-500/10 rounded-full flex items-center justify-center mx-auto mb-4 animate-in zoom-in duration-300">
+                  <CheckCircle2 className="h-10 w-10 text-green-500" />
                 </div>
                 <h2 className="text-2xl font-bold text-foreground">Password Reset Successful!</h2>
                 <p className="text-muted-foreground">
@@ -104,7 +108,7 @@ export default function ResetPassword() {
                 </p>
                 <Button 
                   onClick={() => navigate('/login', { replace: true })}
-                  className="w-full bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700"
+                  className="w-full bg-primary hover:bg-primary/90 text-primary-foreground"
                 >
                   Go to Login
                 </Button>
@@ -117,7 +121,10 @@ export default function ResetPassword() {
   }
 
   return (
-    <div className="min-h-screen w-full flex">
+    <div className="min-h-screen w-full flex relative">
+      <div className="absolute top-4 right-4 z-50">
+        <ModeToggle />
+      </div>
       {/* Left Side - Hero/Branding */}
       <div className="hidden lg:flex w-1/2 gradient-sidebar items-center justify-center p-12 relative overflow-hidden">
         <div className="absolute inset-0 bg-primary/5" />

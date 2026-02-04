@@ -4,6 +4,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { ModeToggle } from '@/components/mode-toggle';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -86,7 +87,10 @@ export default function Login() {
   };
 
   return (
-    <div className="min-h-screen flex">
+    <div className="min-h-screen flex relative">
+      <div className="absolute top-4 right-4 z-50">
+        <ModeToggle />
+      </div>
       {/* Left Panel - Branding */}
       <div className="hidden lg:flex lg:w-1/2 gradient-sidebar relative overflow-hidden">
         <div className="absolute inset-0 bg-primary/5" />

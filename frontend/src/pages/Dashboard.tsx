@@ -250,7 +250,7 @@ export default function Dashboard() {
           <CardContent>
             <div className="space-y-4">
               {upcomingEvents.map((event) => (
-                <div key={event.id} className="flex items-start gap-3 p-4 rounded-xl bg-slate-50 border border-slate-100 hover:bg-white hover:shadow-sm transition-all">
+                <div key={event.id} className="flex items-start gap-3 p-4 rounded-xl bg-muted/40 border border-border hover:bg-accent/20 hover:shadow-sm transition-all">
                   <div className={`p-2 rounded-lg ${
                     event.type === 'live' ? 'bg-destructive/10' : 
                     event.type === 'assessment' ? 'bg-warning/10' : 'bg-primary/10'

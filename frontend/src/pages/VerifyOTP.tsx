@@ -3,6 +3,7 @@ import { useNavigate, useLocation } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { ModeToggle } from '@/components/mode-toggle';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { GraduationCap, Loader2, KeyRound, Timer } from 'lucide-react';
 import { verifyOTP, requestPasswordReset } from '@/lib/password-reset-api';
@@ -81,7 +82,10 @@ export default function VerifyOTP() {
   };
 
   return (
-    <div className="min-h-screen w-full flex">
+    <div className="min-h-screen w-full flex relative">
+      <div className="absolute top-4 right-4 z-50">
+        <ModeToggle />
+      </div>
       {/* Left Side - Hero/Branding */}
       <div className="hidden lg:flex w-1/2 gradient-sidebar items-center justify-center p-12 relative overflow-hidden">
         <div className="absolute inset-0 bg-primary/5" />

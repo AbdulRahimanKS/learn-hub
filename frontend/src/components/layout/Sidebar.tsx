@@ -3,6 +3,7 @@ import { Link, useLocation } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
+import { ModeToggle } from '@/components/mode-toggle';
 import {
   LayoutDashboard,
   BookOpen,
@@ -97,7 +98,7 @@ export function Sidebar() {
 
       {/* User Section */}
       <div className="p-4 border-t border-border/60">
-        <div className="flex items-center gap-3 rounded-xl bg-white/60 p-3 mb-3 border border-border/60 hover:bg-white/80 transition-colors">
+        <div className="flex items-center gap-3 rounded-xl bg-card/40 p-3 mb-3 border border-border/60 hover:bg-accent/40 transition-colors">
           <img
             src={user?.avatar}
             alt={user?.name}
@@ -118,6 +119,9 @@ export function Sidebar() {
               <Settings className="h-4 w-4" />
             </Button>
           </Link>
+          <div className="flex-1 flex justify-center bg-background border border-border/60 rounded-md hover:bg-muted transition-colors">
+            <ModeToggle />
+          </div>
           <Button variant="ghost" size="sm" className="flex-1 bg-background border border-border/60 hover:bg-muted text-muted-foreground hover:text-foreground" onClick={logout}>
             <LogOut className="h-4 w-4" />
           </Button>
