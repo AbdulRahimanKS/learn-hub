@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
@@ -8,7 +8,7 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { UserRole } from '@/types';
-import { GraduationCap, Shield, User, BookOpen, Loader2 } from 'lucide-react';
+import { GraduationCap, Shield, User, BookOpen, Loader2, Eye, EyeOff } from 'lucide-react';
 
 export default function Login() {
   const navigate = useNavigate();
@@ -17,13 +17,30 @@ export default function Login() {
   const [password, setPassword] = useState('');
   const [emailError, setEmailError] = useState('');
   const [passwordError, setPasswordError] = useState('');
+  const [loginError, setLoginError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [selectedRole, setSelectedRole] = useState<UserRole>('student');
+  const [showPassword, setShowPassword] = useState(false);
+  const [rememberMe, setRememberMe] = useState(false);
+
+  // Load saved credentials on mount
+  useEffect(() => {
+    const savedEmail = localStorage.getItem('remembered_email');
+    const savedRole = localStorage.getItem('remembered_role');
+    if (savedEmail) {
+      setEmail(savedEmail);
+      setRememberMe(true);
+      if (savedRole) {
+        setSelectedRole(savedRole as UserRole);
+      }
+    }
+  }, []);
 
   const validateForm = () => {
     let isValid = true;
     setEmailError('');
     setPasswordError('');
+    setLoginError('');
 
     if (!email) {
       setEmailError('Email is required');
@@ -47,11 +64,22 @@ export default function Login() {
     if (!validateForm()) return;
 
     setIsLoading(true);
+    setLoginError('');
     
-    const success = await login(email, password, selectedRole);
+    const result = await login(email, password, selectedRole);
     
-    if (success) {
+    if (result.success) {
+      // Save credentials if remember me is checked
+      if (rememberMe) {
+        localStorage.setItem('remembered_email', email);
+        localStorage.setItem('remembered_role', selectedRole);
+      } else {
+        localStorage.removeItem('remembered_email');
+        localStorage.removeItem('remembered_role');
+      }
       navigate('/dashboard');
+    } else {
+      setLoginError(result.error || 'Login failed. Please try again.');
     }
     
     setIsLoading(false);
@@ -151,7 +179,7 @@ export default function Login() {
                   <Input
                     id="email"
                     type="email"
-                    placeholder="user@example.com"
+                    placeholder="name@example.com"
                     value={email}
                     onChange={(e) => {
                       setEmail(e.target.value);
@@ -163,31 +191,66 @@ export default function Login() {
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="password">Password</Label>
-                  <Input
-                    id="password"
-                    type="password"
-                    placeholder="••••••••"
-                    value={password}
-                    onChange={(e) => {
-                      setPassword(e.target.value);
-                      if (passwordError) setPasswordError('');
-                    }}
-                    className={`h-11 ${passwordError ? 'border-destructive focus-visible:ring-destructive' : ''}`}
-                  />
+                  <div className="relative">
+                    <Input
+                      id="password"
+                      type={showPassword ? "text" : "password"}
+                      placeholder="••••••••"
+                      value={password}
+                      onChange={(e) => {
+                        setPassword(e.target.value);
+                        if (passwordError) setPasswordError('');
+                      }}
+                      className={`h-11 pr-10 ${passwordError ? 'border-destructive focus-visible:ring-destructive' : ''}`}
+                      autoComplete="new-password"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowPassword(!showPassword)}
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
+                      tabIndex={-1}
+                    >
+                      {showPassword ? (
+                        <EyeOff className="h-4 w-4" />
+                      ) : (
+                        <Eye className="h-4 w-4" />
+                      )}
+                    </button>
+                  </div>
                   {passwordError && <p className="text-sm text-destructive mt-1">{passwordError}</p>}
                 </div>
 
                 <div className="flex items-center justify-between">
                   <div className="flex items-center space-x-2">
-                    <Checkbox id="remember" />
-                    <Label htmlFor="remember" className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">
+                    <Checkbox 
+                      id="remember" 
+                      checked={rememberMe}
+                      onCheckedChange={(checked) => setRememberMe(checked as boolean)}
+                    />
+                    <Label htmlFor="remember" className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 cursor-pointer">
                       Remember me
                     </Label>
                   </div>
-                  <a href="#" className="text-sm font-medium text-primary hover:underline">
+                  <a 
+                    href="/forgot-password" 
+                    className="text-sm font-medium text-primary hover:underline"
+                    onClick={(e) => {
+                      e.preventDefault();
+                      navigate('/forgot-password');
+                    }}
+                  >
                     Forgot password?
                   </a>
                 </div>
+
+                {loginError && (
+                  <div className="flex items-start gap-2 p-3 rounded-md bg-destructive/5 border border-destructive/20">
+                    <svg className="h-4 w-4 text-destructive mt-0.5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                    <p className="text-sm text-destructive flex-1">{loginError}</p>
+                  </div>
+                )}
 
                 <Button type="submit" variant="gradient" size="lg" className="w-full shadow-lg hover:shadow-xl transition-all duration-300" disabled={isLoading}>
                   {isLoading ? (

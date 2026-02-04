@@ -1,5 +1,8 @@
 import uuid
+import random
+from datetime import timedelta
 from django.db import models
+from django.utils import timezone
 from django.contrib.auth.models import AbstractBaseUser, BaseUserManager, PermissionsMixin
 from django.db.models.signals import post_save
 from django.dispatch import receiver
@@ -65,20 +68,20 @@ class CustomUserManager(BaseUserManager):
 
 class User(AbstractBaseUser, PermissionsMixin):
     """
-    Custom User model extending AbstractBaseUser.
+    Custom User model using email as the primary identifier.
     """
-    email = models.EmailField(_('email address'), unique=True)
-    fullname = models.CharField(_("Full Name"), max_length=255, blank=True)
-    user_code = models.CharField(_("User Code"), max_length=20, unique=True, editable=False)
-    
+    user_code = models.CharField(max_length=20, unique=True, editable=False)
+    email = models.EmailField(_('Email Address'), unique=True)
+    fullname = models.CharField(_('Full Name'), max_length=255)
+
     phone_number_code = models.CharField(_("Phone Code"), max_length=10, blank=True)
     contact_number = models.CharField(_("Contact Number"), max_length=20, blank=True)
-    
+
     user_type = models.ForeignKey(
-        UserType, 
-        on_delete=models.SET_NULL, 
-        null=True, 
-        blank=True, 
+        UserType,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
         related_name='users',
         help_text=_("Role of the user in the system")
     )
@@ -89,55 +92,71 @@ class User(AbstractBaseUser, PermissionsMixin):
     
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
-
+    
     is_staff = models.BooleanField(default=False)
     is_active = models.BooleanField(default=True)
-
+    date_joined = models.DateTimeField(auto_now_add=True)
+    
     objects = CustomUserManager()
-
+    
     USERNAME_FIELD = 'email'
     REQUIRED_FIELDS = ['fullname']
-
-    def save(self, *args, **kwargs):
-        if self.email:
-            self.email = self.email.lower()
-            
-        if not self.user_code:
-            while True:
-                code = f"USR-{uuid.uuid4().hex[:8].upper()}"
-                if not User.objects.filter(user_code=code).exists():
-                    self.user_code = code
-                    break
-            
-        super().save(*args, **kwargs)
-
+    
+    class Meta:
+        verbose_name = _('User')
+        verbose_name_plural = _('Users')
+    
     def __str__(self):
         return self.email
+    
+    def save(self, *args, **kwargs):
+        if not self.user_code:
+            self.user_code = self.generate_user_code()
+        if self.email:
+            self.email = self.email.lower()
+        super().save(*args, **kwargs)
+    
+    def generate_user_code(self):
+        """Generate a unique user code."""
+        while True:
+            code = f"USR{uuid.uuid4().hex[:8].upper()}"
+            if not User.objects.filter(user_code=code).exists():
+                return code
 
 
 class Profile(models.Model):
     """
-    Profile model to store detailed user information.
+    Extended profile information for users.
     """
-    user = models.OneToOneField(User, on_delete=models.CASCADE, related_name='profile')
-    
-    avatar = models.URLField(_("Avatar URL"), blank=True)
-    bio = models.TextField(_("Bio"), blank=True)
-    
+    user = models.OneToOneField(
+        User,
+        on_delete=models.CASCADE,
+        related_name='profile'
+    )
+    address = models.TextField(blank=True, null=True)
+    date_of_birth = models.DateField(blank=True, null=True)
+    profile_picture = models.CharField(
+        max_length=500,
+        blank=True,
+        null=True,
+        help_text="URL to profile picture"
+    )
+    bio = models.TextField(blank=True, null=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
-
+    
     def __str__(self):
-        return f"{self.user.email}'s Profile"
+        return f"Profile of {self.user.email}"
 
 
 @receiver(post_save, sender=User)
 def create_user_profile(sender, instance, created, **kwargs):
     """
-    Signal to automatically create a Profile when a User is created.
+    Signal to create a Profile when a User is created.
     """
     if created:
         Profile.objects.create(user=instance)
+
 
 @receiver(post_save, sender=User)
 def save_user_profile(sender, instance, **kwargs):
@@ -176,3 +195,46 @@ class EmailSetting(models.Model):
 
     def __str__(self):
         return self.email
+
+
+class PasswordResetOTP(models.Model):
+    """
+    Model to store OTP for password reset.
+    """
+    user = models.ForeignKey(
+        User,
+        on_delete=models.CASCADE,
+        related_name='password_reset_otps'
+    )
+    email = models.EmailField()
+    otp = models.CharField(max_length=6)
+    created_at = models.DateTimeField(auto_now_add=True)
+    expires_at = models.DateTimeField()
+    is_used = models.BooleanField(default=False)
+    is_verified = models.BooleanField(default=False)
+    
+    class Meta:
+        verbose_name = _('Password Reset OTP')
+        verbose_name_plural = _('Password Reset OTPs')
+        ordering = ['-created_at']
+    
+    def __str__(self):
+        return f"OTP for {self.email} - {self.otp}"
+    
+    def save(self, *args, **kwargs):
+        if not self.expires_at:
+            self.expires_at = timezone.now() + timedelta(minutes=10)
+        super().save(*args, **kwargs)
+    
+    def is_expired(self):
+        """Check if OTP has expired."""
+        return timezone.now() > self.expires_at
+    
+    def is_valid(self):
+        """Check if OTP is valid (not used and not expired)."""
+        return not self.is_used and not self.is_expired()
+    
+    @staticmethod
+    def generate_otp():
+        """Generate a 6-digit OTP."""
+        return str(random.randint(100000, 999999))

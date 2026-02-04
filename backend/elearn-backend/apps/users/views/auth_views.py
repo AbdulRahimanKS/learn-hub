@@ -17,7 +17,7 @@ logger = logging.getLogger(__name__)
 @extend_schema(
     tags=['Auth Management'],
     summary="User Login",
-    description="Authenticates user using email and password, returns user info and sets HttpOnly cookies.",
+    description="Authenticates user using email and password.",
     request=LoginRequestSerializer,
     responses={
         200: LoginResponseSerializer,
@@ -39,6 +39,7 @@ class LoginView(APIView):
 
         email = serializer.validated_data.get("email").lower()
         password = serializer.validated_data.get("password")
+        expected_role = serializer.validated_data.get("expected_role", "")
 
         try:
             user = User.objects.filter(email=email).first()
@@ -60,6 +61,14 @@ class LoginView(APIView):
                     status_code=status.HTTP_403_FORBIDDEN
                 )
 
+            if expected_role:
+                user_role = user.user_type.name if user.user_type else None
+                if user_role != expected_role:
+                    raise ServiceError(
+                        detail=f"These are not valid {expected_role.lower()} credentials",
+                        status_code=status.HTTP_403_FORBIDDEN
+                    )
+
             refresh = RefreshToken.for_user(user)
             
             user_data = {
@@ -67,15 +76,13 @@ class LoginView(APIView):
                 "email": user.email,
                 "fullname": user.fullname,
                 "role": user.user_type.name if user.user_type else None,
+                "access": str(refresh.access_token),
+                "refresh": str(refresh)
             }
 
             return format_success_response(
                 data=user_data,
                 message="Login successful",
-                extra_params={
-                    "access": str(refresh.access_token),
-                    "refresh": str(refresh)
-                }
             )
 
         except ServiceError:
@@ -128,7 +135,7 @@ class RefreshTokenView(APIView):
             refresh = RefreshToken(refresh_token)
             return format_success_response(
                 message="Token refreshed",
-                extra_params={
+                data={
                     "access": str(refresh.access_token)
                 }
             )
