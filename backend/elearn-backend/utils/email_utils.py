@@ -41,7 +41,7 @@ class EmailUtils:
         email = EmailMultiAlternatives(
             subject=subject,
             body=plain_message,
-            from_email=email_settings.email_user,
+            from_email=email_settings.email,
             to=to_emails,
             connection=email_backend,
         )

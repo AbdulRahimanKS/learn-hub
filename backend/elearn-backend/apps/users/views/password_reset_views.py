@@ -56,17 +56,16 @@ class RequestPasswordResetView(APIView):
                     status_code=status.HTTP_403_FORBIDDEN
                 )
 
-            # Invalidate any existing unused OTPs for this user
+            # Delete any existing unused OTPs for this user to prevent data accumulation
             PasswordResetOTP.objects.filter(
-                user=user,
-                is_used=False
-            ).update(is_used=True)
+                user=user
+            ).delete()
 
             # Generate new OTP
             otp_code = PasswordResetOTP.generate_otp()
             
             # Create OTP record
-            otp_record = PasswordResetOTP.objects.create(
+            PasswordResetOTP.objects.create(
                 user=user,
                 email=email,
                 otp=otp_code
@@ -235,11 +234,10 @@ class ResetPasswordView(APIView):
             otp_record.is_used = True
             otp_record.save()
 
-            # Invalidate all other OTPs for this user
+            # Delete all other unused OTPs for this user
             PasswordResetOTP.objects.filter(
-                user=user,
-                is_used=False
-            ).exclude(id=otp_record.id).update(is_used=True)
+                user=user
+            ).exclude(id=otp_record.id).delete()
 
             return format_success_response(
                 message="Password has been reset successfully. You can now login with your new password",

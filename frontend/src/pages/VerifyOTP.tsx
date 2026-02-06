@@ -155,7 +155,9 @@ export default function VerifyOTP() {
 
             <Button 
               type="submit" 
-              className="w-full bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 h-11 text-lg shadow-lg hover:shadow-xl transition-all duration-300"
+              variant="gradient"
+              size="lg"
+              className="w-full shadow-lg hover:shadow-xl transition-all duration-300"
               disabled={isLoading || otp.length !== 6}
             >
               {isLoading ? (

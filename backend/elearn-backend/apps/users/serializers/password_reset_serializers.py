@@ -26,5 +26,5 @@ class ResetPasswordSerializer(serializers.Serializer):
 
     def validate(self, attrs):
         if attrs['new_password'] != attrs['confirm_password']:
-            raise ServiceError(detail="Password fields didn't match", status_code=status.HTTP_400_BAD_REQUEST)
+            raise ServiceError(detail="Passwords do not match", status_code=status.HTTP_400_BAD_REQUEST)
         return attrs
