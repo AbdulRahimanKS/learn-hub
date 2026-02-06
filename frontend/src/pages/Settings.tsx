@@ -15,26 +15,30 @@ import {
   Upload,
 } from 'lucide-react';
 
+import { useSearchParams } from 'react-router-dom';
+
 export default function Settings() {
   const { user } = useAuth();
+  const [searchParams, setSearchParams] = useSearchParams();
+  const currentTab = searchParams.get('tab') || 'profile';
+
+  const handleTabChange = (value: string) => {
+    setSearchParams({ tab: value });
+  };
 
   return (
     <DashboardLayout>
-      <div className="space-y-6 max-w-4xl">
+      <div className="space-y-6 max-w-4xl mx-auto">
         <div>
           <h1 className="font-display text-3xl font-bold text-foreground">Settings</h1>
           <p className="mt-1 text-muted-foreground">Manage your account preferences</p>
         </div>
 
-        <Tabs defaultValue="profile" className="space-y-6">
+        <Tabs value={currentTab} onValueChange={handleTabChange} className="space-y-6">
           <TabsList className="bg-muted/50">
             <TabsTrigger value="profile" className="gap-2">
               <User className="h-4 w-4" />
               Profile
-            </TabsTrigger>
-            <TabsTrigger value="notifications" className="gap-2">
-              <Bell className="h-4 w-4" />
-              Notifications
             </TabsTrigger>
             <TabsTrigger value="security" className="gap-2">
               <Lock className="h-4 w-4" />
@@ -110,59 +114,6 @@ export default function Settings() {
             </Card>
           </TabsContent>
 
-          <TabsContent value="notifications">
-            <Card className="shadow-card">
-              <CardHeader>
-                <CardTitle>Notification Preferences</CardTitle>
-                <CardDescription>Choose what notifications you receive</CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-6">
-                <div className="space-y-4">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <p className="font-medium text-foreground">Email Notifications</p>
-                      <p className="text-sm text-muted-foreground">Receive updates via email</p>
-                    </div>
-                    <Switch defaultChecked />
-                  </div>
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <p className="font-medium text-foreground">New Content Alerts</p>
-                      <p className="text-sm text-muted-foreground">When new videos are uploaded</p>
-                    </div>
-                    <Switch defaultChecked />
-                  </div>
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <p className="font-medium text-foreground">Assessment Reminders</p>
-                      <p className="text-sm text-muted-foreground">Reminders before test deadlines</p>
-                    </div>
-                    <Switch defaultChecked />
-                  </div>
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <p className="font-medium text-foreground">Live Session Alerts</p>
-                      <p className="text-sm text-muted-foreground">Notifications before live sessions</p>
-                    </div>
-                    <Switch defaultChecked />
-                  </div>
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <p className="font-medium text-foreground">Progress Reports</p>
-                      <p className="text-sm text-muted-foreground">Weekly progress summaries</p>
-                    </div>
-                    <Switch />
-                  </div>
-                </div>
-
-                <Button variant="gradient">
-                  <Save className="h-4 w-4 mr-2" />
-                  Save Preferences
-                </Button>
-              </CardContent>
-            </Card>
-          </TabsContent>
-
           <TabsContent value="security">
             <Card className="shadow-card">
               <CardHeader>
@@ -173,15 +124,15 @@ export default function Settings() {
                 <div className="space-y-4">
                   <div className="space-y-2">
                     <Label htmlFor="current-password">Current Password</Label>
-                    <Input id="current-password" type="password" />
+                    <Input id="current-password" type="password" placeholder="********" />
                   </div>
                   <div className="space-y-2">
                     <Label htmlFor="new-password">New Password</Label>
-                    <Input id="new-password" type="password" />
+                    <Input id="new-password" type="password" placeholder="********" />
                   </div>
                   <div className="space-y-2">
                     <Label htmlFor="confirm-password">Confirm New Password</Label>
-                    <Input id="confirm-password" type="password" />
+                    <Input id="confirm-password" type="password" placeholder="********" />
                   </div>
                 </div>
 
@@ -189,22 +140,6 @@ export default function Settings() {
                   <Lock className="h-4 w-4 mr-2" />
                   Update Password
                 </Button>
-
-                <div className="pt-6 border-t">
-                  <h4 className="font-medium text-foreground mb-4">Two-Factor Authentication</h4>
-                  <div className="flex items-center justify-between p-4 rounded-lg bg-muted/50">
-                    <div>
-                      <p className="font-medium text-foreground">2FA is disabled</p>
-                      <p className="text-sm text-muted-foreground">Add an extra layer of security</p>
-                    </div>
-                    <Button variant="outline">Enable 2FA</Button>
-                  </div>
-                </div>
-
-                <div className="pt-6 border-t">
-                  <h4 className="font-medium text-destructive mb-4">Danger Zone</h4>
-                  <Button variant="destructive">Delete Account</Button>
-                </div>
               </CardContent>
             </Card>
           </TabsContent>

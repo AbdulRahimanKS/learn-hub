@@ -20,6 +20,8 @@ import Courses from "./pages/Courses";
 import Schedule from "./pages/Schedule";
 import LiveSessions from "./pages/LiveSessions";
 import Settings from "./pages/Settings";
+import EmailConfig from "./pages/EmailConfig";
+import AccessDenied from "./pages/AccessDenied";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -56,7 +58,9 @@ function AppRoutes() {
       <Route path="/schedule" element={<ProtectedRoute><Schedule /></ProtectedRoute>} />
       <Route path="/live-sessions" element={<ProtectedRoute><LiveSessions /></ProtectedRoute>} />
       <Route path="/settings" element={<ProtectedRoute><Settings /></ProtectedRoute>} />
+      <Route path="/email-config" element={<ProtectedRoute><EmailConfig /></ProtectedRoute>} />
       
+      <Route path="/access-denied" element={<AccessDenied />} />
       <Route path="*" element={<NotFound />} />
     </Routes>
   );

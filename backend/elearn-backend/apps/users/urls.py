@@ -5,11 +5,15 @@ from apps.users.views.password_reset_views import (
     VerifyOTPView,
     ResetPasswordView
 )
+from apps.users.views.user_profile_views import UserProfileView
 
 urlpatterns = [
     path("login/", LoginView.as_view(), name="login"),
     path("logout/", LogoutView.as_view(), name="logout"),
     path("token/refresh/", RefreshTokenView.as_view(), name="token-refresh"),
+    
+    # User Profile
+    path("profile/", UserProfileView.as_view(), name="user-profile"),
     
     # Password Reset URLs
     path("password-reset/request/", RequestPasswordResetView.as_view(), name="password-reset-request"),

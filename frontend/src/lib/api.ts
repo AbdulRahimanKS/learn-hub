@@ -38,6 +38,12 @@ apiClient.interceptors.response.use(
       if (window.location.pathname !== '/login') {
         window.location.href = '/login';
       }
+    } else if (error.response?.status === 403) {
+      // Permission denied - user is authenticated but not authorized
+      // Redirect to access denied page if not already there
+      if (window.location.pathname !== '/access-denied') {
+        window.location.href = '/access-denied';
+      }
     }
     return Promise.reject(error);
   }
