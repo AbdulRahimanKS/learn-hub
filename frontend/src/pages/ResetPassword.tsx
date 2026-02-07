@@ -70,11 +70,11 @@ export default function ResetPassword() {
           <ModeToggle />
         </div>
          {/* Left Side - Hero/Branding */}
-         <div className="hidden lg:flex w-1/2 gradient-sidebar items-center justify-center p-12 relative overflow-hidden">
+         <div className="hidden lg:flex w-1/2 gradient-sidebar relative overflow-hidden">
           <div className="absolute inset-0 bg-primary/5" />
           <div className="absolute inset-0 bg-[url('https://images.unsplash.com/photo-1516321318423-f06f85e504b3?q=80&w=2070&auto=format&fit=crop')] bg-cover bg-center opacity-5 mix-blend-multiply" />
           
-          <div className="relative z-10 max-w-xl space-y-8">
+          <div className="relative z-10 flex flex-col justify-center px-12 xl:px-20 space-y-8">
             <div className="flex items-center gap-3">
               <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-primary/10 backdrop-blur-sm">
                 <GraduationCap className="h-10 w-10 text-primary" />
@@ -128,11 +128,11 @@ export default function ResetPassword() {
         <ModeToggle />
       </div>
       {/* Left Side - Hero/Branding */}
-      <div className="hidden lg:flex w-1/2 gradient-sidebar items-center justify-center p-12 relative overflow-hidden">
+      <div className="hidden lg:flex w-1/2 gradient-sidebar relative overflow-hidden">
         <div className="absolute inset-0 bg-primary/5" />
         <div className="absolute inset-0 bg-[url('https://images.unsplash.com/photo-1516321318423-f06f85e504b3?q=80&w=2070&auto=format&fit=crop')] bg-cover bg-center opacity-5 mix-blend-multiply" />
         
-        <div className="relative z-10 max-w-xl space-y-8">
+        <div className="relative z-10 flex flex-col justify-center px-12 xl:px-20 space-y-8">
           <div className="flex items-center gap-3">
             <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-primary/10 backdrop-blur-sm">
               <GraduationCap className="h-10 w-10 text-primary" />

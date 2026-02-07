@@ -94,6 +94,7 @@ export default function Login() {
       {/* Left Panel - Branding */}
       <div className="hidden lg:flex lg:w-1/2 gradient-sidebar relative overflow-hidden">
         <div className="absolute inset-0 bg-primary/5" />
+        <div className="absolute inset-0 bg-[url('https://images.unsplash.com/photo-1516321318423-f06f85e504b3?q=80&w=2070&auto=format&fit=crop')] bg-cover bg-center opacity-5 mix-blend-multiply" />
         
         <div className="relative z-10 flex flex-col justify-center px-12 xl:px-20">
           <div className="flex items-center gap-4 mb-8">
@@ -130,7 +131,7 @@ export default function Login() {
       </div>
 
       {/* Right Panel - Login Form */}
-      <div className="flex-1 flex items-center justify-center p-6 lg:p-12 bg-muted/40">
+      <div className="flex-1 flex items-center justify-center p-6 lg:p-12 bg-muted">
         <div className="w-full max-w-md space-y-8 animate-fade-in">
           {/* Mobile Logo */}
           <div className="flex items-center justify-center gap-3 lg:hidden mb-8">
