@@ -87,12 +87,12 @@ export function Sidebar() {
                 className={cn(
                   'w-full justify-start transition-all duration-200 mb-1 gap-3 h-11 px-3',
                   isActive 
-                    ? 'bg-primary/10 text-primary font-semibold shadow-sm' 
+                    ? 'bg-primary/10 text-primary dark:text-foreground font-semibold shadow-sm hover:bg-primary/15' 
                     : 'text-muted-foreground hover:bg-muted/80 hover:text-foreground'
                 )}
                 title={item.label}
               >
-                <item.icon className={cn("h-5 w-5 shrink-0", isActive ? "text-primary" : "text-muted-foreground")} />
+                <item.icon className={cn("h-5 w-5 shrink-0", isActive ? "text-primary dark:text-foreground" : "text-muted-foreground")} />
                 <span className="truncate">{item.label}</span>
               </Button>
             </Link>

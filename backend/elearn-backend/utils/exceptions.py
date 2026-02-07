@@ -80,11 +80,11 @@ def custom_exception_handler(exc, context):
         isinstance(exc, (AuthenticationFailed, NotAuthenticated, PermissionDenied))
         or isinstance(exc, (InvalidToken, TokenError))
     ) and is_token_invalid_or_expired(exc):
-        return Response({"error": "Token invalid or expired"}, status=440)
+        return Response({"error": "Token invalid or expired"}, status=401)
 
     response = exception_handler(exc, context)
 
-    # Post-process default responses to coerce token-invalid 401/403 to 440
+    # Post-process default responses to coerce token-invalid 401/403 to 401
     if response is not None and response.status_code in (401, 403):
         try:
             if is_token_invalid_or_expired(exc) or (
@@ -95,7 +95,7 @@ def custom_exception_handler(exc, context):
                     and ("expired" in str(response.data).lower() or "not valid" in str(response.data).lower())
                 )
             ):
-                response.status_code = 440
+                response.status_code = 401
                 response.data = {"error": "Token invalid or expired"}
         except Exception:
             pass

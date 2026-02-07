@@ -97,7 +97,7 @@ export function Header() {
           <DropdownMenuTrigger asChild>
             <Button variant="ghost" className="relative h-10 w-10 rounded-full focus-visible:ring-0 focus-visible:ring-offset-0">
               <Avatar className="h-10 w-10 border border-border">
-                <AvatarImage src={user?.avatar} alt={user?.name} />
+                <AvatarImage src={user?.avatar && !user.avatar.includes('dicebear') ? user.avatar : undefined} alt={user?.name} />
                 <AvatarFallback className="bg-primary/10 text-primary">
                   {user?.name?.charAt(0) || 'U'}
                 </AvatarFallback>

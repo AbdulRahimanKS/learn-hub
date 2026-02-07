@@ -66,7 +66,7 @@ class UserProfileUpdateSerializer(serializers.ModelSerializer):
     # Profile fields as direct fields on the serializer
     address = serializers.CharField(required=False, allow_blank=True, allow_null=True)
     date_of_birth = serializers.DateField(required=False, allow_null=True)
-    profile_picture = serializers.CharField(required=False, allow_blank=True, allow_null=True, max_length=500)
+    profile_picture = serializers.ImageField(required=False, allow_null=True)
     bio = serializers.CharField(required=False, allow_blank=True, allow_null=True)
     
     class Meta:

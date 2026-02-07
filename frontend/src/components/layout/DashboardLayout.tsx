@@ -9,7 +9,7 @@ interface DashboardLayoutProps {
 
 export function DashboardLayout({ children }: DashboardLayoutProps) {
   return (
-    <div className="min-h-screen bg-background text-foreground">
+    <div className="min-h-screen bg-muted text-foreground">
       <Sidebar />
       <main className="lg:ml-64 min-h-screen flex flex-col transition-all duration-300">
         <Header />

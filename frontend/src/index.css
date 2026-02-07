@@ -122,9 +122,21 @@
     @apply border-border;
   }
 
+  html {
+    @apply bg-background;
+  }
+
   body {
     @apply bg-background text-foreground font-sans antialiased;
     font-family: 'Inter', sans-serif;
+  }
+
+  /* Prevent layout shift when Radix UI locks scroll */
+  body[data-scroll-locked],
+  body[style*="pointer-events: none"] {
+    margin-right: 0 !important;
+    padding-right: 0 !important;
+    overflow: auto !important; /* Keep scrollbar visible */
   }
 
   h1, h2, h3, h4, h5, h6 {
