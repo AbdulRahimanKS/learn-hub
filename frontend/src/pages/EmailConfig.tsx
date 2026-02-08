@@ -88,7 +88,7 @@ export default function EmailConfig() {
                 </div>
               </div>
 
-              <div className="flex items-center justify-between p-4 rounded-lg border border-border bg-muted/30">
+              <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between p-4 rounded-lg border border-border bg-muted/30 gap-4">
                 <div className="flex items-center gap-4">
                   <div className="p-2 rounded-full bg-primary/10 text-primary">
                     <ShieldCheck className="h-5 w-5" />
@@ -160,12 +160,12 @@ export default function EmailConfig() {
                 </div>
               </div>
 
-              <div className="flex items-center justify-end gap-4 pt-4">
-                <Button variant="outline" onClick={handleTest} disabled={testing || loading}>
+              <div className="flex flex-col sm:flex-row items-center justify-end gap-4 pt-4">
+                <Button variant="outline" onClick={handleTest} disabled={testing || loading} className="w-full sm:w-auto">
                   <Send className="h-4 w-4 mr-2" />
                   {testing ? 'Sending...' : 'Send Test Email'}
                 </Button>
-                <Button variant="gradient" onClick={handleSave} disabled={loading}>
+                <Button variant="gradient" onClick={handleSave} disabled={loading} className="w-full sm:w-auto">
                   <Save className="h-4 w-4 mr-2" />
                   {loading ? 'Saving...' : 'Save Configuration'}
                 </Button>

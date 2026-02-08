@@ -16,6 +16,8 @@ import {
   Mail,
   Menu,
   X,
+  ChevronLeft,
+  ChevronRight,
 } from 'lucide-react';
 
 const adminNavItems = [
@@ -49,10 +51,19 @@ const studentNavItems = [
   { icon: MessageSquare, label: 'Chat', path: '/chat' },
 ];
 
-export function Sidebar() {
+interface SidebarProps {
+  isCollapsed: boolean;
+  toggleCollapse: () => void;
+}
+
+export function Sidebar({ isCollapsed, toggleCollapse }: SidebarProps) {
   const { user } = useAuth();
   const location = useLocation();
   const [isMobileOpen, setIsMobileOpen] = useState(false);
+  
+  // On mobile, if the menu is open, we always want the full expanded view.
+  // We only respect isCollapsed on desktop (when isMobileOpen is false).
+  const realCollapsed = isCollapsed && !isMobileOpen;
 
   const navItems = user?.role === 'admin' 
     ? adminNavItems 
@@ -60,41 +71,52 @@ export function Sidebar() {
     ? teacherNavItems 
     : studentNavItems;
 
-  const NavContent = () => (
-    <div className="flex h-full flex-col gradient-sidebar text-primary-foreground border-r border-border/40">
+  const SidebarContent = () => (
+    <div className="flex h-full flex-col bg-background text-foreground relative">
       {/* Logo */}
       <div className={cn(
-        "flex items-center justify-between px-6 py-6 transition-all"
+        "flex items-center h-16 px-4 border-b border-border/40 transition-all",
+        realCollapsed ? "justify-center" : "gap-3"
       )}>
-        <div className="flex items-center gap-3 overflow-hidden">
-          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary">
-            <GraduationCap className="h-6 w-6" />
+        <Link to="/dashboard" className="flex items-center gap-2 overflow-hidden">
+          <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
+            <GraduationCap className="h-5 w-5" />
           </div>
-          <span className="font-display text-xl font-bold text-foreground truncate">
-            EduLearn
-          </span>
-        </div>
+          {!realCollapsed && (
+            <span className="font-display font-bold text-lg truncate">
+              EduLearn
+            </span>
+          )}
+        </Link>
       </div>
 
       {/* Navigation */}
-      <nav className="flex-1 space-y-1 p-2 overflow-y-auto">
+      <nav className="flex-1 space-y-1 p-2 overflow-y-auto overflow-x-hidden">
         {navItems.map((item) => {
           const isActive = location.pathname === item.path;
           return (
             <Link key={item.path} to={item.path} onClick={() => setIsMobileOpen(false)}>
-              <Button
-                variant="ghost"
-                className={cn(
-                  'w-full justify-start transition-all duration-200 mb-1 gap-3 h-11 px-3',
-                  isActive 
-                    ? 'bg-primary/10 text-primary dark:text-foreground font-semibold shadow-sm hover:bg-primary/15' 
-                    : 'text-muted-foreground hover:bg-muted/80 hover:text-foreground'
+              <div key={item.path} className="group relative flex items-center">
+                 <div
+                  className={cn(
+                    'flex items-center w-full transition-all duration-200 mb-1 rounded-md px-3 py-2 cursor-pointer',
+                     isActive 
+                      ? 'bg-primary/10 text-primary font-medium' 
+                      : 'text-muted-foreground hover:bg-muted hover:text-foreground',
+                     realCollapsed ? 'justify-center' : 'justify-start gap-3'
+                  )}
+                  title={realCollapsed ? item.label : undefined}
+                >
+                  <item.icon className={cn("h-5 w-5 shrink-0", isActive ? "text-primary" : "text-muted-foreground group-hover:text-foreground")} />
+                  {!realCollapsed && <span className="truncate text-sm">{item.label}</span>}
+                </div>
+                {/* Tooltip for collapsed state */}
+                {realCollapsed && (
+                    <div className="absolute left-full ml-2 px-2 py-1 bg-popover text-popover-foreground text-xs rounded shadow-md opacity-0 group-hover:opacity-100 pointer-events-none whitespace-nowrap z-50 transition-opacity">
+                        {item.label}
+                    </div>
                 )}
-                title={item.label}
-              >
-                <item.icon className={cn("h-5 w-5 shrink-0", isActive ? "text-primary dark:text-foreground" : "text-muted-foreground")} />
-                <span className="truncate">{item.label}</span>
-              </Button>
+              </div>
             </Link>
           );
         })}
@@ -117,7 +139,7 @@ export function Sidebar() {
       {/* Mobile Overlay */}
       {isMobileOpen && (
         <div
-          className="fixed inset-0 z-40 bg-foreground/50 lg:hidden"
+          className="fixed inset-0 z-40 bg-background/80 backdrop-blur-sm lg:hidden"
           onClick={() => setIsMobileOpen(false)}
         />
       )}
@@ -125,11 +147,22 @@ export function Sidebar() {
       {/* Sidebar */}
       <aside
         className={cn(
-          'fixed left-0 top-0 z-40 h-screen w-64 transform transition-all duration-300 border-r border-border/40 bg-background',
-          isMobileOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'
+          'fixed left-0 top-0 z-40 h-screen transform transition-all duration-300 border-r border-border/40 bg-background shadow-sm',
+          isMobileOpen ? 'translate-x-0 w-64' : '-translate-x-full lg:translate-x-0',
+          !isMobileOpen && (isCollapsed ? 'lg:w-20' : 'lg:w-64')
         )}
       >
-        <NavContent />
+        <SidebarContent />
+        
+        {/* Desktop Toggle Button (Floating) */}
+        {!isMobileOpen && (
+          <button
+            onClick={toggleCollapse}
+            className="absolute -right-3 top-6 z-50 hidden lg:flex h-6 w-6 items-center justify-center rounded-full border border-border bg-background shadow-md hover:bg-muted transition-colors"
+          >
+            {isCollapsed ? <ChevronRight className="h-3 w-3 text-muted-foreground" /> : <ChevronLeft className="h-3 w-3 text-muted-foreground" />}
+          </button>
+        )}
       </aside>
     </>
   );
