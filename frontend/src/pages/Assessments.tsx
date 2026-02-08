@@ -171,7 +171,7 @@ export default function Assessments() {
 
       {/* Tabs */}
       <Tabs defaultValue="weekly" className="space-y-6">
-        <TabsList className="bg-muted/50">
+        <TabsList className="bg-muted/50 w-full justify-start overflow-x-auto h-auto p-1">
           <TabsTrigger value="weekly">Weekly Tests</TabsTrigger>
           <TabsTrigger value="post-class">Post-Class Quizzes</TabsTrigger>
           <TabsTrigger value="review">
@@ -214,23 +214,25 @@ export default function Assessments() {
                         </div>
                       </div>
                     </div>
-                    <div className="flex items-center gap-4">
+                    <div className="flex items-center justify-between w-full md:w-auto gap-4">
                       {test.submissions > 0 && (
                         <div className="text-right">
                           <p className="text-lg font-bold text-foreground">{test.avgScore}%</p>
                           <p className="text-xs text-muted-foreground">Avg Score</p>
                         </div>
                       )}
-                      <Badge variant={
-                        test.status === 'completed' ? 'default' :
-                        test.status === 'active' ? 'secondary' : 'outline'
-                      } className={test.status === 'completed' ? 'bg-success' : ''}>
-                        {test.status}
-                      </Badge>
-                      <Button variant="outline" size="sm">
-                        <Eye className="h-4 w-4 mr-1" />
-                        View
-                      </Button>
+                      <div className="flex items-center gap-2">
+                        <Badge variant={
+                          test.status === 'completed' ? 'default' :
+                          test.status === 'active' ? 'secondary' : 'outline'
+                        } className={test.status === 'completed' ? 'bg-success' : ''}>
+                          {test.status}
+                        </Badge>
+                        <Button variant="outline" size="sm">
+                          <Eye className="h-4 w-4 mr-1" />
+                          View
+                        </Button>
+                      </div>
                     </div>
                   </div>
                 </CardContent>
@@ -253,7 +255,7 @@ export default function Assessments() {
                         <span>{quiz.submissions} submissions</span>
                       </div>
                     </div>
-                    <div className="flex items-center gap-4">
+                    <div className="flex items-center justify-between w-full md:w-auto gap-4">
                       <div className="text-right">
                         <p className="text-lg font-bold text-foreground">{quiz.avgScore}%</p>
                         <p className="text-xs text-muted-foreground">Avg Score</p>
@@ -289,7 +291,7 @@ export default function Assessments() {
                         </p>
                       </div>
                     </div>
-                    <div className="flex items-center gap-4">
+                    <div className="flex items-center justify-between w-full md:w-auto gap-4">
                       <div className="text-right">
                         <p className="text-sm text-muted-foreground">AI Score</p>
                         <p className="text-lg font-bold text-foreground">{item.autoScore}%</p>
