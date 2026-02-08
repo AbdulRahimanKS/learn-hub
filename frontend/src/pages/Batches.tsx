@@ -223,59 +223,61 @@ export default function Batches() {
         </div>
 
         {/* Batches Grid */}
-        <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
+        <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3 content-start">
           {mockBatches.map((batch) => (
-            <Card key={batch.id} className="shadow-card hover:shadow-lg transition-shadow">
+            <Card key={batch.id} className="shadow-card hover:shadow-lg transition-shadow h-full flex flex-col">
               <CardHeader className="pb-3">
-                <div className="flex items-start justify-between">
-                  <div>
-                    <CardTitle className="text-lg">{batch.name}</CardTitle>
-                    <p className="text-sm text-muted-foreground mt-1">{batch.description}</p>
+                <div className="flex items-start justify-between gap-4">
+                  <div className="space-y-1">
+                    <CardTitle className="text-lg leading-tight">{batch.name}</CardTitle>
+                    <p className="text-sm text-muted-foreground line-clamp-2 min-h-[40px]">{batch.description}</p>
                   </div>
                   <Badge variant={batch.status === 'active' ? 'default' : 'secondary'}
-                    className={batch.status === 'active' ? 'bg-success' : ''}>
+                    className={`shrink-0 ${batch.status === 'active' ? 'bg-success' : ''}`}>
                     {batch.status}
                   </Badge>
                 </div>
               </CardHeader>
-              <CardContent>
-                <div className="space-y-4">
-                  {/* Teacher */}
-                  <div className="flex items-center gap-3">
-                    <div className="h-8 w-8 rounded-full bg-primary/10 flex items-center justify-center">
-                      <GraduationCap className="h-4 w-4 text-primary" />
+              <CardContent className="flex-1 flex flex-col">
+                <div className="space-y-4 flex-1 flex flex-col justify-between">
+                  <div>
+                    {/* Teacher */}
+                    <div className="flex items-center gap-3 mb-4">
+                      <div className="h-8 w-8 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
+                        <GraduationCap className="h-4 w-4 text-primary" />
+                      </div>
+                      <span className="text-sm text-foreground truncate">{batch.teacher}</span>
                     </div>
-                    <span className="text-sm text-foreground">{batch.teacher}</span>
-                  </div>
 
-                  {/* Progress */}
-                  <div className="space-y-2">
-                    <div className="flex items-center justify-between text-sm">
-                      <span className="text-muted-foreground">Progress</span>
-                      <span className="font-medium">Week {batch.currentWeek}/{batch.totalWeeks}</span>
+                    {/* Progress */}
+                    <div className="space-y-2 mb-4">
+                      <div className="flex items-center justify-between text-sm">
+                        <span className="text-muted-foreground">Progress</span>
+                        <span className="font-medium">Week {batch.currentWeek}/{batch.totalWeeks}</span>
+                      </div>
+                      <Progress value={batch.progress} className="h-2" />
                     </div>
-                    <Progress value={batch.progress} className="h-2" />
-                  </div>
 
-                  {/* Stats */}
-                  <div className="flex items-center justify-between text-sm pt-2 border-t border-border">
-                    <div className="flex items-center gap-1 text-muted-foreground">
-                      <Users className="h-4 w-4" />
-                      <span>{batch.students}/{batch.maxStudents} students</span>
-                    </div>
-                    <div className="flex items-center gap-1 text-muted-foreground">
-                      <Calendar className="h-4 w-4" />
-                      <span>{batch.startDate}</span>
+                    {/* Stats */}
+                    <div className="flex items-center justify-between text-sm pt-2 border-t border-border">
+                      <div className="flex items-center gap-1 text-muted-foreground">
+                        <Users className="h-4 w-4" />
+                        <span>{batch.students}/{batch.maxStudents} students</span>
+                      </div>
+                      <div className="flex items-center gap-1 text-muted-foreground">
+                        <Calendar className="h-4 w-4" />
+                        <span>{batch.startDate}</span>
+                      </div>
                     </div>
                   </div>
 
                   {/* Actions */}
-                  <div className="flex gap-2 pt-2">
+                  <div className="flex gap-2 pt-4">
                     <Button variant="outline" size="sm" className="flex-1">
                       <Edit className="h-4 w-4 mr-1" />
                       Edit
                     </Button>
-                    <Button variant="outline" size="sm" className="flex-1">
+                    <Button variant="outline" size="sm" className="flex-1 whitespace-nowrap">
                       <UserPlus className="h-4 w-4 mr-1" />
                       Add Students
                     </Button>
