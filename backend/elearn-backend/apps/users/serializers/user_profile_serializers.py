@@ -100,12 +100,10 @@ class UserProfileUpdateSerializer(serializers.ModelSerializer):
         Extract profile fields and update them separately.
         """
         # Extract profile-related fields
-        profile_fields = {
-            'address': validated_data.pop('address', None),
-            'date_of_birth': validated_data.pop('date_of_birth', None),
-            'profile_picture': validated_data.pop('profile_picture', None),
-            'bio': validated_data.pop('bio', None),
-        }
+        profile_fields = {}
+        for field in ['address', 'date_of_birth', 'profile_picture', 'bio']:
+            if field in validated_data:
+                profile_fields[field] = validated_data.pop(field)
         
         # Update User model fields
         for attr, value in validated_data.items():
@@ -115,8 +113,7 @@ class UserProfileUpdateSerializer(serializers.ModelSerializer):
         # Update Profile model fields
         profile = instance.profile
         for attr, value in profile_fields.items():
-            if value is not None:  # Only update if value is provided
-                setattr(profile, attr, value)
+            setattr(profile, attr, value)
         profile.save()
         
         return instance

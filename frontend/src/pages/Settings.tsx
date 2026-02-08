@@ -4,7 +4,7 @@ import { format } from "date-fns"
 import { useForm } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
 import * as z from "zod"
-import PhoneInput, { isValidPhoneNumber } from 'react-phone-number-input'
+import PhoneInput, { isValidPhoneNumber, parsePhoneNumber } from 'react-phone-number-input'
 import 'react-phone-number-input/style.css'
 import {
   User,
@@ -53,7 +53,7 @@ export default function Settings() {
     user?.avatar && !user.avatar.includes('dicebear') ? user.avatar : undefined
   );
   const [avatarError, setAvatarError] = React.useState<string | null>(null);
-  const [avatarFile, setAvatarFile] = React.useState<File | undefined>(undefined);
+  const [avatarFile, setAvatarFile] = React.useState<File | null | undefined>(undefined);
 
   const handleTabChange = (value: string) => {
     setSearchParams({ tab: value });
@@ -142,6 +142,7 @@ export default function Settings() {
                             setAvatarPreview(undefined);
                             setAvatarError(null);
                             if (fileInputRef.current) fileInputRef.current.value = '';
+                            setAvatarFile(null);
                           }}
                         >
                           Remove
@@ -201,7 +202,7 @@ const profileFormSchema = z.object({
 
 type ProfileFormValues = z.infer<typeof profileFormSchema>
 
-function ProfileForm({ user, avatarFile, setAvatarPreview }: { user: any, avatarFile?: File, setAvatarPreview: (url: string | undefined) => void }) {
+function ProfileForm({ user, avatarFile, setAvatarPreview }: { user: any, avatarFile?: File | null, setAvatarPreview: (url: string | undefined) => void }) {
   const { toast } = useToast()
   const { updateUser } = useAuth()
   const form = useForm<ProfileFormValues>({
@@ -226,7 +227,7 @@ function ProfileForm({ user, avatarFile, setAvatarPreview }: { user: any, avatar
         form.reset({
           name: profileData.fullname || "",
           email: profileData.email || "",
-          phone: profileData.contact_number || "", // Assumes full number stored
+          phone: `${profileData.phone_number_code || ''}${profileData.contact_number || ''}`,
           address: profileData.profile.address || "",
           bio: profileData.profile.bio || "",
           dob: profileData.profile.date_of_birth ? new Date(profileData.profile.date_of_birth) : undefined,
@@ -246,10 +247,13 @@ function ProfileForm({ user, avatarFile, setAvatarPreview }: { user: any, avatar
   async function onSubmit(data: ProfileFormValues) {
     try {
       // Prepare API payload
+      const parsedPhone = data.phone ? parsePhoneNumber(data.phone) : undefined;
+      
+      // Prepare API payload
       const updateData = {
         fullname: data.name,
-        contact_number: data.phone, // Assuming phone input returns full number
-        // phone_number_code: ... might need parsing if separated
+        contact_number: parsedPhone ? parsedPhone.nationalNumber : data.phone,
+        phone_number_code: parsedPhone ? `+${parsedPhone.countryCallingCode}` : undefined,
         address: data.address,
         bio: data.bio,
         date_of_birth: data.dob ? format(data.dob, "yyyy-MM-dd") : undefined,

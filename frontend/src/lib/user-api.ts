@@ -27,7 +27,7 @@ export interface UpdateUserProfileRequest {
   contact_number?: string;
   address?: string;
   date_of_birth?: string; // YYYY-MM-DD
-  profile_picture?: string | File;
+  profile_picture?: string | File | null; // Allow null for removal
   bio?: string;
 }
 
@@ -54,10 +54,10 @@ export const updateUserProfile = async (data: UpdateUserProfileRequest): Promise
     let payload: any = data;
     let headers: any = {};
 
-    // Check if we need to send as FormData (if there's a file)
-    const hasFile = data.profile_picture instanceof File;
+    // Check if we need to send as FormData (only if there's a file)
+    const isFileUpdate = data.profile_picture instanceof File;
     
-    if (hasFile) {
+    if (isFileUpdate) {
         const formData = new FormData();
         Object.entries(data).forEach(([key, value]) => {
             if (value !== undefined && value !== null) {
