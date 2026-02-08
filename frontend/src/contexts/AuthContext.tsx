@@ -88,15 +88,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       localStorage.setItem('access_token', response.data.access);
       localStorage.setItem('refresh_token', response.data.refresh);
       
+      // Fetch full profile to get avatar and other details
+      const profileData = await getUserProfile();
+      const backendRoleFromProfile = (profileData.role || profileData.user_type?.name)?.toUpperCase() || '';
+      const userRoleFromProfile = roleMapping[backendRoleFromProfile] || 'student';
+      
       // Create user object
       const userData: User = {
-        id: response.data.user_code,
-        user_code: response.data.user_code,
-        name: response.data.fullname,
-        fullname: response.data.fullname,
-        email: response.data.email,
-        role: userRole,
-        avatar: '',
+        id: profileData.user_code,
+        user_code: profileData.user_code,
+        name: profileData.fullname,
+        fullname: profileData.fullname,
+        email: profileData.email,
+        role: userRoleFromProfile,
+        avatar: profileData.profile?.profile_picture || '',
       };
       
       // Store user data
