@@ -47,7 +47,7 @@ class UserProfileView(RetrieveUpdateAPIView):
     def get(self, request, *args, **kwargs):
         """Retrieve user profile."""
         instance = self.get_object()
-        serializer = UserProfileSerializer(instance)
+        serializer = self.get_serializer(instance)
         return format_success_response(
             message="Profile retrieved successfully",
             data=serializer.data
@@ -74,7 +74,7 @@ class UserProfileView(RetrieveUpdateAPIView):
             serializer.save(updated_by=request.user)
             
             # Return full profile data
-            response_serializer = UserProfileSerializer(instance)
+            response_serializer = UserProfileSerializer(instance, context={'request': request})
             return format_success_response(
                 message="Profile updated successfully",
                 data=response_serializer.data

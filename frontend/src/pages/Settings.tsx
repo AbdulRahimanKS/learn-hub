@@ -160,7 +160,7 @@ export default function Settings() {
                   </div>
                 </div>
 
-                <ProfileForm user={user} avatarFile={avatarFile} />
+                <ProfileForm user={user} avatarFile={avatarFile} setAvatarPreview={setAvatarPreview} />
               </CardContent>
             </Card>
           </TabsContent>
@@ -201,7 +201,7 @@ const profileFormSchema = z.object({
 
 type ProfileFormValues = z.infer<typeof profileFormSchema>
 
-function ProfileForm({ user, avatarFile }: { user: any, avatarFile?: File }) {
+function ProfileForm({ user, avatarFile, setAvatarPreview }: { user: any, avatarFile?: File, setAvatarPreview: (url: string | undefined) => void }) {
   const { toast } = useToast()
   const { updateUser } = useAuth()
   const form = useForm<ProfileFormValues>({
@@ -258,16 +258,23 @@ function ProfileForm({ user, avatarFile }: { user: any, avatarFile?: File }) {
 
       const updatedProfile = await updateUserProfile(updateData);
       
-      // Update global user context (e.g. for Header name)
+      // Update global user context (e.g. for Header name and avatar)
       updateUser({
         name: updatedProfile.fullname,
         fullname: updatedProfile.fullname,
-        // Update other fields if needed in context
+        avatar: updatedProfile.profile?.profile_picture || '',
       });
+
+      // Update local avatar preview with server URL
+      if (updatedProfile.profile?.profile_picture) {
+        setAvatarPreview(updatedProfile.profile.profile_picture);
+      }
 
       toast({
         title: "Profile Updated",
         description: "Your profile has been updated successfully.",
+        variant: "success",
+        duration: 3000,
       })
     } catch (error: any) {
       toast({
