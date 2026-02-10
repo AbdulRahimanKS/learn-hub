@@ -6,6 +6,12 @@ from apps.users.views.password_reset_views import (
     ResetPasswordView
 )
 from apps.users.views.user_profile_views import UserProfileView
+from apps.users.views.email_config_views import (
+    EmailConfigView,
+    EmailConfigListView,
+    EmailConfigCreateUpdateView,
+    EmailConfigToggleView
+)
 
 urlpatterns = [
     path("login/", LoginView.as_view(), name="login"),
@@ -15,6 +21,12 @@ urlpatterns = [
     
     # User Profile
     path("profile/", UserProfileView.as_view(), name="user-profile"),
+    
+    # Email Configuration
+    path("email-config/", EmailConfigView.as_view(), name="email-config"),
+    path("email-config/list/", EmailConfigListView.as_view(), name="email-config-list"),
+    path("email-config/save/", EmailConfigCreateUpdateView.as_view(), name="email-config-save"),
+    path("email-config/<int:pk>/toggle/", EmailConfigToggleView.as_view(), name="email-config-toggle"),
     
     # Password Reset URLs
     path("password-reset/request/", RequestPasswordResetView.as_view(), name="password-reset-request"),
