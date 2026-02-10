@@ -1,5 +1,5 @@
 from django.urls import path
-from apps.users.views.auth_views import LoginView, LogoutView, RefreshTokenView
+from apps.users.views.auth_views import LoginView, LogoutView, RefreshTokenView, ChangePasswordView
 from apps.users.views.password_reset_views import (
     RequestPasswordResetView,
     VerifyOTPView,
@@ -11,6 +11,7 @@ urlpatterns = [
     path("login/", LoginView.as_view(), name="login"),
     path("logout/", LogoutView.as_view(), name="logout"),
     path("token/refresh/", RefreshTokenView.as_view(), name="token-refresh"),
+    path("change-password/", ChangePasswordView.as_view(), name="change-password"),
     
     # User Profile
     path("profile/", UserProfileView.as_view(), name="user-profile"),

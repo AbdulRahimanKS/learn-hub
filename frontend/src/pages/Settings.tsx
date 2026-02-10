@@ -26,6 +26,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useToast } from '@/components/ui/use-toast';
 import { getUserProfile, updateUserProfile } from '@/lib/user-api';
+import { changePassword } from '@/lib/auth-api';
 import { cn } from "@/lib/utils"
 import {
   Form,
@@ -276,7 +277,7 @@ function ProfileForm({ user, avatarFile, setAvatarPreview }: { user: any, avatar
 
       toast({
         title: "Profile Updated",
-        description: "Your profile has been updated successfully.",
+        description: "Your profile has been updated successfully",
         variant: "success",
         duration: 3000,
       })
@@ -284,7 +285,7 @@ function ProfileForm({ user, avatarFile, setAvatarPreview }: { user: any, avatar
       toast({
         variant: "destructive",
         title: "Update Failed",
-        description: error.message || "Failed to update profile.",
+        description: error.message || "Failed to update profile",
       })
     }
   }
@@ -451,6 +452,7 @@ type SecurityFormValues = z.infer<typeof securityFormSchema>
 
 function SecurityForm() {
   const { toast } = useToast()
+  const [isSubmitting, setIsSubmitting] = React.useState(false)
   const form = useForm<SecurityFormValues>({
     resolver: zodResolver(securityFormSchema),
     defaultValues: {
@@ -460,12 +462,33 @@ function SecurityForm() {
     },
   })
 
-  function onSubmit(data: SecurityFormValues) {
-    console.log(data)
-    toast({
-      title: "Password Updated",
-      description: "Your password has been changed successfully.",
-    })
+  async function onSubmit(data: SecurityFormValues) {
+    setIsSubmitting(true)
+    try {
+      await changePassword({
+        current_password: data.currentPassword,
+        new_password: data.newPassword,
+        confirm_password: data.confirmPassword,
+      })
+      
+      toast({
+        title: "Password Updated",
+        description: "Your password has been changed successfully",
+        variant: "success",
+        duration: 3000,
+      })
+      
+      // Reset form after successful password change
+      form.reset()
+    } catch (error: any) {
+      toast({
+        variant: "destructive",
+        title: "Update Failed",
+        description: error.message || "Failed to change password",
+      })
+    } finally {
+      setIsSubmitting(false)
+    }
   }
 
   return (
@@ -513,9 +536,9 @@ function SecurityForm() {
           />
         </div>
 
-        <Button type="submit" variant="gradient">
+        <Button type="submit" variant="gradient" disabled={isSubmitting}>
             <Lock className="h-4 w-4 mr-2" />
-            Update Password
+            {isSubmitting ? 'Updating...' : 'Update Password'}
         </Button>
       </form>
     </Form>

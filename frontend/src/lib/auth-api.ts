@@ -70,3 +70,24 @@ export const refreshToken = async (): Promise<{ access: string }> => {
     throw new Error('Failed to refresh token');
   }
 };
+
+export interface ChangePasswordRequest {
+  current_password: string;
+  new_password: string;
+  confirm_password: string;
+}
+
+/**
+ * Change user password
+ */
+export const changePassword = async (data: ChangePasswordRequest): Promise<{ message: string }> => {
+  try {
+    const response = await apiClient.post<{ message: string; success: boolean }>('/api/users/v1/change-password/', data);
+    return response.data;
+  } catch (error: any) {
+    if (error.response?.data) {
+      throw new Error(error.response.data.message || error.response.data.detail || 'Failed to change password');
+    }
+    throw new Error('Network error. Please check your connection.');
+  }
+};
