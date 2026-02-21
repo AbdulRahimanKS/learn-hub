@@ -68,11 +68,11 @@ export default function Settings() {
     
     if (file) {
       if (!['image/jpeg', 'image/png', 'image/webp'].includes(file.type)) {
-        setAvatarError("Please upload a valid JPG, PNG, or WebP image.");
+        setAvatarError("Please upload a valid JPG, PNG, or WebP image");
         return;
       }
       if (file.size > 2 * 1024 * 1024) { // Revert back to 2MB prior to crop
-        setAvatarError("File size must be less than 2MB.");
+        setAvatarError("Image size must be less than 2MB");
         return;
       }
       
@@ -137,7 +137,7 @@ export default function Settings() {
                       onChange={handleFileChange}
                     />
                     <div className="flex gap-2">
-                      <Button variant="outline" onClick={handleChangePhotoClick} className="hover:bg-background hover:text-foreground border-input text-muted-foreground">
+                      <Button variant="outline" onClick={handleChangePhotoClick} className="bg-background hover:bg-background hover:text-foreground border-input text-foreground">
                         <Upload className="h-4 w-4 mr-2" />
                         Change Photo
                       </Button>
@@ -356,8 +356,6 @@ function ProfileForm({ user, avatarFile, setAvatarPreview }: { user: any, avatar
                         onChange={field.onChange}
                         defaultCountry="IN"
                         international
-                        countries={['IN']} 
-                        countryCallingCodeEditable={false}
                         className={cn(
                           "flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50",
                           "[&>.PhoneInputCountry]:mr-2 [&>.PhoneInputCountry]:flex [&>.PhoneInputCountry]:items-center [&>.PhoneInputCountryIcon]:w-6 [&>.PhoneInputCountryIcon]:h-4 [&>.PhoneInputCountryIcon--border]:border-none [&>.PhoneInputCountrySelect]:w-full [&>.PhoneInputCountrySelect]:h-full [&>.PhoneInputCountrySelect]:opacity-0 [&>.PhoneInputInput]:flex-1 [&>.PhoneInputInput]:bg-transparent [&>.PhoneInputInput]:border-none [&>.PhoneInputInput]:outline-none [&>.PhoneInputInput]:placeholder-muted-foreground"
@@ -394,7 +392,7 @@ function ProfileForm({ user, avatarFile, setAvatarPreview }: { user: any, avatar
                         <Button
                           variant={"outline"}
                           className={cn(
-                            "w-full pl-3 text-left font-normal hover:bg-background hover:text-foreground border-input text-foreground",
+                            "w-full pl-3 text-left font-normal bg-background hover:bg-background hover:text-foreground border-input text-foreground",
                             !field.value && "text-muted-foreground"
                           )}
                         >

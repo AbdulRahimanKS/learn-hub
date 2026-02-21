@@ -74,6 +74,7 @@
   }
 
   .dark {
+    color-scheme: dark;
     --background: 222 47% 8%;
     --foreground: 210 40% 98%;
 
@@ -114,6 +115,12 @@
     /* Dark mode gradients */
     --gradient-sidebar: linear-gradient(135deg, hsl(222 47% 11%) 0%, hsl(222 47% 8%) 100%);
     --gradient-card: linear-gradient(180deg, hsl(222 47% 11%) 0%, hsl(222 47% 13%) 100%);
+  }
+
+  /* Force all native options to inherit solid backgrounds in both modes */
+  select option {
+    background-color: hsl(var(--background));
+    color: hsl(var(--foreground));
   }
 }
 

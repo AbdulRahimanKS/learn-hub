@@ -81,21 +81,21 @@ export default function LiveSessions() {
                   <div className="grid grid-cols-2 gap-4">
                     <div className="space-y-2">
                       <Label htmlFor="batch">Batch</Label>
-                      <select id="batch" className="w-full h-10 px-3 rounded-lg border border-input bg-background">
-                        <option value="">Select batch</option>
-                        <option value="python">Python Basics</option>
-                        <option value="datascience">Data Science</option>
-                        <option value="webdev">Web Development</option>
-                        <option value="all">All Batches</option>
+                      <select id="batch" className="w-full h-10 px-3 rounded-lg border border-input bg-background text-foreground text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2">
+                        <option value="" className="bg-background text-foreground">Select batch</option>
+                        <option value="python" className="bg-background text-foreground">Python Basics</option>
+                        <option value="datascience" className="bg-background text-foreground">Data Science</option>
+                        <option value="webdev" className="bg-background text-foreground">Web Development</option>
+                        <option value="all" className="bg-background text-foreground">All Batches</option>
                       </select>
                     </div>
                     <div className="space-y-2">
                       <Label htmlFor="duration">Duration</Label>
-                      <select id="duration" className="w-full h-10 px-3 rounded-lg border border-input bg-background">
-                        <option value="30">30 minutes</option>
-                        <option value="60">60 minutes</option>
-                        <option value="90">90 minutes</option>
-                        <option value="120">2 hours</option>
+                      <select id="duration" className="w-full h-10 px-3 rounded-lg border border-input bg-background text-foreground text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2">
+                        <option value="30" className="bg-background text-foreground">30 minutes</option>
+                        <option value="60" className="bg-background text-foreground">60 minutes</option>
+                        <option value="90" className="bg-background text-foreground">90 minutes</option>
+                        <option value="120" className="bg-background text-foreground">2 hours</option>
                       </select>
                     </div>
                   </div>

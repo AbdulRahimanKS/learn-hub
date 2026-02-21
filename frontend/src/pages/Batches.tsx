@@ -120,11 +120,11 @@ export default function Batches() {
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
                     <Label htmlFor="teacher">Assign Teacher</Label>
-                    <select id="teacher" className="w-full h-10 px-3 rounded-lg border border-input bg-background">
-                      <option value="">Select teacher</option>
-                      <option value="1">Prof. Michael Chen</option>
-                      <option value="2">Dr. Emily Watson</option>
-                      <option value="3">Prof. James Lee</option>
+                    <select id="teacher" className="w-full h-10 px-3 rounded-lg border border-input bg-background text-foreground text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2">
+                      <option value="" className="bg-background text-foreground">Select teacher</option>
+                      <option value="1" className="bg-background text-foreground">Prof. Michael Chen</option>
+                      <option value="2" className="bg-background text-foreground">Dr. Emily Watson</option>
+                      <option value="3" className="bg-background text-foreground">Prof. James Lee</option>
                     </select>
                   </div>
                   <div className="space-y-2">

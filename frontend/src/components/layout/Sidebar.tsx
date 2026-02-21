@@ -18,11 +18,13 @@ import {
   X,
   ChevronLeft,
   ChevronRight,
+  Library,
 } from 'lucide-react';
 
 const adminNavItems = [
   { icon: LayoutDashboard, label: 'Dashboard', path: '/dashboard' },
   { icon: Users, label: 'Users', path: '/users' },
+  { icon: Library, label: 'Courses', path: '/admin-courses' },
   { icon: GraduationCap, label: 'Batches', path: '/batches' },
   { icon: BookOpen, label: 'Content', path: '/content' },
   { icon: ClipboardCheck, label: 'Assessments', path: '/assessments' },

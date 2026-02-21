@@ -16,6 +16,7 @@ import Users from "./pages/Users";
 import Batches from "./pages/Batches";
 import Progress from "./pages/Progress";
 import Chat from "./pages/Chat";
+import AdminCourses from "./pages/AdminCourses";
 import Courses from "./pages/Courses";
 import Schedule from "./pages/Schedule";
 import LiveSessions from "./pages/LiveSessions";
@@ -54,6 +55,7 @@ function AppRoutes() {
       <Route path="/batches" element={<ProtectedRoute><Batches /></ProtectedRoute>} />
       <Route path="/progress" element={<ProtectedRoute><Progress /></ProtectedRoute>} />
       <Route path="/chat" element={<ProtectedRoute><Chat /></ProtectedRoute>} />
+      <Route path="/admin-courses" element={<ProtectedRoute><AdminCourses /></ProtectedRoute>} />
       <Route path="/courses" element={<ProtectedRoute><Courses /></ProtectedRoute>} />
       <Route path="/schedule" element={<ProtectedRoute><Schedule /></ProtectedRoute>} />
       <Route path="/live-sessions" element={<ProtectedRoute><LiveSessions /></ProtectedRoute>} />

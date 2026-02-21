@@ -90,9 +90,9 @@ export default function Assessments() {
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <Label htmlFor="type">Type</Label>
-                  <select id="type" className="w-full h-10 px-3 rounded-lg border border-input bg-background">
-                    <option value="post-class">Post-Class Quiz</option>
-                    <option value="weekly">Weekly Test</option>
+                  <select id="type" className="w-full h-10 px-3 rounded-lg border border-input bg-background text-foreground text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2">
+                    <option value="post-class" className="bg-background text-foreground">Post-Class Quiz</option>
+                    <option value="weekly" className="bg-background text-foreground">Weekly Test</option>
                   </select>
                 </div>
                 <div className="space-y-2">

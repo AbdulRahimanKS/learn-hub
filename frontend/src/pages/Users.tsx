@@ -39,6 +39,30 @@ import {
 import { Textarea } from '@/components/ui/textarea';
 import ReactQuill from 'react-quill';
 import 'react-quill/dist/quill.snow.css';
+import { cn } from '@/lib/utils';
+import PhoneInput, { isValidPhoneNumber, parsePhoneNumber } from 'react-phone-number-input';
+import 'react-phone-number-input/style.css';
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import * as z from "zod";
+import {
+  Form,
+  FormControl,
+  FormField,
+  FormItem,
+  FormLabel,
+  FormMessage,
+} from "@/components/ui/form";
+
+const addUserFormSchema = z.object({
+  userType: z.enum(['teacher', 'student']),
+  name: z.string().min(2, { message: "Full name must be at least 2 characters." }),
+  email: z.string().email({ message: "Please enter a valid email address" }),
+  batch: z.string().optional(),
+  phone: z.string().min(1, { message: "Phone number is required" }).refine((val) => isValidPhoneNumber(val), { message: "Please enter a valid phone number" })
+});
+
+type AddUserFormValues = z.infer<typeof addUserFormSchema>;
 
 const mockTeachers = [
   { id: 1, name: 'Prof. Michael Chen', email: 'michael@elearn.com', batches: ['Python Basics', 'Data Science'], students: 48, joinedAt: 'Jan 2024' },
@@ -57,11 +81,41 @@ const mockStudents = [
 export default function Users() {
   const [searchQuery, setSearchQuery] = useState('');
   const [isAddUserOpen, setIsAddUserOpen] = useState(false);
-  const [userType, setUserType] = useState<'teacher' | 'student'>('student');
   const [isEmailModalOpen, setIsEmailModalOpen] = useState(false);
   const [selectedStudentEmail, setSelectedStudentEmail] = useState<any>(null);
   const [emailBody, setEmailBody] = useState('');
+
   const navigate = useNavigate();
+
+  const form = useForm<AddUserFormValues>({
+    resolver: zodResolver(addUserFormSchema),
+    mode: "onChange",
+    defaultValues: {
+      userType: 'student',
+      name: '',
+      email: '',
+      batch: '',
+      phone: '',
+    },
+  });
+
+  const watchedUserType = form.watch("userType");
+
+  const onSubmit = (data: AddUserFormValues) => {
+    const parsedPhone = parsePhoneNumber(data.phone);
+    const apiPayload = {
+      phone_number_code: parsedPhone ? `+${parsedPhone.countryCallingCode}` : undefined,
+      contact_number: parsedPhone ? parsedPhone.nationalNumber : data.phone,
+      fullname: data.name,
+      email: data.email,
+      user_type: data.userType,
+      batch: data.batch,
+    };
+    console.log('Valid User Payload:', apiPayload);
+
+    setIsAddUserOpen(false);
+    form.reset();
+  };
 
   return (
     <DashboardLayout>
@@ -84,56 +138,117 @@ export default function Users() {
                 <DialogTitle>Add New User</DialogTitle>
                 <DialogDescription>Create a new teacher or student account</DialogDescription>
               </DialogHeader>
-              <div className="space-y-4 py-4">
-                <div className="space-y-2">
-                  <Label>User Type</Label>
-                  <div className="flex gap-2">
-                    <Button
-                      variant={userType === 'teacher' ? 'default' : 'outline'}
-                      className="flex-1"
-                      onClick={() => setUserType('teacher')}
-                    >
-                      <GraduationCap className="h-4 w-4 mr-2" />
-                      Teacher
-                    </Button>
-                    <Button
-                      variant={userType === 'student' ? 'default' : 'outline'}
-                      className="flex-1"
-                      onClick={() => setUserType('student')}
-                    >
-                      <UsersIcon className="h-4 w-4 mr-2" />
-                      Student
-                    </Button>
+              <Form {...form}>
+                <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4 py-4">
+                  <div className="space-y-4">
+                    <FormField
+                      control={form.control}
+                      name="userType"
+                      render={({ field }) => (
+                        <FormItem className="space-y-2">
+                          <FormLabel>User Type</FormLabel>
+                          <FormControl>
+                            <div className="flex gap-2">
+                              <Button
+                                type="button"
+                                variant={field.value === 'teacher' ? 'default' : 'outline'}
+                                className="flex-1"
+                                onClick={() => field.onChange('teacher')}
+                              >
+                                <GraduationCap className="h-4 w-4 mr-2" />
+                                Teacher
+                              </Button>
+                              <Button
+                                type="button"
+                                variant={field.value === 'student' ? 'default' : 'outline'}
+                                className="flex-1"
+                                onClick={() => field.onChange('student')}
+                              >
+                                <UsersIcon className="h-4 w-4 mr-2" />
+                                Student
+                              </Button>
+                            </div>
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                    <FormField
+                      control={form.control}
+                      name="name"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Full Name</FormLabel>
+                          <FormControl>
+                            <Input placeholder="Enter full name" {...field} />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                    <FormField
+                      control={form.control}
+                      name="email"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Email Address</FormLabel>
+                          <FormControl>
+                            <Input type="email" placeholder="user@example.com" {...field} />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                    {watchedUserType === 'student' && (
+                      <FormField
+                        control={form.control}
+                        name="batch"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Assign to Batch</FormLabel>
+                              <select {...field} className="w-full h-10 px-3 rounded-md border border-input bg-background text-foreground text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2">
+                                <option value="" className="bg-background text-foreground">Select a batch</option>
+                                <option value="python" className="bg-background text-foreground">Python Basics</option>
+                                <option value="datascience" className="bg-background text-foreground">Data Science</option>
+                                <option value="webdev" className="bg-background text-foreground">Web Development</option>
+                              </select>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                    )}
+                    <FormField
+                      control={form.control}
+                      name="phone"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Phone Number</FormLabel>
+                          <FormControl>
+                            <div className="relative">
+                              <PhoneInput
+                                placeholder="Enter phone number"
+                                value={field.value}
+                                onChange={field.onChange}
+                                defaultCountry="IN"
+                                international
+                                className={cn(
+                                  "flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50",
+                                  "[&>.PhoneInputCountry]:mr-2 [&>.PhoneInputCountry]:flex [&>.PhoneInputCountry]:items-center [&>.PhoneInputCountryIcon]:w-6 [&>.PhoneInputCountryIcon]:h-4 [&>.PhoneInputCountryIcon--border]:border-none [&>.PhoneInputCountrySelect]:w-full [&>.PhoneInputCountrySelect]:h-full [&>.PhoneInputCountrySelect]:opacity-0 [&>.PhoneInputInput]:flex-1 [&>.PhoneInputInput]:bg-transparent [&>.PhoneInputInput]:border-none [&>.PhoneInputInput]:outline-none [&>.PhoneInputInput]:placeholder-muted-foreground"
+                                )}
+                              />
+                            </div>
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
                   </div>
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="name">Full Name</Label>
-                  <Input id="name" placeholder="Enter full name" />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="email">Email Address</Label>
-                  <Input id="email" type="email" placeholder="user@example.com" />
-                </div>
-                {userType === 'student' && (
-                  <div className="space-y-2">
-                    <Label htmlFor="batch">Assign to Batch</Label>
-                    <select id="batch" className="w-full h-10 px-3 rounded-lg border border-input bg-background">
-                      <option value="">Select a batch</option>
-                      <option value="python">Python Basics</option>
-                      <option value="datascience">Data Science</option>
-                      <option value="webdev">Web Development</option>
-                    </select>
+                  <div className="flex justify-end gap-3 mt-8">
+                    <Button type="button" variant="outline" onClick={() => { setIsAddUserOpen(false); form.reset(); }}>Cancel</Button>
+                    <Button type="submit" variant="gradient">Add User</Button>
                   </div>
-                )}
-                <div className="space-y-2">
-                  <Label htmlFor="password">Temporary Password</Label>
-                  <Input id="password" type="password" placeholder="Create a password" />
-                </div>
-              </div>
-              <div className="flex justify-end gap-3">
-                <Button variant="outline" onClick={() => setIsAddUserOpen(false)}>Cancel</Button>
-                <Button variant="gradient">Add User</Button>
-              </div>
+                </form>
+              </Form>
             </DialogContent>
           </Dialog>
 

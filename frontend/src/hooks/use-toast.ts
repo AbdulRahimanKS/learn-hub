@@ -156,6 +156,11 @@ function toast({ ...props }: Toast) {
     },
   });
 
+  // Explicit fallback timeout to handle Radix viewport trapping
+  setTimeout(() => {
+    dismiss();
+  }, props.duration || 3000);
+
   return {
     id: id,
     dismiss,

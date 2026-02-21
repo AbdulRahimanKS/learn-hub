@@ -9,6 +9,8 @@ from django.dispatch import receiver
 from django.utils.translation import gettext_lazy as _
 from utils.constants import UserTypeConstants
 
+
+# UserType
 class UserType(models.Model):
     """
     User Types for the application using choices for predefined roles.
@@ -32,6 +34,7 @@ class UserType(models.Model):
         return self.get_name_display()
 
 
+# CustomUserManager
 class CustomUserManager(BaseUserManager):
     def create_user(self, email, password=None, **extra_fields):
         if not email:
@@ -66,6 +69,7 @@ class CustomUserManager(BaseUserManager):
         return self.create_user(email, password, **extra_fields)
 
 
+# User
 class User(AbstractBaseUser, PermissionsMixin):
     """
     Custom User model using email as the primary identifier.
@@ -124,6 +128,7 @@ class User(AbstractBaseUser, PermissionsMixin):
                 return code
 
 
+# Profile
 class Profile(models.Model):
     """
     Extended profile information for users.
@@ -167,6 +172,7 @@ def save_user_profile(sender, instance, **kwargs):
         instance.profile.save()
 
 
+# Email Setting
 class EmailSetting(models.Model):
     """
     EmailSetting model to store email configuration.
@@ -194,6 +200,7 @@ class EmailSetting(models.Model):
         return self.email
 
 
+# Password Reset OTP
 class PasswordResetOTP(models.Model):
     """
     Model to store OTP for password reset.
@@ -235,3 +242,39 @@ class PasswordResetOTP(models.Model):
     def generate_otp():
         """Generate a 6-digit OTP."""
         return str(random.randint(100000, 999999))
+
+
+# Contact Support
+class ContactSupport(models.Model):
+    email = models.EmailField(_('Support Email'), blank=True)
+
+    phone_number_code = models.CharField(
+        _('Phone Country Code'), max_length=10, blank=True,
+        help_text=_('International dialling prefix, e.g. +91')
+    )
+    contact_number = models.CharField(
+        _('Phone Number'), max_length=20, blank=True,
+        help_text=_('National number without country code')
+    )
+
+    created_by = models.ForeignKey(
+        User, on_delete=models.SET_NULL, null=True, blank=True,
+        related_name='created_support_contacts'
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name        = _('Contact Support')
+        verbose_name_plural = _('Contact Support Entries')
+
+    def __str__(self):
+        return f"{self.email or self.full_phone}"
+
+    @property
+    def full_phone(self):
+        """Returns the full international phone string, e.g. +91 9876543210."""
+        if self.phone_number_code and self.contact_number:
+            return f"{self.phone_number_code} {self.contact_number}"
+        return self.contact_number or ''
+

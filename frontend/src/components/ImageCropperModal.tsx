@@ -17,6 +17,8 @@ interface ImageCropperModalProps {
   onClose: () => void;
   imageSrc: string;
   onCropComplete: (croppedFile: File, objectUrl: string) => void;
+  aspectRatio?: number;
+  cropShape?: "rect" | "round";
 }
 
 export function ImageCropperModal({
@@ -24,6 +26,8 @@ export function ImageCropperModal({
   onClose,
   imageSrc,
   onCropComplete,
+  aspectRatio = 1,
+  cropShape = "round",
 }: ImageCropperModalProps) {
   const [crop, setCrop] = useState({ x: 0, y: 0 });
   const [zoom, setZoom] = useState(1);
@@ -60,7 +64,7 @@ export function ImageCropperModal({
     <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
-          <DialogTitle>Adjust Profile Photo</DialogTitle>
+          <DialogTitle>Adjust Image</DialogTitle>
         </DialogHeader>
         
         <div className="relative w-full h-[300px] bg-black/10 rounded-md overflow-hidden my-4">
@@ -68,9 +72,9 @@ export function ImageCropperModal({
             image={imageSrc}
             crop={crop}
             zoom={zoom}
-            aspect={1} // 1:1 aspect ratio for avatars
-            cropShape="round"
-            showGrid={false}
+            aspect={aspectRatio}
+            cropShape={cropShape}
+            showGrid={cropShape === "rect"}
             onCropChange={setCrop}
             onCropComplete={handleCropComplete}
             onZoomChange={setZoom}
