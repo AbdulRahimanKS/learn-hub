@@ -3,14 +3,11 @@ import apiClient from './api';
 export interface EmailConfig {
   id?: number;
   email: string;
-  email_type: 'smtp' | 'outlook';
+  email_type: 'smtp';
   email_host?: string;
   email_port?: string;
   email_user?: string;
   email_password?: string;
-  client_id?: string;
-  client_secret?: string;
-  tenant_id?: string;
   status?: boolean;
   created_at?: string;
   updated_at?: string;

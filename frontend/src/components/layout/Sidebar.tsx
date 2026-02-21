@@ -22,10 +22,10 @@ import {
 
 const adminNavItems = [
   { icon: LayoutDashboard, label: 'Dashboard', path: '/dashboard' },
-  { icon: BookOpen, label: 'Content', path: '/content' },
-  { icon: ClipboardCheck, label: 'Assessments', path: '/assessments' },
   { icon: Users, label: 'Users', path: '/users' },
   { icon: GraduationCap, label: 'Batches', path: '/batches' },
+  { icon: BookOpen, label: 'Content', path: '/content' },
+  { icon: ClipboardCheck, label: 'Assessments', path: '/assessments' },
   { icon: Video, label: 'Live Sessions', path: '/live-sessions' },
   { icon: BarChart3, label: 'Progress', path: '/progress' },
   { icon: MessageSquare, label: 'Chat', path: '/chat' },
@@ -34,9 +34,9 @@ const adminNavItems = [
 
 const teacherNavItems = [
   { icon: LayoutDashboard, label: 'Dashboard', path: '/dashboard' },
+  { icon: GraduationCap, label: 'My Batches', path: '/batches' },
   { icon: BookOpen, label: 'Content', path: '/content' },
   { icon: ClipboardCheck, label: 'Assessments', path: '/assessments' },
-  { icon: GraduationCap, label: 'My Batches', path: '/batches' },
   { icon: Video, label: 'Live Sessions', path: '/live-sessions' },
   { icon: BarChart3, label: 'Progress', path: '/progress' },
   { icon: MessageSquare, label: 'Chat', path: '/chat' },

@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { DashboardLayout } from '@/components/layout/DashboardLayout';
+import { useNavigate } from 'react-router-dom';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -33,7 +34,11 @@ import {
   Users as UsersIcon,
   GraduationCap,
   UserCheck,
+  MessageSquare,
 } from 'lucide-react';
+import { Textarea } from '@/components/ui/textarea';
+import ReactQuill from 'react-quill';
+import 'react-quill/dist/quill.snow.css';
 
 const mockTeachers = [
   { id: 1, name: 'Prof. Michael Chen', email: 'michael@elearn.com', batches: ['Python Basics', 'Data Science'], students: 48, joinedAt: 'Jan 2024' },
@@ -53,6 +58,10 @@ export default function Users() {
   const [searchQuery, setSearchQuery] = useState('');
   const [isAddUserOpen, setIsAddUserOpen] = useState(false);
   const [userType, setUserType] = useState<'teacher' | 'student'>('student');
+  const [isEmailModalOpen, setIsEmailModalOpen] = useState(false);
+  const [selectedStudentEmail, setSelectedStudentEmail] = useState<any>(null);
+  const [emailBody, setEmailBody] = useState('');
+  const navigate = useNavigate();
 
   return (
     <DashboardLayout>
@@ -127,6 +136,47 @@ export default function Users() {
               </div>
             </DialogContent>
           </Dialog>
+
+          {/* Email Modal */}
+          <Dialog open={isEmailModalOpen} onOpenChange={setIsEmailModalOpen}>
+            <DialogContent className="sm:max-w-3xl">
+              <DialogHeader>
+                <DialogTitle>Send Email</DialogTitle>
+                <DialogDescription>
+                  Send a direct email to {selectedStudentEmail?.name} ({selectedStudentEmail?.email}).
+                </DialogDescription>
+              </DialogHeader>
+              <div className="space-y-4 py-4">
+                <div className="space-y-2">
+                  <Label htmlFor="subject">Subject</Label>
+                  <Input id="subject" placeholder="Enter email subject" />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="message">Message</Label>
+                  <div className="bg-background">
+                    <ReactQuill 
+                      theme="snow" 
+                      value={emailBody} 
+                      onChange={setEmailBody} 
+                      className="h-[350px] mb-12"
+                      modules={{
+                        toolbar: [
+                          ['bold', 'italic', 'underline', 'strike'],
+                          [{ 'list': 'ordered'}, { 'list': 'bullet' }],
+                          ['link'],
+                          ['clean']
+                        ],
+                      }}
+                    />
+                  </div>
+                </div>
+              </div>
+              <div className="flex justify-end gap-3">
+                <Button variant="outline" onClick={() => setIsEmailModalOpen(false)}>Cancel</Button>
+                <Button variant="gradient" onClick={() => setIsEmailModalOpen(false)}>Send Email</Button>
+              </div>
+            </DialogContent>
+          </Dialog>
         </div>
 
         {/* Stats */}
@@ -193,9 +243,15 @@ export default function Users() {
 
         {/* Tabs */}
         <Tabs defaultValue="students" className="space-y-6">
-          <TabsList className="bg-muted/50">
-            <TabsTrigger value="students">Students</TabsTrigger>
-            <TabsTrigger value="teachers">Teachers</TabsTrigger>
+          <TabsList className="bg-background p-1 border border-border/50 rounded-lg w-fit">
+            <TabsTrigger value="students" className="gap-2 w-32">
+              <UsersIcon className="h-4 w-4" />
+              Students
+            </TabsTrigger>
+            <TabsTrigger value="teachers" className="gap-2 w-32">
+              <GraduationCap className="h-4 w-4" />
+              Teachers
+            </TabsTrigger>
           </TabsList>
 
           <TabsContent value="students">
@@ -258,13 +314,25 @@ export default function Users() {
                         </TableCell>
                         <TableCell className="text-right">
                           <div className="flex justify-end gap-1">
-                            <Button variant="ghost" size="icon" className="h-8 w-8">
+                            <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => navigate(`/chat?user=${student.id}`)} title="Message in Chat">
+                              <MessageSquare className="h-4 w-4" />
+                            </Button>
+                            <Button 
+                              variant="ghost" 
+                              size="icon" 
+                              className="h-8 w-8" 
+                              title="Send Email"
+                              onClick={() => {
+                                setSelectedStudentEmail(student);
+                                setIsEmailModalOpen(true);
+                              }}
+                            >
                               <Mail className="h-4 w-4" />
                             </Button>
-                            <Button variant="ghost" size="icon" className="h-8 w-8">
+                            <Button variant="ghost" size="icon" className="h-8 w-8" title="Edit Student">
                               <Edit className="h-4 w-4" />
                             </Button>
-                            <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive">
+                            <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive" title="Delete Student">
                               <Trash2 className="h-4 w-4" />
                             </Button>
                           </div>

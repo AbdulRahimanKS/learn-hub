@@ -59,7 +59,7 @@ class LoginView(APIView):
             if not user.is_active:
                 raise ServiceError(
                     detail="Account is disabled",
-                    status_code=status.HTTP_403_FORBIDDEN
+                    status_code=status.HTTP_401_UNAUTHORIZED
                 )
 
             if expected_role:
@@ -67,7 +67,7 @@ class LoginView(APIView):
                 if user_role != expected_role:
                     raise ServiceError(
                         detail=f"These are not valid {expected_role.lower()} credentials",
-                        status_code=status.HTTP_403_FORBIDDEN
+                        status_code=status.HTTP_401_UNAUTHORIZED
                     )
 
             refresh = RefreshToken.for_user(user)

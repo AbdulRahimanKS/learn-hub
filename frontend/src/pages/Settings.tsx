@@ -44,6 +44,7 @@ import {
 } from "@/components/ui/popover"
 import { Calendar } from "@/components/ui/calendar"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
+import { ImageCropperModal } from '@/components/ImageCropperModal';
 
 export default function Settings() {
   const { user } = useAuth();
@@ -55,6 +56,7 @@ export default function Settings() {
   );
   const [avatarError, setAvatarError] = React.useState<string | null>(null);
   const [avatarFile, setAvatarFile] = React.useState<File | null | undefined>(undefined);
+  const [cropperSrc, setCropperSrc] = React.useState<string | null>(null);
 
   const handleTabChange = (value: string) => {
     setSearchParams({ tab: value });
@@ -62,25 +64,29 @@ export default function Settings() {
 
   const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
-    setAvatarError(null); // Reset error
+    setAvatarError(null);
     
     if (file) {
-      // Validate file type
-      if (!['image/jpeg', 'image/png'].includes(file.type)) {
-        setAvatarError("Please upload a valid JPG or PNG image.");
+      if (!['image/jpeg', 'image/png', 'image/webp'].includes(file.type)) {
+        setAvatarError("Please upload a valid JPG, PNG, or WebP image.");
         return;
       }
-      // Validate file size (2MB = 2 * 1024 * 1024 bytes)
-      if (file.size > 2 * 1024 * 1024) {
+      if (file.size > 2 * 1024 * 1024) { // Revert back to 2MB prior to crop
         setAvatarError("File size must be less than 2MB.");
         return;
       }
       
-      // Create a preview URL
       const objectUrl = URL.createObjectURL(file);
-      setAvatarPreview(objectUrl);
-      setAvatarFile(file);
+      setCropperSrc(objectUrl);
+      
+      // Reset input so the same file can be selected again
+      if (fileInputRef.current) fileInputRef.current.value = '';
     }
+  };
+
+  const handleCropComplete = (croppedFile: File, objectUrl: string) => {
+    setAvatarFile(croppedFile);
+    setAvatarPreview(objectUrl);
   };
 
   const handleChangePhotoClick = () => {
@@ -156,7 +162,7 @@ export default function Settings() {
                         </p>
                     ) : (
                         <p className="text-xs text-muted-foreground mt-2">
-                          JPG or PNG. Max 2MB.
+                          JPG, PNG, WebP. Max 2MB.
                         </p>
                     )}
                   </div>
@@ -180,6 +186,16 @@ export default function Settings() {
           </TabsContent>
         </Tabs>
       </div>
+      
+      {/* Cropper Modal */}
+      {cropperSrc && (
+        <ImageCropperModal
+          isOpen={!!cropperSrc}
+          onClose={() => setCropperSrc(null)}
+          imageSrc={cropperSrc}
+          onCropComplete={handleCropComplete}
+        />
+      )}
     </DashboardLayout>
   );
 }
@@ -206,6 +222,7 @@ type ProfileFormValues = z.infer<typeof profileFormSchema>
 function ProfileForm({ user, avatarFile, setAvatarPreview }: { user: any, avatarFile?: File | null, setAvatarPreview: (url: string | undefined) => void }) {
   const { toast } = useToast()
   const { updateUser } = useAuth()
+  const [isSubmitting, setIsSubmitting] = React.useState(false)
   const form = useForm<ProfileFormValues>({
     resolver: zodResolver(profileFormSchema),
     defaultValues: {
@@ -246,6 +263,9 @@ function ProfileForm({ user, avatarFile, setAvatarPreview }: { user: any, avatar
   }, [form, toast]);
 
   async function onSubmit(data: ProfileFormValues) {
+    if (isSubmitting) return;
+
+    setIsSubmitting(true);
     try {
       // Prepare API payload
       const parsedPhone = data.phone ? parsePhoneNumber(data.phone) : undefined;
@@ -287,6 +307,8 @@ function ProfileForm({ user, avatarFile, setAvatarPreview }: { user: any, avatar
         title: "Update Failed",
         description: error.message || "Failed to update profile",
       })
+    } finally {
+      setIsSubmitting(false);
     }
   }
 
@@ -424,9 +446,9 @@ function ProfileForm({ user, avatarFile, setAvatarPreview }: { user: any, avatar
           )}
         />
 
-        <Button type="submit" variant="gradient">
+        <Button type="submit" variant="gradient" disabled={isSubmitting}>
            <Save className="h-4 w-4 mr-2" />
-           Save Changes
+           {isSubmitting ? 'Saving...' : 'Save Changes'}
         </Button>
       </form>
     </Form>

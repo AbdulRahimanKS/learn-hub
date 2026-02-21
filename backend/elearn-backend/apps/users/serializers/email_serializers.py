@@ -7,7 +7,7 @@ from rest_framework import status
 class EmailSettingSerializer(serializers.ModelSerializer):
     """
     Serializer for EmailSetting model.
-    Handles both SMTP and Outlook configurations.
+    Handles SMTP configuration.
     """
     
     class Meta:
@@ -20,9 +20,6 @@ class EmailSettingSerializer(serializers.ModelSerializer):
             'email_port',
             'email_user',
             'email_password',
-            'client_id',
-            'client_secret',
-            'tenant_id',
             'status',
             'created_at',
             'updated_at',
@@ -30,11 +27,10 @@ class EmailSettingSerializer(serializers.ModelSerializer):
         read_only_fields = ['id', 'created_at', 'updated_at']
         extra_kwargs = {
             'email_password': {'write_only': True},
-            'client_secret': {'write_only': True},
         }
     
     def validate(self, attrs):
-        email_type = attrs.get('email_type')
+        email_type = attrs.get('email_type', 'smtp')
         
         # Validate SMTP configuration
         if email_type == 'smtp':
@@ -43,16 +39,6 @@ class EmailSettingSerializer(serializers.ModelSerializer):
                 if not attrs.get(field):
                     raise ServiceError(
                         detail=f"{field.replace('_', ' ').title()} is required for SMTP configuration",
-                        status_code=status.HTTP_400_BAD_REQUEST
-                    )
-        
-        # Validate Outlook configuration
-        elif email_type == 'outlook':
-            required_fields = ['client_id', 'client_secret', 'tenant_id']
-            for field in required_fields:
-                if not attrs.get(field):
-                    raise ServiceError(
-                        detail=f"{field.replace('_', ' ').title()} is required for Outlook configuration",
                         status_code=status.HTTP_400_BAD_REQUEST
                     )
         
@@ -73,8 +59,6 @@ class EmailSettingResponseSerializer(serializers.ModelSerializer):
             'email_host',
             'email_port',
             'email_user',
-            'client_id',
-            'tenant_id',
             'status',
             'created_at',
             'updated_at',

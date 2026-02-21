@@ -21,21 +21,22 @@ const roleMapping: Record<string, UserRole> = {
 };
 
 export function AuthProvider({ children }: { children: ReactNode }) {
-  const [user, setUser] = useState<User | null>(null);
-
-  // Load user from localStorage on mount and refresh from API
-  useEffect(() => {
-    // 1. Initial load from local storage
+  // Directly initialize user from localStorage so we don't trigger logged-out -> logged-in redirect cascade
+  const [user, setUser] = useState<User | null>(() => {
     const storedUser = localStorage.getItem('user');
-    const token = localStorage.getItem('access_token');
-    
     if (storedUser) {
       try {
-        setUser(JSON.parse(storedUser));
+        return JSON.parse(storedUser);
       } catch (error) {
         localStorage.removeItem('user');
       }
     }
+    return null;
+  });
+
+  // Load user from localStorage on mount and refresh from API
+  useEffect(() => {
+    const token = localStorage.getItem('access_token');
 
     // 2. Fetch fresh profile from API
     if (token) {

@@ -8,7 +8,7 @@ from apps.users.serializers.email_serializers import (
     EmailSettingResponseSerializer
 )
 from apps.users.serializers.auth_serializers import MessageResponseSerializer
-from utils.common import ServiceError, format_success_response
+from utils.common import ServiceError, format_success_response, handle_serializer_errors
 import logging
 
 logger = logging.getLogger(__name__)
@@ -81,7 +81,7 @@ class EmailConfigListView(APIView):
 @extend_schema(
     tags=['Email Configuration'],
     summary="Create or Update Email Configuration",
-    description="Create a new email configuration or update existing one. Supports both SMTP and Outlook.",
+    description="Create a new email configuration or update existing one. Supports SMTP.",
     request=EmailSettingSerializer,
     responses={
         200: EmailSettingResponseSerializer,
@@ -97,30 +97,24 @@ class EmailConfigCreateUpdateView(APIView):
             email = request.data.get('email')
             email_type = request.data.get('email_type')
             
-            # Check if configuration exists for this email
             email_setting = EmailSetting.objects.filter(email=email).first()
             
             if email_setting:
-                # Update existing configuration
                 serializer = EmailSettingSerializer(email_setting, data=request.data, partial=True)
             else:
-                # Create new configuration
                 serializer = EmailSettingSerializer(data=request.data)
             
             if not serializer.is_valid():
                 raise ServiceError(
-                    detail=serializer.errors,
+                    detail=handle_serializer_errors(serializer),
                     status_code=status.HTTP_400_BAD_REQUEST
                 )
             
-            # If this configuration is being set as active, deactivate all others
             if request.data.get('status', False):
                 EmailSetting.objects.exclude(email=email).update(status=False)
             
-            # Save with created_by
             email_setting = serializer.save(created_by=request.user)
             
-            # Return response without sensitive data
             response_serializer = EmailSettingResponseSerializer(email_setting)
             
             return format_success_response(
@@ -161,7 +155,6 @@ class EmailConfigToggleView(APIView):
                     status_code=status.HTTP_404_NOT_FOUND
                 )
             
-            # If enabling this configuration, disable all others
             if not email_setting.status:
                 EmailSetting.objects.exclude(id=pk).update(status=False)
                 email_setting.status = True

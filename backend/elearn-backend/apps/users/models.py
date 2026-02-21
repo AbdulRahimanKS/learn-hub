@@ -171,17 +171,14 @@ class EmailSetting(models.Model):
     """
     EmailSetting model to store email configuration.
     """
-    Choice = (("smtp", "smtp"), ("outlook", "outlook"))
+    Choice = (("smtp", "smtp"),)
     
     email = models.EmailField(unique=True)
-    email_type = models.CharField(max_length=20, choices=Choice)
+    email_type = models.CharField(max_length=20, choices=Choice, default='smtp')
     email_host = models.CharField(max_length=100, null=True, blank=True)
     email_port = models.CharField(max_length=100, null=True, blank=True)
     email_user = models.CharField(max_length=100, null=True, blank=True)
     email_password = models.CharField(max_length=100, null=True, blank=True)
-    client_id = models.CharField(max_length=200, null=True, blank=True)
-    client_secret = models.CharField(max_length=200, null=True, blank=True)
-    tenant_id = models.CharField(max_length=200, null=True, blank=True)
     status = models.BooleanField(default=False)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
