@@ -6,6 +6,7 @@ from apps.users.views.password_reset_views import (
     ResetPasswordView
 )
 from apps.users.views.user_profile_views import UserProfileView
+from apps.users.views.user_list_views import UserListByRoleView
 from apps.users.views.email_config_views import (
     EmailConfigView,
     EmailConfigListView,
@@ -21,6 +22,7 @@ urlpatterns = [
     
     # User Profile
     path("profile/", UserProfileView.as_view(), name="user-profile"),
+    path("list/", UserListByRoleView.as_view(), name="user-list-by-role"),
     
     # Email Configuration
     path("email-config/", EmailConfigView.as_view(), name="email-config"),

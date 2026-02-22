@@ -117,13 +117,13 @@ export default function Progress() {
       </div>
 
       {/* Search & Filter */}
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-center">
-        <div className="relative flex-1 max-w-md">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <div className="relative flex-1">
           <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <Input placeholder="Search students..." className="pl-10" />
         </div>
-        <Button variant="outline">
-          <Filter className="h-4 w-4 mr-2" />
+        <Button variant="outline" className="shrink-0 gap-2">
+          <Filter className="h-4 w-4" />
           Filter by Batch
         </Button>
       </div>

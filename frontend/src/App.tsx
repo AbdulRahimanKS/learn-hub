@@ -13,7 +13,7 @@ import Dashboard from "./pages/Dashboard";
 import Content from "./pages/Content";
 import Assessments from "./pages/Assessments";
 import Users from "./pages/Users";
-import Batches from "./pages/Batches";
+import AdminBatches from "./pages/AdminBatches";
 import Progress from "./pages/Progress";
 import Chat from "./pages/Chat";
 import AdminCourses from "./pages/AdminCourses";
@@ -52,7 +52,7 @@ function AppRoutes() {
       <Route path="/content" element={<ProtectedRoute><Content /></ProtectedRoute>} />
       <Route path="/assessments" element={<ProtectedRoute><Assessments /></ProtectedRoute>} />
       <Route path="/users" element={<ProtectedRoute><Users /></ProtectedRoute>} />
-      <Route path="/batches" element={<ProtectedRoute><Batches /></ProtectedRoute>} />
+      <Route path="/batches" element={<ProtectedRoute><AdminBatches /></ProtectedRoute>} />
       <Route path="/progress" element={<ProtectedRoute><Progress /></ProtectedRoute>} />
       <Route path="/chat" element={<ProtectedRoute><Chat /></ProtectedRoute>} />
       <Route path="/admin-courses" element={<ProtectedRoute><AdminCourses /></ProtectedRoute>} />
