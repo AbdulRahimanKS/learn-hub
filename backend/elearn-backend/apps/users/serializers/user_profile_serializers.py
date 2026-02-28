@@ -93,6 +93,30 @@ class UserProfileUpdateSerializer(serializers.ModelSerializer):
         if value and not value.replace('+', '').replace('-', '').replace(' ', '').isdigit():
             raise ServiceError(detail="Contact number must contain only digits, spaces, hyphens, or plus sign", status_code=status.HTTP_400_BAD_REQUEST)
         return value
+
+    def validate(self, attrs):
+        """Validate uniqueness of phone number."""
+        code = attrs.get('phone_number_code', getattr(self.instance, 'phone_number_code', ''))
+        number = attrs.get('contact_number', getattr(self.instance, 'contact_number', ''))
+
+        if code and number:
+            code = str(code).strip()
+            number = str(number).strip()
+            
+            qs = User.objects.filter(
+                phone_number_code=code,
+                contact_number=number,
+                is_deleted=False,
+            )
+            if self.instance:
+                qs = qs.exclude(pk=self.instance.pk)
+            
+            if qs.exists():
+                raise ServiceError(
+                    detail="A user with this phone number already exists.",
+                    status_code=status.HTTP_400_BAD_REQUEST
+                )
+        return attrs
     
     def update(self, instance, validated_data):
         """

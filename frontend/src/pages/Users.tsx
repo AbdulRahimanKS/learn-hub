@@ -278,22 +278,27 @@ export default function Users() {
     }
   };
 
-  const handleDelete = async (user: ManageUser) => {
+  // Step 1: just open the dialog — no API call yet
+  const openDeleteModal = (user: ManageUser) => {
+    setUserToDelete(user);
+    setDeleteWarnings(null);
+  };
+
+  // Step 2: called when user confirms inside dialog (phase 1 — dependency check)
+  const handleDelete = async () => {
+    if (!userToDelete) return;
     setIsDeleting(true);
     try {
-      const res = await userApi.manageDelete(user.id, false);
-      // 409 → backend returned warnings, show them
-      if (res?.data?.requires_force) {
-        setUserToDelete(user);
-        setDeleteWarnings(res.data.warnings);
-      } else {
-        toast({ title: 'Deleted', description: 'User deleted successfully.', variant: 'success' });
-        fetchUsers();
-      }
+      await userApi.manageDelete(userToDelete.id, false);
+      // No dependencies → deleted cleanly
+      toast({ title: 'Deleted', description: 'User deleted successfully.', variant: 'success' });
+      setUserToDelete(null);
+      setDeleteWarnings(null);
+      fetchUsers();
     } catch (error: any) {
       const data = error?.response?.data?.data;
       if (error?.response?.status === 409 && data?.requires_force) {
-        setUserToDelete(user);
+        // Show warnings in the same dialog — don't close it
         setDeleteWarnings(data.warnings);
       } else {
         toast({ title: 'Error', description: getErrorMessage(error, 'Failed to delete user'), variant: 'destructive' });
@@ -303,6 +308,7 @@ export default function Users() {
     }
   };
 
+  // Step 3: called when user clicks "Proceed Anyway" (phase 2 — force delete)
   const handleForceDelete = async () => {
     if (!userToDelete) return;
     setIsDeleting(true);
@@ -411,8 +417,8 @@ export default function Users() {
                             <div className="relative">
                               <PhoneInput
                                 placeholder="Enter phone number"
-                                value={field.value}
-                                onChange={field.onChange}
+                                value={field.value as any}
+                                onChange={(v) => field.onChange(v || '')}
                                 defaultCountry="IN"
                                 international
                                 className={cn(
@@ -472,8 +478,8 @@ export default function Users() {
                             <div className="relative">
                               <PhoneInput
                                 placeholder="Enter phone number"
-                                value={field.value}
-                                onChange={field.onChange}
+                                value={field.value as any}
+                                onChange={(v) => field.onChange(v || '')}
                                 defaultCountry="IN"
                                 international
                                 className={cn(
@@ -539,7 +545,7 @@ export default function Users() {
                 <AlertDialogCancel disabled={isDeleting}>Cancel</AlertDialogCancel>
                 <AlertDialogAction
                   className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-                  onClick={handleForceDelete}
+                  onClick={deleteWarnings && deleteWarnings.length > 0 ? handleForceDelete : handleDelete}
                   disabled={isDeleting}
                 >
                   {isDeleting ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
@@ -732,7 +738,7 @@ export default function Users() {
                             <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground" onClick={() => openEditModal(student)} title="Edit Student">
                               <Edit className="h-4 w-4" />
                             </Button>
-                            <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive hover:text-destructive" onClick={() => handleDelete(student)} title="Delete Student" disabled={isDeleting}>
+                            <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive hover:text-destructive" onClick={() => openDeleteModal(student)} title="Delete Student" disabled={isDeleting}>
                               <Trash2 className="h-4 w-4" />
                             </Button>
                           </div>
@@ -816,7 +822,7 @@ export default function Users() {
                                 <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground" onClick={() => openEditModal(teacher)} title="Edit Teacher">
                                     <Edit className="h-4 w-4" />
                                 </Button>
-                                <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive hover:text-destructive" onClick={() => handleDelete(teacher)} title="Delete Teacher" disabled={isDeleting}>
+                                <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive hover:text-destructive" onClick={() => openDeleteModal(teacher)} title="Delete Teacher" disabled={isDeleting}>
                                     <Trash2 className="h-4 w-4" />
                                 </Button>
                             </div>

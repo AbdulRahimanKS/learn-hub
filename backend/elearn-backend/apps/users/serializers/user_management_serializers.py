@@ -126,7 +126,7 @@ class UserUpdateSerializer(serializers.Serializer):
                 qs = qs.exclude(pk=user_instance.pk)
             if qs.exists():
                 raise ServiceError(
-                    detail="Another user with this phone number already exists.",
+                    detail="A user with this phone number already exists.",
                     status_code=status.HTTP_400_BAD_REQUEST
                 )
 

@@ -20,7 +20,6 @@ from apps.users.serializers.user_management_serializers import (
 from utils.permissions import IsSuperAdminOrAdmin
 from utils.common import format_success_response, handle_serializer_errors, ServiceError
 from utils.pagination import CustomPageNumberPagination
-from utils.email_utils import send_email
 from apps.courses.models import Batch, BatchEnrollment
 from utils.constants import UserTypeConstants
 

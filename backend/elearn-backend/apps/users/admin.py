@@ -8,10 +8,10 @@ class CustomUserAdmin(UserAdmin):
     Custom User Admin to handle the custom User model fields.
     """
     ordering = ('email',)
-    list_display = ('email', 'fullname', 'user_type', 'status', 'is_staff', 'is_active')
+    list_display = ('email', 'fullname', 'user_type', 'status', 'is_deleted', 'is_active', 'is_staff')
     search_fields = ('email', 'fullname', 'user_code')
-    list_filter = ('status', 'is_active', 'user_type', 'is_staff')
-    readonly_fields = ('user_code', 'created_at', 'updated_at')
+    list_filter = ('status', 'is_deleted', 'is_active', 'user_type', 'is_staff')
+    readonly_fields = ('user_code', 'created_at', 'updated_at', 'deleted_at')
 
     fieldsets = (
         (None, {'fields': ('email', 'password')}),
@@ -19,6 +19,11 @@ class CustomUserAdmin(UserAdmin):
         (_('Role'), {'fields': ('user_type',)}),
         (_('Permissions'), {
             'fields': ('status', 'is_active', 'is_staff', 'is_superuser', 'groups', 'user_permissions'),
+        }),
+        (_('Soft Delete'), {
+            'fields': ('is_deleted', 'deleted_at'),
+            'classes': ('collapse',),
+            'description': 'Fields managed automatically by the soft-delete flow. Do not edit manually unless necessary.',
         }),
         (_('Important dates'), {'fields': ('last_login', 'created_at', 'updated_at')}),
     )
