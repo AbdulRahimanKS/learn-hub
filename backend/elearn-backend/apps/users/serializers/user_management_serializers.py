@@ -53,7 +53,7 @@ class UserCreateSerializer(serializers.Serializer):
 
     def validate_email(self, value):
         email = value.lower()
-        if User.objects.filter(email__iexact=email).exists():
+        if User.objects.filter(email__iexact=email, is_deleted=False).exists():
             raise ServiceError(
                 detail="A user with this email already exists.",
                 status_code=status.HTTP_400_BAD_REQUEST
@@ -85,6 +85,7 @@ class UserCreateSerializer(serializers.Serializer):
         if User.objects.filter(
             phone_number_code=code,
             contact_number=number,
+            is_deleted=False,
         ).exists():
             raise ServiceError(
                 detail="A user with this phone number already exists.",
@@ -119,6 +120,7 @@ class UserUpdateSerializer(serializers.Serializer):
             qs = User.objects.filter(
                 phone_number_code=code,
                 contact_number=number,
+                is_deleted=False,
             )
             if user_instance:
                 qs = qs.exclude(pk=user_instance.pk)

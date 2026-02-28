@@ -76,8 +76,9 @@ class User(AbstractBaseUser, PermissionsMixin):
     Custom User model using email as the primary identifier.
     """
     class UserStatus(models.TextChoices):
-        ACTIVE = "ACTIVE", "Active"
+        ACTIVE   = "ACTIVE",   "Active"
         INACTIVE = "INACTIVE", "Inactive"
+        DELETED  = "DELETED",  "Deleted"
 
     user_code = models.CharField(max_length=20, unique=True, editable=False)
     email = models.EmailField(_('Email Address'), unique=True)
@@ -100,6 +101,9 @@ class User(AbstractBaseUser, PermissionsMixin):
         choices=UserStatus.choices,
         default=UserStatus.ACTIVE
     )
+
+    is_deleted  = models.BooleanField(default=False)
+    deleted_at  = models.DateTimeField(null=True, blank=True)
 
     created_by = models.ForeignKey('self', on_delete=models.SET_NULL, null=True, blank=True, related_name='created_users')
     updated_by = models.ForeignKey('self', on_delete=models.SET_NULL, null=True, blank=True, related_name='updated_users')
@@ -146,6 +150,17 @@ class User(AbstractBaseUser, PermissionsMixin):
             code = f"USR{uuid.uuid4().hex[:8].upper()}"
             if not User.objects.filter(user_code=code).exists():
                 return code
+
+    def soft_delete(self):
+        import time
+        ts = int(time.time())
+        
+        self.email     = f"{self.email}__del_{ts}"
+        self.is_deleted = True
+        self.deleted_at = timezone.now()
+        self.is_active  = False
+        self.status     = self.UserStatus.DELETED
+        self.save()
 
 
 # Profile

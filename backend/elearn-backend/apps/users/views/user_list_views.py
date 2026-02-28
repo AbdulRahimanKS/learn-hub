@@ -29,7 +29,7 @@ class UserListByRoleView(APIView):
         responses={200: OpenApiTypes.OBJECT}
     )
     def get(self, request):
-        qs = User.objects.exclude(
+        qs = User.objects.filter(is_deleted=False).exclude(
             user_type__name=UserTypeConstants.SUPERADMIN
         ).select_related('user_type')
 

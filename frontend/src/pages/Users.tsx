@@ -1,6 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
 import { DashboardLayout } from '@/components/layout/DashboardLayout';
-import { useNavigate } from 'react-router-dom';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -40,13 +39,14 @@ import {
   MoreVertical,
   Users as UsersIcon,
   GraduationCap,
-  MessageSquare,
   UserCheck,
   Edit,
   Power,
+  Trash2,
   Loader2,
   ChevronLeft,
   ChevronRight,
+  AlertTriangle,
 } from 'lucide-react';
 import { Textarea } from '@/components/ui/textarea';
 import {
@@ -133,8 +133,12 @@ export default function Users() {
   const [isAddUserOpen, setIsAddUserOpen] = useState(false);
   const [isEditUserOpen, setIsEditUserOpen] = useState(false);
   const [userToEdit, setUserToEdit] = useState<ManageUser | null>(null);
+  // Delete state
+  const [userToDelete, setUserToDelete] = useState<ManageUser | null>(null);
+  const [deleteWarnings, setDeleteWarnings] = useState<{ type: string; message: string; batches: string[] }[] | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
 
-  const navigate = useNavigate();
+
   const { toast } = useToast();
 
   const form = useForm<AddUserFormValues>({
@@ -180,7 +184,7 @@ export default function Users() {
           is_active: filterActive === 'all' ? undefined : filterActive === 'active',
           paginate: true,
           page: currentPage,
-          page_size: activeTab === 'teachers' ? 6 : 7,
+          page_size: 6,
         });
         if (controller.signal.aborted) return;
         const data = response as PaginatedManageUsers;
@@ -271,6 +275,47 @@ export default function Users() {
         fetchUsers();
     } catch (error: any) {
         toast({ title: 'Error', description: getErrorMessage(error, 'Failed to toggle status'), variant: 'destructive' });
+    }
+  };
+
+  const handleDelete = async (user: ManageUser) => {
+    setIsDeleting(true);
+    try {
+      const res = await userApi.manageDelete(user.id, false);
+      // 409 → backend returned warnings, show them
+      if (res?.data?.requires_force) {
+        setUserToDelete(user);
+        setDeleteWarnings(res.data.warnings);
+      } else {
+        toast({ title: 'Deleted', description: 'User deleted successfully.', variant: 'success' });
+        fetchUsers();
+      }
+    } catch (error: any) {
+      const data = error?.response?.data?.data;
+      if (error?.response?.status === 409 && data?.requires_force) {
+        setUserToDelete(user);
+        setDeleteWarnings(data.warnings);
+      } else {
+        toast({ title: 'Error', description: getErrorMessage(error, 'Failed to delete user'), variant: 'destructive' });
+      }
+    } finally {
+      setIsDeleting(false);
+    }
+  };
+
+  const handleForceDelete = async () => {
+    if (!userToDelete) return;
+    setIsDeleting(true);
+    try {
+      await userApi.manageDelete(userToDelete.id, true);
+      toast({ title: 'Deleted', description: 'User deleted successfully.', variant: 'success' });
+      setUserToDelete(null);
+      setDeleteWarnings(null);
+      fetchUsers();
+    } catch (error: any) {
+      toast({ title: 'Error', description: getErrorMessage(error, 'Failed to delete user'), variant: 'destructive' });
+    } finally {
+      setIsDeleting(false);
     }
   };
 
@@ -455,6 +500,55 @@ export default function Users() {
             </DialogContent>
           </Dialog>
 
+          {/* Delete — Warning / Confirmation Dialog */}
+          <AlertDialog open={!!userToDelete} onOpenChange={(open) => { if (!open) { setUserToDelete(null); setDeleteWarnings(null); } }}>
+            <AlertDialogContent>
+              <AlertDialogHeader>
+                <AlertDialogTitle className="flex items-center gap-2 text-destructive">
+                  <AlertTriangle className="h-5 w-5" />
+                  {deleteWarnings && deleteWarnings.length > 0 ? 'Dependency Warning' : 'Confirm Deletion'}
+                </AlertDialogTitle>
+                <AlertDialogDescription asChild>
+                  <div className="space-y-3">
+                    {deleteWarnings && deleteWarnings.length > 0 ? (
+                      <>
+                        <p className="text-sm text-muted-foreground">
+                          Deleting <strong>{userToDelete?.fullname}</strong> may cause inconsistencies. Please review the dependencies below before proceeding.
+                        </p>
+                        {deleteWarnings.map((w, i) => (
+                          <div key={i} className="rounded-lg border border-destructive/30 bg-destructive/5 p-3">
+                            <p className="text-sm font-medium text-destructive">{w.message}</p>
+                            <ul className="mt-1 list-inside list-disc text-xs text-muted-foreground">
+                              {w.batches.map((b) => <li key={b}>{b}</li>)}
+                            </ul>
+                          </div>
+                        ))}
+                        <p className="text-xs text-muted-foreground">
+                          If you proceed, the user will be permanently removed from active records. Their email will be freed for re-use.
+                        </p>
+                      </>
+                    ) : (
+                      <p className="text-sm text-muted-foreground">
+                        Are you sure you want to delete <strong>{userToDelete?.fullname}</strong>? This action cannot be undone.
+                      </p>
+                    )}
+                  </div>
+                </AlertDialogDescription>
+              </AlertDialogHeader>
+              <AlertDialogFooter>
+                <AlertDialogCancel disabled={isDeleting}>Cancel</AlertDialogCancel>
+                <AlertDialogAction
+                  className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                  onClick={handleForceDelete}
+                  disabled={isDeleting}
+                >
+                  {isDeleting ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
+                  {deleteWarnings && deleteWarnings.length > 0 ? 'Proceed Anyway' : 'Yes, Delete'}
+                </AlertDialogAction>
+              </AlertDialogFooter>
+            </AlertDialogContent>
+          </AlertDialog>
+
         </div>
 
         {/* Stats */}
@@ -638,8 +732,8 @@ export default function Users() {
                             <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground" onClick={() => openEditModal(student)} title="Edit Student">
                               <Edit className="h-4 w-4" />
                             </Button>
-                            <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground" onClick={() => navigate(`/chat?user=${student.id}`)} title="Message Student">
-                              <MessageSquare className="h-4 w-4" />
+                            <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive hover:text-destructive" onClick={() => handleDelete(student)} title="Delete Student" disabled={isDeleting}>
+                              <Trash2 className="h-4 w-4" />
                             </Button>
                           </div>
                         </TableCell>
@@ -718,9 +812,14 @@ export default function Users() {
                                     {teacher.is_active ? 'Active' : 'Inactive'}
                                 </Badge>
                             </div>
-                            <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground" onClick={() => openEditModal(teacher)} title="Edit Teacher">
-                                <Edit className="h-4 w-4" />
-                            </Button>
+                            <div className="flex gap-1">
+                                <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground" onClick={() => openEditModal(teacher)} title="Edit Teacher">
+                                    <Edit className="h-4 w-4" />
+                                </Button>
+                                <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive hover:text-destructive" onClick={() => handleDelete(teacher)} title="Delete Teacher" disabled={isDeleting}>
+                                    <Trash2 className="h-4 w-4" />
+                                </Button>
+                            </div>
                         </div>
                     </CardContent>
                     </Card>

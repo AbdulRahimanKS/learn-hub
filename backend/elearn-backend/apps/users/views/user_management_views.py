@@ -44,7 +44,9 @@ class UserManagementView(APIView):
         responses={200: OpenApiTypes.OBJECT}
     )
     def get(self, request):
-        base_qs = User.objects.exclude(user_type__name__in=[UserTypeConstants.ADMIN, UserTypeConstants.SUPERADMIN])
+        base_qs = User.objects.filter(is_deleted=False).exclude(
+            user_type__name__in=[UserTypeConstants.ADMIN, UserTypeConstants.SUPERADMIN]
+        )
         
         total_teachers = base_qs.filter(user_type__name__iexact=UserTypeConstants.TEACHER).count()
         total_students = base_qs.filter(user_type__name__iexact=UserTypeConstants.STUDENT).count()
@@ -167,7 +169,7 @@ class UserManagementDetailView(APIView):
     permission_classes = [IsSuperAdminOrAdmin]
 
     def _get_user(self, pk):
-        user = User.objects.filter(id=pk).exclude(
+        user = User.objects.filter(id=pk, is_deleted=False).exclude(
             user_type__name__in=[UserTypeConstants.ADMIN, UserTypeConstants.SUPERADMIN]
         ).select_related('user_type').first()
         if not user:
@@ -214,4 +216,74 @@ class UserManagementDetailView(APIView):
             raise
         except Exception as e:
             logger.error(f"Error updating user {pk}: {e}")
+            raise ServiceError(detail=str(e), status_code=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+    @extend_schema(
+        summary="Soft-delete a user",
+        responses={200: OpenApiTypes.OBJECT}
+    )
+    def delete(self, request, pk):
+        try:
+            user = self._get_user(pk)
+            role = user.user_type.name if user.user_type else ''
+            force = str(request.data.get('force', 'false')).lower() == 'true'
+
+            # --- dependency check ---
+            warnings = []
+
+            if role == UserTypeConstants.TEACHER:
+                primary_batches = Batch.objects.filter(
+                    teacher=user, is_deleted=False
+                ).values_list('name', flat=True)
+                co_batches = Batch.objects.filter(
+                    co_teachers=user, is_deleted=False
+                ).values_list('name', flat=True)
+                if primary_batches:
+                    warnings.append({
+                        'type': 'primary_teacher',
+                        'message': f"This teacher is the primary instructor for {len(primary_batches)} batch(es).",
+                        'batches': list(primary_batches),
+                    })
+                if co_batches:
+                    warnings.append({
+                        'type': 'co_teacher',
+                        'message': f"This teacher is a co-instructor in {len(co_batches)} batch(es).",
+                        'batches': list(co_batches),
+                    })
+
+            elif role == UserTypeConstants.STUDENT:
+                enrollments = BatchEnrollment.objects.filter(
+                    student=user
+                ).exclude(
+                    status__in=['dropped', 'completed']
+                ).select_related('batch')
+                if enrollments.exists():
+                    batch_names = [e.batch.name for e in enrollments]
+                    warnings.append({
+                        'type': 'enrollment',
+                        'message': f"This student has {len(batch_names)} active enrollment(s).",
+                        'batches': batch_names,
+                    })
+
+            if warnings and not force:
+                # Return 409 with metadata — frontend must confirm with force=true
+                return format_success_response(
+                    message="User has active dependencies. Pass force=true to proceed.",
+                    data={'warnings': warnings, 'requires_force': True},
+                    status_code=status.HTTP_409_CONFLICT,
+                )
+
+            # --- perform soft delete ---
+            user.soft_delete()
+            logger.info(f"User {pk} soft-deleted by admin {request.user.id}")
+
+            return format_success_response(
+                message="User deleted successfully.",
+                data=None,
+            )
+
+        except ServiceError:
+            raise
+        except Exception as e:
+            logger.error(f"Error deleting user {pk}: {e}")
             raise ServiceError(detail=str(e), status_code=status.HTTP_500_INTERNAL_SERVER_ERROR)

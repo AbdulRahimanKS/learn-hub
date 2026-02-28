@@ -210,6 +210,13 @@ export const userApi = {
     return response.data;
   },
 
+  manageDelete: async (id: number, force = false) => {
+    const response = await apiClient.delete<any>(`/api/users/v1/manage/${id}/`, {
+      data: { force },
+    });
+    return response.data;
+  },
+
   manageSendCredentials: async (id: number) => {
     const response = await apiClient.post<any>(`/api/users/v1/manage/${id}/send-credentials/`);
     return response.data;

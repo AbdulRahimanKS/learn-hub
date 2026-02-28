@@ -43,7 +43,7 @@ class LoginView(APIView):
         expected_role = serializer.validated_data.get("expected_role", "")
 
         try:
-            user = User.objects.filter(email=email).first()
+            user = User.objects.filter(email=email, is_deleted=False).first()
             if not user:
                 raise ServiceError(
                     detail="Email not found",

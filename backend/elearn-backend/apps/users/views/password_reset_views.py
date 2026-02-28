@@ -43,7 +43,7 @@ class RequestPasswordResetView(APIView):
         email = serializer.validated_data.get('email').lower()
 
         try:
-            user = User.objects.filter(email=email).first()
+            user = User.objects.filter(email=email, is_deleted=False).first()
             if not user:
                 raise ServiceError(
                     detail="No account found with this email address",
