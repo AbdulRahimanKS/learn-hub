@@ -1,16 +1,13 @@
-"""
-User List API View for fetching users by role (e.g., for batch teacher dropdowns).
-"""
-from rest_framework import status
 from rest_framework.views import APIView
 from django.db.models import Q
 from drf_spectacular.utils import extend_schema, OpenApiParameter
 from drf_spectacular.types import OpenApiTypes
 
 from apps.users.models import User
-from utils.permissions import IsAdminOrTeacher
-from utils.common import format_success_response, ServiceError
+from utils.permissions import IsSuperAdminAdminOrTeacher
+from utils.common import format_success_response
 from utils.pagination import CustomPageNumberPagination
+from utils.constants import UserTypeConstants
 import logging
 
 logger = logging.getLogger(__name__)
@@ -18,11 +15,7 @@ logger = logging.getLogger(__name__)
 
 @extend_schema(tags=["Users"])
 class UserListByRoleView(APIView):
-    """
-    Returns a lightweight list of users filtered by role.
-    Used for dropdowns in forms (e.g., selecting teachers for a batch).
-    """
-    permission_classes = [IsAdminOrTeacher]
+    permission_classes = [IsSuperAdminAdminOrTeacher]
 
     @extend_schema(
         summary="List users by role",
@@ -33,9 +26,12 @@ class UserListByRoleView(APIView):
             OpenApiParameter("page", OpenApiTypes.INT, description="Page number (when paginated)"),
             OpenApiParameter("page_size", OpenApiTypes.INT, description="Results per page (when paginated)"),
         ],
+        responses={200: OpenApiTypes.OBJECT}
     )
     def get(self, request):
-        qs = User.objects.filter(is_active=True, is_deleted=False).select_related('user_type')
+        qs = User.objects.exclude(
+            user_type__name=UserTypeConstants.SUPERADMIN
+        ).select_related('user_type')
 
         role = request.query_params.get('role', '').strip()
         if role:
@@ -77,7 +73,6 @@ class UserListByRoleView(APIView):
                 }
             )
         else:
-            limit = 50
             data = [
                 {
                     'id': u.id,
@@ -86,6 +81,6 @@ class UserListByRoleView(APIView):
                     'user_code': u.user_code,
                     'role': u.user_type.name if u.user_type else None,
                 }
-                for u in qs[:limit]
+                for u in qs
             ]
             return format_success_response(message="Users retrieved successfully", data=data)

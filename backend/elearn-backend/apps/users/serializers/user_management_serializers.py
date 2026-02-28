@@ -6,6 +6,7 @@ from rest_framework import serializers
 from rest_framework import status
 from apps.users.models import User, UserType, Profile
 from utils.common import ServiceError
+from utils.constants import UserTypeConstants
 
 
 class UserManagementSerializer(serializers.ModelSerializer):
@@ -46,14 +47,13 @@ class UserCreateSerializer(serializers.Serializer):
     """Serializer for creating a new Teacher or Student account."""
     fullname = serializers.CharField(max_length=255)
     email = serializers.EmailField()
-    role = serializers.ChoiceField(choices=['Teacher', 'Student'])
+    role = serializers.ChoiceField(choices=[UserTypeConstants.TEACHER, UserTypeConstants.STUDENT])
     phone_number_code = serializers.CharField(max_length=10)
     contact_number = serializers.CharField(max_length=20)
-    batch_id = serializers.IntegerField(required=False, allow_null=True)
 
     def validate_email(self, value):
         email = value.lower()
-        if User.objects.filter(email=email, is_deleted=False).exists():
+        if User.objects.filter(email__iexact=email).exists():
             raise ServiceError(
                 detail="A user with this email already exists.",
                 status_code=status.HTTP_400_BAD_REQUEST
@@ -85,7 +85,6 @@ class UserCreateSerializer(serializers.Serializer):
         if User.objects.filter(
             phone_number_code=code,
             contact_number=number,
-            is_deleted=False,
         ).exists():
             raise ServiceError(
                 detail="A user with this phone number already exists.",
@@ -120,7 +119,6 @@ class UserUpdateSerializer(serializers.Serializer):
             qs = User.objects.filter(
                 phone_number_code=code,
                 contact_number=number,
-                is_deleted=False,
             )
             if user_instance:
                 qs = qs.exclude(pk=user_instance.pk)

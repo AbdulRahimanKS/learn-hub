@@ -9,17 +9,17 @@ User Types:
   - Student    : Learner.
 """
 from rest_framework.permissions import BasePermission
-
+from utils.constants import UserTypeConstants
 
 def _user_role(request):
-    """Helper: safely return the lowercase role name for the authenticated user."""
+    """Helper: safely return the role name for the authenticated user."""
     if (
         request.user
         and request.user.is_authenticated
         and hasattr(request.user, 'user_type')
         and request.user.user_type
     ):
-        return request.user.user_type.name.lower()
+        return request.user.user_type.name
     return None
 
 
@@ -35,7 +35,7 @@ class IsSuperAdmin(BasePermission):
     message = "You must be a Super Admin to perform this action."
 
     def has_permission(self, request, view):
-        return _user_role(request) == 'superadmin'
+        return _user_role(request) == UserTypeConstants.SUPERADMIN
 
 
 class IsAdmin(BasePermission):
@@ -45,7 +45,7 @@ class IsAdmin(BasePermission):
     message = "You must be an Admin to perform this action."
 
     def has_permission(self, request, view):
-        return _user_role(request) == 'admin'
+        return _user_role(request) == UserTypeConstants.ADMIN
 
 
 class IsTeacher(BasePermission):
@@ -55,7 +55,7 @@ class IsTeacher(BasePermission):
     message = "You must be a Teacher to perform this action."
 
     def has_permission(self, request, view):
-        return _user_role(request) == 'teacher'
+        return _user_role(request) == UserTypeConstants.TEACHER
 
 
 class IsStudent(BasePermission):
@@ -65,7 +65,7 @@ class IsStudent(BasePermission):
     message = "You must be a Student to perform this action."
 
     def has_permission(self, request, view):
-        return _user_role(request) == 'student'
+        return _user_role(request) == UserTypeConstants.STUDENT
 
 
 # ---------------------------------------------------------------------------
@@ -80,7 +80,7 @@ class IsSuperAdminOrAdmin(BasePermission):
     message = "You must be a Super Admin or Admin to perform this action."
 
     def has_permission(self, request, view):
-        return _user_role(request) in ['superadmin', 'admin']
+        return _user_role(request) in [UserTypeConstants.SUPERADMIN, UserTypeConstants.ADMIN]
 
 
 class IsAdminOrTeacher(BasePermission):
@@ -90,7 +90,17 @@ class IsAdminOrTeacher(BasePermission):
     message = "You must be an Admin or Teacher to perform this action."
 
     def has_permission(self, request, view):
-        return _user_role(request) in ['admin', 'teacher']
+        return _user_role(request) in [UserTypeConstants.ADMIN, UserTypeConstants.TEACHER]
+
+
+class IsSuperAdminAdminOrTeacher(BasePermission):
+    """
+    Allow access to SuperAdmin, Admin, or Teacher users.
+    """
+    message = "You must be a Super Admin, Admin, or Teacher to perform this action."
+
+    def has_permission(self, request, view):
+        return _user_role(request) in [UserTypeConstants.SUPERADMIN, UserTypeConstants.ADMIN, UserTypeConstants.TEACHER]
 
 
 class IsTeacherOrStudent(BasePermission):
@@ -100,7 +110,7 @@ class IsTeacherOrStudent(BasePermission):
     message = "You must be a Teacher or Student to perform this action."
 
     def has_permission(self, request, view):
-        return _user_role(request) in ['teacher', 'student']
+        return _user_role(request) in [UserTypeConstants.TEACHER, UserTypeConstants.STUDENT]
 
 
 class IsAuthenticated(BasePermission):
@@ -111,7 +121,12 @@ class IsAuthenticated(BasePermission):
     message = "You must be authenticated to perform this action."
 
     def has_permission(self, request, view):
-        return _user_role(request) in ['superadmin', 'admin', 'teacher', 'student']
+        return _user_role(request) in [
+            UserTypeConstants.SUPERADMIN,
+            UserTypeConstants.ADMIN,
+            UserTypeConstants.TEACHER,
+            UserTypeConstants.STUDENT
+        ]
 
 
 # ---------------------------------------------------------------------------
@@ -128,7 +143,7 @@ class IsOwnerOrAdmin(BasePermission):
     def has_object_permission(self, request, view, obj):
         role = _user_role(request)
         # SuperAdmin and Admin can access any object
-        if role in ['superadmin', 'admin']:
+        if role in [UserTypeConstants.SUPERADMIN, UserTypeConstants.ADMIN]:
             return True
 
         # Check if the request user is the owner
@@ -150,7 +165,7 @@ class IsOwnerOrTeacher(BasePermission):
     def has_object_permission(self, request, view, obj):
         role = _user_role(request)
         # Teacher (and SuperAdmin for safety) can access any object
-        if role in ['superadmin', 'teacher']:
+        if role in [UserTypeConstants.SUPERADMIN, UserTypeConstants.TEACHER]:
             return True
 
         # Check if the request user is the owner

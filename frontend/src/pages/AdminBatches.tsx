@@ -495,7 +495,7 @@ export default function AdminBatches() {
             <Loader2 className="h-8 w-8 animate-spin text-primary" />
           </div>
         ) : batches.length === 0 ? (
-          <div className="text-center py-12 text-muted-foreground border-2 border-dashed border-border rounded-xl">
+          <div className="text-center py-12 text-muted-foreground border-2 border-dashed border-muted-foreground/30 rounded-xl">
             <GraduationCap className="h-12 w-12 mx-auto mb-4 opacity-50" />
             <h3 className="text-lg font-medium mb-1">
               {searchQuery ? 'No matching batches' : 'No batches yet'}

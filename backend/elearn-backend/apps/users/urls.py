@@ -10,7 +10,6 @@ from apps.users.views.user_list_views import UserListByRoleView
 from apps.users.views.user_management_views import (
     UserManagementView,
     UserManagementDetailView,
-    UserSendCredentialsView,
 )
 from apps.users.views.email_config_views import (
     EmailConfigView,
@@ -32,7 +31,6 @@ urlpatterns = [
     # Admin User Management
     path("manage/", UserManagementView.as_view(), name="user-manage-list-create"),
     path("manage/<int:pk>/", UserManagementDetailView.as_view(), name="user-manage-detail"),
-    path("manage/<int:pk>/send-credentials/", UserSendCredentialsView.as_view(), name="user-send-credentials"),
     
     # Email Configuration
     path("email-config/", EmailConfigView.as_view(), name="email-config"),

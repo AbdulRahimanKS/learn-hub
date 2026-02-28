@@ -118,7 +118,7 @@ class Command(BaseCommand):
             password=password,
             fullname=fullname,
             user_type=admin_type,
-            is_staff=True,
+            is_staff=False,
             is_active=True,
             status=User.UserStatus.ACTIVE,
         )

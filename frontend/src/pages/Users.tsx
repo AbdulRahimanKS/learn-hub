@@ -38,20 +38,26 @@ import {
   Search,
   Filter,
   MoreVertical,
-  Edit,
-  Trash2,
-  Mail,
   Users as UsersIcon,
   GraduationCap,
-  UserCheck,
   MessageSquare,
+  UserCheck,
+  Edit,
+  Power,
   Loader2,
   ChevronLeft,
   ChevronRight,
 } from 'lucide-react';
 import { Textarea } from '@/components/ui/textarea';
-import ReactQuill from 'react-quill';
-import 'react-quill/dist/quill.snow.css';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select"
+import { Switch } from '@/components/ui/switch';
+
 import { cn } from '@/lib/utils';
 import PhoneInput, { isValidPhoneNumber, parsePhoneNumber } from 'react-phone-number-input';
 import 'react-phone-number-input/style.css';
@@ -78,6 +84,13 @@ const addUserFormSchema = z.object({
 
 type AddUserFormValues = z.infer<typeof addUserFormSchema>;
 
+const editUserFormSchema = z.object({
+  name: z.string().min(2, { message: "Full name must be at least 2 characters." }),
+  phone: z.string().min(1, { message: "Phone number is required" }).refine((val) => val && isValidPhoneNumber(val), { message: "Please enter a valid phone number" })
+});
+
+type EditUserFormValues = z.infer<typeof editUserFormSchema>;
+
 // Debounce hook
 export function useDebounce<T>(value: T, delay?: number): T {
   const [debouncedValue, setDebouncedValue] = useState<T>(value);
@@ -88,13 +101,29 @@ export function useDebounce<T>(value: T, delay?: number): T {
   return debouncedValue;
 }
 
+// Robustly extract error message from various Django/DRF error shapes
+function getErrorMessage(error: any, fallback = 'Something went wrong'): string {
+  const data = error?.response?.data;
+  if (!data) return fallback;
+  // DRF ServiceError / APIException → { detail: "..." }
+  if (typeof data.detail === 'string') return data.detail;
+  // DRF validation errors bundled as an object → { field: ["msg"] }
+  if (typeof data.detail === 'object') return JSON.stringify(data.detail);
+  // Some backends return { message: "..." }
+  if (typeof data.message === 'string') return data.message;
+  // Plain string body
+  if (typeof data === 'string') return data;
+  return fallback;
+}
+
 export default function Users() {
   const [activeTab, setActiveTab] = useState('students');
   const [searchQuery, setSearchQuery] = useState('');
+  const [filterActive, setFilterActive] = useState('all');
   const debouncedSearch = useDebounce(searchQuery, 500);
   
   const [users, setUsers] = useState<ManageUser[]>([]);
-  const [summary, setSummary] = useState<ManageUserSummary>({ total_teachers: 0, total_students: 0, total_active_students: 0 });
+  const [summary, setSummary] = useState<ManageUserSummary>({ total_teachers: 0, total_students: 0, total_active_students: 0, total_active_teachers: 0 });
   
   const [currentPage, setCurrentPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
@@ -102,11 +131,8 @@ export default function Users() {
   const [submitting, setSubmitting] = useState(false);
   
   const [isAddUserOpen, setIsAddUserOpen] = useState(false);
-  const [userToDelete, setUserToDelete] = useState<number | null>(null);
-  
-  const [isEmailModalOpen, setIsEmailModalOpen] = useState(false);
-  const [selectedStudentEmail, setSelectedStudentEmail] = useState<any>(null);
-  const [emailBody, setEmailBody] = useState('');
+  const [isEditUserOpen, setIsEditUserOpen] = useState(false);
+  const [userToEdit, setUserToEdit] = useState<ManageUser | null>(null);
 
   const navigate = useNavigate();
   const { toast } = useToast();
@@ -124,36 +150,56 @@ export default function Users() {
 
   const watchedUserType = form.watch("userType");
 
-  const fetchUsers = useCallback(async () => {
-    setLoading(true);
-    try {
-      const response = await userApi.manageList({
-        role: activeTab === 'students' ? 'Student' : 'Teacher',
-        search: debouncedSearch,
-        paginate: true,
-        page: currentPage,
-        page_size: 10
-      });
-      const data = response as PaginatedManageUsers;
-      setUsers(data.data || []);
-      setTotalPages(data.total_pages || 1);
-      if (data.summary) {
-        setSummary(data.summary);
-      }
-    } catch (error: any) {
-       toast({ title: 'Error', description: error.response?.data?.detail || 'Failed to fetch users', variant: 'destructive' });
-    } finally {
-      setLoading(false);
-    }
-  }, [activeTab, debouncedSearch, currentPage, toast]);
+  const editForm = useForm<EditUserFormValues>({
+    resolver: zodResolver(editUserFormSchema),
+    mode: "onChange",
+  });
 
-  useEffect(() => {
-    fetchUsers();
-  }, [fetchUsers]);
-  
+  // A stable ref so imperative callers (onSubmit, toggleStatus etc.) can re-trigger
+  // the reactive effect without needing fetchUsers in their own dep arrays.
+  const triggerRefresh = () => setRefreshKey(k => k + 1);
+  const [refreshKey, setRefreshKey] = useState(0);
+
+  // Reset to page 1 whenever the tab, search, or filter changes
   useEffect(() => {
     setCurrentPage(1);
-  }, [activeTab, debouncedSearch]);
+    setUsers([]);
+  }, [activeTab, debouncedSearch, filterActive]);
+
+  // Main data-fetching effect — includes an AbortController so that if the tab
+  // switches while a request is in-flight, the stale response is discarded.
+  useEffect(() => {
+    const controller = new AbortController();
+    setLoading(true);
+
+    (async () => {
+      try {
+        const response = await userApi.manageList({
+          role: activeTab === 'students' ? 'Student' : 'Teacher',
+          search: debouncedSearch,
+          is_active: filterActive === 'all' ? undefined : filterActive === 'active',
+          paginate: true,
+          page: currentPage,
+          page_size: activeTab === 'teachers' ? 6 : 7,
+        });
+        if (controller.signal.aborted) return;
+        const data = response as PaginatedManageUsers;
+        setUsers(data.data || []);
+        setTotalPages(data.total_pages || 1);
+        if (data.summary) setSummary(data.summary);
+      } catch (error: any) {
+        if (controller.signal.aborted) return;
+        toast({ title: 'Error', description: getErrorMessage(error, 'Failed to fetch users'), variant: 'destructive' });
+      } finally {
+        if (!controller.signal.aborted) setLoading(false);
+      }
+    })();
+
+    return () => controller.abort();
+  // refreshKey is the manual-refresh escape hatch; all other deps drive normal reactive fetching
+  }, [activeTab, debouncedSearch, filterActive, currentPage, refreshKey, toast]);
+
+  const fetchUsers = () => triggerRefresh();
 
 
   const onSubmit = async (data: AddUserFormValues) => {
@@ -177,21 +223,54 @@ export default function Users() {
         form.reset();
         fetchUsers();
     } catch (error: any) {
-         toast({ title: 'Error', description: error.response?.data?.detail || 'Failed to create user', variant: 'destructive' });
+         toast({ title: 'Error', description: getErrorMessage(error, 'Failed to create user'), variant: 'destructive' });
     } finally {
         setSubmitting(false);
     }
   };
 
-  const handleDelete = async () => {
-    if (!userToDelete) return;
+  const openEditModal = (user: ManageUser) => {
+    setUserToEdit(user);
+    editForm.reset({
+      name: user.fullname,
+      phone: `${user.phone_number_code}${user.contact_number}`
+    });
+    setIsEditUserOpen(true);
+  };
+
+  const onEditSubmit = async (data: EditUserFormValues) => {
+    if (!userToEdit) return;
+    const parsedPhone = parsePhoneNumber(data.phone);
+    if (!parsedPhone) {
+        toast({ title: 'Invalid Phone', description: 'Please enter a valid phone number', variant: 'destructive' });
+        return;
+    }
+    setSubmitting(true);
     try {
-      await userApi.manageDelete(userToDelete);
-      toast({ title: 'Success', description: 'User deleted successfully', variant: 'success' });
-      setUserToDelete(null);
-      fetchUsers();
+        await userApi.manageUpdate(userToEdit.id, {
+            fullname: data.name,
+            phone_number_code: `+${parsedPhone.countryCallingCode}`,
+            contact_number: parsedPhone.nationalNumber,
+        });
+        toast({ title: 'Success', description: 'User updated successfully', variant: 'success' });
+        setIsEditUserOpen(false);
+        fetchUsers();
     } catch (error: any) {
-      toast({ title: 'Error', description: error.response?.data?.detail || 'Failed to delete user', variant: 'destructive' });
+        toast({ title: 'Error', description: getErrorMessage(error, 'Failed to update user'), variant: 'destructive' });
+    } finally {
+        setSubmitting(false);
+    }
+  };
+
+  const toggleUserStatus = async (user: ManageUser) => {
+    try {
+        await userApi.manageUpdate(user.id, {
+            is_active: !user.is_active
+        });
+        toast({ title: 'Success', description: `User ${!user.is_active ? 'activated' : 'deactivated'} successfully`, variant: 'success' });
+        fetchUsers();
+    } catch (error: any) {
+        toast({ title: 'Error', description: getErrorMessage(error, 'Failed to toggle status'), variant: 'destructive' });
     }
   };
 
@@ -315,69 +394,71 @@ export default function Users() {
             </DialogContent>
           </Dialog>
 
-          {/* Email Modal */}
-          <Dialog open={isEmailModalOpen} onOpenChange={setIsEmailModalOpen}>
-            <DialogContent className="sm:max-w-3xl">
+          {/* Edit User Modal */}
+          <Dialog open={isEditUserOpen} onOpenChange={setIsEditUserOpen}>
+            <DialogContent className="sm:max-w-lg">
               <DialogHeader>
-                <DialogTitle>Send Email</DialogTitle>
-                <DialogDescription>
-                  Send a direct email to {selectedStudentEmail?.fullname} ({selectedStudentEmail?.email}).
-                </DialogDescription>
+                <DialogTitle>Edit User</DialogTitle>
+                <DialogDescription>Update user details</DialogDescription>
               </DialogHeader>
-              <div className="space-y-4 py-4">
-                <div className="space-y-2">
-                  <Label htmlFor="subject">Subject</Label>
-                  <Input id="subject" placeholder="Enter email subject" />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="message">Message</Label>
-                  <div className="bg-background">
-                    <ReactQuill 
-                      theme="snow" 
-                      value={emailBody} 
-                      onChange={setEmailBody} 
-                      className="h-[350px] mb-12"
-                      modules={{
-                        toolbar: [
-                          ['bold', 'italic', 'underline', 'strike'],
-                          [{ 'list': 'ordered'}, { 'list': 'bullet' }],
-                        ],
-                      }}
+              <Form {...editForm}>
+                <form onSubmit={editForm.handleSubmit(onEditSubmit)} className="space-y-4 py-4">
+                  <div className="space-y-4">
+                    <FormField
+                      control={editForm.control}
+                      name="name"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Full Name</FormLabel>
+                          <FormControl>
+                            <Input placeholder="Enter full name" {...field} />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                    <FormField
+                      control={editForm.control}
+                      name="phone"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Phone Number</FormLabel>
+                          <FormControl>
+                            <div className="relative">
+                              <PhoneInput
+                                placeholder="Enter phone number"
+                                value={field.value}
+                                onChange={field.onChange}
+                                defaultCountry="IN"
+                                international
+                                className={cn(
+                                  "flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50",
+                                  "[&>.PhoneInputCountry]:mr-2 [&>.PhoneInputCountry]:flex [&>.PhoneInputCountry]:items-center [&>.PhoneInputCountryIcon]:w-6 [&>.PhoneInputCountryIcon]:h-4 [&>.PhoneInputCountryIcon--border]:border-none [&>.PhoneInputCountrySelect]:w-full [&>.PhoneInputCountrySelect]:h-full [&>.PhoneInputCountrySelect]:opacity-0 [&>.PhoneInputInput]:flex-1 [&>.PhoneInputInput]:bg-transparent [&>.PhoneInputInput]:border-none [&>.PhoneInputInput]:outline-none [&>.PhoneInputInput]:placeholder-muted-foreground"
+                                )}
+                              />
+                            </div>
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
                     />
                   </div>
-                </div>
-              </div>
-              <div className="flex justify-end gap-3">
-                <Button variant="outline" onClick={() => setIsEmailModalOpen(false)}>Cancel</Button>
-                <Button variant="gradient" onClick={() => setIsEmailModalOpen(false)}>Send Email</Button>
-              </div>
+                  <div className="flex justify-end gap-3 mt-8">
+                    <Button type="button" variant="outline" onClick={() => { setIsEditUserOpen(false); editForm.reset(); }} disabled={submitting}>Cancel</Button>
+                    <Button type="submit" variant="gradient" disabled={submitting}>
+                        {submitting && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+                        Save Changes
+                    </Button>
+                  </div>
+                </form>
+              </Form>
             </DialogContent>
           </Dialog>
 
-          {/* Delete Confirmation */}
-          <AlertDialog open={!!userToDelete} onOpenChange={open => { if (!open) setUserToDelete(null); }}>
-            <AlertDialogContent>
-              <AlertDialogHeader>
-                <AlertDialogTitle>Delete User?</AlertDialogTitle>
-                <AlertDialogDescription>
-                  This action cannot be undone. The user will be permanently removed/deactivated.
-                </AlertDialogDescription>
-              </AlertDialogHeader>
-              <AlertDialogFooter>
-                <AlertDialogCancel>Cancel</AlertDialogCancel>
-                <AlertDialogAction
-                  onClick={handleDelete}
-                  className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-                >
-                  Delete
-                </AlertDialogAction>
-              </AlertDialogFooter>
-            </AlertDialogContent>
-          </AlertDialog>
         </div>
 
         {/* Stats */}
-        <div className="grid gap-4 sm:grid-cols-3">
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
           <Card className="shadow-card">
             <CardContent className="p-6">
               <div className="flex items-center gap-4">
@@ -417,6 +498,19 @@ export default function Users() {
               </div>
             </CardContent>
           </Card>
+          <Card className="shadow-card">
+            <CardContent className="p-6">
+              <div className="flex items-center gap-4">
+                <div className="p-3 rounded-xl bg-primary/10">
+                  <UserCheck className="h-6 w-6 text-primary" />
+                </div>
+                <div>
+                  <p className="text-2xl font-bold text-foreground">{summary.total_active_teachers}</p>
+                  <p className="text-sm text-muted-foreground">Active Teachers</p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
         </div>
 
         {/* Search */}
@@ -430,10 +524,19 @@ export default function Users() {
               className="pl-10"
             />
           </div>
-          <Button variant="outline" className="shrink-0 gap-2">
-            <Filter className="h-4 w-4" />
-            Filter
-          </Button>
+          <div className="w-[180px] shrink-0">
+            <Select value={filterActive} onValueChange={setFilterActive}>
+              <SelectTrigger>
+                <Filter className="h-4 w-4 mr-2" />
+                <SelectValue placeholder="Filter by status" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Users</SelectItem>
+                <SelectItem value="active">Active Only</SelectItem>
+                <SelectItem value="inactive">Inactive Only</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
         </div>
 
         {/* Tabs */}
@@ -456,21 +559,42 @@ export default function Users() {
                   <TableHeader>
                     <TableRow>
                       <TableHead>Student</TableHead>
+                      <TableHead>Email</TableHead>
                       <TableHead>Phone</TableHead>
-                      <TableHead>Batch</TableHead>
-                      <TableHead>Progress</TableHead>
+                      <TableHead>Joined On</TableHead>
                       <TableHead>Status</TableHead>
+                      <TableHead>Access</TableHead>
                       <TableHead className="text-right">Actions</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
                     {loading ? (
                         <TableRow>
-                            <TableCell colSpan={6} className="text-center py-8 text-muted-foreground">Loading...</TableCell>
+                            <TableCell colSpan={7} className="text-center py-8 text-muted-foreground">Loading...</TableCell>
                         </TableRow>
                     ) : users.length === 0 ? (
                         <TableRow>
-                            <TableCell colSpan={6} className="text-center py-8 text-muted-foreground">No students found.</TableCell>
+                            <TableCell colSpan={7} className="h-[300px]">
+                                <div className="text-center py-12 text-muted-foreground border-2 border-dashed border-border rounded-xl mx-2">
+                                    <UsersIcon className="h-12 w-12 mx-auto mb-4 opacity-50" />
+                                    <h3 className="text-lg font-medium mb-1">
+                                        {searchQuery
+                                          ? `No students matching "${searchQuery}"`
+                                          : filterActive !== 'all'
+                                          ? `No ${filterActive} students`
+                                          : 'No students found'}
+                                    </h3>
+                                    <p className="max-w-sm mx-auto">
+                                        {searchQuery
+                                          ? `We couldn't find any students matching "${searchQuery}". Try different keywords.`
+                                          : filterActive === 'active'
+                                          ? "There are no active students at the moment."
+                                          : filterActive === 'inactive'
+                                          ? "There are no inactive students at the moment."
+                                          : "You haven't added any students yet. Click 'Add User' to get started."}
+                                    </p>
+                                </div>
+                            </TableCell>
                         </TableRow>
                     ) : users.map((student) => (
                       <TableRow key={student.id}>
@@ -487,43 +611,35 @@ export default function Users() {
                             </div>
                             <div>
                               <p className="font-medium text-foreground">{student.fullname}</p>
-                              <p className="text-sm text-muted-foreground">{student.email}</p>
                             </div>
                           </div>
+                        </TableCell>
+                        <TableCell>
+                          <span className="text-sm text-muted-foreground">{student.email}</span>
                         </TableCell>
                         <TableCell>
                           <span className="text-sm">{student.phone_number_code} {student.contact_number}</span>
                         </TableCell>
                         <TableCell>
-                          <Badge variant="outline">-</Badge>
-                        </TableCell>
-                        <TableCell>
-                          <span className="text-sm text-muted-foreground">-</span>
+                          <span className="text-sm text-muted-foreground">
+                            {new Date(student.created_at).toLocaleDateString('en-US', { day: 'numeric', month: 'short', year: 'numeric' })}
+                          </span>
                         </TableCell>
                         <TableCell>
                           <Badge variant={student.is_active ? 'default' : 'secondary'} className={student.is_active ? 'bg-success hover:bg-success/80' : ''}>
                             {student.is_active ? 'Active' : 'Inactive'}
                           </Badge>
                         </TableCell>
+                        <TableCell>
+                          <Switch checked={student.is_active} onCheckedChange={() => toggleUserStatus(student)} title={student.is_active ? "Deactivate Student" : "Activate Student"} />
+                        </TableCell>
                         <TableCell className="text-right">
                           <div className="flex justify-end gap-1">
-                            <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => navigate(`/chat?user=${student.id}`)} title="Message in Chat">
+                            <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground" onClick={() => openEditModal(student)} title="Edit Student">
+                              <Edit className="h-4 w-4" />
+                            </Button>
+                            <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground" onClick={() => navigate(`/chat?user=${student.id}`)} title="Message Student">
                               <MessageSquare className="h-4 w-4" />
-                            </Button>
-                            <Button 
-                              variant="ghost" 
-                              size="icon" 
-                              className="h-8 w-8" 
-                              title="Send Email"
-                              onClick={() => {
-                                setSelectedStudentEmail(student);
-                                setIsEmailModalOpen(true);
-                              }}
-                            >
-                              <Mail className="h-4 w-4" />
-                            </Button>
-                            <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive" title="Delete Student" onClick={() => setUserToDelete(student.id)}>
-                              <Trash2 className="h-4 w-4" />
                             </Button>
                           </div>
                         </TableCell>
@@ -541,17 +657,33 @@ export default function Users() {
                     <Loader2 className="h-8 w-8 animate-spin text-primary" />
                 </div>
             ) : users.length === 0 ? (
-                <div className="text-center py-12 text-muted-foreground border-2 border-dashed border-border rounded-xl">
-                    <h3 className="text-lg font-medium mb-1">No teachers found</h3>
+                <div className="text-center py-12 text-muted-foreground border-2 border-dashed border-muted-foreground/30 rounded-xl">
+                    <GraduationCap className="h-12 w-12 mx-auto mb-4 opacity-50" />
+                    <h3 className="text-lg font-medium mb-1">
+                        {searchQuery
+                          ? `No teachers matching "${searchQuery}"`
+                          : filterActive !== 'all'
+                          ? `No ${filterActive} teachers`
+                          : 'No teachers found'}
+                    </h3>
+                    <p className="max-w-sm mx-auto">
+                        {searchQuery
+                          ? `We couldn't find any teachers matching "${searchQuery}". Try different keywords.`
+                          : filterActive === 'active'
+                          ? "There are no active teachers at the moment."
+                          : filterActive === 'inactive'
+                          ? "There are no inactive teachers at the moment."
+                          : "You haven't added any teachers yet. Click 'Add User' to get started."}
+                    </p>
                 </div>
             ) : (
                 <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
                 {users.map((teacher) => (
-                    <Card key={teacher.id} className="shadow-card">
-                    <CardContent className="p-6">
-                        <div className="flex items-start justify-between">
+                    <Card key={teacher.id} className="shadow-card flex flex-col">
+                    <CardContent className="p-5 flex flex-col h-full gap-4">
+                        {/* Header: Avatar + Name + Email */}
                         <div className="flex items-center gap-3">
-                            <div className="h-12 w-12 rounded-full bg-primary/10 flex items-center justify-center overflow-hidden">
+                            <div className="h-12 w-12 shrink-0 rounded-full bg-primary/10 flex items-center justify-center overflow-hidden">
                                 {teacher.profile_picture ? (
                                     <img src={teacher.profile_picture} className="w-full h-full object-cover" />
                                 ) : (
@@ -560,22 +692,35 @@ export default function Users() {
                                     </span>
                                 )}
                             </div>
-                            <div>
-                            <h3 className="font-semibold text-foreground truncate max-w-[150px]">{teacher.fullname}</h3>
-                            <p className="text-sm text-muted-foreground truncate max-w-[150px]">{teacher.email}</p>
+                            <div className="min-w-0">
+                                <h3 className="font-semibold text-foreground truncate">{teacher.fullname}</h3>
+                                <p className="text-xs text-muted-foreground truncate">{teacher.email}</p>
                             </div>
                         </div>
-                        <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive" onClick={() => setUserToDelete(teacher.id)}>
-                            <Trash2 className="h-4 w-4" />
-                        </Button>
+
+                        {/* Details grid */}
+                        <div className="grid grid-cols-2 gap-x-4 gap-y-2 text-sm border-t border-border/50 pt-3">
+                            <div>
+                                <p className="text-xs text-muted-foreground">Phone</p>
+                                <p className="font-medium text-foreground truncate">{teacher.phone_number_code} {teacher.contact_number}</p>
+                            </div>
+                            <div>
+                                <p className="text-xs text-muted-foreground">Joined</p>
+                                <p className="font-medium text-foreground">{new Date(teacher.created_at).toLocaleDateString('en-US', { day: 'numeric', month: 'short', year: 'numeric' })}</p>
+                            </div>
                         </div>
-                        <div className="mt-4 pt-4 border-t border-border">
-                        <div className="flex flex-wrap items-center justify-between gap-2 mb-3">
-                            <Badge variant={teacher.is_active ? 'default' : 'secondary'} className={teacher.is_active ? 'bg-success hover:bg-success/80' : ''}>
-                            {teacher.is_active ? 'Active' : 'Inactive'}
-                            </Badge>
-                            <span className="text-sm font-medium">{teacher.phone_number_code} {teacher.contact_number}</span>
-                        </div>
+
+                        {/* Footer: Status toggle + Actions */}
+                        <div className="flex items-center justify-between border-t border-border/50 pt-3 mt-auto">
+                            <div className="flex items-center gap-2">
+                                <Switch checked={teacher.is_active} onCheckedChange={() => toggleUserStatus(teacher)} title={teacher.is_active ? "Deactivate" : "Activate"} />
+                                <Badge variant={teacher.is_active ? 'default' : 'secondary'} className={teacher.is_active ? 'bg-success hover:bg-success/80 text-xs' : 'text-xs'}>
+                                    {teacher.is_active ? 'Active' : 'Inactive'}
+                                </Badge>
+                            </div>
+                            <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground" onClick={() => openEditModal(teacher)} title="Edit Teacher">
+                                <Edit className="h-4 w-4" />
+                            </Button>
                         </div>
                     </CardContent>
                     </Card>
@@ -586,14 +731,26 @@ export default function Users() {
         </Tabs>
         
         {/* Pagination Controls */}
-        {totalPages > 1 && (
-          <div className="flex items-center justify-center gap-2 mt-4">
-            <Button variant="outline" size="icon" onClick={() => setCurrentPage(p => Math.max(1, p - 1))} disabled={currentPage === 1 || loading}>
-              <ChevronLeft className="h-4 w-4" />
+        {!loading && users.length > 0 && totalPages > 1 && (
+          <div className="flex items-center justify-center gap-2 mt-8">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+              disabled={currentPage === 1}
+            >
+              Previous
             </Button>
-            <span className="text-sm text-muted-foreground">Page {currentPage} of {totalPages}</span>
-            <Button variant="outline" size="icon" onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))} disabled={currentPage === totalPages || loading}>
-              <ChevronRight className="h-4 w-4" />
+            <div className="text-sm font-medium text-muted-foreground px-4">
+              Page {currentPage} of {totalPages}
+            </div>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+              disabled={currentPage === totalPages}
+            >
+              Next
             </Button>
           </div>
         )}

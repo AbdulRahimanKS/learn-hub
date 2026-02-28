@@ -171,6 +171,7 @@ export interface ManageUserSummary {
   total_teachers: number;
   total_students: number;
   total_active_students: number;
+  total_active_teachers: number;
 }
 
 export interface PaginatedManageUsers {
@@ -206,11 +207,6 @@ export const userApi = {
 
   manageUpdate: async (id: number, data: { fullname?: string, phone_number_code?: string, contact_number?: string, is_active?: boolean }) => {
     const response = await apiClient.patch<any>(`/api/users/v1/manage/${id}/`, data);
-    return response.data;
-  },
-
-  manageDelete: async (id: number) => {
-    const response = await apiClient.delete<any>(`/api/users/v1/manage/${id}/`);
     return response.data;
   },
 

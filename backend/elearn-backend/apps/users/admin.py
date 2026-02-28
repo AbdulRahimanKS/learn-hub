@@ -8,8 +8,9 @@ class CustomUserAdmin(UserAdmin):
     Custom User Admin to handle the custom User model fields.
     """
     ordering = ('email',)
-    list_display = ('email', 'fullname', 'user_type', 'is_staff', 'is_active')
+    list_display = ('email', 'fullname', 'user_type', 'status', 'is_staff', 'is_active')
     search_fields = ('email', 'fullname', 'user_code')
+    list_filter = ('status', 'is_active', 'user_type', 'is_staff')
     readonly_fields = ('user_code', 'created_at', 'updated_at')
 
     fieldsets = (
@@ -17,7 +18,7 @@ class CustomUserAdmin(UserAdmin):
         (_('Personal Info'), {'fields': ('fullname', 'user_code', 'phone_number_code', 'contact_number')}),
         (_('Role'), {'fields': ('user_type',)}),
         (_('Permissions'), {
-            'fields': ('is_active', 'is_staff', 'is_superuser', 'groups', 'user_permissions'),
+            'fields': ('status', 'is_active', 'is_staff', 'is_superuser', 'groups', 'user_permissions'),
         }),
         (_('Important dates'), {'fields': ('last_login', 'created_at', 'updated_at')}),
     )

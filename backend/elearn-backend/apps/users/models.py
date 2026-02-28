@@ -98,7 +98,7 @@ class User(AbstractBaseUser, PermissionsMixin):
     status = models.CharField(
         max_length=20,
         choices=UserStatus.choices,
-        default=UserStatus.INACTIVE
+        default=UserStatus.ACTIVE
     )
 
     created_by = models.ForeignKey('self', on_delete=models.SET_NULL, null=True, blank=True, related_name='created_users')
@@ -108,7 +108,7 @@ class User(AbstractBaseUser, PermissionsMixin):
     updated_at = models.DateTimeField(auto_now=True)
     
     is_staff = models.BooleanField(default=False)
-    is_active = models.BooleanField(default=False)
+    is_active = models.BooleanField(default=True)
     date_joined = models.DateTimeField(auto_now_add=True)
     
     objects = CustomUserManager()

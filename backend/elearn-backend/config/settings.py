@@ -204,6 +204,15 @@ SPECTACULAR_SETTINGS = {
     'VERSION': '1.0.0',
     'SERVE_INCLUDE_SCHEMA': True,
     'COMPONENT_SPLIT_REQUEST': True,
+    'ENUM_NAME_OVERRIDES': {
+        'BatchStatusEnum': 'apps.courses.models.Batch.Status',
+        'BatchEnrollmentStatusEnum': 'apps.courses.models.BatchEnrollment.Status',
+        'ClassSessionStatusEnum': 'apps.courses.models.ClassSession.Status',
+        'LiveSessionStatusEnum': 'apps.courses.models.LiveSession.Status',
+        'ScheduledWebinarStatusEnum': 'apps.courses.models.ScheduledWebinar.Status',
+        'WeeklyTestStatusEnum': 'apps.courses.models.WeeklyTest.Status',
+        'TestSubmissionStatusEnum': 'apps.courses.models.TestSubmission.Status',
+    },
 }
 
 # Default primary key field type

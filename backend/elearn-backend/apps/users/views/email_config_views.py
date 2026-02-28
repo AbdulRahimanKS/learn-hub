@@ -1,5 +1,5 @@
 from rest_framework.views import APIView
-from rest_framework.permissions import IsAuthenticated
+from utils.permissions import IsSuperAdminOrAdmin
 from rest_framework import status
 from drf_spectacular.utils import extend_schema
 from apps.users.models import EmailSetting
@@ -24,7 +24,7 @@ logger = logging.getLogger(__name__)
     }
 )
 class EmailConfigView(APIView):
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsSuperAdminOrAdmin]
 
     def get(self, request):
         """Get current email configuration"""
@@ -59,7 +59,7 @@ class EmailConfigView(APIView):
     }
 )
 class EmailConfigListView(APIView):
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsSuperAdminOrAdmin]
 
     def get(self, request):
         """Get all email configurations"""
@@ -89,7 +89,7 @@ class EmailConfigListView(APIView):
     }
 )
 class EmailConfigCreateUpdateView(APIView):
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsSuperAdminOrAdmin]
 
     def post(self, request):
         """Create or update email configuration"""
@@ -97,7 +97,7 @@ class EmailConfigCreateUpdateView(APIView):
             email = request.data.get('email')
             email_type = request.data.get('email_type')
             
-            email_setting = EmailSetting.objects.filter(email=email).first()
+            email_setting = EmailSetting.objects.filter(email=email.lower()).first()
             
             if email_setting:
                 serializer = EmailSettingSerializer(email_setting, data=request.data, partial=True)
@@ -111,7 +111,7 @@ class EmailConfigCreateUpdateView(APIView):
                 )
             
             if request.data.get('status', False):
-                EmailSetting.objects.exclude(email=email).update(status=False)
+                EmailSetting.objects.exclude(email=email.lower()).update(status=False)
             
             email_setting = serializer.save(created_by=request.user)
             
@@ -136,13 +136,14 @@ class EmailConfigCreateUpdateView(APIView):
     tags=['Email Configuration'],
     summary="Toggle Email Configuration Status",
     description="Enable or disable an email configuration.",
+    request=None,
     responses={
         200: MessageResponseSerializer,
         404: MessageResponseSerializer,
     }
 )
 class EmailConfigToggleView(APIView):
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsSuperAdminOrAdmin]
 
     def patch(self, request, pk):
         """Toggle email configuration status"""

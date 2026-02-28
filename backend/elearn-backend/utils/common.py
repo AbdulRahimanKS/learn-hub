@@ -2,6 +2,8 @@ from rest_framework import status
 from rest_framework.exceptions import APIException
 from rest_framework.response import Response
 import logging
+import secrets
+import string
 
 logger = logging.getLogger(__name__)
 
@@ -50,3 +52,9 @@ def handle_serializer_errors(serializer):
         parse_errors(field, messages)
 
     return " ".join(error_messages)
+
+
+def generate_temp_password(length=10) -> str:
+    """Generate a secure random password."""
+    alphabet = string.ascii_letters + string.digits + "!@#$%"
+    return ''.join(secrets.choice(alphabet) for _ in range(length))

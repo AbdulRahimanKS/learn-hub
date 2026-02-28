@@ -16,11 +16,10 @@ from apps.courses.serializers import (
     BatchEnrollmentSerializer,
 )
 from utils.permissions import IsAdmin, IsAdminOrTeacher, IsAuthenticated
-from utils.common import format_success_response, handle_serializer_errors, ServiceError
+from utils.common import format_success_response, handle_serializer_errors, ServiceError, generate_temp_password
 from utils.pagination import CustomPageNumberPagination
 from utils.constants import UserTypeConstants
 from utils.email_utils import send_email
-from apps.users.views.user_management_views import generate_temp_password
 
 logger = logging.getLogger(__name__)
 
@@ -30,8 +29,9 @@ def _activate_and_email_teacher(teacher_user, requesting_user):
     if teacher_user and not teacher_user.has_usable_password():
         temp_password = generate_temp_password()
         teacher_user.set_password(temp_password)
+        teacher_user.status = 'ACTIVE'
         teacher_user.is_active = True
-        teacher_user.save(update_fields=['password', 'is_active'])
+        teacher_user.save(update_fields=['password', 'is_active', 'status'])
         send_email(
             user=requesting_user,
             subject="Welcome to LearnHub – Your Login Credentials",
@@ -236,6 +236,7 @@ class CourseToggleActiveView(APIView):
 
     @extend_schema(
         summary="Toggle course active status (Admin only)",
+        request=None,
         responses={200: CourseDetailSerializer},
     )
     def post(self, request, pk):
@@ -493,6 +494,7 @@ class BatchToggleActiveView(APIView):
 
     @extend_schema(
         summary="Toggle batch active status (Admin or Assigned Teacher only)",
+        request=None,
         responses={200: BatchListSerializer},
     )
     def post(self, request, pk):
@@ -599,8 +601,9 @@ class BatchAddStudentView(APIView):
             if not student.has_usable_password():
                 temp_password = generate_temp_password()
                 student.set_password(temp_password)
+                student.status = 'ACTIVE'
                 student.is_active = True
-                student.save(update_fields=['password', 'is_active'])
+                student.save(update_fields=['password', 'is_active', 'status'])
                 send_email(
                     user=request.user,
                     subject="Welcome to LearnHub – Your Login Credentials",
