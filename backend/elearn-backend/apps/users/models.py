@@ -16,6 +16,7 @@ class UserType(models.Model):
     User Types for the application using choices for predefined roles.
     """
     class Role(models.TextChoices):
+        SUPERADMIN = UserTypeConstants.SUPERADMIN, _('Super Admin')
         ADMIN = UserTypeConstants.ADMIN, _('Admin')
         TEACHER = UserTypeConstants.TEACHER, _('Teacher')
         STUDENT = UserTypeConstants.STUDENT, _('Student')
@@ -59,8 +60,8 @@ class CustomUserManager(BaseUserManager):
 
         try:
             user_type, _ = UserType.objects.get_or_create(
-                name=UserType.Role.ADMIN,
-                defaults={'description': 'Super Administrator with full access'}
+                name=UserType.Role.SUPERADMIN,
+                defaults={'description': 'Super Administrator with full system access (backend only)'}
             )
             extra_fields['user_type'] = user_type
         except Exception:
@@ -74,6 +75,10 @@ class User(AbstractBaseUser, PermissionsMixin):
     """
     Custom User model using email as the primary identifier.
     """
+    class UserStatus(models.TextChoices):
+        ACTIVE = "ACTIVE", "Active"
+        INACTIVE = "INACTIVE", "Inactive"
+
     user_code = models.CharField(max_length=20, unique=True, editable=False)
     email = models.EmailField(_('Email Address'), unique=True)
     fullname = models.CharField(_('Full Name'), max_length=255)
@@ -90,15 +95,20 @@ class User(AbstractBaseUser, PermissionsMixin):
         help_text=_("Role of the user in the system")
     )
 
+    status = models.CharField(
+        max_length=20,
+        choices=UserStatus.choices,
+        default=UserStatus.INACTIVE
+    )
+
     created_by = models.ForeignKey('self', on_delete=models.SET_NULL, null=True, blank=True, related_name='created_users')
     updated_by = models.ForeignKey('self', on_delete=models.SET_NULL, null=True, blank=True, related_name='updated_users')
-    is_deleted = models.BooleanField(default=False)
     
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
     
     is_staff = models.BooleanField(default=False)
-    is_active = models.BooleanField(default=True)
+    is_active = models.BooleanField(default=False)
     date_joined = models.DateTimeField(auto_now_add=True)
     
     objects = CustomUserManager()
@@ -119,6 +129,16 @@ class User(AbstractBaseUser, PermissionsMixin):
         if self.email:
             self.email = self.email.lower()
         super().save(*args, **kwargs)
+
+    def activate(self):
+        self.status = self.UserStatus.ACTIVE
+        self.is_active = True
+        self.save()
+
+    def deactivate(self):
+        self.status = self.UserStatus.INACTIVE
+        self.is_active = False
+        self.save()
     
     def generate_user_code(self):
         """Generate a unique user code."""
