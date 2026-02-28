@@ -46,6 +46,8 @@ class Course(models.Model):
         help_text=_('Cover image for the course card')
     )
 
+    passing_percentage = models.FloatField(default=70.0)
+
     is_active  = models.BooleanField(default=True)
     is_deleted = models.BooleanField(default=False)
 
@@ -57,8 +59,13 @@ class Course(models.Model):
         'users.User', on_delete=models.SET_NULL, null=True, blank=True,
         related_name='updated_courses'
     )
+    deleted_by = models.ForeignKey(
+        'users.User', on_delete=models.SET_NULL, null=True, blank=True,
+        related_name='deleted_courses'
+    )
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
+    deleted_at = models.DateTimeField(null=True, blank=True)
 
     class Meta:
         verbose_name        = _('Course')
@@ -78,6 +85,13 @@ class Course(models.Model):
             self.course_code = self._gen_code()
         super().save(*args, **kwargs)
 
+    def soft_delete(self, user):
+        self.is_deleted = True
+        if user:
+            self.deleted_by = user
+        self.deleted_at = timezone.now()
+        self.save()
+
     @staticmethod
     def _gen_code():
         while True:
@@ -93,12 +107,6 @@ class Batch(models.Model):
         ACTIVE    = 'active',    _('Active')
         COMPLETED = 'completed', _('Completed')
         CANCELLED = 'cancelled', _('Cancelled')
-        ON_HOLD   = 'on_hold',   _('On Hold')
-
-    class ScheduleType(models.TextChoices):
-        WEEKDAYS = 'weekdays', _('Weekdays (Mon–Fri)')
-        WEEKENDS = 'weekends', _('Weekends (Sat–Sun)')
-        CUSTOM   = 'custom',   _('Custom')
 
     batch_code  = models.CharField(max_length=20, unique=True, editable=False)
     name        = models.CharField(_('Batch Name'), max_length=255)
@@ -124,49 +132,16 @@ class Batch(models.Model):
     max_students = models.PositiveSmallIntegerField(
         _('Max Students'), default=30, validators=[MinValueValidator(1)]
     )
+
     start_date     = models.DateField(_('Start Date'), null=True, blank=True)
     end_date       = models.DateField(_('End Date'),   null=True, blank=True)
-    duration_weeks = models.PositiveSmallIntegerField(_('Duration (Weeks)'), default=8)
-
-    schedule_type    = models.CharField(
-        _('Schedule Type'), max_length=20,
-        choices=ScheduleType.choices, default=ScheduleType.WEEKDAYS
-    )
-    class_start_time = models.TimeField(_('Class Start Time'), null=True, blank=True)
-    class_end_time   = models.TimeField(_('Class End Time'),   null=True, blank=True)
-    schedule_notes   = models.TextField(
-        _('Schedule Notes'), blank=True,
-        help_text=_('E.g. Mon/Wed/Fri 7–9 PM IST')
-    )
-
-    fee_amount   = models.DecimalField(
-        _('Fee Amount'), max_digits=10, decimal_places=2, null=True, blank=True
-    )
-    fee_currency = models.CharField(_('Currency'), max_length=5, default='INR')
-    is_free      = models.BooleanField(_('Free Batch'), default=False)
-
-    current_week     = models.PositiveSmallIntegerField(_('Current Week'), default=0)
-    progress_percent = models.FloatField(
-        _('Overall Batch Progress (%)'), default=0.0,
-        validators=[MinValueValidator(0), MaxValueValidator(100)]
-    )
 
     status     = models.CharField(
         _('Status'), max_length=20,
         choices=Status.choices, default=Status.UPCOMING
     )
-    is_active  = models.BooleanField(default=True)
+    
     is_deleted = models.BooleanField(default=False)
-
-    is_online        = models.BooleanField(_('Online Batch'), default=True)
-    meeting_platform = models.CharField(
-        _('Platform'), max_length=50, blank=True,
-        help_text=_('Zoom, Google Meet, MS Teams, custom…')
-    )
-    location = models.CharField(
-        _('Physical Location'), max_length=500, blank=True,
-        help_text=_('Address if batch is offline / hybrid')
-    )
 
     created_by = models.ForeignKey(
         'users.User', on_delete=models.SET_NULL, null=True, blank=True,
@@ -176,8 +151,13 @@ class Batch(models.Model):
         'users.User', on_delete=models.SET_NULL, null=True, blank=True,
         related_name='updated_batches'
     )
+    deleted_by = models.ForeignKey(
+        'users.User', on_delete=models.SET_NULL, null=True, blank=True,
+        related_name='deleted_batches'
+    )
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
+    deleted_at = models.DateTimeField(null=True, blank=True)
 
     class Meta:
         verbose_name        = _('Batch')
@@ -185,7 +165,7 @@ class Batch(models.Model):
         ordering            = ['-created_at']
         indexes             = [
             models.Index(fields=['status'],      name='batch_status_idx'),
-            models.Index(fields=['is_active'],   name='batch_is_active_idx'),
+            models.Index(fields=['is_deleted'],  name='batch_is_deleted_idx'),
             models.Index(fields=['course'],      name='batch_course_idx'),
             models.Index(fields=['teacher'],     name='batch_teacher_idx'),
             models.Index(fields=['start_date'],  name='batch_start_date_idx'),
@@ -218,7 +198,6 @@ class Batch(models.Model):
 # Batch Enrollment
 class BatchEnrollment(models.Model):
     class Status(models.TextChoices):
-        PENDING   = 'pending',   _('Pending Approval')
         ACTIVE    = 'active',    _('Active')
         COMPLETED = 'completed', _('Completed')
         DROPPED   = 'dropped',   _('Dropped')
@@ -226,22 +205,18 @@ class BatchEnrollment(models.Model):
 
     batch   = models.ForeignKey(Batch, on_delete=models.CASCADE, related_name='enrollments')
     student = models.ForeignKey(
-        'users.User', on_delete=models.CASCADE, related_name='batch_enrollments'
+        'users.User', on_delete=models.PROTECT, related_name='batch_enrollments'
     )
     status      = models.CharField(
         _('Status'), max_length=20,
-        choices=Status.choices, default=Status.PENDING
+        choices=Status.choices, default=Status.ACTIVE
     )
     enrolled_at  = models.DateTimeField(auto_now_add=True)
     completed_at = models.DateTimeField(null=True, blank=True)
     dropped_at   = models.DateTimeField(null=True, blank=True)
+    suspended_at = models.DateTimeField(null=True, blank=True)
     notes        = models.TextField(blank=True)
 
-    fee_paid    = models.BooleanField(default=False)
-    fee_paid_at = models.DateTimeField(null=True, blank=True)
-    fee_amount  = models.DecimalField(
-        max_digits=10, decimal_places=2, null=True, blank=True
-    )
     enrolled_by = models.ForeignKey(
         'users.User', on_delete=models.SET_NULL, null=True, blank=True,
         related_name='enrollment_actions'
@@ -259,33 +234,14 @@ class BatchEnrollment(models.Model):
         return f"{self.student.fullname} → {self.batch.name} [{self.status}]"
 
 
-# ─────────────────────────────────────────────────────────────────────────────
-# WeeklyModule
-# ─────────────────────────────────────────────────────────────────────────────
-
-class WeeklyModule(models.Model):
-    """
-    Represents a single week inside a Batch.
-    Content (videos) and the WeeklyTest both belong to a WeeklyModule.
-    Completing the WeeklyTest unlocks the next WeeklyModule.
-    """
-
-    batch       = models.ForeignKey(
-        Batch, on_delete=models.CASCADE, related_name='weekly_modules'
+# Course Week
+class CourseWeek(models.Model):
+    course = models.ForeignKey(
+        Course, on_delete=models.CASCADE, related_name='course_weeks'
     )
     week_number = models.PositiveSmallIntegerField(_('Week Number'))
     title       = models.CharField(_('Week Title'), max_length=255, blank=True)
     description = models.TextField(_('Week Description'), blank=True)
-
-    # Content unlocking
-    is_unlocked      = models.BooleanField(
-        _('Unlocked'), default=False,
-        help_text=_('Week becomes accessible after previous week test is passed')
-    )
-    unlock_date      = models.DateField(
-        _('Unlock Date'), null=True, blank=True,
-        help_text=_('Optional: auto-unlock on this date regardless of test')
-    )
 
     is_published = models.BooleanField(
         _('Published'), default=False,
@@ -294,48 +250,33 @@ class WeeklyModule(models.Model):
     created_at   = models.DateTimeField(auto_now_add=True)
     updated_at   = models.DateTimeField(auto_now=True)
 
+    created_by = models.ForeignKey(
+        'users.User', on_delete=models.SET_NULL, null=True, blank=True,
+        related_name='course_weeks_created'
+    )
+    updated_by = models.ForeignKey(
+        'users.User', on_delete=models.SET_NULL, null=True, blank=True,
+        related_name='course_weeks_updated'
+    )
+
     class Meta:
-        verbose_name        = _('Weekly Module')
-        verbose_name_plural = _('Weekly Modules')
-        unique_together     = ('batch', 'week_number')
+        verbose_name        = _('Course Week')
+        verbose_name_plural = _('Course Weeks')
+        unique_together     = ('course', 'week_number')
         ordering            = ['week_number']
         indexes             = [
-            models.Index(fields=['batch'],        name='weeklymod_batch_idx'),
-            models.Index(fields=['is_unlocked'],  name='weeklymod_unlocked_idx'),
+            models.Index(fields=['course'],        name='weeklymod_course_idx'),
             models.Index(fields=['is_published'], name='weeklymod_published_idx'),
         ]
 
     def __str__(self):
-        return f"{self.batch.name} – Week {self.week_number}: {self.title}"
+        return f"{self.course.title} – Week {self.week_number}: {self.title}"
 
 
-# ─────────────────────────────────────────────────────────────────────────────
-# ClassSession  (weekly video upload — one video = one session)
-# ─────────────────────────────────────────────────────────────────────────────
-
+# Class Session
 class ClassSession(models.Model):
-    """
-    A single uploaded class video within a WeeklyModule.
-    Teachers upload ONE video per session and pin it to a specific day-of-week.
-    Content type = VIDEO only; other file types go into BatchChatMessage.
-    """
-
-    class DayOfWeek(models.IntegerChoices):
-        MONDAY    = 0, _('Monday')
-        TUESDAY   = 1, _('Tuesday')
-        WEDNESDAY = 2, _('Wednesday')
-        THURSDAY  = 3, _('Thursday')
-        FRIDAY    = 4, _('Friday')
-        SATURDAY  = 5, _('Saturday')
-        SUNDAY    = 6, _('Sunday')
-
-    class Status(models.TextChoices):
-        DRAFT     = 'draft',     _('Draft')
-        PUBLISHED = 'published', _('Published')
-        ARCHIVED  = 'archived',  _('Archived')
-
-    weekly_module  = models.ForeignKey(
-        WeeklyModule, on_delete=models.CASCADE, related_name='class_sessions'
+    course_week  = models.ForeignKey(
+        CourseWeek, on_delete=models.CASCADE, related_name='class_sessions'
     )
     session_number = models.PositiveSmallIntegerField(
         _('Session Number within Week'), default=1
@@ -343,7 +284,6 @@ class ClassSession(models.Model):
     title          = models.CharField(_('Session Title'), max_length=255)
     description    = models.TextField(_('Description / Notes'), blank=True)
 
-    # The uploaded class video (stored in cloud storage via django-storages)
     video_file     = models.FileField(
         upload_to='class_videos/',
         null=True, blank=True,
@@ -357,44 +297,67 @@ class ClassSession(models.Model):
         _('Video Duration (mins)'), default=0
     )
 
-    # Which day of the week this session is pinned to
-    day_of_week    = models.IntegerField(
-        _('Day of Week'), choices=DayOfWeek.choices,
-        help_text=_('The weekday this session is scheduled / belongs to')
-    )
-    # Absolute scheduled date (computed from batch start + week + day)
-    session_date   = models.DateField(
-        _('Session Date'), null=True, blank=True
-    )
-
-    status         = models.CharField(
-        _('Status'), max_length=20,
-        choices=Status.choices, default=Status.DRAFT
-    )
     uploaded_by    = models.ForeignKey(
         'users.User', on_delete=models.SET_NULL, null=True, blank=True,
         related_name='uploaded_sessions'
     )
-    is_deleted     = models.BooleanField(default=False)
+
     created_at     = models.DateTimeField(auto_now_add=True)
     updated_at     = models.DateTimeField(auto_now=True)
 
     class Meta:
         verbose_name        = _('Class Session')
         verbose_name_plural = _('Class Sessions')
-        unique_together     = ('weekly_module', 'session_number')
-        ordering            = ['weekly_module__week_number', 'session_number']
+        unique_together     = ('course_week', 'session_number')
+        ordering            = ['course_week__week_number', 'session_number']
         indexes             = [
-            models.Index(fields=['weekly_module'], name='classsess_module_idx'),
-            models.Index(fields=['status'],        name='classsess_status_idx'),
-            models.Index(fields=['session_date'],  name='classsess_date_idx'),
+            models.Index(fields=['course_week'], name='classsess_module_idx'),
         ]
 
     def __str__(self):
         return (
-            f"Week {self.weekly_module.week_number} | "
+            f"Week {self.course_week.week_number} | "
             f"S{self.session_number}: {self.title}"
         )
+
+
+# WeeklyTest
+class WeeklyTest(models.Model):
+    course_week  = models.OneToOneField(
+        CourseWeek, on_delete=models.CASCADE, related_name='weekly_test',
+        help_text=_('Exactly one test per week')
+    )
+    title          = models.CharField(_('Test Title'), max_length=255)
+    instructions   = models.TextField(_('Instructions'), blank=True)
+
+    question_file  = models.FileField(
+        upload_to='test_questions/',
+        null=True, blank=True,
+        help_text=_('Supported: .ipynb, .pdf, .doc, .docx, .jpg, .jpeg, .png')
+    )
+    question_text  = models.TextField(
+        _('Inline Question Text'), blank=True,
+        help_text=_('Text-only questions can be written here instead of uploading')
+    )
+    
+    created_by     = models.ForeignKey(
+        'users.User', on_delete=models.SET_NULL, null=True, blank=True,
+        related_name='created_tests'
+    )
+    updated_by     = models.ForeignKey(
+        'users.User', on_delete=models.SET_NULL, null=True, blank=True,
+        related_name='updated_tests'
+    )
+    created_at     = models.DateTimeField(auto_now_add=True)
+    updated_at     = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name        = _('Weekly Test')
+        verbose_name_plural = _('Weekly Tests')
+        ordering            = ['weekly_module__week_number']
+
+    def __str__(self):
+        return f"{self.course_week.course.title} – Week {self.course_week.week_number} Test"
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -550,94 +513,6 @@ class ScheduledWebinar(models.Model):
 
     def __str__(self):
         return f"Webinar: {self.title} [{self.batch.name}]"
-
-
-# ─────────────────────────────────────────────────────────────────────────────
-# WeeklyTest
-# ─────────────────────────────────────────────────────────────────────────────
-
-class WeeklyTest(models.Model):
-    """
-    ONE test per WeeklyModule, typically scheduled on a weekend.
-    Completing / passing this test UNLOCKS the next week's content.
-
-    Question and answer files may be any of:
-      .ipynb, .pdf, .jpg/.jpeg, .doc/.docx
-    """
-
-    class Status(models.TextChoices):
-        DRAFT      = 'draft',      _('Draft')
-        SCHEDULED  = 'scheduled',  _('Scheduled')
-        OPEN       = 'open',       _('Open for Submission')
-        CLOSED     = 'closed',     _('Closed')
-        GRADED     = 'graded',     _('Graded')
-
-    weekly_module  = models.OneToOneField(
-        WeeklyModule, on_delete=models.CASCADE, related_name='weekly_test',
-        help_text=_('Exactly one test per week')
-    )
-    title          = models.CharField(_('Test Title'), max_length=255)
-    instructions   = models.TextField(_('Instructions'), blank=True)
-
-    # Question file (teacher uploads)
-    question_file  = models.FileField(
-        upload_to='test_questions/',
-        null=True, blank=True,
-        help_text=_('Supported: .ipynb, .pdf, .doc, .docx, .jpg, .jpeg, .png')
-    )
-    question_text  = models.TextField(
-        _('Inline Question Text'), blank=True,
-        help_text=_('Text-only questions can be written here instead of uploading')
-    )
-
-    # Scheduling
-    available_from = models.DateTimeField(
-        _('Available From'),
-        help_text=_('Students can start submitting after this datetime (usually weekend)')
-    )
-    available_until = models.DateTimeField(
-        _('Deadline'), null=True, blank=True,
-        help_text=_('Submission window closes at this time')
-    )
-
-    # Passing threshold
-    pass_marks     = models.FloatField(
-        _('Pass Marks (%)'), default=50.0,
-        validators=[MinValueValidator(0), MaxValueValidator(100)]
-    )
-    max_attempts   = models.PositiveSmallIntegerField(
-        _('Max Attempts'), default=1,
-        help_text=_('How many times a student may resubmit')
-    )
-
-    status         = models.CharField(
-        _('Status'), max_length=20,
-        choices=Status.choices, default=Status.DRAFT
-    )
-    # RULE: passing this test unlocks next week
-    unlocks_next_week = models.BooleanField(
-        _('Unlocks Next Week on Pass'), default=True
-    )
-    created_by     = models.ForeignKey(
-        'users.User', on_delete=models.SET_NULL, null=True, blank=True,
-        related_name='created_tests'
-    )
-    created_at     = models.DateTimeField(auto_now_add=True)
-    updated_at     = models.DateTimeField(auto_now=True)
-
-    class Meta:
-        verbose_name        = _('Weekly Test')
-        verbose_name_plural = _('Weekly Tests')
-        ordering            = ['weekly_module__week_number']
-        indexes             = [
-            models.Index(fields=['status'],          name='weeklytest_status_idx'),
-            models.Index(fields=['available_from'],  name='weeklytest_avail_from_idx'),
-            models.Index(fields=['available_until'], name='weeklytest_avail_until_idx'),
-        ]
-
-    def __str__(self):
-        return f"Week {self.weekly_module.week_number} Test – {self.weekly_module.batch.name}"
-
 
 # ─────────────────────────────────────────────────────────────────────────────
 # TestSubmission  (student answers)

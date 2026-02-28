@@ -21,7 +21,7 @@ class CustomUserAdmin(UserAdmin):
             'fields': ('status', 'is_active', 'is_staff', 'is_superuser', 'groups', 'user_permissions'),
         }),
         (_('Soft Delete'), {
-            'fields': ('is_deleted', 'deleted_at'),
+            'fields': ('is_deleted', 'deleted_at', 'deleted_by'),
             'classes': ('collapse',),
             'description': 'Fields managed automatically by the soft-delete flow. Do not edit manually unless necessary.',
         }),

@@ -107,6 +107,7 @@ class User(AbstractBaseUser, PermissionsMixin):
 
     created_by = models.ForeignKey('self', on_delete=models.SET_NULL, null=True, blank=True, related_name='created_users')
     updated_by = models.ForeignKey('self', on_delete=models.SET_NULL, null=True, blank=True, related_name='updated_users')
+    deleted_by = models.ForeignKey('self', on_delete=models.SET_NULL, null=True, blank=True, related_name='deleted_users')
     
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
@@ -151,7 +152,7 @@ class User(AbstractBaseUser, PermissionsMixin):
             if not User.objects.filter(user_code=code).exists():
                 return code
 
-    def soft_delete(self):
+    def soft_delete(self, deleted_by_user=None):
         import time
         ts = int(time.time())
         
@@ -160,6 +161,8 @@ class User(AbstractBaseUser, PermissionsMixin):
         self.deleted_at = timezone.now()
         self.is_active  = False
         self.status     = self.UserStatus.DELETED
+        if deleted_by_user:
+            self.deleted_by = deleted_by_user
         self.save()
 
 

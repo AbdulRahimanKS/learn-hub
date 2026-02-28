@@ -273,7 +273,7 @@ class UserManagementDetailView(APIView):
                 )
 
             # --- perform soft delete ---
-            user.soft_delete()
+            user.soft_delete(request.user)
             logger.info(f"User {pk} soft-deleted by admin {request.user.id}")
 
             return format_success_response(
