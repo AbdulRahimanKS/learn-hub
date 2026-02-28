@@ -50,10 +50,6 @@ export default function Dashboard() {
           </h1>
           <p className="mt-1 text-muted-foreground">Here's what's happening in your platform today.</p>
         </div>
-        <Button variant="gradient">
-          <Video className="h-4 w-4" />
-          Start Live Session
-        </Button>
       </div>
 
       {/* Stats Grid */}

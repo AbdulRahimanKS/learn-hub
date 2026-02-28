@@ -34,9 +34,6 @@ class Course(models.Model):
         choices=DifficultyLevel.choices,
         default=DifficultyLevel.BEGINNER
     )
-    default_duration_weeks = models.PositiveSmallIntegerField(
-        _('Default Duration (Weeks)'), default=8
-    )
     tags = models.ManyToManyField(
         Tag, blank=True,
         related_name='courses',

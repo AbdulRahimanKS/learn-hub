@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { DashboardLayout } from '@/components/layout/DashboardLayout';
 import { useNavigate } from 'react-router-dom';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -14,6 +14,16 @@ import {
   DialogTitle,
   DialogTrigger,
 } from '@/components/ui/dialog';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 import { Label } from '@/components/ui/label';
 import {
   Table,
@@ -35,6 +45,9 @@ import {
   GraduationCap,
   UserCheck,
   MessageSquare,
+  Loader2,
+  ChevronLeft,
+  ChevronRight,
 } from 'lucide-react';
 import { Textarea } from '@/components/ui/textarea';
 import ReactQuill from 'react-quill';
@@ -53,39 +66,50 @@ import {
   FormLabel,
   FormMessage,
 } from "@/components/ui/form";
+import { userApi, ManageUser, PaginatedManageUsers, ManageUserSummary } from '@/lib/batch-api';
+import { useToast } from '@/hooks/use-toast';
 
 const addUserFormSchema = z.object({
   userType: z.enum(['teacher', 'student']),
   name: z.string().min(2, { message: "Full name must be at least 2 characters." }),
   email: z.string().email({ message: "Please enter a valid email address" }),
-  batch: z.string().optional(),
-  phone: z.string().min(1, { message: "Phone number is required" }).refine((val) => isValidPhoneNumber(val), { message: "Please enter a valid phone number" })
+  phone: z.string().min(1, { message: "Phone number is required" }).refine((val) => val && isValidPhoneNumber(val), { message: "Please enter a valid phone number" })
 });
 
 type AddUserFormValues = z.infer<typeof addUserFormSchema>;
 
-const mockTeachers = [
-  { id: 1, name: 'Prof. Michael Chen', email: 'michael@elearn.com', batches: ['Python Basics', 'Data Science'], students: 48, joinedAt: 'Jan 2024' },
-  { id: 2, name: 'Dr. Emily Watson', email: 'emily@elearn.com', batches: ['Web Development'], students: 32, joinedAt: 'Feb 2024' },
-  { id: 3, name: 'Prof. James Lee', email: 'james@elearn.com', batches: ['Machine Learning'], students: 28, joinedAt: 'Mar 2024' },
-];
-
-const mockStudents = [
-  { id: 1, name: 'Alex Thompson', email: 'alex@email.com', batch: 'Python Basics', progress: 75, avgScore: 82, status: 'active' },
-  { id: 2, name: 'Maria Garcia', email: 'maria@email.com', batch: 'Python Basics', progress: 90, avgScore: 88, status: 'active' },
-  { id: 3, name: 'John Smith', email: 'john@email.com', batch: 'Data Science', progress: 45, avgScore: 71, status: 'active' },
-  { id: 4, name: 'Sarah Wilson', email: 'sarah@email.com', batch: 'Web Development', progress: 100, avgScore: 95, status: 'completed' },
-  { id: 5, name: 'David Brown', email: 'david@email.com', batch: 'Python Basics', progress: 30, avgScore: 65, status: 'at-risk' },
-];
+// Debounce hook
+export function useDebounce<T>(value: T, delay?: number): T {
+  const [debouncedValue, setDebouncedValue] = useState<T>(value);
+  useEffect(() => {
+    const timer = setTimeout(() => setDebouncedValue(value), delay || 500);
+    return () => clearTimeout(timer);
+  }, [value, delay]);
+  return debouncedValue;
+}
 
 export default function Users() {
+  const [activeTab, setActiveTab] = useState('students');
   const [searchQuery, setSearchQuery] = useState('');
+  const debouncedSearch = useDebounce(searchQuery, 500);
+  
+  const [users, setUsers] = useState<ManageUser[]>([]);
+  const [summary, setSummary] = useState<ManageUserSummary>({ total_teachers: 0, total_students: 0, total_active_students: 0 });
+  
+  const [currentPage, setCurrentPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
+  const [loading, setLoading] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
+  
   const [isAddUserOpen, setIsAddUserOpen] = useState(false);
+  const [userToDelete, setUserToDelete] = useState<number | null>(null);
+  
   const [isEmailModalOpen, setIsEmailModalOpen] = useState(false);
   const [selectedStudentEmail, setSelectedStudentEmail] = useState<any>(null);
   const [emailBody, setEmailBody] = useState('');
 
   const navigate = useNavigate();
+  const { toast } = useToast();
 
   const form = useForm<AddUserFormValues>({
     resolver: zodResolver(addUserFormSchema),
@@ -94,27 +118,81 @@ export default function Users() {
       userType: 'student',
       name: '',
       email: '',
-      batch: '',
       phone: '',
     },
   });
 
   const watchedUserType = form.watch("userType");
 
-  const onSubmit = (data: AddUserFormValues) => {
-    const parsedPhone = parsePhoneNumber(data.phone);
-    const apiPayload = {
-      phone_number_code: parsedPhone ? `+${parsedPhone.countryCallingCode}` : undefined,
-      contact_number: parsedPhone ? parsedPhone.nationalNumber : data.phone,
-      fullname: data.name,
-      email: data.email,
-      user_type: data.userType,
-      batch: data.batch,
-    };
-    console.log('Valid User Payload:', apiPayload);
+  const fetchUsers = useCallback(async () => {
+    setLoading(true);
+    try {
+      const response = await userApi.manageList({
+        role: activeTab === 'students' ? 'Student' : 'Teacher',
+        search: debouncedSearch,
+        paginate: true,
+        page: currentPage,
+        page_size: 10
+      });
+      const data = response as PaginatedManageUsers;
+      setUsers(data.data || []);
+      setTotalPages(data.total_pages || 1);
+      if (data.summary) {
+        setSummary(data.summary);
+      }
+    } catch (error: any) {
+       toast({ title: 'Error', description: error.response?.data?.detail || 'Failed to fetch users', variant: 'destructive' });
+    } finally {
+      setLoading(false);
+    }
+  }, [activeTab, debouncedSearch, currentPage, toast]);
 
-    setIsAddUserOpen(false);
-    form.reset();
+  useEffect(() => {
+    fetchUsers();
+  }, [fetchUsers]);
+  
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [activeTab, debouncedSearch]);
+
+
+  const onSubmit = async (data: AddUserFormValues) => {
+    const parsedPhone = parsePhoneNumber(data.phone);
+    if (!parsedPhone) {
+        toast({ title: 'Invalid Phone', description: 'Please enter a valid phone number', variant: 'destructive' });
+        return;
+    }
+
+    setSubmitting(true);
+    try {
+        await userApi.manageCreate({
+            phone_number_code: `+${parsedPhone.countryCallingCode}`,
+            contact_number: parsedPhone.nationalNumber,
+            fullname: data.name,
+            email: data.email,
+            role: data.userType === 'student' ? 'Student' : 'Teacher',
+        });
+        toast({ title: 'Success', description: 'User created successfully', variant: 'success' });
+        setIsAddUserOpen(false);
+        form.reset();
+        fetchUsers();
+    } catch (error: any) {
+         toast({ title: 'Error', description: error.response?.data?.detail || 'Failed to create user', variant: 'destructive' });
+    } finally {
+        setSubmitting(false);
+    }
+  };
+
+  const handleDelete = async () => {
+    if (!userToDelete) return;
+    try {
+      await userApi.manageDelete(userToDelete);
+      toast({ title: 'Success', description: 'User deleted successfully', variant: 'success' });
+      setUserToDelete(null);
+      fetchUsers();
+    } catch (error: any) {
+      toast({ title: 'Error', description: error.response?.data?.detail || 'Failed to delete user', variant: 'destructive' });
+    }
   };
 
   return (
@@ -199,24 +277,6 @@ export default function Users() {
                         </FormItem>
                       )}
                     />
-                    {watchedUserType === 'student' && (
-                      <FormField
-                        control={form.control}
-                        name="batch"
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel>Assign to Batch</FormLabel>
-                              <select {...field} className="w-full h-10 px-3 rounded-md border border-input bg-background text-foreground text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2">
-                                <option value="" className="bg-background text-foreground">Select a batch</option>
-                                <option value="python" className="bg-background text-foreground">Python Basics</option>
-                                <option value="datascience" className="bg-background text-foreground">Data Science</option>
-                                <option value="webdev" className="bg-background text-foreground">Web Development</option>
-                              </select>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-                    )}
                     <FormField
                       control={form.control}
                       name="phone"
@@ -244,8 +304,11 @@ export default function Users() {
                     />
                   </div>
                   <div className="flex justify-end gap-3 mt-8">
-                    <Button type="button" variant="outline" onClick={() => { setIsAddUserOpen(false); form.reset(); }}>Cancel</Button>
-                    <Button type="submit" variant="gradient">Add User</Button>
+                    <Button type="button" variant="outline" onClick={() => { setIsAddUserOpen(false); form.reset(); }} disabled={submitting}>Cancel</Button>
+                    <Button type="submit" variant="gradient" disabled={submitting}>
+                        {submitting && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+                        Add User
+                    </Button>
                   </div>
                 </form>
               </Form>
@@ -258,7 +321,7 @@ export default function Users() {
               <DialogHeader>
                 <DialogTitle>Send Email</DialogTitle>
                 <DialogDescription>
-                  Send a direct email to {selectedStudentEmail?.name} ({selectedStudentEmail?.email}).
+                  Send a direct email to {selectedStudentEmail?.fullname} ({selectedStudentEmail?.email}).
                 </DialogDescription>
               </DialogHeader>
               <div className="space-y-4 py-4">
@@ -278,8 +341,6 @@ export default function Users() {
                         toolbar: [
                           ['bold', 'italic', 'underline', 'strike'],
                           [{ 'list': 'ordered'}, { 'list': 'bullet' }],
-                          ['link'],
-                          ['clean']
                         ],
                       }}
                     />
@@ -292,6 +353,27 @@ export default function Users() {
               </div>
             </DialogContent>
           </Dialog>
+
+          {/* Delete Confirmation */}
+          <AlertDialog open={!!userToDelete} onOpenChange={open => { if (!open) setUserToDelete(null); }}>
+            <AlertDialogContent>
+              <AlertDialogHeader>
+                <AlertDialogTitle>Delete User?</AlertDialogTitle>
+                <AlertDialogDescription>
+                  This action cannot be undone. The user will be permanently removed/deactivated.
+                </AlertDialogDescription>
+              </AlertDialogHeader>
+              <AlertDialogFooter>
+                <AlertDialogCancel>Cancel</AlertDialogCancel>
+                <AlertDialogAction
+                  onClick={handleDelete}
+                  className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                >
+                  Delete
+                </AlertDialogAction>
+              </AlertDialogFooter>
+            </AlertDialogContent>
+          </AlertDialog>
         </div>
 
         {/* Stats */}
@@ -303,7 +385,7 @@ export default function Users() {
                   <GraduationCap className="h-6 w-6 text-primary" />
                 </div>
                 <div>
-                  <p className="text-2xl font-bold text-foreground">{mockTeachers.length}</p>
+                  <p className="text-2xl font-bold text-foreground">{summary.total_teachers}</p>
                   <p className="text-sm text-muted-foreground">Teachers</p>
                 </div>
               </div>
@@ -316,7 +398,7 @@ export default function Users() {
                   <UsersIcon className="h-6 w-6 text-accent" />
                 </div>
                 <div>
-                  <p className="text-2xl font-bold text-foreground">{mockStudents.length}</p>
+                  <p className="text-2xl font-bold text-foreground">{summary.total_students}</p>
                   <p className="text-sm text-muted-foreground">Students</p>
                 </div>
               </div>
@@ -329,9 +411,7 @@ export default function Users() {
                   <UserCheck className="h-6 w-6 text-success" />
                 </div>
                 <div>
-                  <p className="text-2xl font-bold text-foreground">
-                    {mockStudents.filter(s => s.status === 'active').length}
-                  </p>
+                  <p className="text-2xl font-bold text-foreground">{summary.total_active_students}</p>
                   <p className="text-sm text-muted-foreground">Active Students</p>
                 </div>
               </div>
@@ -357,7 +437,7 @@ export default function Users() {
         </div>
 
         {/* Tabs */}
-        <Tabs defaultValue="students" className="space-y-6">
+        <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
           <TabsList className="bg-background p-1 border border-border/50 rounded-lg w-fit">
             <TabsTrigger value="students" className="gap-2 w-32">
               <UsersIcon className="h-4 w-4" />
@@ -376,55 +456,53 @@ export default function Users() {
                   <TableHeader>
                     <TableRow>
                       <TableHead>Student</TableHead>
+                      <TableHead>Phone</TableHead>
                       <TableHead>Batch</TableHead>
                       <TableHead>Progress</TableHead>
-                      <TableHead>Avg Score</TableHead>
                       <TableHead>Status</TableHead>
                       <TableHead className="text-right">Actions</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {mockStudents.map((student) => (
+                    {loading ? (
+                        <TableRow>
+                            <TableCell colSpan={6} className="text-center py-8 text-muted-foreground">Loading...</TableCell>
+                        </TableRow>
+                    ) : users.length === 0 ? (
+                        <TableRow>
+                            <TableCell colSpan={6} className="text-center py-8 text-muted-foreground">No students found.</TableCell>
+                        </TableRow>
+                    ) : users.map((student) => (
                       <TableRow key={student.id}>
                         <TableCell>
                           <div className="flex items-center gap-3">
-                            <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center">
-                              <span className="text-sm font-semibold text-primary">
-                                {student.name.charAt(0)}
-                              </span>
+                            <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center overflow-hidden">
+                                {student.profile_picture ? (
+                                    <img src={student.profile_picture} className="w-full h-full object-cover" />
+                                ) : (
+                                    <span className="text-sm font-semibold text-primary">
+                                        {student.fullname.charAt(0)}
+                                    </span>
+                                )}
                             </div>
                             <div>
-                              <p className="font-medium text-foreground">{student.name}</p>
+                              <p className="font-medium text-foreground">{student.fullname}</p>
                               <p className="text-sm text-muted-foreground">{student.email}</p>
                             </div>
                           </div>
                         </TableCell>
                         <TableCell>
-                          <Badge variant="outline">{student.batch}</Badge>
+                          <span className="text-sm">{student.phone_number_code} {student.contact_number}</span>
                         </TableCell>
                         <TableCell>
-                          <div className="flex items-center gap-2">
-                            <div className="w-20 h-2 bg-muted rounded-full overflow-hidden">
-                              <div
-                                className="h-full bg-primary rounded-full"
-                                style={{ width: `${student.progress}%` }}
-                              />
-                            </div>
-                            <span className="text-sm text-muted-foreground">{student.progress}%</span>
-                          </div>
+                          <Badge variant="outline">-</Badge>
                         </TableCell>
                         <TableCell>
-                          <span className="font-medium">{student.avgScore}%</span>
+                          <span className="text-sm text-muted-foreground">-</span>
                         </TableCell>
                         <TableCell>
-                          <Badge variant={
-                            student.status === 'active' ? 'default' :
-                            student.status === 'completed' ? 'secondary' : 'destructive'
-                          } className={
-                            student.status === 'active' ? 'bg-success' :
-                            student.status === 'completed' ? '' : ''
-                          }>
-                            {student.status}
+                          <Badge variant={student.is_active ? 'default' : 'secondary'} className={student.is_active ? 'bg-success hover:bg-success/80' : ''}>
+                            {student.is_active ? 'Active' : 'Inactive'}
                           </Badge>
                         </TableCell>
                         <TableCell className="text-right">
@@ -444,10 +522,7 @@ export default function Users() {
                             >
                               <Mail className="h-4 w-4" />
                             </Button>
-                            <Button variant="ghost" size="icon" className="h-8 w-8" title="Edit Student">
-                              <Edit className="h-4 w-4" />
-                            </Button>
-                            <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive" title="Delete Student">
+                            <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive" title="Delete Student" onClick={() => setUserToDelete(student.id)}>
                               <Trash2 className="h-4 w-4" />
                             </Button>
                           </div>
@@ -461,43 +536,67 @@ export default function Users() {
           </TabsContent>
 
           <TabsContent value="teachers">
-            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-              {mockTeachers.map((teacher) => (
-                <Card key={teacher.id} className="shadow-card">
-                  <CardContent className="p-6">
-                    <div className="flex items-start justify-between">
-                      <div className="flex items-center gap-3">
-                        <div className="h-12 w-12 rounded-full bg-primary/10 flex items-center justify-center">
-                          <span className="text-lg font-bold text-primary">
-                            {teacher.name.split(' ').slice(-1)[0].charAt(0)}
-                          </span>
+            {loading ? (
+                <div className="flex items-center justify-center py-16">
+                    <Loader2 className="h-8 w-8 animate-spin text-primary" />
+                </div>
+            ) : users.length === 0 ? (
+                <div className="text-center py-12 text-muted-foreground border-2 border-dashed border-border rounded-xl">
+                    <h3 className="text-lg font-medium mb-1">No teachers found</h3>
+                </div>
+            ) : (
+                <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                {users.map((teacher) => (
+                    <Card key={teacher.id} className="shadow-card">
+                    <CardContent className="p-6">
+                        <div className="flex items-start justify-between">
+                        <div className="flex items-center gap-3">
+                            <div className="h-12 w-12 rounded-full bg-primary/10 flex items-center justify-center overflow-hidden">
+                                {teacher.profile_picture ? (
+                                    <img src={teacher.profile_picture} className="w-full h-full object-cover" />
+                                ) : (
+                                    <span className="text-lg font-bold text-primary">
+                                        {teacher.fullname.charAt(0)}
+                                    </span>
+                                )}
+                            </div>
+                            <div>
+                            <h3 className="font-semibold text-foreground truncate max-w-[150px]">{teacher.fullname}</h3>
+                            <p className="text-sm text-muted-foreground truncate max-w-[150px]">{teacher.email}</p>
+                            </div>
                         </div>
-                        <div>
-                          <h3 className="font-semibold text-foreground">{teacher.name}</h3>
-                          <p className="text-sm text-muted-foreground">{teacher.email}</p>
+                        <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive" onClick={() => setUserToDelete(teacher.id)}>
+                            <Trash2 className="h-4 w-4" />
+                        </Button>
                         </div>
-                      </div>
-                      <Button variant="ghost" size="icon" className="h-8 w-8">
-                        <MoreVertical className="h-4 w-4" />
-                      </Button>
-                    </div>
-                    <div className="mt-4 pt-4 border-t border-border">
-                      <div className="flex flex-wrap gap-2 mb-3">
-                        {teacher.batches.map((batch) => (
-                          <Badge key={batch} variant="secondary">{batch}</Badge>
-                        ))}
-                      </div>
-                      <div className="flex items-center justify-between text-sm text-muted-foreground">
-                        <span>{teacher.students} students</span>
-                        <span>Joined {teacher.joinedAt}</span>
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
-              ))}
-            </div>
+                        <div className="mt-4 pt-4 border-t border-border">
+                        <div className="flex flex-wrap items-center justify-between gap-2 mb-3">
+                            <Badge variant={teacher.is_active ? 'default' : 'secondary'} className={teacher.is_active ? 'bg-success hover:bg-success/80' : ''}>
+                            {teacher.is_active ? 'Active' : 'Inactive'}
+                            </Badge>
+                            <span className="text-sm font-medium">{teacher.phone_number_code} {teacher.contact_number}</span>
+                        </div>
+                        </div>
+                    </CardContent>
+                    </Card>
+                ))}
+                </div>
+            )}
           </TabsContent>
         </Tabs>
+        
+        {/* Pagination Controls */}
+        {totalPages > 1 && (
+          <div className="flex items-center justify-center gap-2 mt-4">
+            <Button variant="outline" size="icon" onClick={() => setCurrentPage(p => Math.max(1, p - 1))} disabled={currentPage === 1 || loading}>
+              <ChevronLeft className="h-4 w-4" />
+            </Button>
+            <span className="text-sm text-muted-foreground">Page {currentPage} of {totalPages}</span>
+            <Button variant="outline" size="icon" onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))} disabled={currentPage === totalPages || loading}>
+              <ChevronRight className="h-4 w-4" />
+            </Button>
+          </div>
+        )}
       </div>
     </DashboardLayout>
   );

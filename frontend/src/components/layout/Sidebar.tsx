@@ -26,7 +26,6 @@ const adminNavItems = [
   { icon: Users, label: 'Users', path: '/users' },
   { icon: Library, label: 'Courses', path: '/admin-courses' },
   { icon: GraduationCap, label: 'Batches', path: '/batches' },
-  { icon: BookOpen, label: 'Content', path: '/content' },
   { icon: ClipboardCheck, label: 'Assessments', path: '/assessments' },
   { icon: Video, label: 'Live Sessions', path: '/live-sessions' },
   { icon: BarChart3, label: 'Progress', path: '/progress' },
@@ -36,8 +35,8 @@ const adminNavItems = [
 
 const teacherNavItems = [
   { icon: LayoutDashboard, label: 'Dashboard', path: '/dashboard' },
+  { icon: Library, label: 'Courses', path: '/admin-courses' },
   { icon: GraduationCap, label: 'My Batches', path: '/batches' },
-  { icon: BookOpen, label: 'Content', path: '/content' },
   { icon: ClipboardCheck, label: 'Assessments', path: '/assessments' },
   { icon: Video, label: 'Live Sessions', path: '/live-sessions' },
   { icon: BarChart3, label: 'Progress', path: '/progress' },

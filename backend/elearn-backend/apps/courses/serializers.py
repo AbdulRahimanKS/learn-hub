@@ -30,7 +30,6 @@ class CourseListSerializer(serializers.ModelSerializer):
             'description',
             'difficulty_level',
             'difficulty_display',
-            'default_duration_weeks',
             'thumbnail',
             'tags',
             'is_active',
@@ -57,7 +56,6 @@ class CourseDetailSerializer(serializers.ModelSerializer):
             'description',
             'difficulty_level',
             'difficulty_display',
-            'default_duration_weeks',
             'thumbnail',
             'tags',
             'is_active',
@@ -92,7 +90,6 @@ class CourseCreateUpdateSerializer(serializers.ModelSerializer):
             'title',
             'description',
             'difficulty_level',
-            'default_duration_weeks',
             'thumbnail',
             'tags_input',
             'tags',
@@ -107,12 +104,6 @@ class CourseCreateUpdateSerializer(serializers.ModelSerializer):
         if not value or not value.strip():
             raise ServiceError(detail="Course Title cannot be empty.", status_code=status.HTTP_400_BAD_REQUEST)
         return value.strip()
-
-    def validate_default_duration_weeks(self, value):
-        """Validate duration weeks is positive."""
-        if value < 1:
-            raise ServiceError(detail="Duration must be at least 1 week.", status_code=status.HTTP_400_BAD_REQUEST)
-        return value
 
     def _resolve_tags(self, tag_names):
         """Get or create Tag objects from a list of name strings."""

@@ -49,7 +49,7 @@ function AppRoutes() {
       <Route path="/" element={<Navigate to={isAuthenticated ? "/dashboard" : "/login"} replace />} />
       
       <Route path="/dashboard" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
-      <Route path="/content" element={<ProtectedRoute><Content /></ProtectedRoute>} />
+      <Route path="/admin-courses/:courseId/content" element={<ProtectedRoute><Content /></ProtectedRoute>} />
       <Route path="/assessments" element={<ProtectedRoute><Assessments /></ProtectedRoute>} />
       <Route path="/users" element={<ProtectedRoute><Users /></ProtectedRoute>} />
       <Route path="/batches" element={<ProtectedRoute><AdminBatches /></ProtectedRoute>} />

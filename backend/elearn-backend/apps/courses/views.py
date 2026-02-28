@@ -19,8 +19,32 @@ from utils.permissions import IsAdmin, IsAdminOrTeacher, IsAuthenticated
 from utils.common import format_success_response, handle_serializer_errors, ServiceError
 from utils.pagination import CustomPageNumberPagination
 from utils.constants import UserTypeConstants
+from utils.email_utils import send_email
+from apps.users.views.user_management_views import generate_temp_password
 
 logger = logging.getLogger(__name__)
+
+
+def _activate_and_email_teacher(teacher_user, requesting_user):
+    """If a teacher has never been activated (no usable password), generate credentials and email them."""
+    if teacher_user and not teacher_user.has_usable_password():
+        temp_password = generate_temp_password()
+        teacher_user.set_password(temp_password)
+        teacher_user.is_active = True
+        teacher_user.save(update_fields=['password', 'is_active'])
+        send_email(
+            user=requesting_user,
+            subject="Welcome to LearnHub – Your Login Credentials",
+            template="emails/user_welcome_credentials",
+            to_emails=[teacher_user.email],
+            payload={
+                "user_name": teacher_user.fullname,
+                "email": teacher_user.email,
+                "password": temp_password,
+                "role": "Teacher",
+            },
+        )
+        logger.info(f"Welcome credentials sent to teacher {teacher_user.email} upon first batch assignment.")
 
 
 
@@ -351,8 +375,13 @@ class BatchCreateView(APIView):
                 error_str = handle_serializer_errors(serializer)
                 raise ServiceError(detail=error_str, status_code=status.HTTP_400_BAD_REQUEST)
             
-            serializer.save()
-            
+            batch = serializer.save()
+
+            if batch.teacher:
+                _activate_and_email_teacher(batch.teacher, request.user)
+            for co_teacher in batch.co_teachers.all():
+                _activate_and_email_teacher(co_teacher, request.user)
+
             return format_success_response(
                 message="Batch created successfully",
                 data=None,
@@ -433,7 +462,12 @@ class BatchUpdateView(APIView):
                 error_str = handle_serializer_errors(serializer)
                 raise ServiceError(detail=error_str, status_code=status.HTTP_400_BAD_REQUEST)
             
-            serializer.save()
+            batch = serializer.save()
+
+            if batch.teacher:
+                _activate_and_email_teacher(batch.teacher, request.user)
+            for co_teacher in batch.co_teachers.all():
+                _activate_and_email_teacher(co_teacher, request.user)
 
             return format_success_response(
                 message="Batch updated successfully",
@@ -552,7 +586,7 @@ class BatchAddStudentView(APIView):
                     status_code=status.HTTP_400_BAD_REQUEST
                 )
 
-            BatchEnrollment.objects.create(
+            enrollment = BatchEnrollment.objects.create(
                 batch=batch,
                 student=student,
                 status=serializer.validated_data.get('status', BatchEnrollment.Status.ACTIVE),
@@ -561,6 +595,25 @@ class BatchAddStudentView(APIView):
                 fee_amount=serializer.validated_data.get('fee_amount', None),
                 enrolled_by=user,
             )
+
+            if not student.has_usable_password():
+                temp_password = generate_temp_password()
+                student.set_password(temp_password)
+                student.is_active = True
+                student.save(update_fields=['password', 'is_active'])
+                send_email(
+                    user=request.user,
+                    subject="Welcome to LearnHub – Your Login Credentials",
+                    template="emails/user_welcome_credentials",
+                    to_emails=[student.email],
+                    payload={
+                        "user_name": student.fullname,
+                        "email": student.email,
+                        "password": temp_password,
+                        "role": "Student",
+                    },
+                )
+                logger.info(f"Welcome credentials sent to student {student.email} upon first batch enrollment.")
 
             return format_success_response(
                 message="Student added to batch successfully.",

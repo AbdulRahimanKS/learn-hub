@@ -6,7 +6,6 @@ export interface Course {
   title: string;
   description: string;
   difficulty_level: 'beginner' | 'intermediate' | 'advanced';
-  default_duration_weeks: number;
   is_active: boolean;
   thumbnail: string | null;
   tags: { id: number; name: string }[];

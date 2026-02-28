@@ -154,6 +154,36 @@ export const batchApi = {
   },
 };
 
+export interface ManageUser {
+  id: number;
+  user_code: string;
+  email: string;
+  fullname: string;
+  phone_number_code: string;
+  contact_number: string;
+  role: string | null;
+  is_active: boolean;
+  profile_picture: string | null;
+  created_at: string;
+}
+
+export interface ManageUserSummary {
+  total_teachers: number;
+  total_students: number;
+  total_active_students: number;
+}
+
+export interface PaginatedManageUsers {
+  current_page: number;
+  total_pages: number;
+  total_items: number;
+  page_size: number;
+  next: string | null;
+  previous: string | null;
+  data: ManageUser[];
+  summary: ManageUserSummary;
+}
+
 export const userApi = {
   listByRole: async (role?: string, search?: string, paginate?: boolean, page?: number) => {
     const response = await apiClient.get<{ data: BatchUser[] | PaginatedUserResponse; success: boolean; message: string }>(
@@ -161,4 +191,31 @@ export const userApi = {
     );
     return response.data.data;
   },
+  
+  manageList: async (params?: { role?: string, search?: string, is_active?: boolean, paginate?: boolean, page?: number, page_size?: number }) => {
+    const response = await apiClient.get<{ data: PaginatedManageUsers | { data: ManageUser[], summary: ManageUserSummary }; success: boolean; message: string }>(
+      '/api/users/v1/manage/', { params }
+    );
+    return response.data.data;
+  },
+
+  manageCreate: async (data: { role: string, fullname: string, email: string, phone_number_code: string, contact_number: string }) => {
+    const response = await apiClient.post<any>('/api/users/v1/manage/', data);
+    return response.data;
+  },
+
+  manageUpdate: async (id: number, data: { fullname?: string, phone_number_code?: string, contact_number?: string, is_active?: boolean }) => {
+    const response = await apiClient.patch<any>(`/api/users/v1/manage/${id}/`, data);
+    return response.data;
+  },
+
+  manageDelete: async (id: number) => {
+    const response = await apiClient.delete<any>(`/api/users/v1/manage/${id}/`);
+    return response.data;
+  },
+
+  manageSendCredentials: async (id: number) => {
+    const response = await apiClient.post<any>(`/api/users/v1/manage/${id}/send-credentials/`);
+    return response.data;
+  }
 };

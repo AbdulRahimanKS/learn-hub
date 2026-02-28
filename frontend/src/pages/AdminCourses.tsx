@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { DashboardLayout } from '@/components/layout/DashboardLayout';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -61,6 +62,7 @@ function useDebounceValue<T>(value: T, delay: number): T {
 
 export default function AdminCourses() {
   const { toast } = useToast();
+  const navigate = useNavigate();
   
   // Data State
   const [courses, setCourses] = useState<Course[]>([]);
@@ -85,7 +87,6 @@ export default function AdminCourses() {
     title: '',
     description: '',
     difficulty: 'beginner',
-    durationWeeks: '8',
     tags: '',
     isActive: true,
   });
@@ -199,13 +200,6 @@ export default function AdminCourses() {
       errors.title = "Course Title must be 255 characters or less.";
     }
     
-    if (formData.durationWeeks) {
-      const weeks = parseInt(formData.durationWeeks);
-      if (isNaN(weeks) || weeks < 1 || !Number.isInteger(weeks)) {
-        errors.durationWeeks = "Duration must be a positive integer.";
-      }
-    }
-
     setFormErrors(errors);
     return Object.keys(errors).length === 0;
   };
@@ -215,7 +209,6 @@ export default function AdminCourses() {
       title: '',
       description: '',
       difficulty: 'beginner',
-      durationWeeks: '8',
       tags: '',
       isActive: true,
     });
@@ -233,7 +226,6 @@ export default function AdminCourses() {
         title: course.title,
         description: course.description || '',
         difficulty: course.difficulty_level,
-        durationWeeks: course.default_duration_weeks.toString(),
         tags: course.tags.map(t => t.name).join(', '),
         isActive: course.is_active,
       });
@@ -254,7 +246,6 @@ export default function AdminCourses() {
       submitData.append('title', formData.title.trim());
       submitData.append('description', formData.description.trim());
       submitData.append('difficulty_level', formData.difficulty);
-      submitData.append('default_duration_weeks', formData.durationWeeks);
       submitData.append('is_active', formData.isActive ? 'true' : 'false');
       
       const tagArray = formData.tags.split(',').map(t => t.trim()).filter(Boolean);
@@ -474,21 +465,6 @@ export default function AdminCourses() {
                       <option value="advanced" className="bg-background text-foreground">Advanced</option>
                     </select>
                   </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="durationWeeks" className={formErrors.durationWeeks ? "text-destructive" : ""}>Default Duration (Weeks)</Label>
-                    <Input 
-                      id="durationWeeks" 
-                      type="number" 
-                      placeholder="8" 
-                      min="1"
-                      value={formData.durationWeeks}
-                      onChange={handleInputChange}
-                      className={formErrors.durationWeeks ? "border-destructive focus-visible:ring-destructive" : ""}
-                    />
-                    {formErrors.durationWeeks && <p className="text-xs text-destructive">{formErrors.durationWeeks}</p>}
-                  </div>
-                </div>
-                <div className="space-y-2">
                   <Label htmlFor="tags">Tags (comma-separated)</Label>
                   <Input 
                     id="tags" 
@@ -583,6 +559,18 @@ export default function AdminCourses() {
 
                   {/* Floating Action Buttons */}
                   <div className="absolute bottom-3 right-3 flex gap-2 opacity-0 translate-y-2 group-hover:opacity-100 group-hover:translate-y-0 transition-all duration-300">
+                    <Button
+                      size="sm"
+                      variant="secondary"
+                      className="h-8 bg-background/90 backdrop-blur hover:bg-background shadow-md text-primary"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        navigate(`/admin-courses/${course.id}/content`);
+                      }}
+                    >
+                      <BookOpen className="h-4 w-4 mr-2" />
+                      Content
+                    </Button>
                     <Button 
                       size="icon" 
                       variant="secondary" 
@@ -629,15 +617,9 @@ export default function AdminCourses() {
                   </div>
 
                   <div className="flex flex-col gap-2 text-sm text-muted-foreground bg-muted/40 p-3 rounded-lg border border-border/40 mt-auto">
-                    <div className="flex justify-between">
-                      <div className="flex items-center gap-1.5 font-medium">
-                        <BookOpen className="h-4 w-4 text-primary/70" />
-                        <span className="capitalize">{course.difficulty_level}</span>
-                      </div>
-                      <div className="flex items-center gap-1.5 font-medium">
-                        <Calendar className="h-4 w-4 text-primary/70" />
-                        <span>{course.default_duration_weeks} Weeks</span>
-                      </div>
+                    <div className="flex items-center gap-1.5 font-medium">
+                      <BookOpen className="h-4 w-4 text-primary/70" />
+                      <span className="capitalize">{course.difficulty_level}</span>
                     </div>
                   </div>
                 </CardContent>
