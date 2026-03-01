@@ -12,7 +12,7 @@ from apps.courses.serializers import (
     CourseDetailSerializer,
     CourseCreateUpdateSerializer,
 )
-from utils.permissions import IsSuperAdminAdminOrTeacher
+from utils.permissions import IsSuperAdminAdminOrTeacher, IsSuperAdminOrAdmin, IsAuthenticated
 from utils.common import format_success_response, handle_serializer_errors, ServiceError
 from utils.pagination import CustomPageNumberPagination
 from utils.constants import UserTypeConstants
@@ -22,7 +22,7 @@ logger = logging.getLogger(__name__)
 
 @extend_schema(tags=["Courses"])
 class CourseListView(APIView):
-    permission_classes = [IsSuperAdminAdminOrTeacher]
+    permission_classes = [IsAuthenticated]
 
     @extend_schema(
         summary="List all courses",
@@ -79,7 +79,7 @@ class CourseListView(APIView):
 
 @extend_schema(tags=["Courses"])
 class CourseCreateView(APIView):
-    permission_classes = [IsSuperAdminAdminOrTeacher]
+    permission_classes = [IsSuperAdminOrAdmin]
     parser_classes = [MultiPartParser, FormParser, JSONParser]
 
     @extend_schema(
@@ -108,23 +108,40 @@ class CourseCreateView(APIView):
             raise ServiceError(detail=str(e), status_code=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
+
 @extend_schema(tags=["Courses"])
 class CourseDetailView(APIView):
-    permission_classes = [IsSuperAdminAdminOrTeacher]
+    permission_classes = [IsAuthenticated]
 
-    def get_object(self, pk):
+    def get_object(self, request, pk):
         try:
             qs = Course.objects.filter(is_deleted=False)
+
+            user = request.user
+            if getattr(user, 'user_type', None):
+                if user.user_type.name == UserTypeConstants.TEACHER:
+                    qs = qs.filter(
+                        batches__is_deleted=False
+                    ).filter(
+                        Q(batches__teacher=user) | 
+                        Q(batches__co_teachers=user)
+                    ).distinct()
+                elif user.user_type.name == UserTypeConstants.STUDENT:
+                    qs = qs.filter(
+                        batches__is_deleted=False,
+                        batches__enrollments__student=user
+                    ).distinct()
+
             return qs.prefetch_related('tags').get(pk=pk)
         except Course.DoesNotExist:
-            raise ServiceError(detail="Course not found.", status_code=status.HTTP_404_NOT_FOUND)
+            raise ServiceError(detail="Course not found or you do not have permission to view it.", status_code=status.HTTP_404_NOT_FOUND)
 
     @extend_schema(
         summary="Retrieve a course",
         responses={200: CourseDetailSerializer},
     )
     def get(self, request, pk):
-        course = self.get_object(pk)
+        course = self.get_object(request, pk)
         serializer = CourseDetailSerializer(course, context={'request': request})
         return format_success_response(message="Course retrieved successfully", data=serializer.data)
 
@@ -134,12 +151,11 @@ class CourseDetailView(APIView):
     )
     def delete(self, request, pk):
         try:
-            # Explicit Admin check for method-level security
             user = request.user
-            if getattr(user, 'user_type', None) and user.user_type.name != UserTypeConstants.ADMIN:
+            if getattr(user, 'user_type', None) and user.user_type.name not in [UserTypeConstants.ADMIN, UserTypeConstants.SUPERADMIN]:
                 raise ServiceError(detail="You do not have permission to perform this action.", status_code=status.HTTP_403_FORBIDDEN)
 
-            course = self.get_object(pk)
+            course = self.get_object(request, pk)
 
             if course.batches.filter(is_deleted=False).exists():
                 raise ServiceError(
@@ -162,11 +178,22 @@ class CourseUpdateView(APIView):
     permission_classes = [IsSuperAdminAdminOrTeacher]
     parser_classes = [MultiPartParser, FormParser, JSONParser]
 
-    def get_object(self, pk):
+    def get_object(self, request, pk):
         try:
-            return Course.objects.filter(is_deleted=False).prefetch_related('tags').get(pk=pk)
+            qs = Course.objects.filter(is_deleted=False)
+            
+            user = request.user
+            if getattr(user, 'user_type', None) and user.user_type.name == UserTypeConstants.TEACHER:
+                qs = qs.filter(
+                    batches__is_deleted=False
+                ).filter(
+                    Q(batches__teacher=user) | 
+                    Q(batches__co_teachers=user)
+                ).distinct()
+
+            return qs.prefetch_related('tags').get(pk=pk)
         except Course.DoesNotExist:
-            raise ServiceError(detail="Course not found.", status_code=status.HTTP_404_NOT_FOUND)
+            raise ServiceError(detail="Course not found or you do not have permission to edit it.", status_code=status.HTTP_404_NOT_FOUND)
 
     @extend_schema(
         summary="Update a course (Admin only)",
@@ -175,7 +202,7 @@ class CourseUpdateView(APIView):
     )
     def patch(self, request, pk):
         try:
-            course = self.get_object(pk)
+            course = self.get_object(request, pk)
             serializer = CourseCreateUpdateSerializer(
                 course, data=request.data, partial=True, context={'request': request}
             )
@@ -196,7 +223,7 @@ class CourseUpdateView(APIView):
 
 @extend_schema(tags=["Courses"])
 class CourseToggleActiveView(APIView):
-    permission_classes = [IsSuperAdminAdminOrTeacher]
+    permission_classes = [IsSuperAdminOrAdmin]
 
     def get_object(self, pk):
         try:

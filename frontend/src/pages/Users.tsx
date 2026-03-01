@@ -447,7 +447,7 @@ export default function Users() {
 
           {/* Edit User Modal */}
           <Dialog open={isEditUserOpen} onOpenChange={setIsEditUserOpen}>
-            <DialogContent className="sm:max-w-lg">
+            <DialogContent className="sm:max-w-lg" onOpenAutoFocus={(e) => e.preventDefault()}>
               <DialogHeader>
                 <DialogTitle>Edit User</DialogTitle>
                 <DialogDescription>Update user details</DialogDescription>

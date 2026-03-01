@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useAuth } from '@/contexts/AuthContext';
 import { DashboardLayout } from '@/components/layout/DashboardLayout';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -63,6 +64,7 @@ function useDebounceValue<T>(value: T, delay: number): T {
 export default function AdminCourses() {
   const { toast } = useToast();
   const navigate = useNavigate();
+  const { user } = useAuth();
   
   // Data State
   const [courses, setCourses] = useState<Course[]>([]);
@@ -336,17 +338,18 @@ export default function AdminCourses() {
             <h1 className="font-display text-3xl font-bold text-foreground">Course Management</h1>
             <p className="mt-1 text-muted-foreground">Add, edit and manage your platform's courses</p>
           </div>
-          <Dialog open={isModalOpen} onOpenChange={(open) => {
-            setIsModalOpen(open);
-            if (!open) resetForm();
-          }}>
-            <DialogTrigger asChild>
-              <Button variant="gradient" onClick={() => handleOpenModal()}>
-                <Plus className="h-4 w-4 mr-2" />
-                Add Course
-              </Button>
-            </DialogTrigger>
-            <DialogContent className="sm:max-w-lg max-h-[90vh] overflow-y-auto">
+          {user?.role === 'admin' && (
+            <Dialog open={isModalOpen} onOpenChange={(open) => {
+              setIsModalOpen(open);
+              if (!open) resetForm();
+            }}>
+              <DialogTrigger asChild>
+                <Button variant="gradient" onClick={() => handleOpenModal()}>
+                  <Plus className="h-4 w-4 mr-2" />
+                  Add Course
+                </Button>
+              </DialogTrigger>
+            <DialogContent className="sm:max-w-lg max-h-[90vh] overflow-y-auto" onOpenAutoFocus={(e) => e.preventDefault()}>
               <DialogHeader>
                 <DialogTitle>{editCourseId ? 'Edit Course' : 'Add New Course'}</DialogTitle>
                 <DialogDescription>Define the curriculum details for the course.</DialogDescription>
@@ -485,6 +488,7 @@ export default function AdminCourses() {
               </div>
             </DialogContent>
           </Dialog>
+          )}
         </div>
 
         {/* Search & Filter */}
@@ -550,8 +554,12 @@ export default function AdminCourses() {
                   </div>
                   <div className="absolute top-3 right-3 flex gap-2">
                     <Badge 
-                      className={`font-semibold shadow-sm cursor-pointer ${course.is_active ? 'bg-success text-success-foreground hover:bg-success/90 border-none' : 'bg-secondary text-secondary-foreground hover:bg-secondary/80 border-none'}`}
-                      onClick={() => handleToggleActive(course.id)}
+                      className={`font-semibold shadow-sm ${user?.role === 'admin' ? 'cursor-pointer hover:bg-success/90' : 'cursor-default'} ${course.is_active ? 'bg-success text-success-foreground border-none' : 'bg-secondary text-secondary-foreground border-none'}`}
+                      onClick={() => {
+                        if (user?.role === 'admin') {
+                          handleToggleActive(course.id);
+                        }
+                      }}
                     >
                       {course.is_active ? 'Active' : 'Inactive'}
                     </Badge>
@@ -579,17 +587,19 @@ export default function AdminCourses() {
                     >
                       <Edit className="h-4 w-4" />
                     </Button>
-                    <Button 
-                      size="icon" 
-                      variant="secondary" 
-                      className="h-8 w-8 rounded-full bg-background/90 backdrop-blur hover:bg-destructive hover:text-destructive-foreground shadow-md text-destructive transition-colors"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        handleDeleteClick(course.id);
-                      }}
-                    >
-                      <Trash2 className="h-4 w-4" />
-                    </Button>
+                    {user?.role === 'admin' && (
+                      <Button 
+                        size="icon" 
+                        variant="secondary" 
+                        className="h-8 w-8 rounded-full bg-background/90 backdrop-blur hover:bg-destructive hover:text-destructive-foreground shadow-md text-destructive transition-colors"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleDeleteClick(course.id);
+                        }}
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    )}
                   </div>
                 </div>
 
@@ -605,14 +615,14 @@ export default function AdminCourses() {
                   )}
                 </CardHeader>
                 <CardContent className="space-y-4 pt-0">
-                  <div className="flex gap-2 flex-wrap mb-2 h-6 overflow-hidden">
-                    {course.tags.slice(0, 3).map((tag, idx) => (
+                  <div className="flex gap-2 flex-wrap mb-2 max-h-16 overflow-hidden">
+                    {course.tags.slice(0, 8).map((tag, idx) => (
                       <Badge key={idx} variant="secondary" className="text-xs capitalize">
                         {tag.name}
                       </Badge>
                     ))}
-                    {course.tags.length > 3 && (
-                      <Badge variant="secondary" className="text-xs">+{course.tags.length - 3}</Badge>
+                    {course.tags.length > 8 && (
+                      <Badge variant="secondary" className="text-xs">+{course.tags.length - 8}</Badge>
                     )}
                   </div>
 
