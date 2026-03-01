@@ -47,7 +47,7 @@ const studentNavItems = [
   { icon: LayoutDashboard, label: 'Dashboard', path: '/dashboard' },
   { icon: BookOpen, label: 'My Courses', path: '/courses' },
   { icon: ClipboardCheck, label: 'Assessments', path: '/assessments' },
-  { icon: Calendar, label: 'Schedule', path: '/schedule' },
+  { icon: Video, label: 'Live Sessions', path: '/live-sessions' },
   { icon: BarChart3, label: 'My Progress', path: '/progress' },
   { icon: MessageSquare, label: 'Chat', path: '/chat' },
 ];

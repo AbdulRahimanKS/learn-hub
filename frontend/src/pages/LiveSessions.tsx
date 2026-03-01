@@ -26,6 +26,7 @@ import {
   Edit,
   Trash2,
 } from 'lucide-react';
+import { useAuth } from '@/contexts/AuthContext';
 
 const mockSessions = {
   upcoming: [
@@ -42,6 +43,8 @@ const mockSessions = {
 
 export default function LiveSessions() {
   const [isCreateOpen, setIsCreateOpen] = useState(false);
+  const { user } = useAuth();
+  const isStudent = user?.role === 'student';
 
   return (
     <DashboardLayout>
@@ -50,77 +53,82 @@ export default function LiveSessions() {
         <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           <div>
             <h1 className="font-display text-3xl font-bold text-foreground">Live Sessions</h1>
-            <p className="mt-1 text-muted-foreground">Schedule and manage live classes</p>
+            <p className="mt-1 text-muted-foreground">
+               {isStudent ? 'View and join your live classes' : 'Schedule and manage live classes'}
+            </p>
           </div>
-          <div className="flex gap-3">
-            <Button variant="gradient" className="gap-2">
-              <Radio className="h-4 w-4" />
-              Go Live Now
-            </Button>
-            <Dialog open={isCreateOpen} onOpenChange={setIsCreateOpen}>
-              <DialogTrigger asChild>
-                <Button variant="outline">
-                  <Plus className="h-4 w-4 mr-2" />
-                  Schedule Session
-                </Button>
-              </DialogTrigger>
-              <DialogContent className="sm:max-w-lg">
-                <DialogHeader>
-                  <DialogTitle>Schedule Live Session</DialogTitle>
-                  <DialogDescription>Create a new live session for your students</DialogDescription>
-                </DialogHeader>
-                <div className="space-y-4 py-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="title">Session Title</Label>
-                    <Input id="title" placeholder="e.g., Weekly Q&A Session" />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="description">Description</Label>
-                    <Textarea id="description" placeholder="Brief description of the session" />
-                  </div>
-                  <div className="grid grid-cols-2 gap-4">
+          
+          {!isStudent && (
+            <div className="flex gap-3">
+              <Button variant="gradient" className="gap-2">
+                <Radio className="h-4 w-4" />
+                Go Live Now
+              </Button>
+              <Dialog open={isCreateOpen} onOpenChange={setIsCreateOpen}>
+                <DialogTrigger asChild>
+                  <Button variant="outline">
+                    <Plus className="h-4 w-4 mr-2" />
+                    Schedule Session
+                  </Button>
+                </DialogTrigger>
+                <DialogContent className="sm:max-w-lg">
+                  <DialogHeader>
+                    <DialogTitle>Schedule Live Session</DialogTitle>
+                    <DialogDescription>Create a new live session for your students</DialogDescription>
+                  </DialogHeader>
+                  <div className="space-y-4 py-4">
                     <div className="space-y-2">
-                      <Label htmlFor="batch">Batch</Label>
-                      <select id="batch" className="w-full h-10 px-3 rounded-lg border border-input bg-background text-foreground text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2">
-                        <option value="" className="bg-background text-foreground">Select batch</option>
-                        <option value="python" className="bg-background text-foreground">Python Basics</option>
-                        <option value="datascience" className="bg-background text-foreground">Data Science</option>
-                        <option value="webdev" className="bg-background text-foreground">Web Development</option>
-                        <option value="all" className="bg-background text-foreground">All Batches</option>
-                      </select>
+                      <Label htmlFor="title">Session Title</Label>
+                      <Input id="title" placeholder="e.g., Weekly Q&A Session" />
                     </div>
                     <div className="space-y-2">
-                      <Label htmlFor="duration">Duration</Label>
-                      <select id="duration" className="w-full h-10 px-3 rounded-lg border border-input bg-background text-foreground text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2">
-                        <option value="30" className="bg-background text-foreground">30 minutes</option>
-                        <option value="60" className="bg-background text-foreground">60 minutes</option>
-                        <option value="90" className="bg-background text-foreground">90 minutes</option>
-                        <option value="120" className="bg-background text-foreground">2 hours</option>
-                      </select>
+                      <Label htmlFor="description">Description</Label>
+                      <Textarea id="description" placeholder="Brief description of the session" />
+                    </div>
+                    <div className="grid grid-cols-2 gap-4">
+                      <div className="space-y-2">
+                        <Label htmlFor="batch">Batch</Label>
+                        <select id="batch" className="w-full h-10 px-3 rounded-lg border border-input bg-background text-foreground text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2">
+                          <option value="" className="bg-background text-foreground">Select batch</option>
+                          <option value="python" className="bg-background text-foreground">Python Basics</option>
+                          <option value="datascience" className="bg-background text-foreground">Data Science</option>
+                          <option value="webdev" className="bg-background text-foreground">Web Development</option>
+                          <option value="all" className="bg-background text-foreground">All Batches</option>
+                        </select>
+                      </div>
+                      <div className="space-y-2">
+                        <Label htmlFor="duration">Duration</Label>
+                        <select id="duration" className="w-full h-10 px-3 rounded-lg border border-input bg-background text-foreground text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2">
+                          <option value="30" className="bg-background text-foreground">30 minutes</option>
+                          <option value="60" className="bg-background text-foreground">60 minutes</option>
+                          <option value="90" className="bg-background text-foreground">90 minutes</option>
+                          <option value="120" className="bg-background text-foreground">2 hours</option>
+                        </select>
+                      </div>
+                    </div>
+                    <div className="grid grid-cols-2 gap-4">
+                      <div className="space-y-2">
+                        <Label htmlFor="date">Date</Label>
+                        <Input id="date" type="date" />
+                      </div>
+                      <div className="space-y-2">
+                        <Label htmlFor="time">Time</Label>
+                        <Input id="time" type="time" />
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <input type="checkbox" id="record" className="rounded border-border" defaultChecked />
+                      <Label htmlFor="record" className="text-sm">Record this session</Label>
                     </div>
                   </div>
-                  <div className="grid grid-cols-2 gap-4">
-                    <div className="space-y-2">
-                      <Label htmlFor="date">Date</Label>
-                      <Input id="date" type="date" />
-                    </div>
-                    <div className="space-y-2">
-                      <Label htmlFor="time">Time</Label>
-                      <Input id="time" type="time" />
-                    </div>
+                  <div className="flex justify-end gap-3">
+                    <Button variant="outline" onClick={() => setIsCreateOpen(false)}>Cancel</Button>
+                    <Button variant="gradient">Schedule Session</Button>
                   </div>
-                  <div className="flex items-center gap-2">
-                    <input type="checkbox" id="record" className="rounded border-border" defaultChecked />
-                    <Label htmlFor="record" className="text-sm">Record this session</Label>
-                  </div>
-                </div>
-                <div className="flex justify-end gap-3">
-                  <Button variant="outline" onClick={() => setIsCreateOpen(false)}>Cancel</Button>
-                  <Button variant="gradient">Schedule Session</Button>
-                </div>
-              </DialogContent>
-            </Dialog>
-          </div>
+                </DialogContent>
+              </Dialog>
+            </div>
+          )}
         </div>
 
         {/* Stats */}
@@ -205,17 +213,19 @@ export default function LiveSessions() {
                     <div className="text-right">
                       <p className="font-medium text-foreground">{session.scheduledAt}</p>
                     </div>
-                    <div className="flex gap-1">
-                      <Button variant="ghost" size="icon" className="h-8 w-8">
-                        <Edit className="h-4 w-4" />
-                      </Button>
-                      <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive">
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
-                    </div>
-                    <Button variant="gradient" size="sm">
+                    {!isStudent && (
+                      <div className="flex gap-1">
+                        <Button variant="ghost" size="icon" className="h-8 w-8">
+                          <Edit className="h-4 w-4" />
+                        </Button>
+                        <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive">
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    )}
+                    <Button variant={isStudent ? "default" : "gradient"} size="sm">
                       <Play className="h-4 w-4 mr-1" />
-                      Start
+                      {isStudent ? 'Join' : 'Start'}
                     </Button>
                   </div>
                 </div>

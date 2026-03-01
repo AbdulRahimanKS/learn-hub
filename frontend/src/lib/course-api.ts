@@ -10,6 +10,7 @@ export interface Course {
   thumbnail: string | null;
   tags: { id: number; name: string }[];
   total_weeks?: number;
+  batch_name?: string;  // Added this explicitly for typing mapping if backend adds it
   created_at: string;
   updated_at: string;
 }
@@ -67,15 +68,15 @@ export const courseApi = {
     return response.data;
   },
 
-  // Toggle active status
-  toggleActive: async (id: number) => {
-    const response = await apiClient.post<{ data: null, success: boolean, message: string }>(`/api/courses/v1/courses/${id}/toggle-active/`);
+  // Delete a course
+  deleteCourse: async (id: number) => {
+    const response = await apiClient.delete<{ data: null, success: boolean, message: string }>(`/api/courses/v1/courses/${id}/`);
     return response.data;
   },
 
-  // Delete course
-  deleteCourse: async (id: number) => {
-    const response = await apiClient.delete<{ data: null, success: boolean, message: string }>(`/api/courses/v1/courses/${id}/`);
+  // Toggle course active status
+  toggleActive: async (id: number) => {
+    const response = await apiClient.post<{ data: null, success: boolean, message: string }>(`/api/courses/v1/courses/${id}/toggle-active/`);
     return response.data;
   },
 };
