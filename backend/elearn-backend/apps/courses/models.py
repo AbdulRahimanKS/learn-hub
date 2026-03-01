@@ -104,12 +104,6 @@ class Course(models.Model):
 
 # Batch
 class Batch(models.Model):
-    class Status(models.TextChoices):
-        UPCOMING  = 'upcoming',  _('Upcoming')
-        ACTIVE    = 'active',    _('Active')
-        COMPLETED = 'completed', _('Completed')
-        CANCELLED = 'cancelled', _('Cancelled')
-
     batch_code  = models.CharField(max_length=20, unique=True, editable=False)
     name        = models.CharField(_('Batch Name'), max_length=255)
     description = models.TextField(_('Description'), blank=True)
@@ -138,10 +132,7 @@ class Batch(models.Model):
     start_date     = models.DateField(_('Start Date'), null=True, blank=True)
     end_date       = models.DateField(_('End Date'),   null=True, blank=True)
 
-    status     = models.CharField(
-        _('Status'), max_length=20,
-        choices=Status.choices, default=Status.UPCOMING
-    )
+    is_active = models.BooleanField(default=True)
     
     is_deleted = models.BooleanField(default=False)
 
@@ -166,7 +157,7 @@ class Batch(models.Model):
         verbose_name_plural = _('Batches')
         ordering            = ['-created_at']
         indexes             = [
-            models.Index(fields=['status'],      name='batch_status_idx'),
+            models.Index(fields=['is_active'],   name='batch_is_active_idx'),
             models.Index(fields=['is_deleted'],  name='batch_is_deleted_idx'),
             models.Index(fields=['course'],      name='batch_course_idx'),
             models.Index(fields=['teacher'],     name='batch_teacher_idx'),
@@ -195,6 +186,31 @@ class Batch(models.Model):
     @property
     def is_full(self):
         return self.enrolled_count >= self.max_students
+
+    @property
+    def progress_percent(self):
+        if not self.start_date or not self.end_date:
+            return 0.0
+        
+        today = timezone.now().date()
+        if today < self.start_date:
+            return 0.0
+        if today >= self.end_date:
+            return 100.0
+            
+        total_days = (self.end_date - self.start_date).days
+        if total_days <= 0:
+            return 0.0
+            
+        elapsed_days = (today - self.start_date).days
+        return round((elapsed_days / total_days) * 100, 1)
+
+    def soft_delete(self, user):
+        self.is_deleted = True
+        if user:
+            self.deleted_by = user
+        self.deleted_at = timezone.now()
+        self.save()
 
 
 # Batch Enrollment

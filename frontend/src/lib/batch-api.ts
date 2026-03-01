@@ -39,20 +39,8 @@ export interface Batch {
   is_full: boolean;
   start_date: string | null;
   end_date: string | null;
-  duration_weeks: number;
-  schedule_type: string;
-  class_start_time: string | null;
-  class_end_time: string | null;
-  fee_amount: string | null;
-  fee_currency: string;
-  is_free: boolean;
-  current_week: number;
   progress_percent: number;
-  status: 'upcoming' | 'active' | 'on_hold' | 'completed' | 'cancelled';
   is_active: boolean;
-  is_online: boolean;
-  meeting_platform: string;
-  location: string;
   created_at: string;
   updated_at: string;
 }
@@ -66,14 +54,7 @@ export interface BatchFormData {
   max_students?: number;
   start_date?: string | null;
   end_date?: string | null;
-  duration_weeks?: number;
-  status?: string;
   is_active?: boolean;
-  is_online?: boolean;
-  meeting_platform?: string;
-  location?: string;
-  fee_amount?: string | null;
-  is_free?: boolean;
 }
 
 export interface PaginatedBatchResponse {

@@ -9,19 +9,18 @@ class BatchListSerializer(serializers.ModelSerializer):
     """
     Lightweight serializer for listing batches.
     """
-    teacher_name = serializers.CharField(source='teacher.get_full_name', read_only=True)
+    teacher_name = serializers.CharField(source='teacher.fullname', read_only=True)
     enrolled_count = serializers.IntegerField(read_only=True)
     is_full = serializers.BooleanField(read_only=True)
+
+    progress_percent = serializers.FloatField(read_only=True)
 
     class Meta:
         model = Batch
         fields = [
             'id', 'batch_code', 'name', 'description', 'course',
             'teacher', 'teacher_name', 'max_students', 'enrolled_count', 'is_full',
-            'start_date', 'end_date', 'duration_weeks', 'schedule_type',
-            'class_start_time', 'class_end_time', 'fee_amount', 'fee_currency',
-            'is_free', 'current_week', 'progress_percent', 'status',
-            'is_active', 'is_online', 'meeting_platform', 'location',
+            'start_date', 'end_date', 'progress_percent', 'is_active',
             'created_at', 'updated_at'
         ]
 
@@ -45,10 +44,7 @@ class BatchCreateUpdateSerializer(serializers.ModelSerializer):
         model = Batch
         fields = [
             'name', 'description', 'course', 'teacher', 'co_teachers',
-            'max_students', 'start_date', 'end_date', 'duration_weeks',
-            'schedule_type', 'class_start_time', 'class_end_time',
-            'schedule_notes', 'fee_amount', 'fee_currency', 'is_free',
-            'status', 'is_active', 'is_online', 'meeting_platform', 'location'
+            'max_students', 'start_date', 'end_date', 'is_active'
         ]
 
     def create(self, validated_data):

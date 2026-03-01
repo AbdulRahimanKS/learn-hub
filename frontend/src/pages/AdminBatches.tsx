@@ -67,22 +67,6 @@ function useDebounceValue<T>(value: T, delay: number): T {
   return debouncedValue;
 }
 
-const STATUS_CHOICES = [
-  { value: 'upcoming', label: 'Upcoming' },
-  { value: 'active', label: 'Active' },
-  { value: 'on_hold', label: 'On Hold' },
-  { value: 'completed', label: 'Completed' },
-  { value: 'cancelled', label: 'Cancelled' },
-];
-
-const STATUS_COLOR: Record<string, string> = {
-  upcoming: 'bg-blue-500',
-  active: 'bg-success',
-  on_hold: 'bg-warning',
-  completed: 'bg-muted-foreground',
-  cancelled: 'bg-destructive',
-};
-
 const initialForm: BatchFormData = {
   name: '',
   description: '',
@@ -92,14 +76,7 @@ const initialForm: BatchFormData = {
   max_students: 30,
   start_date: null,
   end_date: null,
-  duration_weeks: 8,
-  status: 'upcoming',
   is_active: true,
-  is_online: true,
-  meeting_platform: '',
-  location: '',
-  is_free: true,
-  fee_amount: null,
 };
 
 export default function AdminBatches() {
@@ -298,7 +275,6 @@ export default function AdminBatches() {
     if (!formData.course) errors.course = 'A course must be selected for this batch.';
     if (!formData.teacher) errors.teacher = 'Primary teacher is required.';
     if ((formData.max_students ?? 0) < 1) errors.max_students = 'Max students must be at least 1.';
-    if ((formData.duration_weeks ?? 0) < 1) errors.duration_weeks = 'Duration must be at least 1 week.';
     if (formData.start_date && formData.end_date && formData.start_date > formData.end_date)
       errors.end_date = 'End date must be after start date.';
     setFormErrors(errors);
@@ -329,14 +305,7 @@ export default function AdminBatches() {
           max_students: d.max_students ?? 30,
           start_date: d.start_date ?? null,
           end_date: d.end_date ?? null,
-          duration_weeks: d.duration_weeks ?? 8,
-          status: d.status ?? 'upcoming',
           is_active: d.is_active ?? true,
-          is_online: d.is_online ?? true,
-          meeting_platform: d.meeting_platform ?? '',
-          location: d.location ?? '',
-          is_free: d.is_free ?? true,
-          fee_amount: d.fee_amount ?? null,
         });
       } catch (_) {
         toast({ title: 'Error', description: 'Failed to load batch details', variant: 'destructive' });
@@ -356,7 +325,6 @@ export default function AdminBatches() {
         ...formData,
         name: formData.name.trim(),
         description: formData.description?.trim() || '',
-        fee_amount: formData.is_free ? null : (formData.fee_amount || null),
       };
 
       if (editBatchId) {
@@ -423,7 +391,6 @@ export default function AdminBatches() {
   const statsCards = [
     { label: 'Total Batches',   value: summary.total_batches,  icon: GraduationCap, color: 'bg-primary/10 text-primary' },
     { label: 'Active Batches',  value: summary.active_batches,  icon: BookOpen,      color: 'bg-success/10 text-success' },
-    { label: 'Total Students',  value: summary.total_students,  icon: Users,         color: 'bg-accent/10 text-accent' },
     { label: 'Avg Progress',    value: '—',                     icon: Calendar,      color: 'bg-warning/10 text-warning' },
   ];
 
@@ -443,7 +410,7 @@ export default function AdminBatches() {
         </div>
 
         {/* Stats */}
-        <div className="grid gap-4 sm:grid-cols-4">
+        <div className="grid gap-4 sm:grid-cols-3">
           {statsCards.map(({ label, value, icon: Icon, color }) => (
             <Card key={label} className="shadow-card">
               <CardContent className="p-6">
@@ -516,8 +483,8 @@ export default function AdminBatches() {
                         <p className="text-sm text-muted-foreground line-clamp-2">{batch.description}</p>
                       )}
                     </div>
-                    <Badge className={`shrink-0 ${STATUS_COLOR[batch.status] || 'bg-muted'} text-white`}>
-                      {STATUS_CHOICES.find(s => s.value === batch.status)?.label ?? batch.status}
+                    <Badge className={`shrink-0 ${batch.is_active ? 'bg-success' : 'bg-muted-foreground'} text-white`}>
+                      {batch.is_active ? 'Active' : 'Inactive'}
                     </Badge>
                   </div>
                 </CardHeader>
@@ -533,16 +500,15 @@ export default function AdminBatches() {
                       </div>
 
                       {/* Progress */}
-                      <div className="space-y-2">
+                      <div className="space-y-2 mt-2">
                         <div className="flex items-center justify-between text-sm">
                           <span className="text-muted-foreground">Progress</span>
-                          <span className="font-medium">Week {batch.current_week}/{batch.duration_weeks}</span>
                         </div>
                         <Progress value={batch.progress_percent} className="h-2" />
                       </div>
 
                       {/* Stats */}
-                      <div className="flex items-center justify-between text-sm pt-2 border-t border-border">
+                      <div className="flex items-center justify-between text-sm pt-2 border-t border-border mt-2">
                         <div className="flex items-center gap-1 text-muted-foreground">
                           <Users className="h-4 w-4" />
                           <span>{batch.enrolled_count}/{batch.max_students}</span>
@@ -823,8 +789,8 @@ export default function AdminBatches() {
               </Popover>
             </div>
 
-            {/* Dates + Duration */}
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+            {/* Dates */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div className="space-y-1.5 flex flex-col justify-end">
                 <Label>Start Date</Label>
                 <Popover modal={true}>
@@ -892,65 +858,24 @@ export default function AdminBatches() {
                 </Popover>
                 {formErrors.end_date && <p className="text-xs text-destructive">{formErrors.end_date}</p>}
               </div>
-              <div className="space-y-1.5">
-                <Label htmlFor="batch-weeks">Duration (Weeks) <span className="text-destructive">*</span></Label>
-                <Input
-                  id="batch-weeks"
-                  type="number"
-                  min={1}
-                  value={formData.duration_weeks ?? 8}
-                  onChange={e => {
-                    setFormData(p => ({ ...p, duration_weeks: parseInt(e.target.value) || 1 }));
-                    if (formErrors.duration_weeks) setFormErrors(p => ({ ...p, duration_weeks: '' }));
-                  }}
-                />
-                {formErrors.duration_weeks && <p className="text-xs text-destructive">{formErrors.duration_weeks}</p>}
-              </div>
             </div>
 
-            {/* Max Students + Status */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <div className="space-y-1.5">
-                <Label htmlFor="batch-max">Max Students <span className="text-destructive">*</span></Label>
-                <Input
-                  id="batch-max"
-                  type="number"
-                  min={1}
-                  value={formData.max_students ?? 30}
-                  onChange={e => {
-                    setFormData(p => ({ ...p, max_students: parseInt(e.target.value) || 1 }));
-                    if (formErrors.max_students) setFormErrors(p => ({ ...p, max_students: '' }));
-                  }}
-                />
-                {formErrors.max_students && <p className="text-xs text-destructive">{formErrors.max_students}</p>}
-              </div>
-              <div className="space-y-1.5">
-                <Label htmlFor="batch-status">Status</Label>
-                <select
-                  id="batch-status"
-                  className="w-full h-10 px-3 rounded-lg border border-input bg-background text-foreground text-sm focus-visible:outline-none"
-                  value={formData.status ?? 'upcoming'}
-                  onChange={e => setFormData(p => ({ ...p, status: e.target.value }))}
-                >
-                  {STATUS_CHOICES.map(s => (
-                    <option key={s.value} value={s.value}>{s.label}</option>
-                  ))}
-                </select>
-              </div>
-            </div>
-
-            {/* Active Toggle */}
-            <div className="flex items-center gap-3 rounded-lg border border-border p-3">
-              <Switch
-                id="batch-active"
-                checked={formData.is_active ?? true}
-                onCheckedChange={v => setFormData(p => ({ ...p, is_active: v }))}
+            {/* Max Students */}
+            <div className="space-y-1.5">
+              <Label htmlFor="batch-max">Max Students <span className="text-destructive">*</span></Label>
+              <Input
+                id="batch-max"
+                type="number"
+                min={1}
+                value={formData.max_students ?? 30}
+                onChange={e => {
+                  setFormData(p => ({ ...p, max_students: parseInt(e.target.value) || 1 }));
+                  if (formErrors.max_students) setFormErrors(p => ({ ...p, max_students: '' }));
+                }}
               />
-              <div>
-                <Label htmlFor="batch-active" className="font-medium">Active</Label>
-                <p className="text-xs text-muted-foreground">Inactive batches are hidden from students and teachers</p>
-              </div>
+              {formErrors.max_students && <p className="text-xs text-destructive">{formErrors.max_students}</p>}
             </div>
+
           </div>
 
           {/* Footer */}

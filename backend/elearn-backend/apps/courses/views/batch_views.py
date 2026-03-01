@@ -66,9 +66,9 @@ class BatchSummaryView(APIView):
             ).distinct()
 
         total_batches = qs.count()
-        active_batches = qs.filter(status='active').count()
-        upcoming_batches = qs.filter(status='upcoming').count()
-        on_hold_batches = qs.filter(status='on_hold').count()
+        active_batches = qs.filter(is_active=True).count()
+        upcoming_batches = 0 
+        on_hold_batches = 0
 
         total_students = BatchEnrollment.objects.filter(
             batch__in=qs,
