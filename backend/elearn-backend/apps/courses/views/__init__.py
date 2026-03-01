@@ -19,6 +19,9 @@ from .course_module_views import (
     CourseWeekDetailView,
     ClassSessionListCreateView,
     ClassSessionDetailView,
+    WeeklyTestView,
+    WeeklyTestQuestionListCreateView,
+    WeeklyTestQuestionDetailView,
 )
 
 __all__ = [
@@ -38,4 +41,7 @@ __all__ = [
     'CourseWeekDetailView',
     'ClassSessionListCreateView',
     'ClassSessionDetailView',
+    'WeeklyTestView',
+    'WeeklyTestQuestionListCreateView',
+    'WeeklyTestQuestionDetailView',
 ]

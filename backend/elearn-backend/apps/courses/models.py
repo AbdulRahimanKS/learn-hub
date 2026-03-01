@@ -333,15 +333,7 @@ class WeeklyTest(models.Model):
     title          = models.CharField(_('Test Title'), max_length=255)
     instructions   = models.TextField(_('Instructions'), blank=True)
 
-    question_file  = models.FileField(
-        upload_to='test_questions/',
-        null=True, blank=True,
-        help_text=_('Supported: .ipynb, .pdf, .doc, .docx, .jpg, .jpeg, .png')
-    )
-    question_text  = models.TextField(
-        _('Inline Question Text'), blank=True,
-        help_text=_('Text-only questions can be written here instead of uploading')
-    )
+    pass_percentage = models.FloatField(default=70.0)
     
     created_by     = models.ForeignKey(
         'users.User', on_delete=models.SET_NULL, null=True, blank=True,
@@ -364,6 +356,35 @@ class WeeklyTest(models.Model):
 
     def __str__(self):
         return f"{self.course_week.course.title} – Week {self.course_week.week_number} Test"
+
+
+# Question Model
+class WeeklyTestQuestion(models.Model):
+    test = models.ForeignKey(
+        WeeklyTest, on_delete=models.CASCADE, related_name='questions'
+    )
+    text = models.TextField(_('Question Text'), blank=True)
+
+    question_file  = models.FileField(
+        upload_to='test_questions/files/',
+        null=True, blank=True,
+        help_text=_('Supported: .ipynb, .pdf, .doc, .docx, .jpg, .jpeg, .png')
+    )
+    
+    image = models.ImageField(
+        upload_to='test_questions/images/', 
+        null=True, blank=True
+    )
+    order = models.PositiveIntegerField(_('Order'), default=1)
+    marks = models.FloatField(_('Marks'), default=1.0)
+
+    class Meta:
+        ordering = ['order', 'id']
+        verbose_name = _('Question')
+        verbose_name_plural = _('Questions')
+
+    def __str__(self):
+        return f"Q{self.order} for Test {self.test.id}"
 
 
 # ─────────────────────────────────────────────────────────────────────────────

@@ -14,6 +14,9 @@ from .course_module_serializers import (
     CourseWeekCreateUpdateSerializer,
     ClassSessionSerializer,
     ClassSessionCreateUpdateSerializer,
+    WeeklyTestSerializer,
+    WeeklyTestCreateUpdateSerializer,
+    WeeklyTestQuestionSerializer,
 )
 
 __all__ = [
@@ -28,4 +31,7 @@ __all__ = [
     'CourseWeekCreateUpdateSerializer',
     'ClassSessionSerializer',
     'ClassSessionCreateUpdateSerializer',
+    'WeeklyTestSerializer',
+    'WeeklyTestCreateUpdateSerializer',
+    'WeeklyTestQuestionSerializer',
 ]

@@ -16,6 +16,9 @@ from apps.courses.views import (
     CourseWeekDetailView,
     ClassSessionListCreateView,
     ClassSessionDetailView,
+    WeeklyTestView,
+    WeeklyTestQuestionListCreateView,
+    WeeklyTestQuestionDetailView,
 )
 
 urlpatterns = [
@@ -31,6 +34,9 @@ urlpatterns = [
     path("courses/<int:course_id>/weeks/<int:week_id>/", CourseWeekDetailView.as_view(), name="course-week-detail"),
     path("courses/<int:course_id>/weeks/<int:week_id>/sessions/", ClassSessionListCreateView.as_view(), name="class-session-list-create"),
     path("courses/<int:course_id>/weeks/<int:week_id>/sessions/<int:session_id>/", ClassSessionDetailView.as_view(), name="class-session-detail"),
+    path("courses/<int:course_id>/weeks/<int:week_id>/test/", WeeklyTestView.as_view(), name="weekly-test"),
+    path("courses/<int:course_id>/weeks/<int:week_id>/test/questions/", WeeklyTestQuestionListCreateView.as_view(), name="weekly-test-question-list-create"),
+    path("courses/<int:course_id>/weeks/<int:week_id>/test/questions/<int:question_id>/", WeeklyTestQuestionDetailView.as_view(), name="weekly-test-question-detail"),
 
     # Batches
     path("batches/summary/", BatchSummaryView.as_view(), name="batch-summary"),
