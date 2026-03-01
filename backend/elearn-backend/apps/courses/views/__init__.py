@@ -23,6 +23,11 @@ from .course_module_views import (
     WeeklyTestQuestionListCreateView,
     WeeklyTestQuestionDetailView,
 )
+from .upload_views import (
+    InitMultipartUploadView,
+    CompleteMultipartUploadView,
+    AbortMultipartUploadView,
+)
 
 __all__ = [
     'CourseListView',
@@ -44,4 +49,7 @@ __all__ = [
     'WeeklyTestView',
     'WeeklyTestQuestionListCreateView',
     'WeeklyTestQuestionDetailView',
+    'InitMultipartUploadView',
+    'CompleteMultipartUploadView',
+    'AbortMultipartUploadView',
 ]

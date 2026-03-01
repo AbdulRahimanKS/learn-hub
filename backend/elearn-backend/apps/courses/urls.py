@@ -19,9 +19,17 @@ from apps.courses.views import (
     WeeklyTestView,
     WeeklyTestQuestionListCreateView,
     WeeklyTestQuestionDetailView,
+    InitMultipartUploadView,
+    CompleteMultipartUploadView,
+    AbortMultipartUploadView,
 )
 
 urlpatterns = [
+    # Video Uploads
+    path("courses/upload/init/", InitMultipartUploadView.as_view(), name="upload-init"),
+    path("courses/upload/complete/", CompleteMultipartUploadView.as_view(), name="upload-complete"),
+    path("courses/upload/abort/", AbortMultipartUploadView.as_view(), name="upload-abort"),
+
     # Courses
     path("courses/", CourseListView.as_view(), name="course-list"),
     path("courses/create/", CourseCreateView.as_view(), name="course-create"),

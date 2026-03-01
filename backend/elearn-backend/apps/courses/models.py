@@ -286,10 +286,11 @@ class ClassSession(models.Model):
     title          = models.CharField(_('Session Title'), max_length=255)
     description    = models.TextField(_('Description / Notes'), blank=True)
 
-    video_file     = models.FileField(
-        upload_to='class_videos/',
+    video_file     = models.CharField(
+        _('Video Object Key'),
+        max_length=1024,
         null=True, blank=True,
-        help_text=_('MP4 / WebM class recording uploaded by teacher')
+        help_text=_('Cloudflare R2 object key for the video')
     )
     video_url      = models.URLField(
         _('External Video URL'), blank=True, null=True,

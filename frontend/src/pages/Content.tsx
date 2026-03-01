@@ -49,9 +49,12 @@ import {
   FileText,
   Image as ImageIcon,
   CheckCircle,
+  BookOpen,
+  Loader2,
 } from 'lucide-react';
 import { courseModuleApi, CourseWeek } from '@/lib/course-module-api';
 import { useToast } from '@/hooks/use-toast';
+import axios from 'axios';
 
 export default function Content() {
   const { courseId } = useParams<{ courseId: string }>();
@@ -88,11 +91,24 @@ export default function Content() {
   const [weekTitleError, setWeekTitleError] = useState('');
   const [weekNumberError, setWeekNumberError] = useState('');
 
-  // Video upload state
+  // Video upload / edit state
   const [videoTitle, setVideoTitle] = useState('');
   const [videoDesc, setVideoDesc] = useState('');
   const [videoFile, setVideoFile] = useState<File | null>(null);
+  const [videoThumbnail, setVideoThumbnail] = useState<File | null>(null);
+  const [sessionNumber, setSessionNumber] = useState<number | ''>('');
+  
+  const [editVideoId, setEditVideoId] = useState<number | null>(null);
+  const [isEditVideoOpen, setIsEditVideoOpen] = useState(false);
+  const [deleteVideoId, setDeleteVideoId] = useState<number | null>(null);
+  const [playingVideoUrl, setPlayingVideoUrl] = useState<string | null>(null);
+  
+  const [uploadProgress, setUploadProgress] = useState(-1); // -1 means no active upload
+  const [isUploading, setIsUploading] = useState(false);
+
   const fileInputRef = React.useRef<HTMLInputElement>(null);
+  const thumbnailInputRef = React.useRef<HTMLInputElement>(null);
+  const editThumbnailInputRef = React.useRef<HTMLInputElement>(null);
 
   // Test setup state
   const [testTitle, setTestTitle] = useState('Weekly Assessment');
@@ -130,6 +146,19 @@ export default function Content() {
       setNewWeekNumber(nextWeekNumber);
     }
   }, [isWeekOpen, weeks]);
+
+  useEffect(() => {
+    if (isUploadOpen) {
+      setVideoTitle('');
+      setVideoDesc('');
+      setVideoFile(null);
+      setVideoThumbnail(null);
+      
+      const activeWeek = weeks.find(w => w.id.toString() === activeTab);
+      const nextSession = activeWeek && activeWeek.class_sessions ? activeWeek.class_sessions.length + 1 : 1;
+      setSessionNumber(nextSession);
+    }
+  }, [isUploadOpen, activeTab, weeks]);
 
   const handleCreateWeek = async () => {
     let hasError = false;
@@ -275,30 +304,139 @@ export default function Content() {
       toast({ title: 'Validation Error', description: 'Please fill in all required fields and select a week.', variant: 'destructive' });
       return;
     }
+    if (sessionNumber === '' || sessionNumber <= 0) {
+      toast({ title: 'Validation Error', description: 'Session number must be greater than 0.', variant: 'destructive' });
+      return;
+    }
 
-    const formData = new FormData();
-    // Default session number logic
-    const activeWeek = weeks.find(w => w.id.toString() === activeTab);
-    const nextSession = activeWeek && activeWeek.class_sessions ? activeWeek.class_sessions.length + 1 : 1;
-    
-    formData.append('title', videoTitle);
-    formData.append('description', videoDesc);
-    formData.append('session_number', nextSession.toString());
-    formData.append('duration_mins', '0'); // Basic default
-    if (videoFile) formData.append('video_file', videoFile);
+    setIsUploading(true);
+    setUploadProgress(0);
 
     try {
+      let finalVideoKey = '';
+
+      // Direct-to-R2 Multipart Upload Flow
+      if (videoFile) {
+        // 1. Initialize Upload
+        const initRes = await courseModuleApi.initMultipartUpload(videoFile.name, videoFile.type, videoFile.size);
+        if (!initRes.success) throw new Error(initRes.message);
+
+        const { upload_id, key, part_urls, chunk_size } = initRes.data;
+        const uploadedParts = [];
+
+        // 2. Map chunks and upload sequentially (or carefully in parallel)
+        for (let i = 0; i < part_urls.length; i++) {
+          const start = i * chunk_size;
+          const end = Math.min(start + chunk_size, videoFile.size);
+          const chunk = videoFile.slice(start, end);
+
+          // PUT to pre-signed URL directly bypassing Django
+          const uploadRes = await axios.put(part_urls[i], chunk, {
+            headers: { 'Content-Type': videoFile.type },
+            onUploadProgress: (progressEvent) => {
+              if (progressEvent.total) {
+                // Calculate total precise progress across chunks
+                const chunkPct = progressEvent.loaded / progressEvent.total;
+                const overallPct = Math.round(((i + chunkPct) / part_urls.length) * 100);
+                setUploadProgress(overallPct);
+              }
+            }
+          });
+
+          // Retrieve ETag from header response
+          let etag = uploadRes.headers['etag'] || uploadRes.headers['ETag'];
+          if (!etag) throw new Error("Storage server didn't return an ETag for the part.");
+          
+          uploadedParts.push({ ETag: etag, PartNumber: i + 1 });
+        }
+
+        // 3. Complete Upload
+        const completeRes = await courseModuleApi.completeMultipartUpload(key, upload_id, uploadedParts);
+        if (!completeRes.success) throw new Error("Failed to finalize upload.");
+        
+        finalVideoKey = completeRes.data.video_key;
+      }
+
+      // 4. Save to Django Database
+      const formData = new FormData();
+      formData.append('title', videoTitle);
+      formData.append('description', videoDesc);
+      formData.append('session_number', sessionNumber.toString());
+      formData.append('duration_mins', '0'); // Basic default
+      if (finalVideoKey) {
+        // Just store the key text in the CharField
+        formData.append('video_file', finalVideoKey);
+      }
+      if (videoThumbnail) formData.append('thumbnail', videoThumbnail);
+
       const res = await courseModuleApi.createSession(courseId, activeTab, formData);
       if (res.success) {
-        toast({ title: 'Success', description: 'Video uploaded successfully', variant: 'success' });
+        toast({ title: 'Success', description: 'Video session created successfully.', variant: 'success' });
         setIsUploadOpen(false);
         setVideoTitle('');
         setVideoDesc('');
         setVideoFile(null);
+        setVideoThumbnail(null);
         fetchWeeks();
       }
     } catch (error: any) {
-      toast({ title: 'Error uploading video', description: error?.response?.data?.message || 'A network error occurred', variant: 'destructive' });
+      toast({ title: 'Upload Failed', description: error?.response?.data?.message || error.message || 'A network error occurred', variant: 'destructive' });
+    } finally {
+      setIsUploading(false);
+      setUploadProgress(-1);
+    }
+  };
+
+  const handleOpenEditVideo = (video: any, weekId: string) => {
+    setEditVideoId(video.id);
+    setActiveTab(weekId); // make sure the week is selected
+    setVideoTitle(video.title);
+    setVideoDesc(video.description || '');
+    setSessionNumber(video.session_number);
+    setVideoThumbnail(null); // Clear previous file selection
+    setIsEditVideoOpen(true);
+  };
+
+  const handleUpdateVideo = async () => {
+    if (!videoTitle.trim() || !activeTab || !courseId || !editVideoId) {
+      toast({ title: 'Validation Error', description: 'Please fill in all required fields.', variant: 'destructive' });
+      return;
+    }
+    if (sessionNumber === '' || sessionNumber <= 0) {
+      toast({ title: 'Validation Error', description: 'Session number must be greater than 0.', variant: 'destructive' });
+      return;
+    }
+
+    const formData = new FormData();
+    formData.append('title', videoTitle);
+    formData.append('description', videoDesc);
+    formData.append('session_number', sessionNumber.toString());
+    if (videoThumbnail) formData.append('thumbnail', videoThumbnail);
+
+    try {
+      const res = await courseModuleApi.updateSession(courseId, activeTab, editVideoId, formData);
+      if (res.success) {
+        toast({ title: 'Success', description: 'Video updated successfully', variant: 'success' });
+        setIsEditVideoOpen(false);
+        fetchWeeks();
+      }
+    } catch (error: any) {
+      toast({ title: 'Error updating video', description: error?.response?.data?.message || 'A network error occurred', variant: 'destructive' });
+    }
+  };
+
+  const handleDeleteVideo = async () => {
+    if (!deleteVideoId || !activeTab || !courseId) return;
+    try {
+      const res = await courseModuleApi.deleteSession(courseId, activeTab, deleteVideoId);
+      if (res.success) {
+        toast({ title: 'Success', description: 'Video deleted successfully', variant: 'success' });
+        fetchWeeks();
+      }
+    } catch (error: any) {
+      toast({ title: 'Error', description: 'Failed to delete video', variant: 'destructive' });
+    } finally {
+      setDeleteVideoId(null);
     }
   };
 
@@ -350,8 +488,19 @@ export default function Content() {
           </Badge>
         </div>
 
-        <button className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 p-4 rounded-full bg-primary text-primary-foreground opacity-0 group-hover:opacity-100 transition-opacity shadow-lg">
-          <Play className="h-6 w-6" />
+        <button 
+          className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 p-4 rounded-full bg-primary text-primary-foreground opacity-0 group-hover:opacity-100 transition-opacity shadow-lg"
+          onClick={() => {
+            if (video.video_presigned_url) {
+              setPlayingVideoUrl(video.video_presigned_url);
+            } else if (video.video_url) {
+               window.open(video.video_url, '_blank');
+            } else {
+              toast({ title: 'Video Unavailable', description: 'This video cannot be played directly at this time.', variant: 'destructive' });
+            }
+          }}
+        >
+          <Play className="h-6 w-6 fill-current ml-1" />
         </button>
       </div>
       <CardContent className="p-4 flex flex-col justify-between flex-1">
@@ -361,7 +510,7 @@ export default function Content() {
         </div>
 
         <div className="flex items-center justify-between mt-4">
-          <Button variant="outline" size="sm">
+          <Button variant="outline" size="sm" onClick={() => handleOpenEditVideo(video, activeTab)}>
             <Edit className="h-4 w-4 mr-1" />
             Edit
           </Button>
@@ -369,7 +518,7 @@ export default function Content() {
             <Button variant="ghost" size="icon" className="h-8 w-8">
               {video.isLocked ? <Lock className="h-4 w-4" /> : <Unlock className="h-4 w-4" />}
             </Button>
-            <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive">
+            <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive" onClick={() => setDeleteVideoId(video.id)}>
               <Trash2 className="h-4 w-4" />
             </Button>
           </div>
@@ -381,6 +530,18 @@ export default function Content() {
   return (
     <DashboardLayout>
       <div className="space-y-6">
+        {/* Breadcrumb + Back */}
+        <div className="flex items-center gap-2 text-sm text-muted-foreground mb-1">
+          <button
+            onClick={() => navigate('/admin-courses')}
+            className="hover:text-foreground transition-colors"
+          >
+            Courses
+          </button>
+          <ChevronLeft className="h-3 w-3 rotate-180" />
+          <span className="text-foreground font-medium">Course Content</span>
+        </div>
+
         {/* Header */}
         <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           <div className="flex items-center gap-4">
@@ -392,7 +553,7 @@ export default function Content() {
               <p className="mt-1 text-muted-foreground">Manage your weekly video content and assessments</p>
             </div>
           </div>
-          
+
           <div className="flex items-center gap-3">
             <Button variant="outline" onClick={() => setIsWeekOpen(true)}>
               <Plus className="h-4 w-4 mr-2" />
@@ -534,6 +695,17 @@ export default function Content() {
               />
             </div>
             
+            <div className="space-y-2">
+              <Label htmlFor="sessionNumber">Session Number (Order in week) <span className="text-destructive">*</span></Label>
+              <Input 
+                id="sessionNumber"
+                type="number"
+                min="1"
+                value={sessionNumber}
+                onChange={(e) => setSessionNumber(e.target.value === '' ? '' : parseInt(e.target.value, 10))}
+              />
+            </div>
+            
             {/* Week Selection instead of text input */}
             <div className="space-y-2">
               <Label>Select Week</Label>
@@ -549,6 +721,21 @@ export default function Content() {
                   ))}
                 </SelectContent>
               </Select>
+            </div>
+
+            <div className="space-y-2">
+              <Label>Thumbnail Image (Optional)</Label>
+              <Input 
+                type="file" 
+                accept="image/*"
+                ref={thumbnailInputRef}
+                onChange={(e) => {
+                  if (e.target.files && e.target.files.length > 0) {
+                    setVideoThumbnail(e.target.files[0]);
+                  }
+                }}
+              />
+              {videoThumbnail && <p className="text-xs mt-1 text-muted-foreground">Selected: {videoThumbnail.name}</p>}
             </div>
 
             <div className="space-y-2">
@@ -591,8 +778,22 @@ export default function Content() {
             </div>
           </div>
           <div className="flex justify-end gap-3">
-            <Button variant="outline" onClick={() => setIsUploadOpen(false)}>Cancel</Button>
-            <Button variant="gradient" onClick={handleUploadVideo}>Upload Video</Button>
+            {isUploading ? (
+              <div className="w-full flex items-center justify-between gap-4 py-1">
+                <div className="flex-1 w-full bg-muted rounded-full overflow-hidden h-2.5">
+                  <div 
+                    className="bg-primary h-2.5 rounded-full transition-all duration-300" 
+                    style={{ width: `${Math.max(uploadProgress, 0)}%` }} 
+                  ></div>
+                </div>
+                <span className="text-xs font-medium text-muted-foreground w-12">{uploadProgress}%</span>
+              </div>
+            ) : (
+              <>
+                <Button variant="outline" onClick={() => setIsUploadOpen(false)}>Cancel</Button>
+                <Button variant="gradient" onClick={handleUploadVideo}>Save Video</Button>
+              </>
+            )}
           </div>
         </DialogContent>
       </Dialog>
@@ -654,7 +855,7 @@ export default function Content() {
 
       {/* Edit Week Modal */}
       <Dialog open={isEditWeekOpen} onOpenChange={setIsEditWeekOpen}>
-        <DialogContent className="sm:max-w-md">
+        <DialogContent className="sm:max-w-md" onOpenAutoFocus={(e) => e.preventDefault()}>
           <DialogHeader>
             <DialogTitle>Edit Week</DialogTitle>
             <DialogDescription>Update the details for this week.</DialogDescription>
@@ -667,11 +868,8 @@ export default function Content() {
                 type="number"
                 min="1"
                 value={editWeekNumber}
-                onChange={(e) => {
-                  setEditWeekNumber(e.target.value === '' ? '' : parseInt(e.target.value, 10));
-                  if (editWeekNumberError) setEditWeekNumberError('');
-                }}
-                className={editWeekNumberError ? 'border-destructive focus-visible:ring-destructive' : ''}
+                disabled
+                className="bg-muted opacity-100 cursor-not-allowed"
               />
               {editWeekNumberError && <p className="text-sm text-destructive mt-1">{editWeekNumberError}</p>}
             </div>
@@ -835,6 +1033,103 @@ export default function Content() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* Edit Video Modal */}
+      <Dialog open={isEditVideoOpen} onOpenChange={setIsEditVideoOpen}>
+        <DialogContent className="sm:max-w-lg" onOpenAutoFocus={(e) => e.preventDefault()}>
+          <DialogHeader>
+            <DialogTitle>Edit Video Session</DialogTitle>
+            <DialogDescription>Update the details of this video.</DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label htmlFor="editVTitle">Video Title <span className="text-destructive">*</span></Label>
+              <Input 
+                id="editVTitle" 
+                placeholder="Enter video title" 
+                value={videoTitle}
+                onChange={(e) => setVideoTitle(e.target.value)}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="editVDesc">Description (Optional)</Label>
+              <Textarea 
+                id="editVDesc" 
+                placeholder="Enter video description" 
+                value={videoDesc}
+                onChange={(e) => setVideoDesc(e.target.value)}
+              />
+            </div>
+            
+            <div className="space-y-2">
+              <Label htmlFor="editVSessionNumber">Session Number (Order in week) <span className="text-destructive">*</span></Label>
+              <Input 
+                id="editVSessionNumber"
+                type="number"
+                min="1"
+                value={sessionNumber}
+                onChange={(e) => setSessionNumber(e.target.value === '' ? '' : parseInt(e.target.value, 10))}
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label>Thumbnail Image (Optional)</Label>
+              <Input 
+                type="file" 
+                accept="image/*"
+                ref={editThumbnailInputRef}
+                onChange={(e) => {
+                  if (e.target.files && e.target.files.length > 0) {
+                    setVideoThumbnail(e.target.files[0]);
+                  }
+                }}
+              />
+              {videoThumbnail ? (
+                <p className="text-xs mt-1 text-muted-foreground">Selected: {videoThumbnail.name}</p>
+              ) : (
+                <p className="text-xs mt-1 text-muted-foreground">Leave blank to keep the current thumbnail</p>
+              )}
+            </div>
+          </div>
+          <div className="flex justify-end gap-3">
+            <Button variant="outline" onClick={() => setIsEditVideoOpen(false)}>Cancel</Button>
+            <Button variant="gradient" onClick={handleUpdateVideo}>Save Changes</Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Delete Video Confirmation */}
+      <AlertDialog open={deleteVideoId !== null} onOpenChange={(open) => !open && setDeleteVideoId(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This action cannot be undone. This will permanently delete this video session from the curriculum.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={handleDeleteVideo} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+              Continue
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Video Player Modal */}
+      <Dialog open={!!playingVideoUrl} onOpenChange={(open) => !open && setPlayingVideoUrl(null)}>
+        <DialogContent className="sm:max-w-4xl p-0 overflow-hidden bg-black/95 border-none shadow-2xl">
+           {playingVideoUrl && (
+             <video 
+               src={playingVideoUrl} 
+               controls 
+               autoPlay 
+               controlsList="nodownload"
+               className="w-full h-full max-h-[85vh] outline-none" 
+             />
+           )}
+        </DialogContent>
+      </Dialog>
 
     </DashboardLayout>
   );

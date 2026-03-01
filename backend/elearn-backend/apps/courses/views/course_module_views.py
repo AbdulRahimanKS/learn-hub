@@ -248,6 +248,21 @@ class ClassSessionListCreateView(APIView):
             raise ServiceError(detail=error_str, status_code=status.HTTP_400_BAD_REQUEST)
 
         try:
+            session_number = serializer.validated_data.get('session_number')
+            if session_number:
+                # Sequential validation: all sessions 1..N-1 must exist
+                existing_numbers = set(
+                    ClassSession.objects.filter(course_week=week).values_list('session_number', flat=True)
+                )
+                missing = [i for i in range(1, session_number) if i not in existing_numbers]
+                if missing:
+                    missing_str = ', '.join(str(m) for m in missing)
+                    raise ServiceError(
+                        detail=f"Session {missing_str} must be created first before adding Session {session_number}.",
+                        status_code=status.HTTP_400_BAD_REQUEST
+                    )
+
+
             session = ClassSession.objects.create(
                 course_week=week,
                 uploaded_by=request.user,
@@ -308,9 +323,35 @@ class ClassSessionDetailView(APIView):
             raise ServiceError(detail=error_str, status_code=status.HTTP_400_BAD_REQUEST)
 
         try:
+            new_session_number = serializer.validated_data.get('session_number')
+            old_session_number = session.session_number
+            occupying_session = None
+
+            if new_session_number and new_session_number != old_session_number:
+                max_existing = ClassSession.objects.filter(course_week=session.course_week).exclude(id=session.id).count()
+                if new_session_number > max_existing + 1 or new_session_number < 1:
+                    raise ServiceError(
+                        detail=f"Session number must be between 1 and {max_existing + 1}.",
+                        status_code=status.HTTP_400_BAD_REQUEST
+                    )
+                try:
+                    occupying_session = ClassSession.objects.get(
+                        course_week=session.course_week,
+                        session_number=new_session_number
+                    )
+                    from django.db.models import Max as _Max
+                    current_max = ClassSession.objects.filter(course_week=session.course_week).aggregate(m=_Max('session_number'))['m'] or 0
+                    safe_temp = current_max + 9999
+                    ClassSession.objects.filter(id=occupying_session.id).update(session_number=safe_temp)
+                except ClassSession.DoesNotExist:
+                    pass
+
             for attr, value in serializer.validated_data.items():
                 setattr(session, attr, value)
             session.save()
+
+            if occupying_session is not None:
+                ClassSession.objects.filter(id=occupying_session.id).update(session_number=old_session_number)
             
             response_serializer = ClassSessionSerializer(session, context={'request': request})
             return format_success_response(message="Class session updated successfully", data=response_serializer.data)

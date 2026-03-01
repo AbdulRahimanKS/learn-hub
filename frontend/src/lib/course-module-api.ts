@@ -8,6 +8,7 @@ export interface ClassSession {
   description: string;
   video_file: string | null;
   video_url: string | null;
+  video_presigned_url?: string | null;
   thumbnail: string | null;
   duration_mins: number;
   uploaded_by?: number;
@@ -134,6 +135,28 @@ export const courseModuleApi = {
   
   deleteQuestion: async (courseId: string | number, weekId: string | number, questionId: string | number) => {
     const response = await apiClient.delete<ApiResponse<null>>(`/api/courses/v1/courses/${courseId}/weeks/${weekId}/test/questions/${questionId}/`);
+    return response.data;
+  },
+
+  // --- MULTIPART UPLOADS ---
+  initMultipartUpload: async (filename: string, file_type: string, file_size: number) => {
+    const response = await apiClient.post<ApiResponse<any>>(`/api/courses/v1/courses/upload/init/`, {
+      filename, file_type, file_size
+    });
+    return response.data;
+  },
+
+  completeMultipartUpload: async (key: string, upload_id: string, parts: { ETag: string, PartNumber: number }[]) => {
+    const response = await apiClient.post<ApiResponse<any>>(`/api/courses/v1/courses/upload/complete/`, {
+      key, upload_id, parts
+    });
+    return response.data;
+  },
+
+  abortMultipartUpload: async (key: string, upload_id: string) => {
+    const response = await apiClient.post<ApiResponse<any>>(`/api/courses/v1/courses/upload/abort/`, {
+      key, upload_id
+    });
     return response.data;
   },
 };
