@@ -291,6 +291,11 @@ class ClassSession(models.Model):
         _('External Video URL'), blank=True, null=True,
         help_text=_('YouTube / Vimeo / CDN URL if not directly uploaded')
     )
+    thumbnail      = models.ImageField(
+        upload_to='class_sessions/thumbnails/',
+        null=True, blank=True,
+        help_text=_('Thumbnail image for the class session')
+    )
     duration_mins  = models.PositiveSmallIntegerField(
         _('Video Duration (mins)'), default=0
     )

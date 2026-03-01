@@ -71,10 +71,6 @@ const mockWeeks = [
   }
 ];
 
-const mockScheduled = [
-  { id: 8, title: 'Advanced Python Webinar', description: 'Special session on advanced topics', duration: '90:00', thumbnail: 'https://images.unsplash.com/photo-1531297484001-80022131f5a1?w=400', isScheduled: true, scheduledFor: 'Feb 5, 2026 at 2:00 PM', isLocked: false },
-];
-
 export default function Content() {
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const { courseId } = useParams<{ courseId: string }>();
@@ -109,12 +105,6 @@ export default function Content() {
             <Clock className="h-3 w-3 mr-1" />
             {video.duration}
           </Badge>
-          {video.isScheduled && (
-            <Badge className="bg-warning text-warning-foreground">
-              <Calendar className="h-3 w-3 mr-1" />
-              Scheduled
-            </Badge>
-          )}
         </div>
 
         <button className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 p-4 rounded-full bg-primary text-primary-foreground opacity-0 group-hover:opacity-100 transition-opacity shadow-lg">
@@ -125,13 +115,6 @@ export default function Content() {
         <div>
           <h3 className="font-semibold text-foreground line-clamp-1">{video.title}</h3>
           <p className="text-sm text-muted-foreground mt-1 line-clamp-2">{video.description}</p>
-          
-          {'scheduledFor' in video && (
-            <p className="text-xs text-warning mt-2 flex items-center gap-1">
-              <Calendar className="h-3 w-3" />
-              {video.scheduledFor}
-            </p>
-          )}
         </div>
 
         <div className="flex items-center justify-between mt-4">
@@ -200,7 +183,6 @@ export default function Content() {
                 Week {week.weekNumber}: {week.title}
               </TabsTrigger>
             ))}
-            <TabsTrigger value="scheduled">Scheduled Videos</TabsTrigger>
           </TabsList>
 
           {mockWeeks.map(week => (
@@ -267,14 +249,6 @@ export default function Content() {
             </TabsContent>
           ))}
 
-          <TabsContent value="scheduled" className="mt-4">
-            <h2 className="text-xl font-bold text-foreground mb-6">Upcoming Scheduled Content</h2>
-            <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-              {mockScheduled.map((video) => (
-                <VideoCard key={video.id} video={video as any} />
-              ))}
-            </div>
-          </TabsContent>
         </Tabs>
       </div>
 
@@ -323,10 +297,6 @@ export default function Content() {
                   MP4, WebM up to 500MB
                 </p>
               </div>
-            </div>
-            <div className="flex items-center gap-2">
-              <input type="checkbox" id="scheduled" className="rounded border-border" />
-              <Label htmlFor="scheduled" className="text-sm">Schedule for later</Label>
             </div>
           </div>
           <div className="flex justify-end gap-3">

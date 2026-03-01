@@ -9,6 +9,12 @@ from .batch_serializers import (
     BatchCreateUpdateSerializer,
     BatchEnrollmentSerializer,
 )
+from .course_module_serializers import (
+    CourseWeekSerializer,
+    CourseWeekCreateUpdateSerializer,
+    ClassSessionSerializer,
+    ClassSessionCreateUpdateSerializer,
+)
 
 __all__ = [
     'TagSerializer',
@@ -18,4 +24,8 @@ __all__ = [
     'BatchListSerializer',
     'BatchCreateUpdateSerializer',
     'BatchEnrollmentSerializer',
+    'CourseWeekSerializer',
+    'CourseWeekCreateUpdateSerializer',
+    'ClassSessionSerializer',
+    'ClassSessionCreateUpdateSerializer',
 ]

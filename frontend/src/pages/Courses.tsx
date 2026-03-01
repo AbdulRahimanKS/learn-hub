@@ -54,10 +54,7 @@ const courseContent = {
   },
 };
 
-const scheduledVideos = [
-  { id: 1, title: 'Advanced Python Webinar', description: 'Special session on advanced topics', scheduledFor: 'Feb 5, 2026 at 2:00 PM', thumbnail: 'https://images.unsplash.com/photo-1531297484001-80022131f5a1?w=400' },
-  { id: 2, title: 'Industry Expert Talk', description: 'Q&A with Python developers', scheduledFor: 'Feb 8, 2026 at 3:00 PM', thumbnail: 'https://images.unsplash.com/photo-1505373877841-8d25f7d46678?w=400' },
-];
+
 
 export default function Courses() {
   const [selectedWeek, setSelectedWeek] = useState('week2');
@@ -233,42 +230,7 @@ export default function Courses() {
           ))}
         </Tabs>
 
-        {/* Scheduled Videos */}
-        <Card className="shadow-card">
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Calendar className="h-5 w-5" />
-              Upcoming Sessions
-            </CardTitle>
-            <CardDescription>Scheduled videos and live sessions</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="grid gap-4 sm:grid-cols-2">
-              {scheduledVideos.map((video) => (
-                <div
-                  key={video.id}
-                  className="flex gap-4 p-4 rounded-xl border border-border hover:bg-muted/50 transition-colors"
-                >
-                  <div className="w-32 h-20 rounded-lg overflow-hidden flex-shrink-0">
-                    <img
-                      src={video.thumbnail}
-                      alt={video.title}
-                      className="w-full h-full object-cover"
-                    />
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <h4 className="font-semibold text-foreground">{video.title}</h4>
-                    <p className="text-sm text-muted-foreground line-clamp-1">{video.description}</p>
-                    <div className="flex items-center gap-2 mt-2 text-sm text-warning">
-                      <Calendar className="h-4 w-4" />
-                      <span>{video.scheduledFor}</span>
-                    </div>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </CardContent>
-        </Card>
+
       </div>
     </DashboardLayout>
   );

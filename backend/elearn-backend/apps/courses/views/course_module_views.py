@@ -1,0 +1,259 @@
+import logging
+from rest_framework import status
+from rest_framework.views import APIView
+from rest_framework.parsers import MultiPartParser, FormParser, JSONParser
+from drf_spectacular.utils import extend_schema
+from django.db import IntegrityError
+
+from apps.courses.models import Course, CourseWeek, ClassSession
+from apps.courses.serializers.course_module_serializers import (
+    CourseWeekSerializer,
+    CourseWeekCreateUpdateSerializer,
+    ClassSessionSerializer,
+    ClassSessionCreateUpdateSerializer,
+)
+from utils.permissions import IsSuperAdminAdminOrTeacher, IsAuthenticated
+from utils.common import format_success_response, handle_serializer_errors, ServiceError
+from utils.constants import UserTypeConstants
+
+logger = logging.getLogger(__name__)
+
+
+@extend_schema(tags=["Course Weeks"])
+class CourseWeekListCreateView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get_course(self, pk):
+        try:
+            return Course.objects.filter(is_deleted=False).get(pk=pk)
+        except Course.DoesNotExist:
+            raise ServiceError(detail="Course not found.", status_code=status.HTTP_404_NOT_FOUND)
+
+    @extend_schema(summary="List course weeks for a course", responses={200: CourseWeekSerializer(many=True)})
+    def get(self, request, course_id):
+        course = self.get_course(course_id)
+        weeks = CourseWeek.objects.filter(course=course)
+        
+        user = request.user
+        if getattr(user, 'user_type', None) and user.user_type.name == UserTypeConstants.STUDENT:
+            weeks = weeks.filter(is_published=True)
+
+        serializer = CourseWeekSerializer(weeks, many=True, context={'request': request})
+        return format_success_response(message="Course weeks retrieved successfully", data=serializer.data)
+
+    @extend_schema(
+        summary="Create a new course week (Admin/Teacher only)", 
+        request=CourseWeekCreateUpdateSerializer, 
+        responses={201: CourseWeekSerializer}
+    )
+    def post(self, request, course_id):
+        user = request.user
+        if getattr(user, 'user_type', None) and user.user_type.name not in [UserTypeConstants.ADMIN, UserTypeConstants.SUPERADMIN, UserTypeConstants.TEACHER]:
+            raise ServiceError(detail="You do not have permission to perform this action.", status_code=status.HTTP_403_FORBIDDEN)
+
+        course = self.get_course(course_id)
+        serializer = CourseWeekCreateUpdateSerializer(data=request.data, context={'request': request})
+        if not serializer.is_valid():
+            error_str = handle_serializer_errors(serializer)
+            raise ServiceError(detail=error_str, status_code=status.HTTP_400_BAD_REQUEST)
+
+        try:
+            CourseWeek.objects.create(
+                course=course,
+                created_by=user,
+                **serializer.validated_data
+            )
+            return format_success_response(
+                message="Course week created successfully", 
+                data=None, 
+                status_code=status.HTTP_201_CREATED
+            )
+        except IntegrityError:
+            raise ServiceError(detail="A week with this number already exists for this course.", status_code=status.HTTP_400_BAD_REQUEST)
+        except ServiceError:
+            raise
+        except Exception as e:
+            logger.error(f"Error creating course week: {str(e)}")
+            raise ServiceError(detail="An error occurred while creating the course week.", status_code=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+@extend_schema(tags=["Course Weeks"])
+class CourseWeekDetailView(APIView):
+    permission_classes = [IsSuperAdminAdminOrTeacher]
+
+    def get_object(self, course_id, week_id):
+        try:
+            return CourseWeek.objects.get(id=week_id, course_id=course_id)
+        except CourseWeek.DoesNotExist:
+            raise ServiceError(detail="Course week not found.", status_code=status.HTTP_404_NOT_FOUND)
+
+    @extend_schema(
+        summary="Update a course week", 
+        request=CourseWeekCreateUpdateSerializer, 
+        responses={200: CourseWeekSerializer}
+    )
+    def patch(self, request, course_id, week_id):
+        week = self.get_object(course_id, week_id)
+        serializer = CourseWeekCreateUpdateSerializer(week, data=request.data, partial=True, context={'request': request})
+        if not serializer.is_valid():
+            error_str = handle_serializer_errors(serializer)
+            raise ServiceError(detail=error_str, status_code=status.HTTP_400_BAD_REQUEST)
+
+        try:
+            for attr, value in serializer.validated_data.items():
+                setattr(week, attr, value)
+            week.updated_by = request.user
+            week.save()
+            
+            return format_success_response(message="Course week updated successfully", data=None)
+        except IntegrityError:
+            raise ServiceError(detail="A week with this number already exists for this course.", status_code=status.HTTP_400_BAD_REQUEST)
+        except ServiceError:
+            raise
+        except Exception as e:
+            logger.error(f"Error updating course week: {str(e)}")
+            raise ServiceError(detail="An error occurred while updating the course week.", status_code=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+    @extend_schema(summary="Delete a course week", responses={200: None})
+    def delete(self, request, course_id, week_id):
+        try:
+            week = self.get_object(course_id, week_id)
+            week.delete()
+            return format_success_response(message="Course week deleted successfully")
+        except ServiceError:
+            raise
+        except Exception as e:
+            logger.error(f"Error deleting course week: {str(e)}")
+            raise ServiceError(detail="An error occurred while deleting the course week.", status_code=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+@extend_schema(tags=["Class Sessions"])
+class ClassSessionListCreateView(APIView):
+    permission_classes = [IsAuthenticated]
+    parser_classes = [MultiPartParser, FormParser, JSONParser]
+
+    def get_week(self, course_id, week_id):
+        try:
+            return CourseWeek.objects.get(id=week_id, course_id=course_id)
+        except CourseWeek.DoesNotExist:
+            raise ServiceError(detail="Course week not found.", status_code=status.HTTP_404_NOT_FOUND)
+
+    @extend_schema(summary="List class sessions for a week", responses={200: ClassSessionSerializer(many=True)})
+    def get(self, request, course_id, week_id):
+        week = self.get_week(course_id, week_id)
+        
+        user = request.user
+        if getattr(user, 'user_type', None) and user.user_type.name == UserTypeConstants.STUDENT:
+            if not week.is_published:
+                raise ServiceError(detail="This week is not published yet.", status_code=status.HTTP_403_FORBIDDEN)
+
+        sessions = ClassSession.objects.filter(course_week=week)
+        serializer = ClassSessionSerializer(sessions, many=True, context={'request': request})
+        return format_success_response(message="Class sessions retrieved successfully", data=serializer.data)
+
+    @extend_schema(
+        summary="Create a new class session (Admin/Teacher only)", 
+        request=ClassSessionCreateUpdateSerializer, 
+        responses={201: ClassSessionSerializer}
+    )
+    def post(self, request, course_id, week_id):
+        user = request.user
+        if getattr(user, 'user_type', None) and user.user_type.name not in [UserTypeConstants.ADMIN, UserTypeConstants.SUPERADMIN, UserTypeConstants.TEACHER]:
+            raise ServiceError(detail="You do not have permission to perform this action.", status_code=status.HTTP_403_FORBIDDEN)
+
+        week = self.get_week(course_id, week_id)
+        serializer = ClassSessionCreateUpdateSerializer(data=request.data, context={'request': request})
+        if not serializer.is_valid():
+            error_str = handle_serializer_errors(serializer)
+            raise ServiceError(detail=error_str, status_code=status.HTTP_400_BAD_REQUEST)
+
+        try:
+            session = ClassSession.objects.create(
+                course_week=week,
+                uploaded_by=request.user,
+                **serializer.validated_data
+            )
+            response_serializer = ClassSessionSerializer(session, context={'request': request})
+            return format_success_response(
+                message="Class session created successfully", 
+                data=response_serializer.data, 
+                status_code=status.HTTP_201_CREATED
+            )
+        except IntegrityError:
+            raise ServiceError(detail="A session with this number already exists for this week.", status_code=status.HTTP_400_BAD_REQUEST)
+        except ServiceError:
+            raise
+        except Exception as e:
+            logger.error(f"Error creating class session: {str(e)}")
+            raise ServiceError(detail="An error occurred while creating the class session.", status_code=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+@extend_schema(tags=["Class Sessions"])
+class ClassSessionDetailView(APIView):
+    permission_classes = [IsAuthenticated]
+    parser_classes = [MultiPartParser, FormParser, JSONParser]
+
+    def get_object(self, course_id, week_id, session_id):
+        try:
+            return ClassSession.objects.get(id=session_id, course_week_id=week_id, course_week__course_id=course_id)
+        except ClassSession.DoesNotExist:
+            raise ServiceError(detail="Class session not found.", status_code=status.HTTP_404_NOT_FOUND)
+
+    @extend_schema(summary="Retrieve a class session", responses={200: ClassSessionSerializer})
+    def get(self, request, course_id, week_id, session_id):
+        session = self.get_object(course_id, week_id, session_id)
+        user = request.user
+        
+        if getattr(user, 'user_type', None) and user.user_type.name == UserTypeConstants.STUDENT:
+            if not session.course_week.is_published:
+                raise ServiceError(detail="This session is not available.", status_code=status.HTTP_403_FORBIDDEN)
+
+        serializer = ClassSessionSerializer(session, context={'request': request})
+        return format_success_response(message="Class session retrieved successfully", data=serializer.data)
+
+    @extend_schema(
+        summary="Update a class session", 
+        request=ClassSessionCreateUpdateSerializer, 
+        responses={200: ClassSessionSerializer}
+    )
+    def patch(self, request, course_id, week_id, session_id):
+        user = request.user
+        if getattr(user, 'user_type', None) and user.user_type.name not in [UserTypeConstants.ADMIN, UserTypeConstants.SUPERADMIN, UserTypeConstants.TEACHER]:
+            raise ServiceError(detail="You do not have permission to perform this action.", status_code=status.HTTP_403_FORBIDDEN)
+
+        session = self.get_object(course_id, week_id, session_id)
+        serializer = ClassSessionCreateUpdateSerializer(session, data=request.data, partial=True, context={'request': request})
+        if not serializer.is_valid():
+            error_str = handle_serializer_errors(serializer)
+            raise ServiceError(detail=error_str, status_code=status.HTTP_400_BAD_REQUEST)
+
+        try:
+            for attr, value in serializer.validated_data.items():
+                setattr(session, attr, value)
+            session.save()
+            
+            response_serializer = ClassSessionSerializer(session, context={'request': request})
+            return format_success_response(message="Class session updated successfully", data=response_serializer.data)
+        except IntegrityError:
+            raise ServiceError(detail="A session with this number already exists for this week.", status_code=status.HTTP_400_BAD_REQUEST)
+        except ServiceError:
+            raise
+        except Exception as e:
+            logger.error(f"Error updating class session: {str(e)}")
+            raise ServiceError(detail="An error occurred while updating the class session.", status_code=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+    @extend_schema(summary="Delete a class session", responses={200: None})
+    def delete(self, request, course_id, week_id, session_id):
+        try:
+            user = request.user
+            if getattr(user, 'user_type', None) and user.user_type.name not in [UserTypeConstants.ADMIN, UserTypeConstants.SUPERADMIN, UserTypeConstants.TEACHER]:
+                raise ServiceError(detail="You do not have permission to perform this action.", status_code=status.HTTP_403_FORBIDDEN)
+
+            session = self.get_object(course_id, week_id, session_id)
+            session.delete()
+            return format_success_response(message="Class session deleted successfully")
+        except ServiceError:
+            raise
+        except Exception as e:
+            logger.error(f"Error deleting class session: {str(e)}")
+            raise ServiceError(detail="An error occurred while deleting the class session.", status_code=status.HTTP_500_INTERNAL_SERVER_ERROR)
