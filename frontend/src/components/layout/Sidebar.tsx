@@ -73,7 +73,7 @@ export function Sidebar({ isCollapsed, toggleCollapse }: SidebarProps) {
     : studentNavItems;
 
   const SidebarContent = () => (
-    <div className="flex h-full flex-col bg-background text-foreground relative">
+    <div className="flex h-full flex-col text-foreground relative">
       {/* Logo */}
       <div className={cn(
         "flex items-center h-16 px-4 border-b border-border/40 transition-all",
@@ -148,7 +148,7 @@ export function Sidebar({ isCollapsed, toggleCollapse }: SidebarProps) {
       {/* Sidebar */}
       <aside
         className={cn(
-          'fixed left-0 top-0 z-40 h-screen transform transition-all duration-300 border-r border-border/40 bg-background shadow-sm',
+          'fixed left-0 top-0 z-40 h-screen transform transition-all duration-300 border-r border-border/40 gradient-sidebar shadow-sm',
           isMobileOpen ? 'translate-x-0 w-64' : '-translate-x-full lg:translate-x-0',
           !isMobileOpen && (isCollapsed ? 'lg:w-20' : 'lg:w-64')
         )}
