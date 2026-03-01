@@ -36,7 +36,7 @@ class CourseListView(APIView):
         responses={200: CourseListSerializer(many=True)},
     )
     def get(self, request):
-        qs = Course.objects.filter(is_deleted=False).prefetch_related('tags').order_by('title')
+        qs = Course.objects.filter(is_deleted=False).prefetch_related('tags').order_by('-created_at')
 
         user = request.user
         if getattr(user, 'user_type', None):

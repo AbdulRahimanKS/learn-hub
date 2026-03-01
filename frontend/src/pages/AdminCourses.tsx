@@ -248,7 +248,10 @@ export default function AdminCourses() {
       submitData.append('title', formData.title.trim());
       submitData.append('description', formData.description.trim());
       submitData.append('difficulty_level', formData.difficulty);
-      submitData.append('is_active', formData.isActive ? 'true' : 'false');
+      // Only send is_active when editing — on create the backend defaults to false
+      if (editCourseId) {
+        submitData.append('is_active', formData.isActive ? 'true' : 'false');
+      }
       
       const tagArray = formData.tags.split(',').map(t => t.trim()).filter(Boolean);
       if (tagArray.length === 0) {
@@ -375,17 +378,20 @@ export default function AdminCourses() {
                       {formErrors.title && <p className="text-xs text-destructive">{formErrors.title}</p>}
                     </div>
                     
-                    <div className="space-y-2">
-                       <Label>Course Status</Label>
-                       <div className="flex items-center space-x-2 pt-2">
-                         <Switch 
-                           id="is-active" 
-                           checked={formData.isActive}
-                           onCheckedChange={handleSwitchChange}
-                         />
-                         <Label htmlFor="isActive" className="cursor-pointer font-normal">Active (allow new batches)</Label>
-                       </div>
-                    </div>
+                    {/* Course Status — only shown when editing an existing course */}
+                    {editCourseId && (
+                      <div className="space-y-2">
+                        <Label>Course Status</Label>
+                        <div className="flex items-center space-x-2 pt-2">
+                          <Switch 
+                            id="is-active" 
+                            checked={formData.isActive}
+                            onCheckedChange={handleSwitchChange}
+                          />
+                          <Label htmlFor="isActive" className="cursor-pointer font-normal">Active (allow new batches)</Label>
+                        </div>
+                      </div>
+                    )}
                   </div>
 
                   {/* Thumbnail Upload */}
@@ -627,9 +633,15 @@ export default function AdminCourses() {
                   </div>
 
                   <div className="flex flex-col gap-2 text-sm text-muted-foreground bg-muted/40 p-3 rounded-lg border border-border/40 mt-auto">
-                    <div className="flex items-center gap-1.5 font-medium">
-                      <BookOpen className="h-4 w-4 text-primary/70" />
-                      <span className="capitalize">{course.difficulty_level}</span>
+                    <div className="flex items-center justify-between font-medium">
+                      <div className="flex items-center gap-1.5">
+                        <BookOpen className="h-4 w-4 text-primary/70" />
+                        <span className="capitalize">{course.difficulty_level}</span>
+                      </div>
+                      <div className="flex items-center gap-1.5">
+                        <span className="text-foreground/80">{course.total_weeks || 0}</span> 
+                        <span className="text-muted-foreground font-normal">Weeks</span>
+                      </div>
                     </div>
                   </div>
                 </CardContent>

@@ -9,6 +9,7 @@ export interface Course {
   is_active: boolean;
   thumbnail: string | null;
   tags: { id: number; name: string }[];
+  total_weeks?: number;
   created_at: string;
   updated_at: string;
 }

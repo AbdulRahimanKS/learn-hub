@@ -46,7 +46,7 @@ class Course(models.Model):
         help_text=_('Cover image for the course card')
     )
 
-    is_active  = models.BooleanField(default=True)
+    is_active  = models.BooleanField(default=False)
     is_deleted = models.BooleanField(default=False)
 
     created_by = models.ForeignKey(
@@ -68,7 +68,7 @@ class Course(models.Model):
     class Meta:
         verbose_name        = _('Course')
         verbose_name_plural = _('Courses')
-        ordering            = ['title']
+        ordering            = ['-created_at']
         indexes             = [
             models.Index(fields=['is_active'],         name='course_is_active_idx'),
             models.Index(fields=['difficulty_level'],  name='course_difficulty_idx'),
@@ -96,6 +96,10 @@ class Course(models.Model):
             code = f"CRS{uuid.uuid4().hex[:6].upper()}"
             if not Course.objects.filter(course_code=code).exists():
                 return code
+
+    @property
+    def total_weeks(self):
+        return self.course_weeks.count()
 
 
 # Batch
@@ -242,7 +246,7 @@ class CourseWeek(models.Model):
     description = models.TextField(_('Week Description'), blank=True)
 
     is_published = models.BooleanField(
-        _('Published'), default=False,
+        _('Published'), default=True,
         help_text=_('Teacher must publish a week before students can see its content')
     )
     created_at   = models.DateTimeField(auto_now_add=True)

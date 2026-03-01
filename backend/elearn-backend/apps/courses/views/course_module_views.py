@@ -61,6 +61,20 @@ class CourseWeekListCreateView(APIView):
             raise ServiceError(detail=error_str, status_code=status.HTTP_400_BAD_REQUEST)
 
         try:
+            week_number = serializer.validated_data.get('week_number')
+            if week_number:
+                # Sequential validation: all weeks 1..N-1 must exist
+                existing_numbers = set(
+                    CourseWeek.objects.filter(course=course).values_list('week_number', flat=True)
+                )
+                missing = [i for i in range(1, week_number) if i not in existing_numbers]
+                if missing:
+                    missing_str = ', '.join(str(m) for m in missing)
+                    raise ServiceError(
+                        detail=f"Week {missing_str} must be created first before adding Week {week_number}.",
+                        status_code=status.HTTP_400_BAD_REQUEST
+                    )
+
             CourseWeek.objects.create(
                 course=course,
                 created_by=user,
@@ -103,10 +117,60 @@ class CourseWeekDetailView(APIView):
             raise ServiceError(detail=error_str, status_code=status.HTTP_400_BAD_REQUEST)
 
         try:
+            # Smart reorder by swap when week_number is being changed
+            new_week_number = serializer.validated_data.get('week_number')
+            old_week_number = week.week_number
+            occupying_week = None
+
+            if new_week_number and new_week_number != old_week_number:
+                max_existing = CourseWeek.objects.filter(course=week.course).exclude(id=week.id).count()
+                # The new number must be within 1..max_existing to stay sequential (or max+1 if the week is the last one)
+                if new_week_number > max_existing + 1 or new_week_number < 1:
+                    raise ServiceError(
+                        detail=f"Week number must be between 1 and {max_existing + 1}.",
+                        status_code=status.HTTP_400_BAD_REQUEST
+                    )
+                # Park the occupying week at a safe temp number before the swap.
+                # Use queryset update() to bypass PositiveSmallIntegerField validation.
+                # Temp = current max week_number + 9999, guaranteed to not conflict.
+                try:
+                    occupying_week = CourseWeek.objects.get(
+                        course=week.course,
+                        week_number=new_week_number
+                    )
+                    from django.db.models import Max as _Max
+                    current_max = CourseWeek.objects.filter(course=week.course).aggregate(m=_Max('week_number'))['m'] or 0
+                    safe_temp = current_max + 9999
+                    # Step 1: park occupying_week at safe_temp to free the target slot
+                    CourseWeek.objects.filter(id=occupying_week.id).update(week_number=safe_temp)
+                except CourseWeek.DoesNotExist:
+                    pass  # Target slot is free — no swap needed
+
+            # Publish guard: must have ≥1 video (ClassSession) AND a WeeklyTest
+            publishing = serializer.validated_data.get('is_published')
+            if publishing and not week.is_published:
+                has_sessions = week.class_sessions.exists()
+                has_test = hasattr(week, 'weekly_test') and week.weekly_test is not None
+                if not has_sessions:
+                    raise ServiceError(
+                        detail="Cannot publish this week: at least one video session must be added first.",
+                        status_code=status.HTTP_400_BAD_REQUEST
+                    )
+                if not has_test:
+                    raise ServiceError(
+                        detail="Cannot publish this week: a weekly test must be configured first.",
+                        status_code=status.HTTP_400_BAD_REQUEST
+                    )
+
+            # Step 2: save the main week to its new number (target slot is now free)
             for attr, value in serializer.validated_data.items():
                 setattr(week, attr, value)
             week.updated_by = request.user
             week.save()
+
+            # Step 3: move the displaced week into the old slot
+            if occupying_week is not None:
+                CourseWeek.objects.filter(id=occupying_week.id).update(week_number=old_week_number)
             
             return format_success_response(message="Course week updated successfully", data=None)
         except IntegrityError:
@@ -121,6 +185,19 @@ class CourseWeekDetailView(APIView):
     def delete(self, request, course_id, week_id):
         try:
             week = self.get_object(course_id, week_id)
+
+            # Block deletion if any active students are enrolled in batches of this course
+            from apps.courses.models import Batch, BatchEnrollment
+            active_enrollments = BatchEnrollment.objects.filter(
+                batch__course=week.course,
+                status=BatchEnrollment.Status.ACTIVE
+            ).exists()
+            if active_enrollments:
+                raise ServiceError(
+                    detail="Cannot delete this week: there are active students enrolled in batches for this course.",
+                    status_code=status.HTTP_400_BAD_REQUEST
+                )
+
             week.delete()
             return format_success_response(message="Course week deleted successfully")
         except ServiceError:

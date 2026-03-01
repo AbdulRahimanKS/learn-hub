@@ -22,6 +22,7 @@ class CourseListSerializer(serializers.ModelSerializer):
     difficulty_display = serializers.CharField(
         source='get_difficulty_level_display', read_only=True
     )
+    total_weeks = serializers.IntegerField(read_only=True)
 
     class Meta:
         model = Course
@@ -36,8 +37,9 @@ class CourseListSerializer(serializers.ModelSerializer):
             'tags',
             'is_active',
             'created_at',
+            'total_weeks',
         ]
-        read_only_fields = ['course_code', 'created_at']
+        read_only_fields = ['course_code', 'created_at', 'total_weeks']
 
 
 class CourseDetailSerializer(serializers.ModelSerializer):
@@ -48,6 +50,7 @@ class CourseDetailSerializer(serializers.ModelSerializer):
     difficulty_display = serializers.CharField(
         source='get_difficulty_level_display', read_only=True
     )
+    total_weeks = serializers.IntegerField(read_only=True)
 
     class Meta:
         model = Course
@@ -66,8 +69,9 @@ class CourseDetailSerializer(serializers.ModelSerializer):
             'updated_by',
             'created_at',
             'updated_at',
+            'total_weeks',
         ]
-        read_only_fields = ['course_code', 'created_by', 'updated_by', 'created_at', 'updated_at']
+        read_only_fields = ['course_code', 'created_by', 'updated_by', 'created_at', 'updated_at', 'total_weeks']
 
 
 class CourseCreateUpdateSerializer(serializers.ModelSerializer):

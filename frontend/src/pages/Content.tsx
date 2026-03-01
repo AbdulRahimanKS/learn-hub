@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { DashboardLayout } from '@/components/layout/DashboardLayout';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -12,8 +12,18 @@ import {
   DialogDescription,
   DialogHeader,
   DialogTitle,
-  DialogTrigger,
 } from '@/components/ui/dialog';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
+import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import {
@@ -40,41 +50,13 @@ import {
   Image as ImageIcon,
   CheckCircle,
 } from 'lucide-react';
-
-const mockWeeks = [
-  {
-    id: 'w1',
-    weekNumber: 1,
-    title: 'Python Basics',
-    description: 'Core syntax and data types',
-    videos: [
-      { id: 1, title: 'Introduction to Python', description: 'Getting started with Python programming', duration: '45:00', thumbnail: 'https://images.unsplash.com/photo-1526374965328-7f61d4dc18c5?w=400', isScheduled: false, isLocked: false },
-      { id: 2, title: 'Variables and Data Types', description: 'Understanding Python variables', duration: '38:00', thumbnail: 'https://images.unsplash.com/photo-1555949963-aa79dcee981c?w=400', isScheduled: false, isLocked: false },
-      { id: 3, title: 'Control Flow Statements', description: 'If-else and loops in Python', duration: '52:00', thumbnail: 'https://images.unsplash.com/photo-1515879218367-8466d910aaa4?w=400', isScheduled: false, isLocked: false },
-    ],
-    test: {
-      id: 't1',
-      title: 'Week 1 Assessment: Python Basics',
-      questions: 10,
-    }
-  },
-  {
-    id: 'w2',
-    weekNumber: 2,
-    title: 'Advanced Python',
-    description: 'Object-Oriented Programming and File Handlers',
-    videos: [
-      { id: 5, title: 'Object-Oriented Programming', description: 'Classes and objects in Python', duration: '55:00', thumbnail: 'https://images.unsplash.com/photo-1461749280684-dccba630e2f6?w=400', isScheduled: false, isLocked: true },
-      { id: 6, title: 'File Handling', description: 'Reading and writing files', duration: '42:00', thumbnail: 'https://images.unsplash.com/photo-1504639725590-34d0984388bd?w=400', isScheduled: false, isLocked: true },
-    ],
-    test: null
-  }
-];
+import { courseModuleApi, CourseWeek } from '@/lib/course-module-api';
+import { useToast } from '@/hooks/use-toast';
 
 export default function Content() {
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const { courseId } = useParams<{ courseId: string }>();
   const navigate = useNavigate();
+  const { toast } = useToast();
   const [searchQuery, setSearchQuery] = useState('');
   
   // Modals state
@@ -82,6 +64,267 @@ export default function Content() {
   const [isTestOpen, setIsTestOpen] = useState(false);
   const [isWeekOpen, setIsWeekOpen] = useState(false);
   const [testType, setTestType] = useState<'text' | 'ipynb'>('text');
+
+  // Backend state
+  const [weeks, setWeeks] = useState<CourseWeek[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [activeTab, setActiveTab] = useState<string>('');
+  
+  // Data creation state
+  const [newWeekTitle, setNewWeekTitle] = useState('');
+  const [newWeekDesc, setNewWeekDesc] = useState('');
+  const [newWeekNumber, setNewWeekNumber] = useState<number | ''>('');
+  const [newWeekPublished, setNewWeekPublished] = useState(true);
+  const [deleteWeekId, setDeleteWeekId] = useState<number | null>(null);
+  const [editWeek, setEditWeek] = useState<CourseWeek | null>(null);
+  const [isEditWeekOpen, setIsEditWeekOpen] = useState(false);
+  const [editWeekTitle, setEditWeekTitle] = useState('');
+  const [editWeekDesc, setEditWeekDesc] = useState('');
+  const [editWeekNumber, setEditWeekNumber] = useState<number | ''>('');
+  const [editWeekTitleError, setEditWeekTitleError] = useState('');
+  const [editWeekNumberError, setEditWeekNumberError] = useState('');
+  
+  // Validation states
+  const [weekTitleError, setWeekTitleError] = useState('');
+  const [weekNumberError, setWeekNumberError] = useState('');
+
+  // Video upload state
+  const [videoTitle, setVideoTitle] = useState('');
+  const [videoDesc, setVideoDesc] = useState('');
+  const [videoFile, setVideoFile] = useState<File | null>(null);
+  const fileInputRef = React.useRef<HTMLInputElement>(null);
+
+  // Test setup state
+  const [testTitle, setTestTitle] = useState('Weekly Assessment');
+  const [testInstructions, setTestInstructions] = useState('');
+
+  const fetchWeeks = async () => {
+    if (!courseId) return;
+    setIsLoading(true);
+    try {
+      const res = await courseModuleApi.getWeeks(courseId);
+      if (res.success) {
+        setWeeks(res.data);
+        if (res.data.length > 0 && !activeTab) {
+          setActiveTab(res.data[0].id.toString());
+        }
+      }
+    } catch (error) {
+      toast({ title: 'Error', description: 'Failed to load content', variant: 'destructive' });
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchWeeks();
+  }, [courseId]);
+
+  useEffect(() => {
+    if (isWeekOpen) {
+      setNewWeekTitle('');
+      setNewWeekDesc('');
+      setWeekTitleError('');
+      setWeekNumberError('');
+      const nextWeekNumber = weeks.length > 0 ? Math.max(...weeks.map(w => w.week_number)) + 1 : 1;
+      setNewWeekNumber(nextWeekNumber);
+    }
+  }, [isWeekOpen, weeks]);
+
+  const handleCreateWeek = async () => {
+    let hasError = false;
+    
+    if (!newWeekTitle.trim()) {
+      setWeekTitleError('Title is required');
+      hasError = true;
+    } else {
+      setWeekTitleError('');
+    }
+    
+    if (newWeekNumber === '' || newWeekNumber <= 0) {
+      setWeekNumberError('A valid week number is required');
+      hasError = true;
+    } else {
+      // Sequential validation: all weeks 1..N-1 must exist before adding week N
+      const num = Number(newWeekNumber);
+      const existingNumbers = new Set(weeks.map(w => w.week_number));
+      const missingPrev = [];
+      for (let i = 1; i < num; i++) {
+        if (!existingNumbers.has(i)) missingPrev.push(i);
+      }
+      if (missingPrev.length > 0) {
+        setWeekNumberError(`Week ${missingPrev.join(', ')} must be created first before adding Week ${num}`);
+        hasError = true;
+      } else {
+        setWeekNumberError('');
+      }
+    }
+
+    if (hasError || !courseId) return;
+
+    try {
+      const res = await courseModuleApi.createWeek(courseId, {
+        week_number: Number(newWeekNumber),
+        title: newWeekTitle,
+        description: newWeekDesc,
+        is_published: false,
+      });
+
+      if (res.success) {
+        toast({ title: 'Success', description: 'Week created successfully', variant: 'success' });
+        setIsWeekOpen(false);
+        fetchWeeks();
+      }
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    } catch (error: any) {
+      toast({ title: 'Error creating week', description: error?.response?.data?.message || 'A network error occurred', variant: 'destructive' });
+    }
+  };
+
+  const handleDeleteWeek = async () => {
+    if (!deleteWeekId || !courseId) return;
+    try {
+      const res = await courseModuleApi.deleteWeek(courseId, deleteWeekId);
+      if (res.success) {
+        toast({ title: 'Success', description: 'Week deleted successfully', variant: 'success' });
+        // Switch to another week if the deleted one was active
+        if (activeTab === deleteWeekId.toString()) {
+          const remaining = weeks.filter(w => w.id !== deleteWeekId);
+          setActiveTab(remaining.length > 0 ? remaining[0].id.toString() : '');
+        }
+        fetchWeeks();
+      }
+    } catch (error: any) {
+      toast({ title: 'Error', description: 'Failed to delete week', variant: 'destructive' });
+    } finally {
+      setDeleteWeekId(null);
+    }
+  };
+
+  const handleOpenEditWeek = (week: CourseWeek) => {
+    setEditWeek(week);
+    setEditWeekTitle(week.title);
+    setEditWeekDesc(week.description || '');
+    setEditWeekNumber(week.week_number);
+    setEditWeekTitleError('');
+    setEditWeekNumberError('');
+    setIsEditWeekOpen(true);
+  };
+
+  const handleUpdateWeek = async () => {
+    let hasError = false;
+    if (!editWeekTitle.trim()) {
+      setEditWeekTitleError('Title is required');
+      hasError = true;
+    } else { setEditWeekTitleError(''); }
+    if (editWeekNumber === '' || editWeekNumber <= 0) {
+      setEditWeekNumberError('A valid week number is required');
+      hasError = true;
+    } else { setEditWeekNumberError(''); }
+    if (hasError || !editWeek || !courseId) return;
+
+    try {
+      const res = await courseModuleApi.updateWeek(courseId, editWeek.id, {
+        week_number: Number(editWeekNumber),
+        title: editWeekTitle,
+        description: editWeekDesc,
+      });
+      if (res.success) {
+        toast({ title: 'Success', description: 'Week updated successfully', variant: 'success' });
+        setIsEditWeekOpen(false);
+        fetchWeeks();
+      }
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    } catch (error: any) {
+      toast({ title: 'Error', description: error?.response?.data?.message || 'Failed to update week', variant: 'destructive' });
+    }
+  };
+
+  const handleTogglePublish = async (week: CourseWeek) => {
+    if (!courseId) return;
+    const newStatus = !week.is_published;
+
+    // Frontend publish guard: check requirements before hitting the API
+    if (newStatus) {
+      const hasVideos = week.class_sessions && week.class_sessions.length > 0;
+      const hasTest = !!week.weekly_test;
+      if (!hasVideos) {
+        toast({ title: 'Cannot Publish', description: 'At least one video session must be added before publishing this week.', variant: 'destructive' });
+        return;
+      }
+      if (!hasTest) {
+        toast({ title: 'Cannot Publish', description: 'A weekly test must be configured before publishing this week.', variant: 'destructive' });
+        return;
+      }
+    }
+
+    try {
+      const res = await courseModuleApi.updateWeek(courseId, week.id, { is_published: newStatus });
+      if (res.success) {
+        toast({ title: 'Success', description: newStatus ? 'Week published successfully' : 'Week unpublished', variant: 'success' });
+        fetchWeeks();
+      }
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    } catch (error: any) {
+      toast({ title: 'Error', description: error?.response?.data?.message || 'Failed to update publish status', variant: 'destructive' });
+    }
+  };
+
+  const handleUploadVideo = async () => {
+    if (!videoTitle.trim() || !activeTab || !courseId) {
+      toast({ title: 'Validation Error', description: 'Please fill in all required fields and select a week.', variant: 'destructive' });
+      return;
+    }
+
+    const formData = new FormData();
+    // Default session number logic
+    const activeWeek = weeks.find(w => w.id.toString() === activeTab);
+    const nextSession = activeWeek && activeWeek.class_sessions ? activeWeek.class_sessions.length + 1 : 1;
+    
+    formData.append('title', videoTitle);
+    formData.append('description', videoDesc);
+    formData.append('session_number', nextSession.toString());
+    formData.append('duration_mins', '0'); // Basic default
+    if (videoFile) formData.append('video_file', videoFile);
+
+    try {
+      const res = await courseModuleApi.createSession(courseId, activeTab, formData);
+      if (res.success) {
+        toast({ title: 'Success', description: 'Video uploaded successfully', variant: 'success' });
+        setIsUploadOpen(false);
+        setVideoTitle('');
+        setVideoDesc('');
+        setVideoFile(null);
+        fetchWeeks();
+      }
+    } catch (error: any) {
+      toast({ title: 'Error uploading video', description: error?.response?.data?.message || 'A network error occurred', variant: 'destructive' });
+    }
+  };
+
+  const handleCreateTest = async () => {
+    if (!testTitle.trim() || !activeTab || !courseId) {
+      toast({ title: 'Validation Error', description: 'Please fill in test title.', variant: 'destructive' });
+      return;
+    }
+
+    try {
+      const res = await courseModuleApi.createTest(courseId, activeTab, {
+        title: testTitle,
+        instructions: testInstructions,
+        pass_percentage: 70
+      });
+      if (res.success) {
+        toast({ title: 'Success', description: 'Test created successfully', variant: 'success' });
+        setIsTestOpen(false);
+        fetchWeeks(); // to bring in the new test details
+        setTestTitle('Weekly Assessment');
+        setTestInstructions('');
+      }
+    } catch (error: any) {
+      toast({ title: 'Error creating test', description: error?.response?.data?.message || 'A network error occurred', variant: 'destructive' });
+    }
+  };
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const VideoCard = ({ video }: { video: any }) => (
@@ -176,42 +419,54 @@ export default function Content() {
         </div>
 
         {/* Content Tabs for Weeks */}
-        <Tabs defaultValue={mockWeeks[0].id} className="space-y-6">
+        <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
           <TabsList className="bg-muted/50 w-full justify-start overflow-x-auto">
-            {mockWeeks.map(week => (
-              <TabsTrigger key={week.id} value={week.id} className="whitespace-nowrap">
-                Week {week.weekNumber}: {week.title}
+            {weeks.map(week => (
+              <TabsTrigger key={week.id} value={week.id.toString()} className="whitespace-nowrap">
+                Week {week.week_number}: {week.title}
               </TabsTrigger>
             ))}
           </TabsList>
 
-          {mockWeeks.map(week => (
-            <TabsContent key={week.id} value={week.id} className="space-y-6 mt-4">
+          {weeks.map(week => (
+            <TabsContent key={week.id} value={week.id.toString()} className="space-y-6 mt-4">
               
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 py-2 border-b">
                 <div>
-                  <h2 className="text-xl font-bold text-foreground">Week {week.weekNumber}: {week.title}</h2>
+                  <h2 className="text-xl font-bold text-foreground">Week {week.week_number}: {week.title}</h2>
                   <p className="text-muted-foreground text-sm">{week.description}</p>
                 </div>
                 <div className="flex gap-2">
                   <Button variant="outline" size="sm" onClick={() => setIsTestOpen(true)}>
                     <FileText className="h-4 w-4 mr-2" />
-                    {week.test ? 'Edit Test' : 'Add Weekly Test'}
+                    {week.weekly_test ? 'Edit Test' : 'Add Weekly Test'}
+                  </Button>
+                  <Button variant="outline" size="icon" onClick={() => handleOpenEditWeek(week)}>
+                    <Edit className="h-4 w-4" />
+                  </Button>
+                  <Button variant="outline" size="icon" className="text-destructive hover:bg-destructive hover:text-destructive-foreground" onClick={() => setDeleteWeekId(week.id)}>
+                    <Trash2 className="h-4 w-4" />
                   </Button>
                 </div>
               </div>
 
               {/* Videos Grid */}
-              <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-                {week.videos.map((video) => (
-                  <VideoCard key={video.id} video={video} />
-                ))}
-              </div>
+              {week.class_sessions.length > 0 ? (
+                <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+                  {week.class_sessions.map((video) => (
+                    <VideoCard key={video.id} video={video} />
+                  ))}
+                </div>
+              ) : (
+                <div className="py-8 text-center text-muted-foreground bg-muted/20 border border-dashed border-foreground/20 rounded-lg">
+                  No videos uploaded for this week yet.
+                </div>
+              )}
 
               {/* Weekly Test Display Card */}
-              <div className="mt-8 pt-8 border-t border-border">
+              <div className="mt-8 pt-8 border-t border-foreground/10">
                 <h3 className="text-lg font-semibold mb-4">Weekly Assessment</h3>
-                {week.test ? (
+                {week.weekly_test ? (
                   <Card className="shadow-sm border-primary/20 bg-primary/5">
                     <CardHeader className="flex flex-row items-center justify-between pb-2">
                       <div className="flex items-center gap-3">
@@ -219,8 +474,8 @@ export default function Content() {
                           <CheckCircle className="h-6 w-6 text-primary" />
                         </div>
                         <div>
-                          <CardTitle className="text-lg">{week.test.title}</CardTitle>
-                          <CardDescription>{week.test.questions} Questions</CardDescription>
+                          <CardTitle className="text-lg">{week.weekly_test.title}</CardTitle>
+                          <CardDescription>{week.weekly_test.questions?.length || 0} Questions</CardDescription>
                         </div>
                       </div>
                       <div className="flex gap-2">
@@ -235,7 +490,7 @@ export default function Content() {
                     </CardContent>
                   </Card>
                 ) : (
-                  <div className="border-2 border-dashed border-border rounded-xl p-8 text-center bg-muted/20">
+                  <div className="border-2 border-dashed border-foreground/20 rounded-xl p-8 text-center bg-muted/20">
                     <FileText className="h-10 w-10 text-muted-foreground mx-auto mb-3" />
                     <h4 className="font-medium text-foreground mb-1">No Assessment Configured</h4>
                     <p className="text-sm text-muted-foreground mb-4">Add a weekly test that students must pass to proceed to the next week.</p>
@@ -261,25 +516,35 @@ export default function Content() {
           </DialogHeader>
           <div className="space-y-4 py-4">
             <div className="space-y-2">
-              <Label htmlFor="title">Video Title</Label>
-              <Input id="title" placeholder="Enter video title" />
+              <Label htmlFor="title">Video Title <span className="text-destructive">*</span></Label>
+              <Input 
+                id="title" 
+                placeholder="Enter video title" 
+                value={videoTitle}
+                onChange={(e) => setVideoTitle(e.target.value)}
+              />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="description">Description</Label>
-              <Textarea id="description" placeholder="Enter video description" />
+              <Label htmlFor="description">Description (Optional)</Label>
+              <Textarea 
+                id="description" 
+                placeholder="Enter video description" 
+                value={videoDesc}
+                onChange={(e) => setVideoDesc(e.target.value)}
+              />
             </div>
             
             {/* Week Selection instead of text input */}
             <div className="space-y-2">
               <Label>Select Week</Label>
-              <Select defaultValue={mockWeeks[0].id}>
+              <Select value={activeTab} onValueChange={setActiveTab}>
                 <SelectTrigger>
                   <SelectValue placeholder="Select a week" />
                 </SelectTrigger>
                 <SelectContent>
-                  {mockWeeks.map((week) => (
-                    <SelectItem key={week.id} value={week.id}>
-                      Week {week.weekNumber}: {week.title}
+                  {weeks.map((week) => (
+                    <SelectItem key={week.id} value={week.id.toString()}>
+                      Week {week.week_number}: {week.title}
                     </SelectItem>
                   ))}
                 </SelectContent>
@@ -287,21 +552,47 @@ export default function Content() {
             </div>
 
             <div className="space-y-2">
-              <Label>Video File</Label>
-              <div className="border-2 border-dashed border-border rounded-lg p-8 text-center hover:border-primary/50 transition-colors cursor-pointer">
-                <Upload className="h-10 w-10 text-muted-foreground mx-auto mb-4" />
-                <p className="text-sm text-muted-foreground">
-                  Drag and drop or click to upload
-                </p>
-                <p className="text-xs text-muted-foreground mt-1">
-                  MP4, WebM up to 500MB
-                </p>
+              <Label>Video File (Optional External Link alternative)</Label>
+              <input 
+                type="file" 
+                ref={fileInputRef} 
+                className="hidden" 
+                accept="video/mp4,video/webm"
+                onChange={(e) => {
+                  if (e.target.files && e.target.files.length > 0) {
+                    setVideoFile(e.target.files[0]);
+                  }
+                }}
+              />
+              <div 
+                className={`border-2 border-dashed rounded-lg p-8 text-center transition-colors cursor-pointer ${videoFile ? 'border-primary bg-primary/5' : 'border-foreground/20 hover:border-primary/50'}`}
+                onClick={() => fileInputRef.current?.click()}
+              >
+                {videoFile ? (
+                  <>
+                    <CheckCircle className="h-10 w-10 text-primary mx-auto mb-4" />
+                    <p className="text-sm text-foreground font-medium">{videoFile.name}</p>
+                    <p className="text-xs text-muted-foreground mt-1">
+                      {(videoFile.size / (1024 * 1024)).toFixed(2)} MB
+                    </p>
+                  </>
+                ) : (
+                  <>
+                    <Upload className="h-10 w-10 text-muted-foreground mx-auto mb-4" />
+                    <p className="text-sm text-muted-foreground">
+                      Drag and drop or click to upload
+                    </p>
+                    <p className="text-xs text-muted-foreground mt-1">
+                      MP4, WebM up to 500MB
+                    </p>
+                  </>
+                )}
               </div>
             </div>
           </div>
           <div className="flex justify-end gap-3">
             <Button variant="outline" onClick={() => setIsUploadOpen(false)}>Cancel</Button>
-            <Button variant="gradient">Upload Video</Button>
+            <Button variant="gradient" onClick={handleUploadVideo}>Upload Video</Button>
           </div>
         </DialogContent>
       </Dialog>
@@ -313,19 +604,104 @@ export default function Content() {
             <DialogTitle>Create New Week</DialogTitle>
             <DialogDescription>Add a new module week for the course curriculum.</DialogDescription>
           </DialogHeader>
-          <div className="space-y-4 py-4">
+            <div className="space-y-4 py-4">
             <div className="space-y-2">
-              <Label htmlFor="weekTitle">Week Title</Label>
-              <Input id="weekTitle" placeholder="e.g. Loops & Statements" />
+              <Label htmlFor="weekNumber">Week Number <span className="text-destructive">*</span></Label>
+              <Input 
+                id="weekNumber" 
+                type="number"
+                min="1"
+                placeholder="e.g. 1" 
+                value={newWeekNumber}
+                onChange={(e) => {
+                  setNewWeekNumber(e.target.value === '' ? '' : parseInt(e.target.value, 10));
+                  if (weekNumberError) setWeekNumberError('');
+                }}
+                className={weekNumberError ? "border-destructive focus-visible:ring-destructive" : ""}
+              />
+              {weekNumberError && <p className="text-sm text-destructive mt-1">{weekNumberError}</p>}
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="weekTitle">Week Title <span className="text-destructive">*</span></Label>
+              <Input 
+                id="weekTitle" 
+                placeholder="e.g. Loops & Statements" 
+                value={newWeekTitle}
+                onChange={(e) => {
+                  setNewWeekTitle(e.target.value);
+                  if (weekTitleError) setWeekTitleError('');
+                }}
+                className={weekTitleError ? "border-destructive focus-visible:ring-destructive" : ""}
+              />
+              {weekTitleError && <p className="text-sm text-destructive mt-1">{weekTitleError}</p>}
             </div>
             <div className="space-y-2">
               <Label htmlFor="weekDesc">Description (Optional)</Label>
-              <Textarea id="weekDesc" placeholder="Brief outline of topics..." />
+              <Textarea 
+                id="weekDesc" 
+                placeholder="Brief outline of topics..." 
+                value={newWeekDesc}
+                onChange={(e) => setNewWeekDesc(e.target.value)}
+              />
             </div>
           </div>
           <div className="flex justify-end gap-3">
             <Button variant="outline" onClick={() => setIsWeekOpen(false)}>Cancel</Button>
-            <Button variant="gradient" onClick={() => setIsWeekOpen(false)}>Create Week</Button>
+            <Button variant="gradient" onClick={handleCreateWeek}>Create Week</Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Edit Week Modal */}
+      <Dialog open={isEditWeekOpen} onOpenChange={setIsEditWeekOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Edit Week</DialogTitle>
+            <DialogDescription>Update the details for this week.</DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label htmlFor="editWeekNumber">Week Number <span className="text-destructive">*</span></Label>
+              <Input
+                id="editWeekNumber"
+                type="number"
+                min="1"
+                value={editWeekNumber}
+                onChange={(e) => {
+                  setEditWeekNumber(e.target.value === '' ? '' : parseInt(e.target.value, 10));
+                  if (editWeekNumberError) setEditWeekNumberError('');
+                }}
+                className={editWeekNumberError ? 'border-destructive focus-visible:ring-destructive' : ''}
+              />
+              {editWeekNumberError && <p className="text-sm text-destructive mt-1">{editWeekNumberError}</p>}
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="editWeekTitle">Week Title <span className="text-destructive">*</span></Label>
+              <Input
+                id="editWeekTitle"
+                placeholder="e.g. Loops & Statements"
+                value={editWeekTitle}
+                onChange={(e) => {
+                  setEditWeekTitle(e.target.value);
+                  if (editWeekTitleError) setEditWeekTitleError('');
+                }}
+                className={editWeekTitleError ? 'border-destructive focus-visible:ring-destructive' : ''}
+              />
+              {editWeekTitleError && <p className="text-sm text-destructive mt-1">{editWeekTitleError}</p>}
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="editWeekDesc">Description (Optional)</Label>
+              <Textarea
+                id="editWeekDesc"
+                placeholder="Brief outline of topics..."
+                value={editWeekDesc}
+                onChange={(e) => setEditWeekDesc(e.target.value)}
+              />
+            </div>
+          </div>
+          <div className="flex justify-end gap-3">
+            <Button variant="outline" onClick={() => setIsEditWeekOpen(false)}>Cancel</Button>
+            <Button variant="gradient" onClick={handleUpdateWeek}>Save Changes</Button>
           </div>
         </DialogContent>
       </Dialog>
@@ -340,8 +716,21 @@ export default function Content() {
           
           <div className="space-y-6 py-4">
             <div className="space-y-2">
-              <Label>Test Title</Label>
-              <Input defaultValue="Week Assessment" />
+              <Label>Test Title <span className="text-destructive">*</span></Label>
+              <Input 
+                value={testTitle} 
+                onChange={e => setTestTitle(e.target.value)} 
+                placeholder="Week Assessment" 
+              />
+            </div>
+            
+            <div className="space-y-2">
+              <Label>Instructions</Label>
+              <Textarea 
+                value={testInstructions} 
+                onChange={e => setTestInstructions(e.target.value)} 
+                placeholder="Optional instructions for students..." 
+              />
             </div>
 
             <div className="space-y-3">
@@ -370,7 +759,7 @@ export default function Content() {
 
             {testType === 'ipynb' ? (
               <div className="space-y-4">
-                <div className="border-2 border-dashed border-border rounded-lg p-10 text-center hover:border-primary/50 transition-colors cursor-pointer bg-muted/10">
+                <div className="border-2 border-dashed border-foreground/20 rounded-lg p-10 text-center hover:border-primary/50 transition-colors cursor-pointer bg-muted/10">
                   <FileText className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
                   <p className="text-sm font-medium text-foreground mb-1">
                     Upload Jupyter Notebook (.ipynb)
@@ -420,14 +809,33 @@ export default function Content() {
           </div>
           
           <div className="flex justify-between items-center pt-2">
-            <span className="text-xs text-muted-foreground">Changes are saved automatically</span>
+            <span className="text-xs text-muted-foreground">Tests with questions auto-unlock after videos</span>
             <div className="flex gap-2">
               <Button variant="outline" onClick={() => setIsTestOpen(false)}>Cancel</Button>
-              <Button variant="gradient" onClick={() => setIsTestOpen(false)}>Save Assessment</Button>
+              <Button variant="gradient" onClick={handleCreateTest}>Save Assessment</Button>
             </div>
           </div>
         </DialogContent>
       </Dialog>
+      
+      {/* Delete Week Confirmation */}
+      <AlertDialog open={deleteWeekId !== null} onOpenChange={(open) => !open && setDeleteWeekId(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This action cannot be undone. This will permanently delete this week and all of its associated sessions and tests.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={handleDeleteWeek} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+              Continue
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
     </DashboardLayout>
   );
 }
