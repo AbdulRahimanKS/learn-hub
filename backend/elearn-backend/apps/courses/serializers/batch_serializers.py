@@ -77,11 +77,56 @@ class BatchEnrollmentSerializer(serializers.ModelSerializer):
     student_name = serializers.CharField(source='student.fullname', read_only=True)
     student_email = serializers.EmailField(source='student.email', read_only=True)
 
+    # Progress fields (Mocked for now, to be implemented with real logic)
+    overall_progress = serializers.SerializerMethodField()
+    weeks_completed = serializers.SerializerMethodField()
+    total_weeks = serializers.SerializerMethodField()
+    weekly_tests_submitted = serializers.SerializerMethodField()
+    total_weekly_tests = serializers.SerializerMethodField()
+    quizzes_done = serializers.SerializerMethodField()
+    total_quizzes = serializers.SerializerMethodField()
+    marks_obtained = serializers.SerializerMethodField()
+    total_marks = serializers.SerializerMethodField()
+
     class Meta:
         model = BatchEnrollment
         fields = [
             'id', 'batch', 'student', 'student_name', 'student_email',
             'status', 'notes', 'fee_paid', 'fee_amount',
-            'enrolled_at', 'created_at'
+            'enrolled_at', 'created_at',
+            'overall_progress', 'weeks_completed', 'total_weeks',
+            'weekly_tests_submitted', 'total_weekly_tests',
+            'quizzes_done', 'total_quizzes',
+            'marks_obtained', 'total_marks'
         ]
         read_only_fields = ['id', 'batch', 'enrolled_at', 'created_at', 'student_name', 'student_email']
+
+    def get_overall_progress(self, obj):
+        return 15.0 # Mock
+
+    def get_weeks_completed(self, obj):
+        return 2 # Mock
+
+    def get_total_weeks(self, obj):
+        if obj.batch and obj.batch.course:
+            return obj.batch.course.total_weeks
+        return 0
+
+    def get_weekly_tests_submitted(self, obj):
+        return 1 # Mock
+
+    def get_total_weekly_tests(self, obj):
+        return 3 # Mock
+
+    def get_quizzes_done(self, obj):
+        return 0 # Mock
+
+    def get_total_quizzes(self, obj):
+        return 2 # Mock
+
+    def get_marks_obtained(self, obj):
+        return 0 # Mock
+
+    def get_total_marks(self, obj):
+        return 0 # Mock
+

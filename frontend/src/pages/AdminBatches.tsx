@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
+import { Link } from 'react-router-dom';
 import { DashboardLayout } from '@/components/layout/DashboardLayout';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -45,6 +46,7 @@ import {
   Loader2,
   ChevronLeft,
   ChevronRight,
+  ArrowRight,
   X,
   Check,
 } from 'lucide-react';
@@ -439,19 +441,6 @@ export default function AdminBatches() {
               className="pl-10"
             />
           </div>
-          <div className="w-[180px] shrink-0">
-            <Select value={statusFilter} onValueChange={(v: any) => setStatusFilter(v)}>
-              <SelectTrigger className="border-primary text-primary">
-                <Filter className="h-4 w-4 mr-2" />
-                <SelectValue placeholder="Filter by status" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All Status</SelectItem>
-                <SelectItem value="active">Active Only</SelectItem>
-                <SelectItem value="inactive">Inactive Only</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
         </div>
 
         {/* Batch Grid */}
@@ -483,13 +472,10 @@ export default function AdminBatches() {
                         <p className="text-sm text-muted-foreground line-clamp-2">{batch.description}</p>
                       )}
                     </div>
-                    <Badge className={`shrink-0 ${batch.is_active ? 'bg-success' : 'bg-muted-foreground'} text-white`}>
-                      {batch.is_active ? 'Active' : 'Inactive'}
-                    </Badge>
                   </div>
                 </CardHeader>
-                <CardContent className="flex-1 flex flex-col">
-                  <div className="space-y-4 flex-1 flex flex-col justify-between">
+                <CardContent className="flex-1 flex flex-col p-0">
+                  <div className="space-y-4 flex-1 flex flex-col justify-between p-6 pt-0">
                     <div className="space-y-3">
                       {/* Teacher */}
                       <div className="flex items-center gap-3">
@@ -520,29 +506,29 @@ export default function AdminBatches() {
                         </div>
                       </div>
                     </div>
+                  </div>
+                  
+                  {/* Actions (Footer style) */}
+                  <div className="flex items-center justify-between gap-2 p-4 mt-auto border-t border-border/40 bg-muted/20">
+                    <Button variant="ghost" className="text-primary hover:text-primary hover:bg-primary/10 px-2 group" asChild>
+                      <Link to={`/batches/${batch.id}/students`}>
+                        Manage Students
+                        <ArrowRight className="h-4 w-4 ml-2 group-hover:translate-x-1 transition-transform" />
+                      </Link>
+                    </Button>
+                    <div className="flex gap-1">
+                      <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-foreground" onClick={() => handleOpenModal(batch)}>
+                        <Edit className="h-4 w-4" />
+                      </Button>
 
-                    {/* Actions */}
-                    <div className="flex items-center gap-2 pt-4">
-                      <Switch
-                        checked={batch.is_active}
-                        onCheckedChange={() => handleToggleActive(batch)}
-                        className="data-[state=unchecked]:bg-muted"
-                      />
-                      <span className="text-xs text-muted-foreground">{batch.is_active ? 'Active' : 'Inactive'}</span>
-                      <div className="flex gap-2 ml-auto">
-                        <Button variant="outline" size="sm" onClick={() => handleOpenModal(batch)}>
-                          <Edit className="h-4 w-4 mr-1" />
-                          Edit
-                        </Button>
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          className="text-destructive hover:text-destructive"
-                          onClick={() => setDeleteBatchId(batch.id)}
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
-                      </div>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-8 w-8 text-muted-foreground hover:text-destructive hover:bg-destructive/10"
+                        onClick={() => setDeleteBatchId(batch.id)}
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
                     </div>
                   </div>
                 </CardContent>

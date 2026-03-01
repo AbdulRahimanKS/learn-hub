@@ -133,7 +133,30 @@ export const batchApi = {
     );
     return response.data;
   },
+
+  getAvailableStudents: async (search?: string) => {
+    const response = await apiClient.get<{ data: BatchUser[]; success: boolean; message: string }>(
+      '/api/courses/v1/batches/available-students/', { params: { search } }
+    );
+    return response.data;
+  },
+
+  getBatchStudents: async (batchId: number, params?: { page?: number; page_size?: number }) => {
+    const response = await apiClient.get<{ 
+      data: any[]; 
+      success: boolean; 
+      message: string;
+      total_count?: number;
+      total_pages?: number;
+      current_page?: number;
+    }>(
+      `/api/courses/v1/batches/${batchId}/students/`, { params }
+    );
+    return response.data;
+  },
+
 };
+
 
 export interface ManageUser {
   id: number;

@@ -234,6 +234,12 @@ class BatchEnrollment(models.Model):
     dropped_at   = models.DateTimeField(null=True, blank=True)
     suspended_at = models.DateTimeField(null=True, blank=True)
     notes        = models.TextField(blank=True)
+    fee_paid     = models.BooleanField(_('Fee Paid'), default=False)
+    fee_amount   = models.DecimalField(
+        _('Fee Amount'), max_digits=10, decimal_places=2,
+        null=True, blank=True
+    )
+
 
     enrolled_by = models.ForeignKey(
         'users.User', on_delete=models.SET_NULL, null=True, blank=True,

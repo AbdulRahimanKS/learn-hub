@@ -13,7 +13,10 @@ from .batch_views import (
     BatchUpdateView,
     BatchToggleActiveView,
     BatchAddStudentView,
+    AvailableStudentListView,
+    BatchStudentListView,
 )
+
 from .course_module_views import (
     CourseWeekListCreateView,
     CourseWeekDetailView,
@@ -42,6 +45,8 @@ __all__ = [
     'BatchUpdateView',
     'BatchToggleActiveView',
     'BatchAddStudentView',
+    'AvailableStudentListView',
+    'BatchStudentListView',
     'CourseWeekListCreateView',
     'CourseWeekDetailView',
     'ClassSessionListCreateView',

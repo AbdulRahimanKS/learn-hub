@@ -12,6 +12,9 @@ from apps.courses.serializers import (
     BatchCreateUpdateSerializer,
     BatchEnrollmentSerializer,
 )
+from apps.users.serializers.user_management_serializers import UserManagementSerializer
+from apps.users.models import User
+
 from utils.permissions import IsAdminOrTeacher, IsAuthenticated
 from utils.common import format_success_response, handle_serializer_errors, ServiceError, generate_temp_password
 from utils.pagination import CustomPageNumberPagination
@@ -383,25 +386,31 @@ class BatchAddStudentView(APIView):
                 enrolled_by=user,
             )
 
-            if not student.has_usable_password():
-                temp_password = generate_temp_password()
-                student.set_password(temp_password)
-                student.status = 'ACTIVE'
+            if not student.is_active or student.status != 'ACTIVE':
                 student.is_active = True
-                student.save(update_fields=['password', 'is_active', 'status'])
-                send_email(
-                    user=request.user,
-                    subject="Welcome to LearnHub – Your Login Credentials",
-                    template="emails/user_welcome_credentials",
-                    to_emails=[student.email],
-                    payload={
-                        "user_name": student.fullname,
-                        "email": student.email,
-                        "password": temp_password,
-                        "role": "Student",
-                    },
-                )
-                logger.info(f"Welcome credentials sent to student {student.email} upon first batch enrollment.")
+                student.status = 'ACTIVE'
+                update_fields = ['is_active', 'status']
+
+                if not student.has_usable_password():
+                    temp_password = generate_temp_password()
+                    student.set_password(temp_password)
+                    update_fields.append('password')
+
+                    send_email(
+                        user=request.user,
+                        subject="Welcome to LearnHub – Your Login Credentials",
+                        template="emails/user_welcome_credentials",
+                        to_emails=[student.email],
+                        payload={
+                            "user_name": student.fullname,
+                            "email": student.email,
+                            "password": temp_password,
+                            "role": "Student",
+                        },
+                    )
+                    logger.info(f"Welcome credentials sent to student {student.email} upon first batch enrollment.")
+
+                student.save(update_fields=update_fields)
 
             return format_success_response(
                 message="Student added to batch successfully.",
@@ -413,3 +422,77 @@ class BatchAddStudentView(APIView):
         except Exception as e:
             logger.error(f"Error adding student to batch {pk}: {str(e)}")
             raise ServiceError(detail=str(e), status_code=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+@extend_schema(tags=["Batches"])
+class AvailableStudentListView(APIView):
+    permission_classes = [IsAdminOrTeacher]
+
+    @extend_schema(
+        summary="List students available for batch enrollment (not in any active batch)",
+        parameters=[
+            OpenApiParameter("search", OpenApiTypes.STR, description="Search by name or email"),
+        ],
+        responses={200: UserManagementSerializer(many=True)},
+    )
+    def get(self, request):
+        # Students who are not in any ACTIVE enrollment
+        enrolled_student_ids = BatchEnrollment.objects.filter(
+            status=BatchEnrollment.Status.ACTIVE
+        ).values_list('student_id', flat=True)
+
+        qs = User.objects.filter(
+            user_type__name=UserTypeConstants.STUDENT,
+            is_deleted=False
+        ).exclude(id__in=enrolled_student_ids)
+
+        search = request.query_params.get('search', '').strip()
+        if search:
+            qs = qs.filter(
+                Q(fullname__icontains=search) |
+                Q(email__icontains=search)
+            )
+
+        serializer = UserManagementSerializer(qs, many=True, context={'request': request})
+        return format_success_response(
+            message="Available students retrieved successfully",
+            data=serializer.data
+        )
+
+
+class BatchStudentListView(APIView):
+    permission_classes = [IsAuthenticated]
+    pagination_class = CustomPageNumberPagination
+
+    @extend_schema(
+        summary="List students in a specific batch",
+        parameters=[
+            OpenApiParameter("page", OpenApiTypes.INT, description="Page number"),
+            OpenApiParameter("page_size", OpenApiTypes.INT, description="Number of items per page"),
+        ],
+        responses={200: BatchEnrollmentSerializer(many=True)},
+    )
+    def get(self, request, pk):
+        try:
+            batch = Batch.objects.get(pk=pk, is_deleted=False)
+            enrollments = batch.enrollments.all().select_related('student').order_by('id')
+
+            paginator = self.pagination_class()
+            page = paginator.paginate_queryset(enrollments, request, view=self)
+            
+            if page is not None:
+                serializer = BatchEnrollmentSerializer(page, many=True)
+                return paginator.get_paginated_response(serializer.data)
+
+            serializer = BatchEnrollmentSerializer(enrollments, many=True)
+            return format_success_response(
+                message="Batch students retrieved successfully",
+                data=serializer.data
+            )
+        except Batch.DoesNotExist:
+            raise ServiceError(detail="Batch not found.", status_code=status.HTTP_404_NOT_FOUND)
+        except Exception as e:
+            logger.error(f"Error listing batch students: {str(e)}")
+            raise ServiceError(detail=str(e), status_code=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+

@@ -12,6 +12,8 @@ from apps.courses.views import (
     BatchUpdateView,
     BatchToggleActiveView,
     BatchAddStudentView,
+    AvailableStudentListView,
+    BatchStudentListView,
     CourseWeekListCreateView,
     CourseWeekDetailView,
     ClassSessionListCreateView,
@@ -54,4 +56,6 @@ urlpatterns = [
     path("batches/<int:pk>/update/", BatchUpdateView.as_view(), name="batch-update"),
     path("batches/<int:pk>/toggle-active/", BatchToggleActiveView.as_view(), name="batch-toggle-active"),
     path("batches/<int:pk>/add-student/", BatchAddStudentView.as_view(), name="batch-add-student"),
+    path("batches/available-students/", AvailableStudentListView.as_view(), name="batch-available-students"),
+    path("batches/<int:pk>/students/", BatchStudentListView.as_view(), name="batch-student-list"),
 ]
