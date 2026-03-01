@@ -26,12 +26,12 @@ import {
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
 import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuRadioGroup,
-  DropdownMenuRadioItem,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import {
   Plus,
   Search,
@@ -472,21 +472,19 @@ export default function AdminBatches() {
               className="pl-10"
             />
           </div>
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button variant="outline" className="shrink-0 gap-2">
-                <Filter className="h-4 w-4" />
-                {statusFilter === 'all' ? 'All Status' : statusFilter === 'active' ? 'Active' : 'Inactive'}
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end">
-              <DropdownMenuRadioGroup value={statusFilter} onValueChange={v => setStatusFilter(v as any)}>
-                <DropdownMenuRadioItem value="all">All Status</DropdownMenuRadioItem>
-                <DropdownMenuRadioItem value="active">Active</DropdownMenuRadioItem>
-                <DropdownMenuRadioItem value="inactive">Inactive</DropdownMenuRadioItem>
-              </DropdownMenuRadioGroup>
-            </DropdownMenuContent>
-          </DropdownMenu>
+          <div className="w-[180px] shrink-0">
+            <Select value={statusFilter} onValueChange={(v: any) => setStatusFilter(v)}>
+              <SelectTrigger className="border-primary text-primary">
+                <Filter className="h-4 w-4 mr-2" />
+                <SelectValue placeholder="Filter by status" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Status</SelectItem>
+                <SelectItem value="active">Active Only</SelectItem>
+                <SelectItem value="inactive">Inactive Only</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
         </div>
 
         {/* Batch Grid */}

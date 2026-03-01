@@ -28,7 +28,7 @@ class CourseListView(APIView):
         summary="List all courses",
         parameters=[
             OpenApiParameter("search", OpenApiTypes.STR, description="Search by title, course code, or description"),
-            OpenApiParameter("is_active", OpenApiTypes.BOOL, description="Filter by active status (admin only)"),
+            OpenApiParameter("is_active", OpenApiTypes.BOOL, description="Filter by active status"),
             OpenApiParameter("paginate", OpenApiTypes.BOOL, description="Set to false to return all results without pagination (default: true)"),
             OpenApiParameter("page", OpenApiTypes.INT, description="Page number (when paginated)"),
             OpenApiParameter("page_size", OpenApiTypes.INT, description="Results per page, default 10, max 100 (when paginated)"),

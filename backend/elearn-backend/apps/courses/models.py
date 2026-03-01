@@ -46,8 +46,6 @@ class Course(models.Model):
         help_text=_('Cover image for the course card')
     )
 
-    passing_percentage = models.FloatField(default=70.0)
-
     is_active  = models.BooleanField(default=True)
     is_deleted = models.BooleanField(default=False)
 
@@ -354,7 +352,10 @@ class WeeklyTest(models.Model):
     class Meta:
         verbose_name        = _('Weekly Test')
         verbose_name_plural = _('Weekly Tests')
-        ordering            = ['weekly_module__week_number']
+        ordering            = ['course_week__week_number']
+        indexes             = [
+            models.Index(fields=['course_week'], name='weeklytest_module_idx'),
+        ]
 
     def __str__(self):
         return f"{self.course_week.course.title} – Week {self.course_week.week_number} Test"
@@ -418,8 +419,8 @@ class LiveSession(models.Model):
         CANCELLED   = 'cancelled',   _('Cancelled')
         RESCHEDULED = 'rescheduled', _('Rescheduled')
 
-    weekly_module  = models.ForeignKey(
-        WeeklyModule, on_delete=models.CASCADE, related_name='live_sessions'
+    course_week = models.ForeignKey(
+        CourseWeek, on_delete=models.CASCADE, related_name='live_sessions'
     )
     title          = models.CharField(_('Title'), max_length=255)
     description    = models.TextField(blank=True)

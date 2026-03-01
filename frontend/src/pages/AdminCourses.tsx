@@ -24,12 +24,12 @@ import {
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
 import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuRadioGroup,
-  DropdownMenuRadioItem,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Switch } from '@/components/ui/switch';
 import { ImageCropperModal } from '@/components/ImageCropperModal';
 import { Label } from '@/components/ui/label';
@@ -451,7 +451,7 @@ export default function AdminCourses() {
                     onChange={handleInputChange} 
                   />
                 </div>
-                <div className="grid grid-cols-2 gap-4">
+                <div className="grid grid-cols-2 gap-4 mt-4">
                   <div className="space-y-2">
                     <Label htmlFor="difficulty">Difficulty Level</Label>
                     <select 
@@ -465,13 +465,15 @@ export default function AdminCourses() {
                       <option value="advanced" className="bg-background text-foreground">Advanced</option>
                     </select>
                   </div>
-                  <Label htmlFor="tags">Tags (comma-separated)</Label>
-                  <Input 
-                    id="tags" 
-                    placeholder="e.g. python, scripting"
-                    value={formData.tags}
-                    onChange={handleInputChange} 
-                  />
+                  <div className="space-y-2">
+                    <Label htmlFor="tags" className="block text-sm font-medium">Tags (comma-separated)</Label>
+                    <Input 
+                      id="tags" 
+                      placeholder="e.g. python, scripting"
+                      value={formData.tags}
+                      onChange={handleInputChange} 
+                    />
+                  </div>
                 </div>
               </div>
               <div className="flex justify-end gap-3 mt-2">
@@ -496,21 +498,19 @@ export default function AdminCourses() {
               className="pl-10"
             />
           </div>
-          <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <Button variant="outline" className="shrink-0 gap-2">
-                    <Filter className="h-4 w-4 mr-2" />
-                    Filter
-                  </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="end" className="w-48">
-                  <DropdownMenuRadioGroup value={statusFilter} onValueChange={(v: any) => setStatusFilter(v)}>
-                    <DropdownMenuRadioItem value="all">All Courses</DropdownMenuRadioItem>
-                    <DropdownMenuRadioItem value="active">Active Only</DropdownMenuRadioItem>
-                    <DropdownMenuRadioItem value="inactive">Inactive Only</DropdownMenuRadioItem>
-                  </DropdownMenuRadioGroup>
-                </DropdownMenuContent>
-              </DropdownMenu>
+          <div className="w-[180px] shrink-0">
+            <Select value={statusFilter} onValueChange={(v: any) => setStatusFilter(v)}>
+              <SelectTrigger className="border-primary text-primary">
+                <Filter className="h-4 w-4 mr-2" />
+                <SelectValue placeholder="Filter by status" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Courses</SelectItem>
+                <SelectItem value="active">Active Only</SelectItem>
+                <SelectItem value="inactive">Inactive Only</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
         </div>
 
         {/* Course Cards Array */}

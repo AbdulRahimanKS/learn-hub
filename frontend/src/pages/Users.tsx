@@ -626,7 +626,7 @@ export default function Users() {
           </div>
           <div className="w-[180px] shrink-0">
             <Select value={filterActive} onValueChange={setFilterActive}>
-              <SelectTrigger>
+              <SelectTrigger className="border-primary text-primary">
                 <Filter className="h-4 w-4 mr-2" />
                 <SelectValue placeholder="Filter by status" />
               </SelectTrigger>
