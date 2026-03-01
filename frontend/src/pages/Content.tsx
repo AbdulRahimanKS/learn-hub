@@ -55,6 +55,8 @@ import {
 import { courseModuleApi, CourseWeek } from '@/lib/course-module-api';
 import { useToast } from '@/hooks/use-toast';
 import axios from 'axios';
+import getBlobDuration from 'get-blob-duration';
+import { ImageCropperModal } from '@/components/ImageCropperModal';
 
 export default function Content() {
   const { courseId } = useParams<{ courseId: string }>();
@@ -96,12 +98,16 @@ export default function Content() {
   const [videoDesc, setVideoDesc] = useState('');
   const [videoFile, setVideoFile] = useState<File | null>(null);
   const [videoThumbnail, setVideoThumbnail] = useState<File | null>(null);
+  const [imagePreview, setImagePreview] = useState<string | null>(null);
+  const [cropperSrc, setCropperSrc] = useState<string | null>(null);
   const [sessionNumber, setSessionNumber] = useState<number | ''>('');
   
   const [editVideoId, setEditVideoId] = useState<number | null>(null);
   const [isEditVideoOpen, setIsEditVideoOpen] = useState(false);
   const [deleteVideoId, setDeleteVideoId] = useState<number | null>(null);
   const [playingVideoUrl, setPlayingVideoUrl] = useState<string | null>(null);
+  const [videoFormErrors, setVideoFormErrors] = useState<Record<string, string>>({});
+  const [uploadWeekId, setUploadWeekId] = useState<string>('');
   
   const [uploadProgress, setUploadProgress] = useState(-1); // -1 means no active upload
   const [isUploading, setIsUploading] = useState(false);
@@ -109,6 +115,38 @@ export default function Content() {
   const fileInputRef = React.useRef<HTMLInputElement>(null);
   const thumbnailInputRef = React.useRef<HTMLInputElement>(null);
   const editThumbnailInputRef = React.useRef<HTMLInputElement>(null);
+
+  const handleThumbnailSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && e.target.files.length > 0) {
+      const file = e.target.files[0];
+      
+      if (file.size > 2 * 1024 * 1024) {
+        setVideoFormErrors(prev => ({ ...prev, thumbnail: 'Thumbnail image must be less than 2MB.' }));
+        if (thumbnailInputRef.current) thumbnailInputRef.current.value = '';
+        if (editThumbnailInputRef.current) editThumbnailInputRef.current.value = '';
+        return;
+      } else {
+        setVideoFormErrors(prev => {
+          const newErrs = { ...prev };
+          delete newErrs.thumbnail;
+          return newErrs;
+        });
+      }
+
+      const reader = new FileReader();
+      reader.addEventListener('load', () => setCropperSrc(reader.result?.toString() || null));
+      reader.readAsDataURL(file);
+      // Reset input value so same file can be selected again if cropped differently
+      if (thumbnailInputRef.current) thumbnailInputRef.current.value = '';
+      if (editThumbnailInputRef.current) editThumbnailInputRef.current.value = '';
+    }
+  };
+
+  const handleCroppedImage = (file: File, url: string) => {
+    setVideoThumbnail(file);
+    setImagePreview(url);
+    setCropperSrc(null);
+  };
 
   // Test setup state
   const [testTitle, setTestTitle] = useState('Weekly Assessment');
@@ -299,24 +337,46 @@ export default function Content() {
     }
   };
 
+  const handleOpenAddVideo = () => {
+    setVideoTitle('');
+    setVideoDesc('');
+    setSessionNumber('');
+    setVideoFile(null);
+    setVideoThumbnail(null);
+    setImagePreview(null);
+    setUploadWeekId(activeTab);
+    setVideoFormErrors({});
+    setIsUploadOpen(true);
+  };
+
   const handleUploadVideo = async () => {
-    if (!videoTitle.trim() || !activeTab || !courseId) {
-      toast({ title: 'Validation Error', description: 'Please fill in all required fields and select a week.', variant: 'destructive' });
-      return;
-    }
-    if (sessionNumber === '' || sessionNumber <= 0) {
-      toast({ title: 'Validation Error', description: 'Session number must be greater than 0.', variant: 'destructive' });
-      return;
-    }
+    const errors: Record<string, string> = {};
+    if (!videoTitle.trim()) errors.title = 'Title is required';
+    if (!uploadWeekId) errors.week = 'Please select a week';
+    if (!courseId) errors.course = 'System Error: Course missing';
+    if (sessionNumber === '' || sessionNumber <= 0) errors.session_number = 'Session number must be a valid number greater than 0';
+    if (!videoFile) errors.video_file = 'You must select a video file to upload';
+
+    setVideoFormErrors(errors);
+    if (Object.keys(errors).length > 0) return;
 
     setIsUploading(true);
     setUploadProgress(0);
 
     try {
       let finalVideoKey = '';
+      let actualDurationSeconds = 0;
 
       // Direct-to-R2 Multipart Upload Flow
       if (videoFile) {
+        // Step 0: Get Video Duration (in seconds)
+        try {
+          const durationS = await getBlobDuration(videoFile);
+          actualDurationSeconds = Math.round(durationS);
+        } catch (err) {
+          console.warn('Failed to parse video duration', err);
+        }
+
         // 1. Initialize Upload
         const initRes = await courseModuleApi.initMultipartUpload(videoFile.name, videoFile.type, videoFile.size);
         if (!initRes.success) throw new Error(initRes.message);
@@ -362,14 +422,14 @@ export default function Content() {
       formData.append('title', videoTitle);
       formData.append('description', videoDesc);
       formData.append('session_number', sessionNumber.toString());
-      formData.append('duration_mins', '0'); // Basic default
+      formData.append('duration_seconds', actualDurationSeconds.toString()); 
       if (finalVideoKey) {
         // Just store the key text in the CharField
         formData.append('video_file', finalVideoKey);
       }
       if (videoThumbnail) formData.append('thumbnail', videoThumbnail);
 
-      const res = await courseModuleApi.createSession(courseId, activeTab, formData);
+      const res = await courseModuleApi.createSession(courseId, uploadWeekId, formData);
       if (res.success) {
         toast({ title: 'Success', description: 'Video session created successfully.', variant: 'success' });
         setIsUploadOpen(false);
@@ -377,6 +437,7 @@ export default function Content() {
         setVideoDesc('');
         setVideoFile(null);
         setVideoThumbnail(null);
+        setImagePreview(null);
         fetchWeeks();
       }
     } catch (error: any) {
@@ -389,32 +450,38 @@ export default function Content() {
 
   const handleOpenEditVideo = (video: any, weekId: string) => {
     setEditVideoId(video.id);
-    setActiveTab(weekId); // make sure the week is selected
+    setUploadWeekId(weekId); // Prevents background UI from shifting
     setVideoTitle(video.title);
     setVideoDesc(video.description || '');
     setSessionNumber(video.session_number);
     setVideoThumbnail(null); // Clear previous file selection
+    setImagePreview(video.thumbnail);
     setIsEditVideoOpen(true);
   };
 
   const handleUpdateVideo = async () => {
-    if (!videoTitle.trim() || !activeTab || !courseId || !editVideoId) {
-      toast({ title: 'Validation Error', description: 'Please fill in all required fields.', variant: 'destructive' });
-      return;
-    }
-    if (sessionNumber === '' || sessionNumber <= 0) {
-      toast({ title: 'Validation Error', description: 'Session number must be greater than 0.', variant: 'destructive' });
-      return;
-    }
+    const errors: Record<string, string> = {};
+    if (!videoTitle.trim()) errors.title = 'Title is required';
+    if (!uploadWeekId || !editVideoId || !courseId) errors.course = 'System validation missing data';
+    if (sessionNumber === '' || sessionNumber <= 0) errors.session_number = 'Session number must be a valid number greater than 0';
+
+    setVideoFormErrors(errors);
+    if (Object.keys(errors).length > 0) return;
 
     const formData = new FormData();
     formData.append('title', videoTitle);
     formData.append('description', videoDesc);
     formData.append('session_number', sessionNumber.toString());
-    if (videoThumbnail) formData.append('thumbnail', videoThumbnail);
+
+    if (videoThumbnail) {
+      formData.append('thumbnail', videoThumbnail);
+    } else if (!imagePreview) {
+      // If there is no new file and no preview, it means the user deleted the existing thumbnail
+      formData.append('remove_thumbnail', 'true');
+    }
 
     try {
-      const res = await courseModuleApi.updateSession(courseId, activeTab, editVideoId, formData);
+      const res = await courseModuleApi.updateSession(courseId, uploadWeekId, editVideoId, formData);
       if (res.success) {
         toast({ title: 'Success', description: 'Video updated successfully', variant: 'success' });
         setIsEditVideoOpen(false);
@@ -468,11 +535,17 @@ export default function Content() {
   const VideoCard = ({ video }: { video: any }) => (
     <Card className="shadow-card overflow-hidden group hover:shadow-lg transition-all duration-300">
       <div className="relative aspect-video">
-        <img
-          src={video.thumbnail}
-          alt={video.title}
-          className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
-        />
+        {video.thumbnail ? (
+          <img
+            src={video.thumbnail}
+            alt={video.title}
+            className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+          />
+        ) : (
+          <div className="w-full h-full bg-muted flex items-center justify-center group-hover:scale-105 transition-transform duration-300">
+            <ImageIcon className="h-12 w-12 text-muted-foreground/50" />
+          </div>
+        )}
         <div className="absolute inset-0 bg-gradient-to-t from-foreground/80 via-transparent to-transparent" />
         
         {video.isLocked && (
@@ -482,9 +555,13 @@ export default function Content() {
         )}
         
         <div className="absolute bottom-3 left-3 right-3 flex items-end justify-between">
-          <Badge variant="secondary" className="bg-foreground/80 text-background">
+          <Badge variant="secondary" className="bg-foreground/80 text-background flex items-center">
             <Clock className="h-3 w-3 mr-1" />
-            {video.duration}
+            {video.duration_seconds > 0 ? (
+              `${Math.floor(video.duration_seconds / 60).toString().padStart(2, '0')}:${(video.duration_seconds % 60).toString().padStart(2, '0')}`
+            ) : (
+              'Processing'
+            )}
           </Badge>
         </div>
 
@@ -509,14 +586,10 @@ export default function Content() {
           <p className="text-sm text-muted-foreground mt-1 line-clamp-2">{video.description}</p>
         </div>
 
-        <div className="flex items-center justify-between mt-4">
-          <Button variant="outline" size="sm" onClick={() => handleOpenEditVideo(video, activeTab)}>
-            <Edit className="h-4 w-4 mr-1" />
-            Edit
-          </Button>
+        <div className="flex items-center justify-end mt-4">
           <div className="flex gap-1">
-            <Button variant="ghost" size="icon" className="h-8 w-8">
-              {video.isLocked ? <Lock className="h-4 w-4" /> : <Unlock className="h-4 w-4" />}
+            <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => handleOpenEditVideo(video, activeTab)}>
+              <Edit className="h-4 w-4" />
             </Button>
             <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive" onClick={() => setDeleteVideoId(video.id)}>
               <Trash2 className="h-4 w-4" />
@@ -559,7 +632,7 @@ export default function Content() {
               <Plus className="h-4 w-4 mr-2" />
               Add Week
             </Button>
-            <Button variant="gradient" onClick={() => setIsUploadOpen(true)}>
+            <Button variant="gradient" onClick={handleOpenAddVideo}>
               <Upload className="h-4 w-4 mr-2" />
               Upload Video
             </Button>
@@ -669,7 +742,7 @@ export default function Content() {
       </div>
 
       {/* Upload Video Modal */}
-      <Dialog open={isUploadOpen} onOpenChange={setIsUploadOpen}>
+      <Dialog open={isUploadOpen} onOpenChange={(open) => !isUploading && setIsUploadOpen(open)}>
         <DialogContent className="sm:max-w-lg">
           <DialogHeader>
             <DialogTitle>Upload New Video</DialogTitle>
@@ -682,8 +755,14 @@ export default function Content() {
                 id="title" 
                 placeholder="Enter video title" 
                 value={videoTitle}
-                onChange={(e) => setVideoTitle(e.target.value)}
+                disabled={isUploading}
+                onChange={(e) => {
+                  setVideoTitle(e.target.value);
+                  if (videoFormErrors.title) setVideoFormErrors({...videoFormErrors, title: ''});
+                }}
+                className={videoFormErrors.title ? "border-destructive focus-visible:ring-destructive" : ""}
               />
+              {videoFormErrors.title && <p className="text-xs text-destructive">{videoFormErrors.title}</p>}
             </div>
             <div className="space-y-2">
               <Label htmlFor="description">Description (Optional)</Label>
@@ -691,6 +770,7 @@ export default function Content() {
                 id="description" 
                 placeholder="Enter video description" 
                 value={videoDesc}
+                disabled={isUploading}
                 onChange={(e) => setVideoDesc(e.target.value)}
               />
             </div>
@@ -702,15 +782,28 @@ export default function Content() {
                 type="number"
                 min="1"
                 value={sessionNumber}
-                onChange={(e) => setSessionNumber(e.target.value === '' ? '' : parseInt(e.target.value, 10))}
+                disabled={isUploading}
+                onChange={(e) => {
+                  setSessionNumber(e.target.value === '' ? '' : parseInt(e.target.value, 10));
+                  if (videoFormErrors.session_number) setVideoFormErrors({...videoFormErrors, session_number: ''});
+                }}
+                className={videoFormErrors.session_number ? "border-destructive focus-visible:ring-destructive" : ""}
               />
+              {videoFormErrors.session_number && <p className="text-xs text-destructive">{videoFormErrors.session_number}</p>}
             </div>
             
             {/* Week Selection instead of text input */}
             <div className="space-y-2">
-              <Label>Select Week</Label>
-              <Select value={activeTab} onValueChange={setActiveTab}>
-                <SelectTrigger>
+              <Label>Select Week <span className="text-destructive">*</span></Label>
+              <Select 
+                value={uploadWeekId} 
+                disabled={isUploading}
+                onValueChange={(val) => {
+                  setUploadWeekId(val);
+                  if (videoFormErrors.week) setVideoFormErrors({...videoFormErrors, week: ''});
+                }}
+              >
+                <SelectTrigger className={videoFormErrors.week ? "border-destructive focus:ring-destructive" : ""}>
                   <SelectValue placeholder="Select a week" />
                 </SelectTrigger>
                 <SelectContent>
@@ -721,60 +814,104 @@ export default function Content() {
                   ))}
                 </SelectContent>
               </Select>
+              {videoFormErrors.week && <p className="text-xs text-destructive">{videoFormErrors.week}</p>}
             </div>
 
             <div className="space-y-2">
               <Label>Thumbnail Image (Optional)</Label>
-              <Input 
+              <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4">
+                {imagePreview ? (
+                  <div className="relative w-32 aspect-video rounded-md overflow-hidden bg-muted flex items-center justify-center group flex-shrink-0 border border-border">
+                    <img src={imagePreview} alt="Thumbnail preview" className="w-full h-full object-cover" />
+                    <div className="absolute inset-0 bg-black/60 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+                       <Button 
+                         type="button" 
+                         variant="ghost" 
+                         size="icon" 
+                         disabled={isUploading}
+                         className="h-8 w-8 text-destructive hover:text-destructive hover:bg-destructive/20"
+                         onClick={() => {
+                           setVideoThumbnail(null);
+                           setImagePreview(null);
+                         }}
+                       >
+                         <Trash2 className="h-4 w-4" />
+                       </Button>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="w-32 aspect-video rounded-md bg-muted flex items-center justify-center flex-shrink-0 border border-dashed border-border text-muted-foreground">
+                    <ImageIcon className="h-8 w-8 opacity-50" />
+                  </div>
+                )}
+                
+                <div className="flex-1 space-y-2">
+                     <div className="flex gap-2">
+                       <Button 
+                         type="button" 
+                         variant="outline" 
+                         disabled={isUploading}
+                         onClick={() => thumbnailInputRef.current?.click()}
+                       >
+                         <Upload className="h-4 w-4 mr-2" />
+                         {imagePreview ? 'Change Thumbnail' : 'Upload Thumbnail'}
+                       </Button>
+                     </div>
+                   <p className={`text-xs ${videoFormErrors.thumbnail ? 'text-destructive font-medium' : 'text-muted-foreground'}`}>
+                    {videoFormErrors.thumbnail || 'Recommended aspect ratio: 16:9. JPG, PNG or WebP (max 2MB).'}
+                   </p>
+                </div>
+              </div>
+              <input 
                 type="file" 
                 accept="image/*"
                 ref={thumbnailInputRef}
-                onChange={(e) => {
-                  if (e.target.files && e.target.files.length > 0) {
-                    setVideoThumbnail(e.target.files[0]);
-                  }
-                }}
+                className="hidden"
+                disabled={isUploading}
+                onChange={handleThumbnailSelect}
               />
-              {videoThumbnail && <p className="text-xs mt-1 text-muted-foreground">Selected: {videoThumbnail.name}</p>}
             </div>
 
             <div className="space-y-2">
-              <Label>Video File (Optional External Link alternative)</Label>
+              <Label>Video File <span className="text-destructive">*</span></Label>
               <input 
                 type="file" 
                 ref={fileInputRef} 
+                disabled={isUploading}
                 className="hidden" 
                 accept="video/mp4,video/webm"
                 onChange={(e) => {
                   if (e.target.files && e.target.files.length > 0) {
                     setVideoFile(e.target.files[0]);
+                    if (videoFormErrors.video_file) setVideoFormErrors({...videoFormErrors, video_file: ''});
                   }
                 }}
               />
               <div 
-                className={`border-2 border-dashed rounded-lg p-8 text-center transition-colors cursor-pointer ${videoFile ? 'border-primary bg-primary/5' : 'border-foreground/20 hover:border-primary/50'}`}
-                onClick={() => fileInputRef.current?.click()}
+                className={`border-2 border-dashed rounded-lg p-8 text-center transition-colors ${isUploading ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'} ${videoFormErrors.video_file ? 'border-destructive bg-destructive/5' : videoFile ? 'border-primary bg-primary/5' : 'border-foreground/20 hover:border-primary/50'}`}
+                onClick={() => !isUploading && fileInputRef.current?.click()}
               >
                 {videoFile ? (
                   <>
-                    <CheckCircle className="h-10 w-10 text-primary mx-auto mb-4" />
-                    <p className="text-sm text-foreground font-medium">{videoFile.name}</p>
+                    <CheckCircle className={`h-10 w-10 mx-auto mb-4 ${videoFormErrors.video_file ? 'text-destructive' : 'text-primary'}`} />
+                    <p className={`text-sm font-medium ${videoFormErrors.video_file ? 'text-destructive' : 'text-foreground'}`}>{videoFile.name}</p>
                     <p className="text-xs text-muted-foreground mt-1">
                       {(videoFile.size / (1024 * 1024)).toFixed(2)} MB
                     </p>
                   </>
                 ) : (
                   <>
-                    <Upload className="h-10 w-10 text-muted-foreground mx-auto mb-4" />
-                    <p className="text-sm text-muted-foreground">
+                    <Upload className={`h-10 w-10 mx-auto mb-4 ${videoFormErrors.video_file ? 'text-destructive' : 'text-muted-foreground'}`} />
+                    <p className={`text-sm ${videoFormErrors.video_file ? 'text-destructive' : 'text-muted-foreground'}`}>
                       Drag and drop or click to upload
                     </p>
                     <p className="text-xs text-muted-foreground mt-1">
-                      MP4, WebM up to 500MB
+                      MP4, WebM
                     </p>
                   </>
                 )}
               </div>
+              {videoFormErrors.video_file && <p className="text-xs text-destructive">{videoFormErrors.video_file}</p>}
             </div>
           </div>
           <div className="flex justify-end gap-3">
@@ -1048,8 +1185,13 @@ export default function Content() {
                 id="editVTitle" 
                 placeholder="Enter video title" 
                 value={videoTitle}
-                onChange={(e) => setVideoTitle(e.target.value)}
+                onChange={(e) => {
+                  setVideoTitle(e.target.value);
+                  if (videoFormErrors.title) setVideoFormErrors({...videoFormErrors, title: ''});
+                }}
+                className={videoFormErrors.title ? "border-destructive focus-visible:ring-destructive" : ""}
               />
+              {videoFormErrors.title && <p className="text-xs text-destructive">{videoFormErrors.title}</p>}
             </div>
             <div className="space-y-2">
               <Label htmlFor="editVDesc">Description (Optional)</Label>
@@ -1068,27 +1210,65 @@ export default function Content() {
                 type="number"
                 min="1"
                 value={sessionNumber}
-                onChange={(e) => setSessionNumber(e.target.value === '' ? '' : parseInt(e.target.value, 10))}
+                onChange={(e) => {
+                  setSessionNumber(e.target.value === '' ? '' : parseInt(e.target.value, 10));
+                  if (videoFormErrors.session_number) setVideoFormErrors({...videoFormErrors, session_number: ''});
+                }}
+                className={videoFormErrors.session_number ? "border-destructive focus-visible:ring-destructive" : ""}
               />
+              {videoFormErrors.session_number && <p className="text-xs text-destructive">{videoFormErrors.session_number}</p>}
             </div>
 
             <div className="space-y-2">
               <Label>Thumbnail Image (Optional)</Label>
-              <Input 
+              <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4">
+                {imagePreview ? (
+                  <div className="relative w-32 aspect-video rounded-md overflow-hidden bg-muted flex items-center justify-center group flex-shrink-0 border border-border">
+                    <img src={imagePreview} alt="Thumbnail preview" className="w-full h-full object-cover" />
+                    <div className="absolute inset-0 bg-black/60 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+                       <Button 
+                         type="button" 
+                         variant="ghost" 
+                         size="icon" 
+                         className="h-8 w-8 text-destructive hover:text-destructive hover:bg-destructive/20"
+                         onClick={() => {
+                           setVideoThumbnail(null);
+                           setImagePreview(null);
+                         }}
+                       >
+                         <Trash2 className="h-4 w-4" />
+                       </Button>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="w-32 aspect-video rounded-md bg-muted flex items-center justify-center flex-shrink-0 border border-dashed border-border text-muted-foreground">
+                    <ImageIcon className="h-8 w-8 opacity-50" />
+                  </div>
+                )}
+                
+                <div className="flex-1 space-y-2">
+                    <div className="flex gap-2">
+                     <Button 
+                       type="button" 
+                       variant="outline" 
+                       onClick={() => editThumbnailInputRef.current?.click()}
+                     >
+                       <Upload className="h-4 w-4 mr-2" />
+                       {imagePreview ? 'Change Thumbnail' : 'Upload Thumbnail'}
+                     </Button>
+                   </div>
+                   <p className={`text-xs ${videoFormErrors.thumbnail ? 'text-destructive font-medium' : 'text-muted-foreground'}`}>
+                    {videoFormErrors.thumbnail || 'Recommended aspect ratio: 16:9. JPG, PNG or WebP (max 2MB).'}
+                   </p>
+                </div>
+              </div>
+              <input 
                 type="file" 
                 accept="image/*"
                 ref={editThumbnailInputRef}
-                onChange={(e) => {
-                  if (e.target.files && e.target.files.length > 0) {
-                    setVideoThumbnail(e.target.files[0]);
-                  }
-                }}
+                className="hidden"
+                onChange={handleThumbnailSelect}
               />
-              {videoThumbnail ? (
-                <p className="text-xs mt-1 text-muted-foreground">Selected: {videoThumbnail.name}</p>
-              ) : (
-                <p className="text-xs mt-1 text-muted-foreground">Leave blank to keep the current thumbnail</p>
-              )}
             </div>
           </div>
           <div className="flex justify-end gap-3">
@@ -1131,6 +1311,15 @@ export default function Content() {
         </DialogContent>
       </Dialog>
 
+      {/* Cropper Modal */}
+      <ImageCropperModal
+        isOpen={!!cropperSrc}
+        onClose={() => setCropperSrc(null)}
+        imageSrc={cropperSrc || ''}
+        onCropComplete={handleCroppedImage}
+        aspectRatio={16/9}
+        cropShape="rect"
+      />
     </DashboardLayout>
   );
 }

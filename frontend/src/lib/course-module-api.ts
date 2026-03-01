@@ -10,7 +10,7 @@ export interface ClassSession {
   video_url: string | null;
   video_presigned_url?: string | null;
   thumbnail: string | null;
-  duration_mins: number;
+  duration_seconds: number;
   uploaded_by?: number;
   created_at?: string;
   updated_at?: string;

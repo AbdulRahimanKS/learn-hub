@@ -11,7 +11,7 @@ class ClassSessionSerializer(serializers.ModelSerializer):
         model = ClassSession
         fields = [
             'id', 'course_week', 'session_number', 'title', 'description', 
-            'video_file', 'video_url', 'video_presigned_url', 'thumbnail', 'duration_mins', 
+            'video_file', 'video_url', 'video_presigned_url', 'thumbnail', 'duration_seconds', 
             'uploaded_by', 'created_at', 'updated_at'
         ]
         read_only_fields = ['uploaded_by', 'created_at', 'updated_at']
@@ -79,7 +79,7 @@ class ClassSessionCreateUpdateSerializer(serializers.ModelSerializer):
         model = ClassSession
         fields = [
             'id', 'session_number', 'title', 'description', 
-            'video_file', 'video_url', 'thumbnail', 'duration_mins'
+            'video_file', 'video_url', 'thumbnail', 'duration_seconds'
         ]
 
     def validate_session_number(self, value):

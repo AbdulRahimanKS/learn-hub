@@ -348,6 +348,12 @@ class ClassSessionDetailView(APIView):
 
             for attr, value in serializer.validated_data.items():
                 setattr(session, attr, value)
+                
+            if request.data.get('remove_thumbnail') == 'true':
+                if session.thumbnail:
+                    session.thumbnail.delete(save=False)
+                session.thumbnail = None
+                
             session.save()
 
             if occupying_session is not None:

@@ -301,8 +301,8 @@ class ClassSession(models.Model):
         null=True, blank=True,
         help_text=_('Thumbnail image for the class session')
     )
-    duration_mins  = models.PositiveSmallIntegerField(
-        _('Video Duration (mins)'), default=0
+    duration_seconds  = models.PositiveIntegerField(
+        _('Video Duration (seconds)'), default=0
     )
 
     uploaded_by    = models.ForeignKey(
