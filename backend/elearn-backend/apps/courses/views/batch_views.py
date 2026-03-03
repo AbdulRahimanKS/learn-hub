@@ -20,6 +20,7 @@ from utils.common import format_success_response, handle_serializer_errors, Serv
 from utils.pagination import CustomPageNumberPagination
 from utils.constants import UserTypeConstants
 from utils.email_utils import send_email
+from apps.courses.services import initialize_batch_weeks, push_content_to_batch, extend_batch_timeline
 
 logger = logging.getLogger(__name__)
 
@@ -166,6 +167,9 @@ class BatchCreateView(APIView):
             
             batch = serializer.save()
 
+            # Initialize BatchWeeks based on CourseWeeks
+            initialize_batch_weeks(batch)
+
             if batch.teacher:
                 _activate_and_email_teacher(batch.teacher, request.user)
             for co_teacher in batch.co_teachers.all():
@@ -252,6 +256,10 @@ class BatchUpdateView(APIView):
                 raise ServiceError(detail=error_str, status_code=status.HTTP_400_BAD_REQUEST)
             
             batch = serializer.save()
+
+            # Re-initialize/Sync BatchWeeks if course or start_date changed
+            if 'course' in request.data or 'start_date' in request.data:
+                initialize_batch_weeks(batch)
 
             if batch.teacher:
                 _activate_and_email_teacher(batch.teacher, request.user)
@@ -496,3 +504,57 @@ class BatchStudentListView(APIView):
             raise ServiceError(detail=str(e), status_code=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
+@extend_schema(tags=["Batches"])
+class ExtendBatchTimelineView(APIView):
+    permission_classes = [IsAdminOrTeacher]
+
+    @extend_schema(
+        summary="Extend batch timeline by adding days to future unlock dates",
+        parameters=[
+            OpenApiParameter("days", OpenApiTypes.INT, description="Number of days to extend"),
+        ],
+        responses={200: None},
+    )
+    def post(self, request, pk):
+        try:
+            days = int(request.query_params.get('days', 0))
+            if days <= 0:
+                raise ServiceError(detail="Days must be greater than 0", status_code=status.HTTP_400_BAD_REQUEST)
+            
+            extend_batch_timeline(pk, days)
+            return format_success_response(message=f"Batch timeline extended by {days} days")
+        except Exception as e:
+            logger.error(f"Error extending timeline: {str(e)}")
+            raise ServiceError(detail=str(e), status_code=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+@extend_schema(tags=["Batches"])
+class CloneBatchContentView(APIView):
+    permission_classes = [IsAdminOrTeacher]
+
+    @extend_schema(
+        summary="Push/Clone content from a Course or another Batch to this Batch",
+        request=None,
+        parameters=[
+            OpenApiParameter("source_course_id", OpenApiTypes.INT, description="Source Course ID"),
+            OpenApiParameter("source_batch_id", OpenApiTypes.INT, description="Source Batch ID"),
+        ],
+        responses={200: None},
+    )
+    def post(self, request, pk):
+        try:
+            source_course_id = request.query_params.get('source_course_id')
+            source_batch_id = request.query_params.get('source_batch_id')
+            
+            success = push_content_to_batch(
+                source_batch_id=source_batch_id,
+                source_course_id=source_course_id,
+                target_batch_id=pk
+            )
+            
+            if success:
+                return format_success_response(message="Content pushed successfully")
+            else:
+                raise ServiceError(detail="Missing source source_course_id or source_batch_id", status_code=status.HTTP_400_BAD_REQUEST)
+        except Exception as e:
+            logger.error(f"Error cloning content: {str(e)}")
+            raise ServiceError(detail=str(e), status_code=status.HTTP_500_INTERNAL_SERVER_ERROR)

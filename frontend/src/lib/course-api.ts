@@ -10,7 +10,8 @@ export interface Course {
   thumbnail: string | null;
   tags: { id: number; name: string }[];
   total_weeks?: number;
-  batch_name?: string;  // Added this explicitly for typing mapping if backend adds it
+  batch_id?: number | null;
+  batch_name?: string | null;
   created_at: string;
   updated_at: string;
 }

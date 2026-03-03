@@ -24,6 +24,8 @@ import Settings from "./pages/Settings";
 import EmailConfig from "./pages/EmailConfig";
 import AccessDenied from "./pages/AccessDenied";
 import AdminBatchStudents from "./pages/AdminBatchStudents";
+import BatchContent from "./pages/BatchContent";
+import BatchTestManagement from "./pages/BatchTestManagement";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -55,6 +57,8 @@ function AppRoutes() {
       <Route path="/users" element={<ProtectedRoute><Users /></ProtectedRoute>} />
       <Route path="/batches" element={<ProtectedRoute><AdminBatches /></ProtectedRoute>} />
       <Route path="/batches/:batchId/students" element={<ProtectedRoute><AdminBatchStudents /></ProtectedRoute>} />
+      <Route path="/admin/batches/:batchId/content" element={<ProtectedRoute><BatchContent /></ProtectedRoute>} />
+      <Route path="/admin/batches/:batchId/content/weeks/:weekId/test" element={<ProtectedRoute><BatchTestManagement /></ProtectedRoute>} />
       <Route path="/progress" element={<ProtectedRoute><Progress /></ProtectedRoute>} />
       <Route path="/chat" element={<ProtectedRoute><Chat /></ProtectedRoute>} />
       <Route path="/admin-courses" element={<ProtectedRoute><AdminCourses /></ProtectedRoute>} />

@@ -23,6 +23,8 @@ class CourseListSerializer(serializers.ModelSerializer):
         source='get_difficulty_level_display', read_only=True
     )
     total_weeks = serializers.IntegerField(read_only=True)
+    batch_id = serializers.SerializerMethodField()
+    batch_name = serializers.SerializerMethodField()
 
     class Meta:
         model = Course
@@ -38,8 +40,25 @@ class CourseListSerializer(serializers.ModelSerializer):
             'is_active',
             'created_at',
             'total_weeks',
+            'batch_id',
+            'batch_name',
         ]
         read_only_fields = ['course_code', 'created_at', 'total_weeks']
+
+    def get_batch_id(self, obj):
+        user = self.context['request'].user
+        if not user.is_authenticated:
+            return None
+        # Find the batch the student is enrolled in for this course
+        batch = obj.batches.filter(enrollments__student=user, is_deleted=False).first()
+        return batch.id if batch else None
+
+    def get_batch_name(self, obj):
+        user = self.context['request'].user
+        if not user.is_authenticated:
+            return None
+        batch = obj.batches.filter(enrollments__student=user, is_deleted=False).first()
+        return batch.name if batch else None
 
 
 class CourseDetailSerializer(serializers.ModelSerializer):
@@ -51,6 +70,8 @@ class CourseDetailSerializer(serializers.ModelSerializer):
         source='get_difficulty_level_display', read_only=True
     )
     total_weeks = serializers.IntegerField(read_only=True)
+    batch_id = serializers.SerializerMethodField()
+    batch_name = serializers.SerializerMethodField()
 
     class Meta:
         model = Course
@@ -70,8 +91,24 @@ class CourseDetailSerializer(serializers.ModelSerializer):
             'created_at',
             'updated_at',
             'total_weeks',
+            'batch_id',
+            'batch_name',
         ]
         read_only_fields = ['course_code', 'created_by', 'updated_by', 'created_at', 'updated_at', 'total_weeks']
+
+    def get_batch_id(self, obj):
+        user = self.context['request'].user
+        if not user.is_authenticated:
+            return None
+        batch = obj.batches.filter(enrollments__student=user, is_deleted=False).first()
+        return batch.id if batch else None
+
+    def get_batch_name(self, obj):
+        user = self.context['request'].user
+        if not user.is_authenticated:
+            return None
+        batch = obj.batches.filter(enrollments__student=user, is_deleted=False).first()
+        return batch.name if batch else None
 
 
 class CourseCreateUpdateSerializer(serializers.ModelSerializer):

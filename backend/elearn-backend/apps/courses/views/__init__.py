@@ -15,6 +15,8 @@ from .batch_views import (
     BatchAddStudentView,
     AvailableStudentListView,
     BatchStudentListView,
+    CloneBatchContentView,
+    ExtendBatchTimelineView,
 )
 
 from .course_module_views import (
@@ -26,6 +28,18 @@ from .course_module_views import (
     WeeklyTestQuestionListCreateView,
     WeeklyTestQuestionDetailView,
 )
+
+from .batch_content_views import (
+    BatchWeekListView,
+    BatchWeekDetailView,
+    BatchClassSessionListCreateView,
+    BatchClassSessionDetailView,
+    BatchWeeklyTestView,
+    BatchWeeklyTestManageView,
+    BatchWeeklyTestQuestionListCreateView,
+    BatchWeeklyTestQuestionDetailView,
+)
+
 from .upload_views import (
     InitMultipartUploadView,
     CompleteMultipartUploadView,
@@ -47,6 +61,8 @@ __all__ = [
     'BatchAddStudentView',
     'AvailableStudentListView',
     'BatchStudentListView',
+    'CloneBatchContentView',
+    'ExtendBatchTimelineView',
     'CourseWeekListCreateView',
     'CourseWeekDetailView',
     'ClassSessionListCreateView',
@@ -54,6 +70,10 @@ __all__ = [
     'WeeklyTestView',
     'WeeklyTestQuestionListCreateView',
     'WeeklyTestQuestionDetailView',
+    'BatchWeekListView',
+    'BatchWeekDetailView',
+    'BatchClassSessionListCreateView',
+    'BatchWeeklyTestView',
     'InitMultipartUploadView',
     'CompleteMultipartUploadView',
     'AbortMultipartUploadView',

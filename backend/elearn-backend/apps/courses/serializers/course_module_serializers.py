@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from apps.courses.models import CourseWeek, ClassSession, WeeklyTest, WeeklyTestQuestion
+from apps.courses.models import CourseWeek, ClassSession, WeeklyTest, WeeklyTestQuestion, BatchWeek
 from utils.common import ServiceError
 from rest_framework import status
 
@@ -10,7 +10,7 @@ class ClassSessionSerializer(serializers.ModelSerializer):
     class Meta:
         model = ClassSession
         fields = [
-            'id', 'course_week', 'session_number', 'title', 'description', 
+            'id', 'course_week', 'batch_week', 'session_number', 'title', 'description', 
             'video_file', 'video_url', 'video_presigned_url', 'thumbnail', 'duration_seconds', 
             'uploaded_by', 'created_at', 'updated_at'
         ]
@@ -62,6 +62,31 @@ class CourseWeekSerializer(serializers.ModelSerializer):
             return WeeklyTestSerializer(obj.weekly_test).data
         return None
 
+class BatchWeekSerializer(serializers.ModelSerializer):
+    class_sessions = ClassSessionSerializer(many=True, read_only=True)
+    weekly_test = serializers.SerializerMethodField()
+    is_unlocked = serializers.ReadOnlyField()
+
+    class Meta:
+        model = BatchWeek
+        fields = [
+            'id', 'batch', 'week_number', 'title', 'description', 
+            'unlock_date', 'is_extended', 'is_unlocked', 'is_published', 
+            'class_sessions', 'weekly_test', 'created_at', 'updated_at'
+        ]
+
+    def get_weekly_test(self, obj):
+        if hasattr(obj, 'weekly_test') and obj.weekly_test:
+            return WeeklyTestSerializer(obj.weekly_test).data
+        return None
+
+class BatchWeekCreateUpdateSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = BatchWeek
+        fields = [
+            'id', 'week_number', 'title', 'description', 'unlock_date', 'is_extended', 'is_published'
+        ]
+
 class CourseWeekCreateUpdateSerializer(serializers.ModelSerializer):
     class Meta:
         model = CourseWeek
@@ -101,10 +126,10 @@ class WeeklyTestSerializer(serializers.ModelSerializer):
     class Meta:
         model = WeeklyTest
         fields = [
-            'id', 'course_week', 'title', 'instructions', 'pass_percentage', 
+            'id', 'course_week', 'batch_week', 'title', 'instructions', 'pass_percentage', 
             'questions', 'created_by', 'updated_by', 'created_at', 'updated_at'
         ]
-        read_only_fields = ['course_week', 'created_by', 'updated_by', 'created_at', 'updated_at']
+        read_only_fields = ['course_week', 'batch_week', 'created_by', 'updated_by', 'created_at', 'updated_at']
 
 class WeeklyTestCreateUpdateSerializer(serializers.ModelSerializer):
     class Meta:

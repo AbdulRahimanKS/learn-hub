@@ -57,6 +57,21 @@ export interface BatchFormData {
   is_active?: boolean;
 }
 
+export interface BatchWeek {
+  id: number;
+  batch: number;
+  week_number: number;
+  title: string;
+  description: string;
+  unlock_date: string | null;
+  is_extended: boolean;
+  is_unlocked: boolean;
+  is_published: boolean;
+  can_modify_content: boolean;
+  class_sessions?: any[];
+  weekly_test?: any;
+}
+
 export interface PaginatedBatchResponse {
   current_page: number;
   total_pages: number;
@@ -155,6 +170,124 @@ export const batchApi = {
     return response.data;
   },
 
+  cloneContent: async (batchId: number, sourceCourseId?: number, sourceBatchId?: number) => {
+    const response = await apiClient.post<{ success: boolean; message: string }>(
+      `/api/courses/v1/batches/${batchId}/clone-content/`,
+      {},
+      { params: { source_course_id: sourceCourseId, source_batch_id: sourceBatchId } }
+    );
+    return response.data;
+  },
+
+  extendTimeline: async (batchId: number, days: number) => {
+    const response = await apiClient.post<{ success: boolean; message: string }>(
+      `/api/courses/v1/batches/${batchId}/extend-timeline/`,
+      {},
+      { params: { days } }
+    );
+    return response.data;
+  },
+};
+
+export const batchContentApi = {
+  getWeeks: async (batchId: number) => {
+    const response = await apiClient.get<{ data: BatchWeek[]; success: boolean }>(
+      `/api/courses/v1/batches/${batchId}/weeks/`
+    );
+    return response.data;
+  },
+
+  updateWeek: async (batchId: number, weekId: number, data: Partial<BatchWeek>) => {
+    const response = await apiClient.patch<{ success: boolean }>(
+      `/api/courses/v1/batches/${batchId}/weeks/${weekId}/`,
+      data
+    );
+    return response.data;
+  },
+
+  getSessions: async (batchId: number, weekId: number) => {
+    const response = await apiClient.get<{ data: any[]; success: boolean }>(
+      `/api/courses/v1/batches/${batchId}/weeks/${weekId}/sessions/`
+    );
+    return response.data;
+  },
+
+  getWeeklyTest: async (batchId: number, weekId: number) => {
+    const response = await apiClient.get<{ data: any; success: boolean }>(
+      `/api/courses/v1/batches/${batchId}/weeks/${weekId}/test/`
+    );
+    return response.data;
+  },
+
+  createSession: async (batchId: number, weekId: number, data: FormData) => {
+    const response = await apiClient.post<{ success: boolean; message: string }>(
+      `/api/courses/v1/batches/${batchId}/weeks/${weekId}/sessions/`,
+      data,
+      { headers: { 'Content-Type': 'multipart/form-data' } }
+    );
+    return response.data;
+  },
+
+  updateSession: async (batchId: number, weekId: number, sessionId: number, data: FormData) => {
+    const response = await apiClient.patch<{ success: boolean; message: string }>(
+      `/api/courses/v1/batches/${batchId}/weeks/${weekId}/sessions/${sessionId}/`,
+      data,
+      { headers: { 'Content-Type': 'multipart/form-data' } }
+    );
+    return response.data;
+  },
+
+  deleteSession: async (batchId: number, weekId: number, sessionId: number) => {
+    const response = await apiClient.delete<{ success: boolean; message: string }>(
+      `/api/courses/v1/batches/${batchId}/weeks/${weekId}/sessions/${sessionId}/`
+    );
+    return response.data;
+  },
+
+  manageWeeklyTest: async (batchId: number, weekId: number, data: any) => {
+    const response = await apiClient.post<{ success: boolean; message: string }>(
+      `/api/courses/v1/batches/${batchId}/weeks/${weekId}/test/manage/`,
+      data
+    );
+    return response.data;
+  },
+
+  deleteWeeklyTest: async (batchId: number, weekId: number) => {
+    const response = await apiClient.delete<{ success: boolean; message: string }>(
+      `/api/courses/v1/batches/${batchId}/weeks/${weekId}/test/manage/`
+    );
+    return response.data;
+  },
+
+  getTestQuestions: async (batchId: number, weekId: number) => {
+    const response = await apiClient.get<{ data: any[]; success: boolean }>(
+      `/api/courses/v1/batches/${batchId}/weeks/${weekId}/test/questions/`
+    );
+    return response.data;
+  },
+
+  addTestQuestion: async (batchId: number, weekId: number, data: any) => {
+    const response = await apiClient.post<{ success: boolean; message: string }>(
+      `/api/courses/v1/batches/${batchId}/weeks/${weekId}/test/questions/`,
+      data
+    );
+    return response.data;
+  },
+
+  updateTestQuestion: async (batchId: number, weekId: number, questionId: number, data: any) => {
+    const response = await apiClient.patch<{ success: boolean; message: string }>(
+      `/api/courses/v1/batches/${batchId}/weeks/${weekId}/test/questions/${questionId}/`,
+      data
+    );
+    return response.data;
+  },
+
+  deleteTestQuestion: async (batchId: number, weekId: number, questionId: number) => {
+    const response = await apiClient.delete<{ success: boolean; message: string }>(
+      `/api/courses/v1/batches/${batchId}/weeks/${weekId}/test/questions/${questionId}/`
+    );
+    return response.data;
+  },
 };
 
 

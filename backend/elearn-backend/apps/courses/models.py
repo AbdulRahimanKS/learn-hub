@@ -297,10 +297,58 @@ class CourseWeek(models.Model):
         return f"{self.course.title} – Week {self.week_number}: {self.title}"
 
 
+# Batch Week
+class BatchWeek(models.Model):
+    batch = models.ForeignKey(
+        Batch, on_delete=models.CASCADE, related_name='batch_weeks'
+    )
+    week_number = models.PositiveSmallIntegerField(_('Week Number'))
+    title       = models.CharField(_('Week Title'), max_length=255, blank=True)
+    description = models.TextField(_('Week Description'), blank=True)
+
+    unlock_date  = models.DateTimeField(_('Unlock Date'), null=True, blank=True)
+    is_extended  = models.BooleanField(_('Extended'), default=False)
+    
+    is_published = models.BooleanField(
+        _('Published'), default=True,
+        help_text=_('Teacher must publish a week before students can see its content')
+    )
+    created_at   = models.DateTimeField(auto_now_add=True)
+    updated_at   = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name        = _('Batch Week')
+        verbose_name_plural = _('Batch Weeks')
+        unique_together     = ('batch', 'week_number')
+        ordering            = ['week_number']
+        indexes             = [
+            models.Index(fields=['batch'],        name='batchweek_batch_idx'),
+            models.Index(fields=['unlock_date'],  name='batchweek_unlock_idx'),
+        ]
+
+    def __str__(self):
+        return f"{self.batch.name} – Week {self.week_number}: {self.title}"
+
+    @property
+    def is_unlocked(self):
+        if not self.unlock_date:
+            return True
+        return timezone.now() >= self.unlock_date
+
+    def can_modify_content(self):
+        """Content cannot be deleted or re-added if it has already been unlocked."""
+        return not self.is_unlocked
+
+
 # Class Session
 class ClassSession(models.Model):
     course_week  = models.ForeignKey(
-        CourseWeek, on_delete=models.CASCADE, related_name='class_sessions'
+        CourseWeek, on_delete=models.CASCADE, related_name='class_sessions',
+        null=True, blank=True
+    )
+    batch_week = models.ForeignKey(
+        BatchWeek, on_delete=models.CASCADE, related_name='class_sessions',
+        null=True, blank=True
     )
     session_number = models.PositiveSmallIntegerField(
         _('Session Number within Week'), default=1
@@ -338,24 +386,29 @@ class ClassSession(models.Model):
     class Meta:
         verbose_name        = _('Class Session')
         verbose_name_plural = _('Class Sessions')
-        unique_together     = ('course_week', 'session_number')
-        ordering            = ['course_week__week_number', 'session_number']
+        # Allow either course_week or batch_week to be set, but enforce session sequence within whichever is set
+        ordering            = ['course_week__week_number', 'batch_week__week_number', 'session_number']
         indexes             = [
             models.Index(fields=['course_week'], name='classsess_module_idx'),
+            models.Index(fields=['batch_week'], name='classsess_batchweek_idx'),
         ]
 
     def __str__(self):
-        return (
-            f"Week {self.course_week.week_number} | "
-            f"S{self.session_number}: {self.title}"
-        )
+        week_num = self.course_week.week_number if self.course_week else self.batch_week.week_number
+        return f"Week {week_num} | S{self.session_number}: {self.title}"
 
 
 # WeeklyTest
 class WeeklyTest(models.Model):
     course_week  = models.OneToOneField(
         CourseWeek, on_delete=models.CASCADE, related_name='weekly_test',
-        help_text=_('Exactly one test per week')
+        null=True, blank=True,
+        help_text=_('Template test for a course week')
+    )
+    batch_week = models.OneToOneField(
+        BatchWeek, on_delete=models.CASCADE, related_name='weekly_test',
+        null=True, blank=True,
+        help_text=_('Specific test for a batch week')
     )
     title          = models.CharField(_('Test Title'), max_length=255)
     instructions   = models.TextField(_('Instructions'), blank=True)
@@ -376,13 +429,16 @@ class WeeklyTest(models.Model):
     class Meta:
         verbose_name        = _('Weekly Test')
         verbose_name_plural = _('Weekly Tests')
-        ordering            = ['course_week__week_number']
+        ordering            = ['course_week__week_number', 'batch_week__week_number']
         indexes             = [
             models.Index(fields=['course_week'], name='weeklytest_module_idx'),
+            models.Index(fields=['batch_week'], name='weeklytest_batch_idx'),
         ]
 
     def __str__(self):
-        return f"{self.course_week.course.title} – Week {self.course_week.week_number} Test"
+        if self.course_week:
+            return f"{self.course_week.course.title} – Week {self.course_week.week_number} Test"
+        return f"{self.batch_week.batch.name} – Week {self.batch_week.week_number} Test"
 
 
 # Question Model
@@ -473,7 +529,12 @@ class LiveSession(models.Model):
         RESCHEDULED = 'rescheduled', _('Rescheduled')
 
     course_week = models.ForeignKey(
-        CourseWeek, on_delete=models.CASCADE, related_name='live_sessions'
+        CourseWeek, on_delete=models.CASCADE, related_name='live_sessions',
+        null=True, blank=True
+    )
+    batch_week = models.ForeignKey(
+        BatchWeek, on_delete=models.CASCADE, related_name='live_sessions',
+        null=True, blank=True
     )
     title          = models.CharField(_('Title'), max_length=255)
     description    = models.TextField(blank=True)
@@ -635,9 +696,11 @@ class TestSubmission(models.Model):
         ]
 
     def __str__(self):
+        week = self.weekly_test.course_week or self.weekly_test.batch_week
+        week_num = week.week_number if week else '?'
         return (
             f"{self.enrollment.student.fullname} | "
-            f"Test W{self.weekly_test.weekly_module.week_number} | "
+            f"Test W{week_num} | "
             f"Attempt {self.attempt_number}"
         )
 
@@ -726,8 +789,23 @@ class StudentProgress(models.Model):
 
     # Weeks unlocked (tracks how far the student has progressed)
     current_week_unlocked = models.PositiveSmallIntegerField(
-        _('Highest Week Unlocked'), default=1
+        _('Highest Week Unlocked'), default=1,
+        help_text=_('This can be auto-calculated by current date vs batch_week.unlock_date')
     )
+
+    def update_unlocked_week(self):
+        """
+        Calculates the highest week number that should be unlocked based on today's date.
+        """
+        now = timezone.now()
+        highest_unlocked = self.enrollment.batch.batch_weeks.filter(
+            unlock_date__lte=now,
+            is_published=True
+        ).order_by('-week_number').first()
+        
+        if highest_unlocked:
+            self.current_week_unlocked = highest_unlocked.week_number
+            self.save(update_fields=['current_week_unlocked'])
 
     # Overall batch completion
     progress_percent   = models.FloatField(

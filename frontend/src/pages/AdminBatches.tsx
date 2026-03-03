@@ -42,6 +42,7 @@ import {
   Edit,
   Trash2,
   Filter,
+  Clock,
   BookOpen,
   Loader2,
   ChevronLeft,
@@ -49,6 +50,8 @@ import {
   ArrowRight,
   X,
   Check,
+  LayoutGrid,
+  CloudDownload,
 } from 'lucide-react';
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
@@ -140,6 +143,13 @@ export default function AdminBatches() {
   const [coTeacherPage, setCoTeacherPage] = useState(1);
   const [hasMoreCoTeachers, setHasMoreCoTeachers] = useState(false);
   const [isLoadingCoTeachers, setIsLoadingCoTeachers] = useState(false);
+  
+  // Push Content State
+  const [isPushModalOpen, setIsPushModalOpen] = useState(false);
+  const [pushTargetBatchId, setPushTargetBatchId] = useState<number | null>(null);
+  const [pushSourceType, setPushSourceType] = useState<'course' | 'batch'>('course');
+  const [pushSourceId, setPushSourceId] = useState<number | null>(null);
+  const [isPushing, setIsPushing] = useState(false);
 
   // ──────────────────────────────────────────────
   // Data Fetching
@@ -366,6 +376,31 @@ export default function AdminBatches() {
     }
   };
 
+  const handlePushContent = async () => {
+    if (!pushTargetBatchId || !pushSourceId) return;
+    try {
+      setIsPushing(true);
+      const res = await batchApi.cloneContent(
+        pushTargetBatchId,
+        pushSourceType === 'course' ? pushSourceId : undefined,
+        pushSourceType === 'batch' ? pushSourceId : undefined
+      );
+      if (res.success) {
+        toast({ title: 'Success', description: 'Content pushed successfully', variant: 'success' });
+        setIsPushModalOpen(false);
+        fetchBatches();
+      }
+    } catch (err: any) {
+      toast({
+        title: 'Push Failed',
+        description: err.response?.data?.detail || 'Failed to push content',
+        variant: 'destructive',
+      });
+    } finally {
+      setIsPushing(false);
+    }
+  };
+
   // Re-fetch summary whenever batches change (create/delete/toggle)
   const handleToggleActive = async (batch: Batch) => {
     try {
@@ -512,11 +547,30 @@ export default function AdminBatches() {
                   <div className="flex items-center justify-between gap-2 p-4 mt-auto border-t border-border/40 bg-muted/20">
                     <Button variant="ghost" className="text-primary hover:text-primary hover:bg-primary/10 px-2 group" asChild>
                       <Link to={`/batches/${batch.id}/students`}>
-                        Manage Students
-                        <ArrowRight className="h-4 w-4 ml-2 group-hover:translate-x-1 transition-transform" />
+                        Students
+                        <Users className="h-4 w-4 ml-2 group-hover:scale-110 transition-transform" />
+                      </Link>
+                    </Button>
+                    <Button variant="ghost" className="text-primary hover:text-primary hover:bg-primary/10 px-2 group" asChild>
+                      <Link to={`/admin/batches/${batch.id}/content`}>
+                        Content
+                        <LayoutGrid className="h-4 w-4 ml-2 group-hover:scale-110 transition-transform" />
                       </Link>
                     </Button>
                     <div className="flex gap-1">
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-8 w-8 text-muted-foreground hover:text-primary hover:bg-primary/10"
+                        onClick={() => {
+                          setPushTargetBatchId(batch.id);
+                          setIsPushModalOpen(true);
+                        }}
+                        title="Push Content"
+                      >
+                        <CloudDownload className="h-4 w-4" />
+                      </Button>
+
                       <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-foreground" onClick={() => handleOpenModal(batch)}>
                         <Edit className="h-4 w-4" />
                       </Button>
@@ -901,6 +955,64 @@ export default function AdminBatches() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* ─── Push Content Modal ─── */}
+      <Dialog open={isPushModalOpen} onOpenChange={setIsPushModalOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Push Content to Batch</DialogTitle>
+            <DialogDescription>
+              Select a source course or batch to clone content from. This will copy all weeks, sessions, and tests.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label>Source Type</Label>
+              <Select value={pushSourceType} onValueChange={(v: any) => { setPushSourceType(v); setPushSourceId(null); }}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Select type" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="course">Course Template</SelectItem>
+                  <SelectItem value="batch">Existing Batch</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="space-y-2">
+              <Label>Select Source {pushSourceType === 'course' ? 'Course' : 'Batch'}</Label>
+              <Select value={pushSourceId?.toString() || ""} onValueChange={(v) => setPushSourceId(parseInt(v))}>
+                <SelectTrigger>
+                  <SelectValue placeholder={`Select ${pushSourceType}`} />
+                </SelectTrigger>
+                <SelectContent>
+                  {pushSourceType === 'course' ? (
+                    courses.map(c => <SelectItem key={c.id} value={c.id.toString()}>{c.title}</SelectItem>)
+                  ) : (
+                    batches.filter(b => b.id !== pushTargetBatchId).map(b => (
+                      <SelectItem key={b.id} value={b.id.toString()}>{b.name}</SelectItem>
+                    ))
+                  )}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="bg-warning/10 border border-warning/30 rounded-lg p-3 text-xs text-warning-foreground flex gap-2">
+              <Clock className="h-4 w-4 shrink-0" />
+              <p>Cloning content will recalculate unlock dates based on the target batch start date.</p>
+            </div>
+          </div>
+
+          <div className="flex justify-end gap-3 pt-4 border-t">
+            <Button variant="ghost" onClick={() => setIsPushModalOpen(false)} disabled={isPushing}>Cancel</Button>
+            <Button variant="gradient" onClick={handlePushContent} disabled={isPushing || !pushSourceId}>
+              {isPushing ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <CloudDownload className="h-4 w-4 mr-2" />}
+              Push Content
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </DashboardLayout>
   );
 }

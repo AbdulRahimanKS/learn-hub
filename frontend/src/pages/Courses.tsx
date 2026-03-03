@@ -20,6 +20,7 @@ import {
 } from 'lucide-react';
 import { courseApi, Course } from '@/lib/course-api';
 import { courseModuleApi, CourseWeek, ClassSession } from '@/lib/course-module-api';
+import { batchContentApi } from '@/lib/batch-api';
 import { useToast } from '@/hooks/use-toast';
 
 export default function Courses() {
@@ -61,7 +62,14 @@ export default function Courses() {
     setLoadingWeeks(true);
     setActiveVideoUrl(null);
     try {
-      const res = await courseModuleApi.getWeeks(course.id.toString());
+      let res;
+      // If user is a student and belongs to a batch for this course, use batch content API
+      if (course.batch_id) {
+        res = await batchContentApi.getWeeks(course.batch_id);
+      } else {
+        res = await courseModuleApi.getWeeks(course.id.toString());
+      }
+      
       if (res.success) {
         setWeeks(res.data);
         if (res.data.length > 0) {
