@@ -7,6 +7,8 @@ from django.contrib.auth.models import AbstractBaseUser, BaseUserManager, Permis
 from django.db.models.signals import post_save
 from django.dispatch import receiver
 from django.utils.translation import gettext_lazy as _
+from django.contrib.contenttypes.fields import GenericForeignKey
+from django.contrib.contenttypes.models import ContentType
 from utils.constants import UserTypeConstants
 
 
@@ -282,37 +284,63 @@ class PasswordResetOTP(models.Model):
         return str(random.randint(100000, 999999))
 
 
-# Contact Support
-class ContactSupport(models.Model):
-    email = models.EmailField(_('Support Email'), blank=True)
-
-    phone_number_code = models.CharField(
-        _('Phone Country Code'), max_length=10, blank=True,
-        help_text=_('International dialling prefix, e.g. +91')
-    )
-    contact_number = models.CharField(
-        _('Phone Number'), max_length=20, blank=True,
-        help_text=_('National number without country code')
-    )
-
-    created_by = models.ForeignKey(
-        User, on_delete=models.SET_NULL, null=True, blank=True,
-        related_name='created_support_contacts'
-    )
-    created_at = models.DateTimeField(auto_now_add=True)
-    updated_at = models.DateTimeField(auto_now=True)
+# AppConfiguration
+class AppConfiguration(models.Model):
+    business_name = models.CharField(_("Business Name"), max_length=255, default="Learn Hub")
+    timezone = models.CharField(_("Timezone"), max_length=100, default="Asia/Kolkata")
+    logo = models.ImageField(upload_to="app_config/logos/", null=True, blank=True)
 
     class Meta:
-        verbose_name        = _('Contact Support')
-        verbose_name_plural = _('Contact Support Entries')
+        verbose_name = _('App Configuration')
+        verbose_name_plural = _('App Configurations')
 
     def __str__(self):
-        return f"{self.email or self.full_phone}"
+        return self.business_name
 
-    @property
-    def full_phone(self):
-        """Returns the full international phone string, e.g. +91 9876543210."""
-        if self.phone_number_code and self.contact_number:
-            return f"{self.phone_number_code} {self.contact_number}"
-        return self.contact_number or ''
+    def save(self, *args, **kwargs):
+        if not self.pk and AppConfiguration.objects.exists():
+            return
+        super().save(*args, **kwargs)
+
+    @classmethod
+    def load(cls):
+        obj, created = cls.objects.get_or_create(pk=1)
+        return obj
+
+
+# Notification
+class Notification(models.Model):
+    class NotificationType(models.TextChoices):
+        INFO = 'info', _('Info')
+        WARNING = 'warning', _('Warning')
+        SUCCESS = 'success', _('Success')
+        ERROR = 'error', _('Error')
+
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name="notifications")
+    title = models.CharField(_("Title"), max_length=255)
+    message = models.TextField(_("Message"))
+    
+    notification_type = models.CharField(
+        _("Notification Type"), 
+        max_length=20, 
+        choices=NotificationType.choices, 
+        default=NotificationType.INFO
+    )
+
+    # Optional Generic Foreign Key for linking to any object
+    content_type = models.ForeignKey(ContentType, on_delete=models.CASCADE, null=True, blank=True)
+    object_id = models.PositiveIntegerField(null=True, blank=True)
+    content_object = GenericForeignKey('content_type', 'object_id')
+
+    action_url = models.CharField(_("Action URL"), max_length=1024, blank=True, null=True, help_text=_("Path to redirect when clicked (e.g. /admin-batches)"))
+    is_read = models.BooleanField(_("Is Read"), default=False)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        verbose_name = _('Notification')
+        verbose_name_plural = _('Notifications')
+        ordering = ['-created_at']
+
+    def __str__(self):
+        return f"Notification for {self.user.email} - {self.title}"
 

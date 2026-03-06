@@ -1,3 +1,4 @@
+import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { useTheme } from '@/components/theme-provider';
@@ -14,7 +15,9 @@ import {
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
-import { User, Bell, KeyRound, LogOut, Sun, Moon, Search } from 'lucide-react';
+import { User, Bell, KeyRound, LogOut, Sun, Moon, Search, Check } from 'lucide-react';
+import { notificationsApi, Notification } from '@/lib/notifications-api';
+import { formatDistanceToNow } from 'date-fns';
 
 export function Header() {
   const { user, logout } = useAuth();
@@ -28,6 +31,59 @@ export function Header() {
 
   const toggleTheme = (checked: boolean) => {
     setTheme(checked ? 'dark' : 'light');
+  };
+
+  const [notifications, setNotifications] = useState<Notification[]>([]);
+  
+  const fetchNotifications = async () => {
+    try {
+      const res = await notificationsApi.getNotifications();
+      if (res.success) {
+        setNotifications(res.data);
+      }
+    } catch(err) {
+      console.error(err);
+    }
+  };
+
+  useEffect(() => {
+    if (user) {
+      fetchNotifications();
+      // Poll every 30 seconds
+      const interval = setInterval(fetchNotifications, 30000);
+      return () => clearInterval(interval);
+    }
+  }, [user]);
+
+  const unreadCount = notifications.filter(n => !n.is_read).length;
+
+  const handleNotificationClick = async (notif: Notification) => {
+    if (!notif.is_read) {
+      try {
+        await notificationsApi.markAsRead(notif.id);
+        setNotifications(prev => prev.map(n => n.id === notif.id ? { ...n, is_read: true } : n));
+      } catch (err) {}
+    }
+    if (notif.action_url) {
+      navigate(notif.action_url);
+    }
+  };
+
+  const markAllRead = async () => {
+    try {
+      await notificationsApi.markAllAsRead();
+      setNotifications(prev => prev.map(n => ({ ...n, is_read: true })));
+    } catch(err) {}
+  };
+
+  const getNotificationColor = (type: string) => {
+    switch(type) {
+      case 'success': return 'bg-green-500';
+      case 'warning': return 'bg-yellow-500';
+      case 'error': return 'bg-red-500';
+      case 'info':
+      default: return 'bg-blue-500';
+    }
   };
 
   return (
@@ -50,41 +106,52 @@ export function Header() {
           <DropdownMenuTrigger asChild>
             <Button variant="ghost" size="icon" className="relative h-10 w-10 rounded-full border border-border focus-visible:ring-0 focus-visible:ring-offset-0">
               <Bell className="h-5 w-5 text-muted-foreground hover:text-foreground transition-colors" />
-              <span className="absolute top-2 right-2 flex h-2.5 w-2.5">
-                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-destructive opacity-75"></span>
-                <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-destructive border-2 border-background"></span>
-              </span>
+              {unreadCount > 0 && (
+                <span className="absolute top-2 right-2 flex h-2.5 w-2.5">
+                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-destructive opacity-75"></span>
+                  <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-destructive border-2 border-background"></span>
+                </span>
+              )}
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent className="w-80" align="end">
-            <DropdownMenuLabel className="font-normal">
+            <DropdownMenuLabel className="font-normal flex justify-between items-center">
               <div className="flex flex-col space-y-1">
                 <p className="text-sm font-medium leading-none">Notifications</p>
-                <p className="text-xs text-muted-foreground">You have 2 unread messages</p>
+                <p className="text-xs text-muted-foreground">
+                  You have {unreadCount} unread message{unreadCount !== 1 ? 's' : ''}
+                </p>
               </div>
+              {unreadCount > 0 && (
+                <Button variant="ghost" size="sm" className="h-auto p-1 text-xs text-muted-foreground" onClick={(e) => { e.stopPropagation(); markAllRead(); }}>
+                  <Check className="h-3 w-3 mr-1" /> Mark all read
+                </Button>
+              )}
             </DropdownMenuLabel>
             <DropdownMenuSeparator />
             <div className="max-h-[300px] overflow-y-auto">
-               <DropdownMenuItem className="cursor-pointer flex flex-col items-start gap-1 p-3">
-                 <div className="flex items-center gap-2 w-full">
-                   <div className="h-2 w-2 rounded-full bg-primary flex-shrink-0" />
-                   <span className="font-medium text-sm">New Course Available</span>
-                   <span className="ml-auto text-xs text-muted-foreground">2m ago</span>
-                 </div>
-                 <p className="text-xs text-muted-foreground line-clamp-2 pl-4">
-                   "Advanced React Patterns" has been added to your library.
-                 </p>
-               </DropdownMenuItem>
-               <DropdownMenuItem className="cursor-pointer flex flex-col items-start gap-1 p-3">
-                 <div className="flex items-center gap-2 w-full">
-                   <div className="h-2 w-2 rounded-full bg-destructive flex-shrink-0" />
-                   <span className="font-medium text-sm">Assignment Due</span>
-                   <span className="ml-auto text-xs text-muted-foreground">1h ago</span>
-                 </div>
-                 <p className="text-xs text-muted-foreground line-clamp-2 pl-4">
-                   Your "Backend Architecture" project is due tomorrow at 11:59 PM.
-                 </p>
-               </DropdownMenuItem>
+               {notifications.length === 0 ? (
+                 <div className="p-4 text-center text-sm text-muted-foreground">No notifications</div>
+               ) : (
+                 notifications.slice(0, 5).map(notif => (
+                   <DropdownMenuItem 
+                     key={notif.id} 
+                     className={`cursor-pointer flex flex-col items-start gap-1 p-3 ${!notif.is_read ? 'bg-muted/30' : ''}`}
+                     onClick={() => handleNotificationClick(notif)}
+                   >
+                     <div className="flex items-center gap-2 w-full">
+                       {!notif.is_read && <div className={`h-2 w-2 rounded-full flex-shrink-0 ${getNotificationColor(notif.notification_type)}`} />}
+                       <span className={`font-medium text-sm ${!notif.is_read ? '' : 'text-muted-foreground'}`}>{notif.title}</span>
+                       <span className="ml-auto text-xs text-muted-foreground">
+                         {formatDistanceToNow(new Date(notif.created_at), { addSuffix: true })}
+                       </span>
+                     </div>
+                     <p className={`text-xs line-clamp-2 pl-4 ${!notif.is_read ? 'text-foreground' : 'text-muted-foreground'}`}>
+                       {notif.message}
+                     </p>
+                   </DropdownMenuItem>
+                 ))
+               )}
             </div>
             <DropdownMenuSeparator />
             <DropdownMenuItem className="cursor-pointer text-center justify-center text-primary font-medium focus:text-primary" onClick={() => navigate('/notifications')}>

@@ -17,6 +17,12 @@ from apps.users.views.email_config_views import (
     EmailConfigCreateUpdateView,
     EmailConfigToggleView
 )
+from apps.users.views.app_config_views import AppConfigurationView
+from apps.users.views.notification_views import (
+    NotificationListView,
+    NotificationUpdateView,
+    NotificationMarkAllReadView
+)
 
 urlpatterns = [
     path("login/", LoginView.as_view(), name="login"),
@@ -42,4 +48,12 @@ urlpatterns = [
     path("password-reset/request/", RequestPasswordResetView.as_view(), name="password-reset-request"),
     path("password-reset/verify/", VerifyOTPView.as_view(), name="password-reset-verify"),
     path("password-reset/confirm/", ResetPasswordView.as_view(), name="password-reset-confirm"),
+
+    # App Config
+    path("app-config/", AppConfigurationView.as_view(), name="app-config"),
+
+    # Notifications
+    path("notifications/", NotificationListView.as_view(), name="notification-list"),
+    path("notifications/<int:id>/", NotificationUpdateView.as_view(), name="notification-update"),
+    path("notifications/read-all/", NotificationMarkAllReadView.as_view(), name="notification-read-all"),
 ]

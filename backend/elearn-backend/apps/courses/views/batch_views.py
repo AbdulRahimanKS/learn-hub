@@ -16,7 +16,10 @@ from apps.users.serializers.user_management_serializers import UserManagementSer
 from apps.users.models import User
 
 from utils.permissions import IsAdminOrTeacher, IsAuthenticated
-from utils.common import format_success_response, handle_serializer_errors, ServiceError, generate_temp_password
+from utils.common import (
+    format_success_response, handle_serializer_errors, ServiceError, 
+    generate_temp_password, activate_user_and_send_welcome_email
+)
 from utils.pagination import CustomPageNumberPagination
 from utils.constants import UserTypeConstants
 from utils.email_utils import send_email
@@ -25,27 +28,6 @@ from apps.courses.services import initialize_batch_weeks, push_content_to_batch,
 logger = logging.getLogger(__name__)
 
 
-def _activate_and_email_teacher(teacher_user, requesting_user):
-    """If a teacher has never been activated (no usable password), generate credentials and email them."""
-    if teacher_user and not teacher_user.has_usable_password():
-        temp_password = generate_temp_password()
-        teacher_user.set_password(temp_password)
-        teacher_user.status = 'ACTIVE'
-        teacher_user.is_active = True
-        teacher_user.save(update_fields=['password', 'is_active', 'status'])
-        send_email(
-            user=requesting_user,
-            subject="Welcome to LearnHub – Your Login Credentials",
-            template="emails/user_welcome_credentials",
-            to_emails=[teacher_user.email],
-            payload={
-                "user_name": teacher_user.fullname,
-                "email": teacher_user.email,
-                "password": temp_password,
-                "role": "Teacher",
-            },
-        )
-        logger.info(f"Welcome credentials sent to teacher {teacher_user.email} upon first batch assignment.")
 
 
 @extend_schema(tags=["Batches"])
@@ -171,9 +153,9 @@ class BatchCreateView(APIView):
             initialize_batch_weeks(batch)
 
             if batch.teacher:
-                _activate_and_email_teacher(batch.teacher, request.user)
+                activate_user_and_send_welcome_email(batch.teacher, request.user)
             for co_teacher in batch.co_teachers.all():
-                _activate_and_email_teacher(co_teacher, request.user)
+                activate_user_and_send_welcome_email(co_teacher, request.user)
 
             return format_success_response(
                 message="Batch created successfully",
@@ -262,9 +244,9 @@ class BatchUpdateView(APIView):
                 initialize_batch_weeks(batch)
 
             if batch.teacher:
-                _activate_and_email_teacher(batch.teacher, request.user)
+                activate_user_and_send_welcome_email(batch.teacher, request.user)
             for co_teacher in batch.co_teachers.all():
-                _activate_and_email_teacher(co_teacher, request.user)
+                activate_user_and_send_welcome_email(co_teacher, request.user)
 
             return format_success_response(
                 message="Batch updated successfully",
@@ -394,31 +376,16 @@ class BatchAddStudentView(APIView):
                 enrolled_by=user,
             )
 
+            # If student is not active, activate them.
+            # If they don't have a usable password, they'll get welcome credentials.
             if not student.is_active or student.status != 'ACTIVE':
-                student.is_active = True
-                student.status = 'ACTIVE'
-                update_fields = ['is_active', 'status']
-
-                if not student.has_usable_password():
-                    temp_password = generate_temp_password()
-                    student.set_password(temp_password)
-                    update_fields.append('password')
-
-                    send_email(
-                        user=request.user,
-                        subject="Welcome to LearnHub – Your Login Credentials",
-                        template="emails/user_welcome_credentials",
-                        to_emails=[student.email],
-                        payload={
-                            "user_name": student.fullname,
-                            "email": student.email,
-                            "password": temp_password,
-                            "role": "Student",
-                        },
-                    )
-                    logger.info(f"Welcome credentials sent to student {student.email} upon first batch enrollment.")
-
-                student.save(update_fields=update_fields)
+                activate_user_and_send_welcome_email(student, request.user)
+                
+                # Make sure student is marked active even if they already had a password
+                if not student.is_active:
+                    student.is_active = True
+                    student.status = 'ACTIVE'
+                    student.save(update_fields=['is_active', 'status'])
 
             return format_success_response(
                 message="Student added to batch successfully.",
@@ -555,6 +522,8 @@ class CloneBatchContentView(APIView):
                 return format_success_response(message="Content pushed successfully")
             else:
                 raise ServiceError(detail="Missing source source_course_id or source_batch_id", status_code=status.HTTP_400_BAD_REQUEST)
+        except ValueError as e:
+            raise ServiceError(detail=str(e), status_code=status.HTTP_400_BAD_REQUEST)
         except Exception as e:
             logger.error(f"Error cloning content: {str(e)}")
             raise ServiceError(detail=str(e), status_code=status.HTTP_500_INTERNAL_SERVER_ERROR)

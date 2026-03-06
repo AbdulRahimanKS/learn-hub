@@ -44,8 +44,13 @@ def push_content_to_batch(source_batch_id=None, source_course_id=None, target_ba
     target_batch = Batch.objects.get(id=target_batch_id)
     
     if source_batch_id:
+        source_batch = Batch.objects.get(id=source_batch_id)
+        if source_batch.course_id != target_batch.course_id:
+            raise ValueError("Source batch must belong to the same course as target batch.")
         source_weeks = BatchWeek.objects.filter(batch_id=source_batch_id)
     elif source_course_id:
+        if int(source_course_id) != target_batch.course_id:
+             raise ValueError("Source course must be the same as target batch course.")
         source_weeks = CourseWeek.objects.filter(course_id=source_course_id)
     else:
         return False

@@ -832,7 +832,7 @@ export default function AdminBatches() {
             {/* Dates */}
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div className="space-y-1.5 flex flex-col justify-end">
-                <Label>Start Date</Label>
+                <Label>Start Date <span className="text-muted-foreground font-normal text-xs ml-2">(Must be a Monday)</span></Label>
                 <Popover modal={true}>
                   <PopoverTrigger asChild>
                     <button
@@ -855,6 +855,7 @@ export default function AdminBatches() {
                         setFormData(p => ({ ...p, start_date: dateStr }));
                       }}
                       disabled={(date) => {
+                        if (date.getDay() !== 1) return true; // Rule: Must be a Monday
                         if (formData.end_date) return format(date, "yyyy-MM-dd") > formData.end_date;
                         return false;
                       }}
@@ -990,9 +991,11 @@ export default function AdminBatches() {
                   {pushSourceType === 'course' ? (
                     courses.map(c => <SelectItem key={c.id} value={c.id.toString()}>{c.title}</SelectItem>)
                   ) : (
-                    batches.filter(b => b.id !== pushTargetBatchId).map(b => (
-                      <SelectItem key={b.id} value={b.id.toString()}>{b.name}</SelectItem>
-                    ))
+                    batches
+                      .filter(b => b.id !== pushTargetBatchId && b.course === batches.find(t => t.id === pushTargetBatchId)?.course)
+                      .map(b => (
+                        <SelectItem key={b.id} value={b.id.toString()}>{b.name}</SelectItem>
+                      ))
                   )}
                 </SelectContent>
               </Select>

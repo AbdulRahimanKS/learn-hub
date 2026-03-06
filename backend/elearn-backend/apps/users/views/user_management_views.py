@@ -18,7 +18,7 @@ from apps.users.serializers.user_management_serializers import (
     UserUpdateSerializer,
 )
 from utils.permissions import IsSuperAdminOrAdmin
-from utils.common import format_success_response, handle_serializer_errors, ServiceError
+from utils.common import format_success_response, handle_serializer_errors, ServiceError, activate_user_and_send_welcome_email
 from utils.pagination import CustomPageNumberPagination
 from apps.courses.models import Batch, BatchEnrollment
 from utils.constants import UserTypeConstants
@@ -145,7 +145,11 @@ class UserManagementView(APIView):
                 created_by=request.user,
             )
 
-            message = f"{role_name} account created. They will receive credentials when assigned to a batch."
+            if role_name == UserTypeConstants.TEACHER:
+                activate_user_and_send_welcome_email(user, request.user)
+                message = f"{role_name} account created and activated. Welcome credentials sent to their email."
+            else:
+                message = f"{role_name} account created. They will receive credentials when assigned to a batch."
 
             return format_success_response(
                 message=message,
@@ -157,7 +161,6 @@ class UserManagementView(APIView):
         except Exception as e:
             logger.error(f"Error creating user: {e}")
             raise ServiceError(detail=str(e), status_code=status.HTTP_500_INTERNAL_SERVER_ERROR)
-
 
 
 @extend_schema(tags=["User Management"])
@@ -218,61 +221,41 @@ class UserManagementDetailView(APIView):
             raise ServiceError(detail=str(e), status_code=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
     @extend_schema(
-        summary="Soft-delete a user",
+        summary="Soft-delete a user (Strict Dependency Check)",
         responses={200: OpenApiTypes.OBJECT}
     )
     def delete(self, request, pk):
         try:
             user = self._get_user(pk)
             role = user.user_type.name if user.user_type else ''
-            force = str(request.data.get('force', 'false')).lower() == 'true'
-
-            # --- dependency check ---
-            warnings = []
 
             if role == UserTypeConstants.TEACHER:
                 primary_batches = Batch.objects.filter(
                     teacher=user, is_deleted=False
-                ).values_list('name', flat=True)
+                ).exists()
                 co_batches = Batch.objects.filter(
                     co_teachers=user, is_deleted=False
-                ).values_list('name', flat=True)
-                if primary_batches:
-                    warnings.append({
-                        'type': 'primary_teacher',
-                        'message': f"This teacher is the primary instructor for {len(primary_batches)} batch(es).",
-                        'batches': list(primary_batches),
-                    })
-                if co_batches:
-                    warnings.append({
-                        'type': 'co_teacher',
-                        'message': f"This teacher is a co-instructor in {len(co_batches)} batch(es).",
-                        'batches': list(co_batches),
-                    })
+                ).exists()
+                
+                if primary_batches or co_batches:
+                    raise ServiceError(
+                        detail="This teacher is assigned to one or more batches and cannot be deleted.",
+                        status_code=status.HTTP_400_BAD_REQUEST
+                    )
 
             elif role == UserTypeConstants.STUDENT:
                 enrollments = BatchEnrollment.objects.filter(
                     student=user
                 ).exclude(
-                    status__in=['dropped', 'completed']
-                ).select_related('batch')
-                if enrollments.exists():
-                    batch_names = [e.batch.name for e in enrollments]
-                    warnings.append({
-                        'type': 'enrollment',
-                        'message': f"This student has {len(batch_names)} active enrollment(s).",
-                        'batches': batch_names,
-                    })
+                    status__in=[BatchEnrollment.Status.DROPPED, BatchEnrollment.Status.COMPLETED]
+                ).exists()
+                
+                if enrollments:
+                    raise ServiceError(
+                        detail="This student has active batch enrollments and cannot be deleted.",
+                        status_code=status.HTTP_400_BAD_REQUEST
+                    )
 
-            if warnings and not force:
-                # Return 409 with metadata — frontend must confirm with force=true
-                return format_success_response(
-                    message="User has active dependencies. Pass force=true to proceed.",
-                    data={'warnings': warnings, 'requires_force': True},
-                    status_code=status.HTTP_409_CONFLICT,
-                )
-
-            # --- perform soft delete ---
             user.soft_delete(request.user)
             logger.info(f"User {pk} soft-deleted by admin {request.user.id}")
 

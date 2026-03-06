@@ -101,6 +101,7 @@ export default function Content() {
   const [imagePreview, setImagePreview] = useState<string | null>(null);
   const [cropperSrc, setCropperSrc] = useState<string | null>(null);
   const [sessionNumber, setSessionNumber] = useState<number | ''>('');
+  const [weekday, setWeekday] = useState<string>('');
   
   const [editVideoId, setEditVideoId] = useState<number | null>(null);
   const [isEditVideoOpen, setIsEditVideoOpen] = useState(false);
@@ -151,6 +152,7 @@ export default function Content() {
   // Test setup state
   const [testTitle, setTestTitle] = useState('Weekly Assessment');
   const [testInstructions, setTestInstructions] = useState('');
+  const [answerKeyFile, setAnswerKeyFile] = useState<File | null>(null);
 
   const fetchWeeks = async () => {
     if (!courseId) return;
@@ -341,6 +343,7 @@ export default function Content() {
     setVideoTitle('');
     setVideoDesc('');
     setSessionNumber('');
+    setWeekday('');
     setVideoFile(null);
     setVideoThumbnail(null);
     setImagePreview(null);
@@ -422,6 +425,11 @@ export default function Content() {
       formData.append('title', videoTitle);
       formData.append('description', videoDesc);
       formData.append('session_number', sessionNumber.toString());
+      if (weekday && weekday !== 'none') {
+        formData.append('weekday', weekday);
+      } else {
+        formData.append('weekday', '');
+      }
       formData.append('duration_seconds', actualDurationSeconds.toString()); 
       if (finalVideoKey) {
         // Just store the key text in the CharField
@@ -454,6 +462,7 @@ export default function Content() {
     setVideoTitle(video.title);
     setVideoDesc(video.description || '');
     setSessionNumber(video.session_number);
+    setWeekday(video.weekday || '');
     setVideoThumbnail(null); // Clear previous file selection
     setImagePreview(video.thumbnail);
     setIsEditVideoOpen(true);
@@ -472,6 +481,11 @@ export default function Content() {
     formData.append('title', videoTitle);
     formData.append('description', videoDesc);
     formData.append('session_number', sessionNumber.toString());
+    if (weekday && weekday !== 'none') {
+      formData.append('weekday', weekday);
+    } else {
+      formData.append('weekday', '');
+    }
 
     if (videoThumbnail) {
       formData.append('thumbnail', videoThumbnail);
@@ -514,17 +528,22 @@ export default function Content() {
     }
 
     try {
-      const res = await courseModuleApi.createTest(courseId, activeTab, {
-        title: testTitle,
-        instructions: testInstructions,
-        pass_percentage: 70
-      });
+      const formData = new FormData();
+      formData.append('title', testTitle);
+      formData.append('instructions', testInstructions);
+      formData.append('pass_percentage', '70');
+      if (answerKeyFile) {
+        formData.append('answer_key', answerKeyFile);
+      }
+
+      const res = await courseModuleApi.createTest(courseId, activeTab, formData);
       if (res.success) {
         toast({ title: 'Success', description: 'Test created successfully', variant: 'success' });
         setIsTestOpen(false);
         fetchWeeks(); // to bring in the new test details
         setTestTitle('Weekly Assessment');
         setTestInstructions('');
+        setAnswerKeyFile(null);
       }
     } catch (error: any) {
       toast({ title: 'Error creating test', description: error?.response?.data?.message || 'A network error occurred', variant: 'destructive' });
@@ -563,6 +582,11 @@ export default function Content() {
               'Processing'
             )}
           </Badge>
+          {video.weekday && (
+            <Badge variant="outline" className="bg-background/80 backdrop-blur-md shadow-sm border-primary/20 capitalize font-medium text-xs">
+              {video.weekday}
+            </Badge>
+          )}
         </div>
 
         <button 
@@ -790,6 +814,25 @@ export default function Content() {
                 className={videoFormErrors.session_number ? "border-destructive focus-visible:ring-destructive" : ""}
               />
               {videoFormErrors.session_number && <p className="text-xs text-destructive">{videoFormErrors.session_number}</p>}
+            </div>
+
+            <div className="space-y-2">
+              <Label>Weekday Tag (Optional)</Label>
+              <Select value={weekday} disabled={isUploading} onValueChange={setWeekday}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Select a weekday" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="none">None</SelectItem>
+                  <SelectItem value="monday">Monday</SelectItem>
+                  <SelectItem value="tuesday">Tuesday</SelectItem>
+                  <SelectItem value="wednesday">Wednesday</SelectItem>
+                  <SelectItem value="thursday">Thursday</SelectItem>
+                  <SelectItem value="friday">Friday</SelectItem>
+                  <SelectItem value="saturday">Saturday</SelectItem>
+                  <SelectItem value="sunday">Sunday</SelectItem>
+                </SelectContent>
+              </Select>
             </div>
             
             {/* Week Selection instead of text input */}
@@ -1068,6 +1111,21 @@ export default function Content() {
               />
             </div>
 
+            <div className="space-y-2 pt-2">
+              <Label>Answer Key <span className="text-muted-foreground font-normal text-xs ml-2">(PDF or .ipynb for evaluation purposes)</span></Label>
+              <Input 
+                type="file" 
+                accept=".pdf,.ipynb,.doc,.docx" 
+                onChange={e => {
+                  if (e.target.files && e.target.files.length > 0) {
+                    setAnswerKeyFile(e.target.files[0]);
+                  } else {
+                    setAnswerKeyFile(null);
+                  }
+                }} 
+              />
+            </div>
+
             <div className="space-y-3">
               <Label>Question Format</Label>
               <div className="flex gap-2 p-1 bg-muted rounded-lg w-max">
@@ -1217,6 +1275,25 @@ export default function Content() {
                 className={videoFormErrors.session_number ? "border-destructive focus-visible:ring-destructive" : ""}
               />
               {videoFormErrors.session_number && <p className="text-xs text-destructive">{videoFormErrors.session_number}</p>}
+            </div>
+
+            <div className="space-y-2">
+              <Label>Weekday Tag (Optional)</Label>
+              <Select value={weekday || "none"} onValueChange={(v) => setWeekday(v === "none" ? "" : v)}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Select a weekday" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="none">None</SelectItem>
+                  <SelectItem value="monday">Monday</SelectItem>
+                  <SelectItem value="tuesday">Tuesday</SelectItem>
+                  <SelectItem value="wednesday">Wednesday</SelectItem>
+                  <SelectItem value="thursday">Thursday</SelectItem>
+                  <SelectItem value="friday">Friday</SelectItem>
+                  <SelectItem value="saturday">Saturday</SelectItem>
+                  <SelectItem value="sunday">Sunday</SelectItem>
+                </SelectContent>
+              </Select>
             </div>
 
             <div className="space-y-2">

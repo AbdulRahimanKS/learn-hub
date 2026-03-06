@@ -562,19 +562,6 @@ export default function Users() {
           <Card className="shadow-card">
             <CardContent className="p-6">
               <div className="flex items-center gap-4">
-                <div className="p-3 rounded-xl bg-primary/10">
-                  <GraduationCap className="h-6 w-6 text-primary" />
-                </div>
-                <div>
-                  <p className="text-2xl font-bold text-foreground">{summary.total_teachers}</p>
-                  <p className="text-sm text-muted-foreground">Teachers</p>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-          <Card className="shadow-card">
-            <CardContent className="p-6">
-              <div className="flex items-center gap-4">
                 <div className="p-3 rounded-xl bg-accent/10">
                   <UsersIcon className="h-6 w-6 text-accent" />
                 </div>
@@ -594,6 +581,19 @@ export default function Users() {
                 <div>
                   <p className="text-2xl font-bold text-foreground">{summary.total_active_students}</p>
                   <p className="text-sm text-muted-foreground">Active Students</p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+          <Card className="shadow-card">
+            <CardContent className="p-6">
+              <div className="flex items-center gap-4">
+                <div className="p-3 rounded-xl bg-primary/10">
+                  <GraduationCap className="h-6 w-6 text-primary" />
+                </div>
+                <div>
+                  <p className="text-2xl font-bold text-foreground">{summary.total_teachers}</p>
+                  <p className="text-sm text-muted-foreground">Teachers</p>
                 </div>
               </div>
             </CardContent>

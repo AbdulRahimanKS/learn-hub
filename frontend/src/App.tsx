@@ -26,6 +26,7 @@ import AccessDenied from "./pages/AccessDenied";
 import AdminBatchStudents from "./pages/AdminBatchStudents";
 import BatchContent from "./pages/BatchContent";
 import BatchTestManagement from "./pages/BatchTestManagement";
+import Notifications from "./pages/Notifications";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -67,6 +68,7 @@ function AppRoutes() {
       <Route path="/live-sessions" element={<ProtectedRoute><LiveSessions /></ProtectedRoute>} />
       <Route path="/settings" element={<ProtectedRoute><Settings /></ProtectedRoute>} />
       <Route path="/email-config" element={<ProtectedRoute><EmailConfig /></ProtectedRoute>} />
+      <Route path="/notifications" element={<ProtectedRoute><Notifications /></ProtectedRoute>} />
       
       <Route path="/access-denied" element={<AccessDenied />} />
       <Route path="*" element={<NotFound />} />

@@ -1,18 +1,36 @@
 from rest_framework import serializers
-from apps.courses.models import CourseWeek, ClassSession, WeeklyTest, WeeklyTestQuestion, BatchWeek
+from apps.courses.models import (
+    CourseWeek, ClassSession, WeeklyTest, WeeklyTestQuestion, BatchWeek,
+    TestQuestionAttachment, PostSessionQuestion, PostSessionChoice
+)
 from utils.common import ServiceError
 from rest_framework import status
 
 
+class PostSessionChoiceSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = PostSessionChoice
+        fields = ['id', 'question', 'text', 'is_correct']
+        read_only_fields = ['question']
+
+class PostSessionQuestionSerializer(serializers.ModelSerializer):
+    choices = PostSessionChoiceSerializer(many=True, read_only=True)
+
+    class Meta:
+        model = PostSessionQuestion
+        fields = ['id', 'class_session', 'text', 'is_fill_in_the_blank', 'order', 'choices']
+        read_only_fields = ['class_session']
+
 class ClassSessionSerializer(serializers.ModelSerializer):
     video_presigned_url = serializers.SerializerMethodField()
+    mcq_questions = PostSessionQuestionSerializer(many=True, read_only=True)
 
     class Meta:
         model = ClassSession
         fields = [
-            'id', 'course_week', 'batch_week', 'session_number', 'title', 'description', 
+            'id', 'course_week', 'batch_week', 'session_number', 'title', 'description', 'weekday',
             'video_file', 'video_url', 'video_presigned_url', 'thumbnail', 'duration_seconds', 
-            'uploaded_by', 'created_at', 'updated_at'
+            'mcq_questions', 'uploaded_by', 'created_at', 'updated_at'
         ]
         read_only_fields = ['uploaded_by', 'created_at', 'updated_at']
 
@@ -103,7 +121,7 @@ class ClassSessionCreateUpdateSerializer(serializers.ModelSerializer):
     class Meta:
         model = ClassSession
         fields = [
-            'id', 'session_number', 'title', 'description', 
+            'id', 'session_number', 'title', 'description', 'weekday',
             'video_file', 'video_url', 'thumbnail', 'duration_seconds'
         ]
 
@@ -112,11 +130,19 @@ class ClassSessionCreateUpdateSerializer(serializers.ModelSerializer):
             raise ServiceError(detail="Session number must be greater than 0.", status_code=status.HTTP_400_BAD_REQUEST)
         return value
 
+class TestQuestionAttachmentSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = TestQuestionAttachment
+        fields = ['id', 'question', 'file', 'name']
+        read_only_fields = ['question']
+
 class WeeklyTestQuestionSerializer(serializers.ModelSerializer):
+    attachments = TestQuestionAttachmentSerializer(many=True, read_only=True)
+
     class Meta:
         model = WeeklyTestQuestion
         fields = [
-            'id', 'test', 'text', 'question_file', 'image', 'order', 'marks'
+            'id', 'test', 'text', 'question_file', 'image', 'order', 'marks', 'attachments'
         ]
         read_only_fields = ['test']
 
@@ -127,7 +153,7 @@ class WeeklyTestSerializer(serializers.ModelSerializer):
         model = WeeklyTest
         fields = [
             'id', 'course_week', 'batch_week', 'title', 'instructions', 'pass_percentage', 
-            'questions', 'created_by', 'updated_by', 'created_at', 'updated_at'
+            'answer_key', 'questions', 'created_by', 'updated_by', 'created_at', 'updated_at'
         ]
         read_only_fields = ['course_week', 'batch_week', 'created_by', 'updated_by', 'created_at', 'updated_at']
 
@@ -135,5 +161,5 @@ class WeeklyTestCreateUpdateSerializer(serializers.ModelSerializer):
     class Meta:
         model = WeeklyTest
         fields = [
-            'id', 'title', 'instructions', 'pass_percentage'
+            'id', 'title', 'instructions', 'pass_percentage', 'answer_key'
         ]

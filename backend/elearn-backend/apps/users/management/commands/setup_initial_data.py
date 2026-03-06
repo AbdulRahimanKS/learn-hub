@@ -17,7 +17,7 @@ The SuperAdmin type is created in the database but is NOT surfaced in the UI.
 import os
 from django.core.management.base import BaseCommand
 from django.db import transaction
-from apps.users.models import User, UserType
+from apps.users.models import User, UserType, AppConfiguration
 from utils.constants import UserTypeConstants
 
 
@@ -60,6 +60,7 @@ class Command(BaseCommand):
                 password=options['admin_password'],
                 fullname=options['admin_fullname'],
             )
+            self._create_app_config()
 
         self.stdout.write(self.style.SUCCESS('=== Initial data setup complete ==='))
 
@@ -138,3 +139,17 @@ class Command(BaseCommand):
         self.stdout.write(self.style.ERROR(
             '    ⚠  Please ask the client to change the password immediately after first login.\n'
         ))
+
+    def _create_app_config(self):
+        self.stdout.write('\n[3] Creating initial App Configuration...')
+        config, created = AppConfiguration.objects.get_or_create(
+            pk=1,
+            defaults={
+                'business_name': 'Learn Hub',
+                'timezone': 'Asia/Kolkata'
+            }
+        )
+        if created:
+            self.stdout.write(self.style.SUCCESS('    ✔  Created Default App Configuration!'))
+        else:
+            self.stdout.write('    –  App Configuration already exists (skipped)')

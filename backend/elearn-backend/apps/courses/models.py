@@ -1,6 +1,7 @@
 import uuid
 from django.db import models
 from django.core.validators import MinValueValidator, MaxValueValidator
+from django.core.exceptions import ValidationError
 from django.utils.translation import gettext_lazy as _
 from django.utils import timezone
 
@@ -167,7 +168,13 @@ class Batch(models.Model):
     def __str__(self):
         return f"{self.name} [{self.batch_code}]"
 
+    def clean(self):
+        super().clean()
+        if self.start_date and self.start_date.weekday() != 0:
+            raise ValidationError({'start_date': _('All batches must start on a Monday.')})
+
     def save(self, *args, **kwargs):
+        self.clean()
         if not self.batch_code:
             self.batch_code = self._gen_code()
         super().save(*args, **kwargs)
@@ -350,11 +357,25 @@ class ClassSession(models.Model):
         BatchWeek, on_delete=models.CASCADE, related_name='class_sessions',
         null=True, blank=True
     )
+    class Weekday(models.TextChoices):
+        MONDAY = 'monday', _('Monday')
+        TUESDAY = 'tuesday', _('Tuesday')
+        WEDNESDAY = 'wednesday', _('Wednesday')
+        THURSDAY = 'thursday', _('Thursday')
+        FRIDAY = 'friday', _('Friday')
+        SATURDAY = 'saturday', _('Saturday')
+        SUNDAY = 'sunday', _('Sunday')
+
     session_number = models.PositiveSmallIntegerField(
         _('Session Number within Week'), default=1
     )
     title          = models.CharField(_('Session Title'), max_length=255)
     description    = models.TextField(_('Description / Notes'), blank=True)
+    weekday        = models.CharField(
+        _('Weekday Tag'), max_length=15, 
+        choices=Weekday.choices, null=True, blank=True,
+        help_text=_('Optional weekday tag for this session')
+    )
 
     video_file     = models.CharField(
         _('Video Object Key'),
@@ -413,6 +434,12 @@ class WeeklyTest(models.Model):
     title          = models.CharField(_('Test Title'), max_length=255)
     instructions   = models.TextField(_('Instructions'), blank=True)
 
+    answer_key     = models.FileField(
+        _('Answer Key'), upload_to='test_answer_keys/',
+        null=True, blank=True,
+        help_text=_('Upload answer key (PDF or .ipynb) for evaluation')
+    )
+
     pass_percentage = models.FloatField(default=70.0)
     
     created_by     = models.ForeignKey(
@@ -468,6 +495,61 @@ class WeeklyTestQuestion(models.Model):
 
     def __str__(self):
         return f"Q{self.order} for Test {self.test.id}"
+
+
+class TestQuestionAttachment(models.Model):
+    """
+    Allows multiple file attachments (instructions/data) per weekly test question.
+    """
+    question = models.ForeignKey(
+        WeeklyTestQuestion, on_delete=models.CASCADE, related_name='attachments'
+    )
+    file = models.FileField(
+        upload_to='test_questions/attachments/',
+        help_text=_('Supported: .ipynb, .pdf, .xlsx, .csv, .doc, etc.')
+    )
+    name = models.CharField(max_length=255, blank=True, help_text=_('Optional file name/label'))
+
+    class Meta:
+        verbose_name = _('Question Attachment')
+        verbose_name_plural = _('Question Attachments')
+
+    def __str__(self):
+        return self.name or f"Attachment {self.id} for Q{self.question.id}"
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Post-Session MCQ (In-Lesson Assessment)
+# ─────────────────────────────────────────────────────────────────────────────
+
+class PostSessionQuestion(models.Model):
+    class_session = models.ForeignKey(
+        ClassSession, on_delete=models.CASCADE, related_name='mcq_questions'
+    )
+    text = models.TextField(_('Question Text'))
+    is_fill_in_the_blank = models.BooleanField(
+        _('Fill in the Blank'), default=False,
+        help_text=_('If True, it is a text match. If False, it uses Choices.')
+    )
+    order = models.PositiveIntegerField(default=1)
+
+    class Meta:
+        ordering = ['order', 'id']
+        verbose_name = _('Post-Session Question')
+        verbose_name_plural = _('Post-Session Questions')
+
+    def __str__(self):
+        return f"MCQ Q{self.order} for Session {self.class_session.id}"
+
+
+class PostSessionChoice(models.Model):
+    question = models.ForeignKey(
+        PostSessionQuestion, on_delete=models.CASCADE, related_name='choices'
+    )
+    text = models.CharField(max_length=255)
+    is_correct = models.BooleanField(default=False)
+
+    def __str__(self):
+        return self.text
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -640,10 +722,11 @@ class TestSubmission(models.Model):
     """
 
     class Status(models.TextChoices):
-        SUBMITTED = 'submitted', _('Submitted')
-        GRADING   = 'grading',   _('Being Graded')
-        GRADED    = 'graded',    _('Graded')
-        RETURNED  = 'returned',  _('Returned for Revision')
+        PENDING         = 'pending',         _('Pending (Submitted)')
+        EVALUATING      = 'evaluating',      _('Evaluating via AI')
+        PENDING_REVIEW  = 'pending_review',  _('Pending Review')
+        PUBLISHED       = 'published',       _('Published')
+        RETURNED        = 'returned',        _('Returned for Revision')
 
     weekly_test  = models.ForeignKey(
         WeeklyTest, on_delete=models.CASCADE, related_name='submissions'
@@ -681,7 +764,7 @@ class TestSubmission(models.Model):
 
     status         = models.CharField(
         _('Status'), max_length=20,
-        choices=Status.choices, default=Status.SUBMITTED
+        choices=Status.choices, default=Status.PENDING
     )
 
     class Meta:

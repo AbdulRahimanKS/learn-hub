@@ -35,6 +35,12 @@ from apps.courses.views import (
     CompleteMultipartUploadView,
     AbortMultipartUploadView,
 )
+from apps.courses.views.test_submission_views import (
+    BatchTestSubmissionListView,
+    TestSubmissionDetailView,
+    TriggerAIEvaluationView,
+    SimulateAIEvaluationCompleteView,
+)
 
 urlpatterns = [
     # Video Uploads
@@ -78,4 +84,10 @@ urlpatterns = [
     path("batches/<int:batch_id>/weeks/<int:week_id>/test/manage/", BatchWeeklyTestManageView.as_view(), name="batch-weekly-test-manage"),
     path("batches/<int:batch_id>/weeks/<int:week_id>/test/questions/", BatchWeeklyTestQuestionListCreateView.as_view(), name="batch-test-question-list"),
     path("batches/<int:batch_id>/weeks/<int:week_id>/test/questions/<int:question_id>/", BatchWeeklyTestQuestionDetailView.as_view(), name="batch-test-question-detail"),
+
+    # Test Submissions / Evaluation Workflow
+    path("batches/<int:batch_id>/submissions/", BatchTestSubmissionListView.as_view(), name="batch-submissions-list"),
+    path("submissions/<int:pk>/", TestSubmissionDetailView.as_view(), name="submission-detail"),
+    path("submissions/<int:pk>/trigger-evaluation/", TriggerAIEvaluationView.as_view(), name="trigger-ai-evaluation"),
+    path("submissions/<int:pk>/simulate-evaluation-complete/", SimulateAIEvaluationCompleteView.as_view(), name="simulate-ai-evaluation-complete"),
 ]

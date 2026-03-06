@@ -11,9 +11,34 @@ export interface ClassSession {
   video_presigned_url?: string | null;
   thumbnail: string | null;
   duration_seconds: number;
+  weekday?: string | null;
+  mcq_questions?: PostSessionQuestion[];
   uploaded_by?: number;
   created_at?: string;
   updated_at?: string;
+}
+
+export interface PostSessionChoice {
+  id: number;
+  question: number;
+  text: string;
+  is_correct: boolean;
+}
+
+export interface PostSessionQuestion {
+  id: number;
+  class_session: number;
+  text: string;
+  is_fill_in_the_blank: boolean;
+  order: number;
+  choices: PostSessionChoice[];
+}
+
+export interface TestQuestionAttachment {
+  id: number;
+  question: number;
+  file: string;
+  name: string;
 }
 
 export interface WeeklyTestQuestion {
@@ -24,6 +49,7 @@ export interface WeeklyTestQuestion {
   image: string | null;
   order: number;
   marks: number;
+  attachments?: TestQuestionAttachment[];
 }
 
 export interface WeeklyTest {
@@ -32,6 +58,7 @@ export interface WeeklyTest {
   title: string;
   instructions: string;
   pass_percentage: number;
+  answer_key?: string | null;
   questions: WeeklyTestQuestion[];
   created_by?: number;
   updated_by?: number;
@@ -103,13 +130,17 @@ export const courseModuleApi = {
   },
   
   // --- TESTS ---
-  createTest: async (courseId: string | number, weekId: string | number, data: Partial<WeeklyTest>) => {
-    const response = await apiClient.post<ApiResponse<WeeklyTest>>(`/api/courses/v1/courses/${courseId}/weeks/${weekId}/test/`, data);
+  createTest: async (courseId: string | number, weekId: string | number, formData: FormData) => {
+    const response = await apiClient.post<ApiResponse<WeeklyTest>>(`/api/courses/v1/courses/${courseId}/weeks/${weekId}/test/`, formData, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+    });
     return response.data;
   },
 
-  updateTest: async (courseId: string | number, weekId: string | number, data: Partial<WeeklyTest>) => {
-    const response = await apiClient.patch<ApiResponse<WeeklyTest>>(`/api/courses/v1/courses/${courseId}/weeks/${weekId}/test/`, data);
+  updateTest: async (courseId: string | number, weekId: string | number, formData: FormData) => {
+    const response = await apiClient.patch<ApiResponse<WeeklyTest>>(`/api/courses/v1/courses/${courseId}/weeks/${weekId}/test/`, formData, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+    });
     return response.data;
   },
 
