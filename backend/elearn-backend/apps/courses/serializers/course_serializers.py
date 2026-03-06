@@ -50,14 +50,14 @@ class CourseListSerializer(serializers.ModelSerializer):
         if not user.is_authenticated:
             return None
         # Find the batch the student is enrolled in for this course
-        batch = obj.batches.filter(enrollments__student=user, is_deleted=False).first()
+        batch = obj.batches.filter(enrollments__student=user).first()
         return batch.id if batch else None
 
     def get_batch_name(self, obj):
         user = self.context['request'].user
         if not user.is_authenticated:
             return None
-        batch = obj.batches.filter(enrollments__student=user, is_deleted=False).first()
+        batch = obj.batches.filter(enrollments__student=user).first()
         return batch.name if batch else None
 
 
@@ -85,7 +85,6 @@ class CourseDetailSerializer(serializers.ModelSerializer):
             'thumbnail',
             'tags',
             'is_active',
-            'is_deleted',
             'created_by',
             'updated_by',
             'created_at',
@@ -100,14 +99,14 @@ class CourseDetailSerializer(serializers.ModelSerializer):
         user = self.context['request'].user
         if not user.is_authenticated:
             return None
-        batch = obj.batches.filter(enrollments__student=user, is_deleted=False).first()
+        batch = obj.batches.filter(enrollments__student=user).first()
         return batch.id if batch else None
 
     def get_batch_name(self, obj):
         user = self.context['request'].user
         if not user.is_authenticated:
             return None
-        batch = obj.batches.filter(enrollments__student=user, is_deleted=False).first()
+        batch = obj.batches.filter(enrollments__student=user).first()
         return batch.name if batch else None
 
 

@@ -36,20 +36,17 @@ class CourseListView(APIView):
         responses={200: CourseListSerializer(many=True)},
     )
     def get(self, request):
-        qs = Course.objects.filter(is_deleted=False).prefetch_related('tags').order_by('-created_at')
+        qs = Course.objects.prefetch_related('tags').order_by('-created_at')
 
         user = request.user
         if getattr(user, 'user_type', None):
             if user.user_type.name == UserTypeConstants.TEACHER:
                 qs = qs.filter(
-                    batches__is_deleted=False
-                ).filter(
                     Q(batches__teacher=user) | 
                     Q(batches__co_teachers=user)
                 ).distinct()
             elif user.user_type.name == UserTypeConstants.STUDENT:
                 qs = qs.filter(
-                    batches__is_deleted=False,
                     batches__enrollments__student=user
                 ).distinct()
 
@@ -115,20 +112,17 @@ class CourseDetailView(APIView):
 
     def get_object(self, request, pk):
         try:
-            qs = Course.objects.filter(is_deleted=False)
+            qs = Course.objects.all()
 
             user = request.user
             if getattr(user, 'user_type', None):
                 if user.user_type.name == UserTypeConstants.TEACHER:
                     qs = qs.filter(
-                        batches__is_deleted=False
-                    ).filter(
                         Q(batches__teacher=user) | 
                         Q(batches__co_teachers=user)
                     ).distinct()
                 elif user.user_type.name == UserTypeConstants.STUDENT:
                     qs = qs.filter(
-                        batches__is_deleted=False,
                         batches__enrollments__student=user
                     ).distinct()
 
@@ -157,13 +151,13 @@ class CourseDetailView(APIView):
 
             course = self.get_object(request, pk)
 
-            if course.batches.filter(is_deleted=False).exists():
+            if course.batches.exists():
                 raise ServiceError(
-                    detail="Cannot delete a course that has batches. Remove all batches first.",
+                    detail="Cannot delete a course that has batches.",
                     status_code=status.HTTP_400_BAD_REQUEST,
                 )
 
-            course.soft_delete(user)
+            course.delete()
             return format_success_response(message="Course deleted successfully")
         except ServiceError:
             raise
@@ -180,13 +174,11 @@ class CourseUpdateView(APIView):
 
     def get_object(self, request, pk):
         try:
-            qs = Course.objects.filter(is_deleted=False)
+            qs = Course.objects.all()
             
             user = request.user
             if getattr(user, 'user_type', None) and user.user_type.name == UserTypeConstants.TEACHER:
                 qs = qs.filter(
-                    batches__is_deleted=False
-                ).filter(
                     Q(batches__teacher=user) | 
                     Q(batches__co_teachers=user)
                 ).distinct()
@@ -196,7 +188,7 @@ class CourseUpdateView(APIView):
             raise ServiceError(detail="Course not found or you do not have permission to edit it.", status_code=status.HTTP_404_NOT_FOUND)
 
     @extend_schema(
-        summary="Update a course (Admin only)",
+        summary="Update a course (Admin/Teacher only)",
         request=CourseCreateUpdateSerializer,
         responses={200: CourseDetailSerializer},
     )
@@ -223,16 +215,16 @@ class CourseUpdateView(APIView):
 
 @extend_schema(tags=["Courses"])
 class CourseToggleActiveView(APIView):
-    permission_classes = [IsSuperAdminOrAdmin]
+    permission_classes = [IsSuperAdminAdminOrTeacher]
 
     def get_object(self, pk):
         try:
-            return Course.objects.get(pk=pk, is_deleted=False)
+            return Course.objects.get(pk=pk)
         except Course.DoesNotExist:
             raise ServiceError(detail="Course not found.", status_code=status.HTTP_404_NOT_FOUND)
 
     @extend_schema(
-        summary="Toggle course active status (Admin only)",
+        summary="Toggle course active status (Admin or Teacher)",
         request=None,
         responses={200: CourseDetailSerializer},
     )

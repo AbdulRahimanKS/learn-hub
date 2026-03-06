@@ -31,7 +31,7 @@ class BatchCreateUpdateSerializer(serializers.ModelSerializer):
     Course is required — every batch must belong to a course.
     """
     course = serializers.PrimaryKeyRelatedField(
-        queryset=Course.objects.filter(is_deleted=False),
+        queryset=Course.objects.all(),
         required=True,
         allow_null=False,
         error_messages={

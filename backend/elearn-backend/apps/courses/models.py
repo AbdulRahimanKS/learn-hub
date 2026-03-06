@@ -47,8 +47,7 @@ class Course(models.Model):
         help_text=_('Cover image for the course card')
     )
 
-    is_active  = models.BooleanField(default=False)
-    is_deleted = models.BooleanField(default=False)
+    is_active  = models.BooleanField(default=True)
 
     created_by = models.ForeignKey(
         'users.User', on_delete=models.SET_NULL, null=True, blank=True,
@@ -58,13 +57,8 @@ class Course(models.Model):
         'users.User', on_delete=models.SET_NULL, null=True, blank=True,
         related_name='updated_courses'
     )
-    deleted_by = models.ForeignKey(
-        'users.User', on_delete=models.SET_NULL, null=True, blank=True,
-        related_name='deleted_courses'
-    )
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
-    deleted_at = models.DateTimeField(null=True, blank=True)
 
     class Meta:
         verbose_name        = _('Course')
@@ -83,13 +77,6 @@ class Course(models.Model):
         if not self.course_code:
             self.course_code = self._gen_code()
         super().save(*args, **kwargs)
-
-    def soft_delete(self, user):
-        self.is_deleted = True
-        if user:
-            self.deleted_by = user
-        self.deleted_at = timezone.now()
-        self.save()
 
     @staticmethod
     def _gen_code():
@@ -133,9 +120,7 @@ class Batch(models.Model):
     start_date     = models.DateField(_('Start Date'), null=True, blank=True)
     end_date       = models.DateField(_('End Date'),   null=True, blank=True)
 
-    is_active = models.BooleanField(default=True)
-    
-    is_deleted = models.BooleanField(default=False)
+    is_active = models.BooleanField(default=False)
 
     created_by = models.ForeignKey(
         'users.User', on_delete=models.SET_NULL, null=True, blank=True,
@@ -145,13 +130,8 @@ class Batch(models.Model):
         'users.User', on_delete=models.SET_NULL, null=True, blank=True,
         related_name='updated_batches'
     )
-    deleted_by = models.ForeignKey(
-        'users.User', on_delete=models.SET_NULL, null=True, blank=True,
-        related_name='deleted_batches'
-    )
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
-    deleted_at = models.DateTimeField(null=True, blank=True)
 
     class Meta:
         verbose_name        = _('Batch')
@@ -159,7 +139,6 @@ class Batch(models.Model):
         ordering            = ['-created_at']
         indexes             = [
             models.Index(fields=['is_active'],   name='batch_is_active_idx'),
-            models.Index(fields=['is_deleted'],  name='batch_is_deleted_idx'),
             models.Index(fields=['course'],      name='batch_course_idx'),
             models.Index(fields=['teacher'],     name='batch_teacher_idx'),
             models.Index(fields=['start_date'],  name='batch_start_date_idx'),
@@ -211,13 +190,6 @@ class Batch(models.Model):
             
         elapsed_days = (today - self.start_date).days
         return round((elapsed_days / total_days) * 100, 1)
-
-    def soft_delete(self, user):
-        self.is_deleted = True
-        if user:
-            self.deleted_by = user
-        self.deleted_at = timezone.now()
-        self.save()
 
 
 # Batch Enrollment

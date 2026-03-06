@@ -28,7 +28,7 @@ class CourseWeekListCreateView(APIView):
 
     def get_course(self, pk):
         try:
-            return Course.objects.filter(is_deleted=False).get(pk=pk)
+            return Course.objects.get(pk=pk)
         except Course.DoesNotExist:
             raise ServiceError(detail="Course not found.", status_code=status.HTTP_404_NOT_FOUND)
 

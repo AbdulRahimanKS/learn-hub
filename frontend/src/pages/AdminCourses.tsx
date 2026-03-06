@@ -248,10 +248,8 @@ export default function AdminCourses() {
       submitData.append('title', formData.title.trim());
       submitData.append('description', formData.description.trim());
       submitData.append('difficulty_level', formData.difficulty);
-      // Only send is_active when editing — on create the backend defaults to false
-      if (editCourseId) {
-        submitData.append('is_active', formData.isActive ? 'true' : 'false');
-      }
+      // Always send is_active
+      submitData.append('is_active', formData.isActive ? 'true' : 'false');
       
       const tagArray = formData.tags.split(',').map(t => t.trim()).filter(Boolean);
       if (tagArray.length === 0) {
@@ -378,20 +376,18 @@ export default function AdminCourses() {
                       {formErrors.title && <p className="text-xs text-destructive">{formErrors.title}</p>}
                     </div>
                     
-                    {/* Course Status — only shown when editing an existing course */}
-                    {editCourseId && (
-                      <div className="space-y-2">
-                        <Label>Course Status</Label>
-                        <div className="flex items-center space-x-2 pt-2">
-                          <Switch 
-                            id="is-active" 
-                            checked={formData.isActive}
-                            onCheckedChange={handleSwitchChange}
-                          />
-                          <Label htmlFor="isActive" className="cursor-pointer font-normal">Active (allow new batches)</Label>
-                        </div>
+                    {/* Course Status */}
+                    <div className="space-y-2">
+                      <Label>Course Status</Label>
+                      <div className="flex items-center space-x-2 pt-2">
+                        <Switch 
+                          id="is-active" 
+                          checked={formData.isActive}
+                          onCheckedChange={handleSwitchChange}
+                        />
+                        <Label htmlFor="isActive" className="cursor-pointer font-normal">Active (allow new batches)</Label>
                       </div>
-                    )}
+                    </div>
                   </div>
 
                   {/* Thumbnail Upload */}
@@ -560,9 +556,9 @@ export default function AdminCourses() {
                   </div>
                   <div className="absolute top-3 right-3 flex gap-2">
                     <Badge 
-                      className={`font-semibold shadow-sm ${user?.role === 'admin' ? 'cursor-pointer hover:bg-success/90' : 'cursor-default'} ${course.is_active ? 'bg-success text-success-foreground border-none' : 'bg-secondary text-secondary-foreground border-none'}`}
+                      className={`font-semibold shadow-sm ${(user?.role === 'admin' || user?.role === 'teacher') ? 'cursor-pointer hover:bg-success/90' : 'cursor-default'} ${course.is_active ? 'bg-success text-success-foreground border-none' : 'bg-secondary text-secondary-foreground border-none'}`}
                       onClick={() => {
-                        if (user?.role === 'admin') {
+                        if (user?.role === 'admin' || user?.role === 'teacher') {
                           handleToggleActive(course.id);
                         }
                       }}

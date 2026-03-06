@@ -43,7 +43,7 @@ class BatchSummaryView(APIView):
         responses={200: None},
     )
     def get(self, request):
-        qs = Batch.objects.filter(is_deleted=False)
+        qs = Batch.objects.all()
 
         user = request.user
         if getattr(user, 'user_type', None) and user.user_type.name == UserTypeConstants.TEACHER:
@@ -90,7 +90,7 @@ class BatchListView(APIView):
         responses={200: BatchListSerializer(many=True)},
     )
     def get(self, request):
-        qs = Batch.objects.filter(is_deleted=False).select_related('teacher', 'course').order_by('-created_at')
+        qs = Batch.objects.select_related('teacher', 'course').order_by('-created_at')
 
         user = request.user
         if getattr(user, 'user_type', None):
@@ -176,7 +176,7 @@ class BatchDetailView(APIView):
 
     def get_object(self, pk):
         try:
-            return Batch.objects.get(pk=pk, is_deleted=False)
+            return Batch.objects.get(pk=pk)
         except Batch.DoesNotExist:
             raise ServiceError(detail="Batch not found.", status_code=status.HTTP_404_NOT_FOUND)
 
@@ -207,7 +207,7 @@ class BatchUpdateView(APIView):
 
     def get_object(self, pk):
         try:
-            return Batch.objects.get(pk=pk, is_deleted=False)
+            return Batch.objects.get(pk=pk)
         except Batch.DoesNotExist:
             raise ServiceError(detail="Batch not found.", status_code=status.HTTP_404_NOT_FOUND)
 
@@ -266,7 +266,7 @@ class BatchToggleActiveView(APIView):
 
     def get_object(self, pk):
         try:
-            return Batch.objects.get(pk=pk, is_deleted=False)
+            return Batch.objects.get(pk=pk)
         except Batch.DoesNotExist:
             raise ServiceError(detail="Batch not found.", status_code=status.HTTP_404_NOT_FOUND)
 
@@ -312,7 +312,7 @@ class BatchAddStudentView(APIView):
 
     def get_batch(self, pk):
         try:
-            return Batch.objects.get(pk=pk, is_deleted=False)
+            return Batch.objects.get(pk=pk)
         except Batch.DoesNotExist:
             raise ServiceError(detail="Batch not found.", status_code=status.HTTP_404_NOT_FOUND)
 
@@ -449,7 +449,7 @@ class BatchStudentListView(APIView):
     )
     def get(self, request, pk):
         try:
-            batch = Batch.objects.get(pk=pk, is_deleted=False)
+            batch = Batch.objects.get(pk=pk)
             enrollments = batch.enrollments.all().select_related('student').order_by('id')
 
             paginator = self.pagination_class()

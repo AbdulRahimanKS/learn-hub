@@ -231,10 +231,10 @@ class UserManagementDetailView(APIView):
 
             if role == UserTypeConstants.TEACHER:
                 primary_batches = Batch.objects.filter(
-                    teacher=user, is_deleted=False
+                    teacher=user
                 ).exists()
                 co_batches = Batch.objects.filter(
-                    co_teachers=user, is_deleted=False
+                    co_teachers=user
                 ).exists()
                 
                 if primary_batches or co_batches:
