@@ -169,6 +169,19 @@ export const courseModuleApi = {
     return response.data;
   },
 
+  // --- ATTACHMENTS ---
+  addAttachment: async (courseId: string | number, weekId: string | number, questionId: string | number, formData: FormData) => {
+    const response = await apiClient.post<ApiResponse<any>>(`/api/courses/v1/courses/${courseId}/weeks/${weekId}/test/questions/${questionId}/attachments/`, formData, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+    });
+    return response.data;
+  },
+
+  deleteAttachment: async (courseId: string | number, weekId: string | number, questionId: string | number, attachmentId: string | number) => {
+    const response = await apiClient.delete<ApiResponse<null>>(`/api/courses/v1/courses/${courseId}/weeks/${weekId}/test/questions/${questionId}/attachments/${attachmentId}/`);
+    return response.data;
+  },
+
   // --- MULTIPART UPLOADS ---
   initMultipartUpload: async (filename: string, file_type: string, file_size: number) => {
     const response = await apiClient.post<ApiResponse<any>>(`/api/courses/v1/courses/upload/init/`, {

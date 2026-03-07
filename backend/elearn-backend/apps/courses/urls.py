@@ -21,6 +21,8 @@ from apps.courses.views import (
     WeeklyTestView,
     WeeklyTestQuestionListCreateView,
     WeeklyTestQuestionDetailView,
+    WeeklyTestQuestionAttachmentView,
+    WeeklyTestQuestionAttachmentDetailView,
     BatchWeekListView,
     BatchWeekDetailView,
     BatchClassSessionListCreateView,
@@ -63,6 +65,8 @@ urlpatterns = [
     path("courses/<int:course_id>/weeks/<int:week_id>/test/", WeeklyTestView.as_view(), name="weekly-test"),
     path("courses/<int:course_id>/weeks/<int:week_id>/test/questions/", WeeklyTestQuestionListCreateView.as_view(), name="weekly-test-question-list-create"),
     path("courses/<int:course_id>/weeks/<int:week_id>/test/questions/<int:question_id>/", WeeklyTestQuestionDetailView.as_view(), name="weekly-test-question-detail"),
+    path("courses/<int:course_id>/weeks/<int:week_id>/test/questions/<int:question_id>/attachments/", WeeklyTestQuestionAttachmentView.as_view(), name="weekly-test-question-attachments"),
+    path("courses/<int:course_id>/weeks/<int:week_id>/test/questions/<int:question_id>/attachments/<int:attachment_id>/", WeeklyTestQuestionAttachmentDetailView.as_view(), name="weekly-test-question-attachment-detail"),
 
     # Batches
     path("batches/summary/", BatchSummaryView.as_view(), name="batch-summary"),

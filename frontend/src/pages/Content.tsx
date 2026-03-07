@@ -52,27 +52,30 @@ import {
   CheckCircle,
   BookOpen,
   Loader2,
+  X,
 } from 'lucide-react';
 import { courseModuleApi, CourseWeek } from '@/lib/course-module-api';
 import { useToast } from '@/hooks/use-toast';
 import axios from 'axios';
 import getBlobDuration from 'get-blob-duration';
 import { ImageCropperModal } from '@/components/ImageCropperModal';
+import { WeeklyTestManager } from '@/components/WeeklyTestManager';
 
 export default function Content() {
   const { courseId } = useParams<{ courseId: string }>();
   const navigate = useNavigate();
   const { toast } = useToast();
-  const [searchQuery, setSearchQuery] = useState('');
   
   // Modals state
   const [isUploadOpen, setIsUploadOpen] = useState(false);
   const [isTestOpen, setIsTestOpen] = useState(false);
   const [isWeekOpen, setIsWeekOpen] = useState(false);
-  const [testType, setTestType] = useState<'text' | 'ipynb'>('text');
+  // Track which week's test panel is open
+  const [testWeek, setTestWeek] = useState<CourseWeek | null>(null);
 
   // Backend state
   const [weeks, setWeeks] = useState<CourseWeek[]>([]);
+
   const [isLoading, setIsLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<string>('');
   
@@ -149,11 +152,6 @@ export default function Content() {
     setImagePreview(url);
     setCropperSrc(null);
   };
-
-  // Test setup state
-  const [testTitle, setTestTitle] = useState('Weekly Assessment');
-  const [testInstructions, setTestInstructions] = useState('');
-  const [answerKeyFile, setAnswerKeyFile] = useState<File | null>(null);
 
   const fetchWeeks = async () => {
     if (!courseId) return;
@@ -520,34 +518,12 @@ export default function Content() {
     }
   };
 
-  const handleCreateTest = async () => {
-    if (!testTitle.trim() || !activeTab || !courseId) {
-      toast({ title: 'Validation Error', description: 'Please fill in test title.', variant: 'destructive' });
-      return;
-    }
 
-    try {
-      const formData = new FormData();
-      formData.append('title', testTitle);
-      formData.append('instructions', testInstructions);
-      formData.append('pass_percentage', '70');
-      if (answerKeyFile) {
-        formData.append('answer_key', answerKeyFile);
-      }
-
-      const res = await courseModuleApi.createTest(courseId, activeTab, formData);
-      if (res.success) {
-        toast({ title: 'Success', description: 'Test created successfully', variant: 'success' });
-        setIsTestOpen(false);
-        fetchWeeks(); // to bring in the new test details
-        setTestTitle('Weekly Assessment');
-        setTestInstructions('');
-        setAnswerKeyFile(null);
-      }
-    } catch (error: any) {
-      toast({ title: 'Error creating test', description: error?.response?.data?.message || 'A network error occurred', variant: 'destructive' });
-    }
+  const handleOpenTestManager = (week: CourseWeek) => {
+    setTestWeek(week);
+    setIsTestOpen(true);
   };
+
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const VideoCard = ({ video }: { video: any }) => (
@@ -662,20 +638,9 @@ export default function Content() {
           </div>
         </div>
 
-        {/* Global Search & Filter */}
-        <div className="flex flex-col gap-4 sm:flex-row sm:items-center">
-          <div className="relative flex-1">
-            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-            <Input
-              placeholder="Search videos and tests..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="pl-10"
-            />
-          </div>
-        </div>
 
-        {/* Content Tabs for Weeks */}
+
+        {/* ── Tabbed View ───────────────── */}
         <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
           <TabsList className="bg-muted/50 w-full justify-start overflow-x-auto">
             {weeks.map(week => (
@@ -694,9 +659,9 @@ export default function Content() {
                   <p className="text-muted-foreground text-sm">{week.description}</p>
                 </div>
                 <div className="flex gap-2">
-                  <Button variant="outline" size="sm" onClick={() => setIsTestOpen(true)}>
+                  <Button variant="outline" size="sm" onClick={() => handleOpenTestManager(week)}>
                     <FileText className="h-4 w-4 mr-2" />
-                    {week.weekly_test ? 'Edit Test' : 'Add Weekly Test'}
+                    {week.weekly_test ? 'Edit Assessment' : 'Add Weekly Test'}
                   </Button>
                   <Button variant="outline" size="icon" onClick={() => handleOpenEditWeek(week)}>
                     <Edit className="h-4 w-4" />
@@ -728,7 +693,7 @@ export default function Content() {
                 </div>
               )}
 
-              {/* Weekly Test Display Card */}
+              {/* Weekly Assessment Display Card */}
               <div className="mt-8 pt-8 border-t border-foreground/10">
                 <h3 className="text-lg font-semibold mb-4">Weekly Assessment</h3>
                 {week.weekly_test ? (
@@ -740,26 +705,31 @@ export default function Content() {
                         </div>
                         <div>
                           <CardTitle className="text-lg">{week.weekly_test.title}</CardTitle>
-                          <CardDescription>{week.weekly_test.questions?.length || 0} Questions</CardDescription>
+                          <CardDescription>
+                            {week.weekly_test.questions?.length || 0} Question{(week.weekly_test.questions?.length || 0) !== 1 ? 's' : ''}
+                            {' · '}{week.weekly_test.pass_percentage ?? 70}% pass mark
+                          </CardDescription>
                         </div>
                       </div>
                       <div className="flex gap-2">
-                        <Button variant="ghost" size="icon" onClick={() => setIsTestOpen(true)}><Edit className="h-4 w-4 text-primary" /></Button>
-                        <Button variant="ghost" size="icon" className="text-destructive"><Trash2 className="h-4 w-4" /></Button>
+                        <Button variant="outline" size="sm" onClick={() => handleOpenTestManager(week)}>
+                          <Edit className="h-3.5 w-3.5 mr-1.5" />
+                          Manage
+                        </Button>
                       </div>
                     </CardHeader>
                     <CardContent>
-                      <p className="text-sm text-foreground/80 mt-2">
-                        This test will be automatically unlocked when students complete the preceding videos for the week.
-                      </p>
+                      {week.weekly_test.instructions && (
+                        <p className="text-sm text-foreground/70 mt-1 line-clamp-2">{week.weekly_test.instructions}</p>
+                      )}
                     </CardContent>
                   </Card>
                 ) : (
                   <div className="border-2 border-dashed border-foreground/20 rounded-xl p-8 text-center bg-muted/20">
                     <FileText className="h-10 w-10 text-muted-foreground mx-auto mb-3" />
                     <h4 className="font-medium text-foreground mb-1">No Assessment Configured</h4>
-                    <p className="text-sm text-muted-foreground mb-4">Add a weekly test that students must pass to proceed to the next week.</p>
-                    <Button variant="outline" onClick={() => setIsTestOpen(true)}>
+                    <p className="text-sm text-muted-foreground mb-4">Add a weekly test that students must complete.</p>
+                    <Button variant="outline" onClick={() => handleOpenTestManager(week)}>
                       <Plus className="h-4 w-4 mr-2" />
                       Add Weekly Test
                     </Button>
@@ -1108,132 +1078,18 @@ export default function Content() {
         </DialogContent>
       </Dialog>
 
-      {/* Weekly Test Modal */}
-      <Dialog open={isTestOpen} onOpenChange={setIsTestOpen}>
-        <DialogContent className="sm:max-w-2xl max-h-[90vh] overflow-y-auto" onOpenAutoFocus={(e) => e.preventDefault()}>
-          <DialogHeader>
-            <DialogTitle>Weekly Test Configuration</DialogTitle>
-            <DialogDescription>Create a test that students must pass completing this week's content.</DialogDescription>
-          </DialogHeader>
-          
-          <div className="space-y-6 py-4">
-            <div className="space-y-2">
-              <Label>Test Title <span className="text-destructive">*</span></Label>
-              <Input 
-                value={testTitle} 
-                onChange={e => setTestTitle(e.target.value)} 
-                placeholder="Week Assessment" 
-              />
-            </div>
-            
-            <div className="space-y-2">
-              <Label>Instructions</Label>
-              <Textarea 
-                value={testInstructions} 
-                onChange={e => setTestInstructions(e.target.value)} 
-                placeholder="Optional instructions for students..." 
-              />
-            </div>
-
-            <div className="space-y-2 pt-2">
-              <Label>Answer Key <span className="text-muted-foreground font-normal text-xs ml-2">(PDF or .ipynb for evaluation purposes)</span></Label>
-              <Input 
-                type="file" 
-                accept=".pdf,.ipynb,.doc,.docx" 
-                onChange={e => {
-                  if (e.target.files && e.target.files.length > 0) {
-                    setAnswerKeyFile(e.target.files[0]);
-                  } else {
-                    setAnswerKeyFile(null);
-                  }
-                }} 
-              />
-            </div>
-
-            <div className="space-y-3">
-              <Label>Question Format</Label>
-              <div className="flex gap-2 p-1 bg-muted rounded-lg w-max">
-                <Button 
-                  variant={testType === 'text' ? 'default' : 'ghost'} 
-                  size="sm" 
-                  onClick={() => setTestType('text')}
-                  className="rounded-md"
-                >
-                  <FileText className="h-4 w-4 mr-2" />
-                  Text Questions
-                </Button>
-                <Button 
-                  variant={testType === 'ipynb' ? 'default' : 'ghost'} 
-                  size="sm" 
-                  onClick={() => setTestType('ipynb')}
-                  className="rounded-md"
-                >
-                  <Upload className="h-4 w-4 mr-2" />
-                  Upload .ipynb File
-                </Button>
-              </div>
-            </div>
-
-            {testType === 'ipynb' ? (
-              <div className="space-y-4">
-                <div className="border-2 border-dashed border-foreground/20 rounded-lg p-10 text-center hover:border-primary/50 transition-colors cursor-pointer bg-muted/10">
-                  <FileText className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
-                  <p className="text-sm font-medium text-foreground mb-1">
-                    Upload Jupyter Notebook (.ipynb)
-                  </p>
-                  <p className="text-xs text-muted-foreground max-w-sm mx-auto">
-                    The notebook text and cells will be converted to test questions. Upload your file to preview.
-                  </p>
-                </div>
-              </div>
-            ) : (
-              <div className="space-y-6 border rounded-xl overflow-hidden shadow-sm">
-                <div className="bg-muted p-3 border-b flex justify-between items-center">
-                  <h4 className="font-semibold text-sm">Question 1</h4>
-                  <Button variant="ghost" size="sm" className="h-8 w-8 p-0 text-destructive"><Trash2 className="h-4 w-4" /></Button>
-                </div>
-                <div className="p-4 space-y-4">
-                  <div className="space-y-2">
-                    <Label className="flex justify-between">
-                      <span>Question Text</span>
-                      <Button variant="ghost" size="sm" className="h-auto p-0 text-xs text-primary flex items-center h-5">
-                        <ImageIcon className="h-3 w-3 mr-1" />
-                        Add Image / Chart
-                      </Button>
-                    </Label>
-                    <Textarea placeholder="Type your question here..." />
-                  </div>
-                  
-                  {/* Options */}
-                  <div className="space-y-3 pt-2">
-                    <Label className="text-sm">Multiple Choice Options</Label>
-                    {[1, 2, 3, 4].map(idx => (
-                      <div key={idx} className="flex items-center gap-3">
-                        <input type="radio" name="q1_correct" className="mt-1" />
-                        <Input placeholder={`Option ${idx}`} className="h-9 flex-1" />
-                      </div>
-                    ))}
-                  </div>
-                </div>
-                <div className="bg-muted/30 p-3 border-t">
-                  <Button variant="outline" size="sm" className="w-full border-dashed">
-                    <Plus className="h-4 w-4 mr-2" />
-                    Add Another Question
-                  </Button>
-                </div>
-              </div>
-            )}
-          </div>
-          
-          <div className="flex justify-between items-center pt-2">
-            <span className="text-xs text-muted-foreground">Tests with questions auto-unlock after videos</span>
-            <div className="flex gap-2">
-              <Button variant="outline" onClick={() => setIsTestOpen(false)}>Cancel</Button>
-              <Button variant="gradient" onClick={handleCreateTest}>Save Assessment</Button>
-            </div>
-          </div>
-        </DialogContent>
-      </Dialog>
+      {/* Weekly Test Manager */}
+      {testWeek && courseId && (
+        <WeeklyTestManager
+          open={isTestOpen}
+          onClose={() => { setIsTestOpen(false); setTestWeek(null); }}
+          existingTest={testWeek.weekly_test ?? null}
+          weekLabel={`Week ${testWeek.week_number}: ${testWeek.title}`}
+          testApiBase={`/api/courses/v1/courses/${courseId}/weeks/${testWeek.id}/test`}
+          onSaved={fetchWeeks}
+          onDeleted={() => { setIsTestOpen(false); setTestWeek(null); fetchWeeks(); }}
+        />
+      )}
       
       {/* Delete Week Confirmation */}
       <AlertDialog open={deleteWeekId !== null} onOpenChange={(open) => !open && setDeleteWeekId(null)}>

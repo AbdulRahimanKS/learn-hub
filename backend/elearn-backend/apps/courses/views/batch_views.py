@@ -406,12 +406,14 @@ class BatchAddStudentView(APIView):
                     status_code=status.HTTP_400_BAD_REQUEST
                 )
 
-            serializer = BatchEnrollmentSerializer(data=request.data)
-            if not serializer.is_valid():
-                error_str = handle_serializer_errors(serializer)
-                raise ServiceError(detail=error_str, status_code=status.HTTP_400_BAD_REQUEST)
+            student_id = request.data.get('student')
+            if not student_id:
+                raise ServiceError(detail="Student ID is required.", status_code=status.HTTP_400_BAD_REQUEST)
 
-            student = serializer.validated_data['student']
+            try:
+                student = User.objects.get(id=student_id)
+            except User.DoesNotExist:
+                raise ServiceError(detail="Student not found.", status_code=status.HTTP_404_NOT_FOUND)
 
             if BatchEnrollment.objects.filter(batch=batch, student=student).exists():
                 raise ServiceError(
@@ -433,10 +435,8 @@ class BatchAddStudentView(APIView):
             enrollment = BatchEnrollment.objects.create(
                 batch=batch,
                 student=student,
-                status=serializer.validated_data.get('status', BatchEnrollment.Status.ACTIVE),
-                notes=serializer.validated_data.get('notes', ''),
-                fee_paid=serializer.validated_data.get('fee_paid', False),
-                fee_amount=serializer.validated_data.get('fee_amount', None),
+                status=request.data.get('status', BatchEnrollment.Status.ACTIVE),
+                notes=request.data.get('notes', ''),
                 enrolled_by=user,
             )
 

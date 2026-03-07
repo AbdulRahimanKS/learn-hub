@@ -255,12 +255,17 @@ export default function AdminBatchStudents() {
           </Card>
           <Card className="shadow-card">
             <CardContent className="p-4 flex items-center gap-4">
-                <div className="h-10 w-10 rounded-full bg-success/10 flex items-center justify-center">
-                    <CheckCircle2 className="h-5 w-5 text-success" />
+                <div className={cn(
+                  "h-10 w-10 rounded-full flex items-center justify-center",
+                  batch?.status === 'ACTIVE' ? "bg-success/10 text-success" : "bg-primary/10 text-primary"
+                )}>
+                    {batch?.status === 'ACTIVE' ? <CheckCircle2 className="h-5 w-5" /> : <Trophy className="h-5 w-5" />}
                 </div>
                 <div>
                     <p className="text-sm text-muted-foreground">Status</p>
-                    <p className="text-xl font-bold">{batch?.is_active ? 'Active' : 'Inactive'}</p>
+                    <p className="text-xl font-bold capitalize">
+                      {batch?.status ? batch.status.toLowerCase() : 'Loading...'}
+                    </p>
                 </div>
             </CardContent>
           </Card>

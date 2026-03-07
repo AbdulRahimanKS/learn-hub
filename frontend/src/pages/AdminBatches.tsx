@@ -51,7 +51,7 @@ import {
   X,
   Check,
   LayoutGrid,
-  CloudDownload,
+  Copy,
 } from 'lucide-react';
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
@@ -278,6 +278,25 @@ export default function AdminBatches() {
   useEffect(() => {
     fetchAsyncTeachers(coTeacherPage, debouncedCoTeacherSearch);
   }, [coTeacherPage, debouncedCoTeacherSearch, fetchAsyncTeachers]);
+
+  // Clone Content Modal: Auto-populate matching source
+  useEffect(() => {
+    if (isPushModalOpen && pushTargetBatchId) {
+      const targetBatch = batches.find(b => b.id === pushTargetBatchId);
+      if (targetBatch) {
+        if (pushSourceType === 'course') {
+          const match = courses.find(c => c.id === targetBatch.course);
+          if (match && pushSourceId !== match.id) setPushSourceId(match.id);
+        } else if (pushSourceType === 'batch') {
+          // If we want to auto-populate the first matching batch as well:
+          const matchingBatches = batches.filter(b => b.id !== pushTargetBatchId && b.course === targetBatch.course);
+          if (matchingBatches.length === 1 && pushSourceId !== matchingBatches[0].id) {
+            setPushSourceId(matchingBatches[0].id);
+          }
+        }
+      }
+    }
+  }, [isPushModalOpen, pushTargetBatchId, pushSourceType, courses, batches, pushSourceId]);
 
   // ──────────────────────────────────────────────
   // Validation
@@ -616,11 +635,11 @@ export default function AdminBatches() {
                     {/* Right: Icon actions */}
                     <div className="flex items-center gap-0.5">
                       <button
-                        title="Push Content"
+                        title="Clone Content"
                         onClick={() => { setPushTargetBatchId(batch.id); setIsPushModalOpen(true); }}
                         className="h-8 w-8 inline-flex items-center justify-center rounded-md text-muted-foreground hover:text-primary hover:bg-primary/10 transition-colors"
                       >
-                        <CloudDownload className="h-4 w-4" />
+                        <Copy className="h-4 w-4" />
                       </button>
                       <button
                         title="Edit Batch"
@@ -1032,7 +1051,7 @@ export default function AdminBatches() {
       <Dialog open={isPushModalOpen} onOpenChange={setIsPushModalOpen}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
-            <DialogTitle>Push Content to Batch</DialogTitle>
+            <DialogTitle>Clone Content to Batch</DialogTitle>
             <DialogDescription>
               Select a source course or batch to clone content from. This will copy all weeks, sessions, and tests.
             </DialogDescription>
@@ -1060,7 +1079,9 @@ export default function AdminBatches() {
                 </SelectTrigger>
                 <SelectContent>
                   {pushSourceType === 'course' ? (
-                    courses.map(c => <SelectItem key={c.id} value={c.id.toString()}>{c.title}</SelectItem>)
+                    courses
+                      .filter(c => c.id === batches.find(b => b.id === pushTargetBatchId)?.course)
+                      .map(c => <SelectItem key={c.id} value={c.id.toString()}>{c.title}</SelectItem>)
                   ) : (
                     batches
                       .filter(b => b.id !== pushTargetBatchId && b.course === batches.find(t => t.id === pushTargetBatchId)?.course)
@@ -1081,8 +1102,8 @@ export default function AdminBatches() {
           <div className="flex justify-end gap-3 pt-4 border-t">
             <Button variant="ghost" onClick={() => setIsPushModalOpen(false)} disabled={isPushing}>Cancel</Button>
             <Button variant="gradient" onClick={handlePushContent} disabled={isPushing || !pushSourceId}>
-              {isPushing ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <CloudDownload className="h-4 w-4 mr-2" />}
-              Push Content
+              {isPushing ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Copy className="h-4 w-4 mr-2" />}
+              Clone Content
             </Button>
           </div>
         </DialogContent>

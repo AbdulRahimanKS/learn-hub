@@ -27,6 +27,8 @@ from .course_module_views import (
     WeeklyTestView,
     WeeklyTestQuestionListCreateView,
     WeeklyTestQuestionDetailView,
+    WeeklyTestQuestionAttachmentView,
+    WeeklyTestQuestionAttachmentDetailView,
 )
 
 from .batch_content_views import (
@@ -70,6 +72,8 @@ __all__ = [
     'WeeklyTestView',
     'WeeklyTestQuestionListCreateView',
     'WeeklyTestQuestionDetailView',
+    'WeeklyTestQuestionAttachmentView',
+    'WeeklyTestQuestionAttachmentDetailView',
     'BatchWeekListView',
     'BatchWeekDetailView',
     'BatchClassSessionListCreateView',

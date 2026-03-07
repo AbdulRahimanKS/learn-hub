@@ -111,7 +111,7 @@ class BatchEnrollmentSerializer(serializers.ModelSerializer):
         model = BatchEnrollment
         fields = [
             'id', 'batch', 'student', 'student_name', 'student_email',
-            'status', 'notes', 'fee_paid', 'fee_amount',
+            'status', 'notes',
             'enrolled_at', 'created_at',
             'overall_progress', 'weeks_completed', 'total_weeks',
             'weekly_tests_submitted', 'total_weekly_tests',

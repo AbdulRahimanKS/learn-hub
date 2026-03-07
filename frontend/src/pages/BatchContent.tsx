@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { DashboardLayout } from '@/components/layout/DashboardLayout';
+import { VideoPlayer } from '@/components/VideoPlayer';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -46,6 +47,7 @@ import {
 import { batchApi, batchContentApi, BatchWeek } from '@/lib/batch-api';
 import { useToast } from '@/hooks/use-toast';
 import { format } from 'date-fns';
+import { WeeklyTestManager } from '@/components/WeeklyTestManager';
 
 export default function BatchContent() {
   const { batchId } = useParams<{ batchId: string }>();
@@ -56,6 +58,7 @@ export default function BatchContent() {
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<string>('');
   const [batchName, setBatchName] = useState('');
+  const [playingVideoUrl, setPlayingVideoUrl] = useState<string | null>(null);
 
   // Edit Week Modal
   const [editWeek, setEditWeek] = useState<BatchWeek | null>(null);
@@ -87,14 +90,9 @@ export default function BatchContent() {
     thumbnail: null as File | null,
   });
 
-  // Test Modal
+  // Test Modal (now replaced by WeeklyTestManager)
   const [isTestModalOpen, setIsTestModalOpen] = useState(false);
-  const [isSavingTest, setIsSavingTest] = useState(false);
-  const [testForm, setTestForm] = useState({
-    title: '',
-    instructions: '',
-    pass_percentage: 70,
-  });
+  const [testWeek, setTestWeek] = useState<BatchWeek | null>(null);
 
   // Delete Alert
   const [deleteSessionId, setDeleteSessionId] = useState<number | null>(null);
@@ -119,6 +117,8 @@ export default function BatchContent() {
         setWeeks(res.data);
         if (res.data.length > 0 && !activeTab) {
           setActiveTab(res.data[0].id.toString());
+        } else if (res.data.length === 0 && !activeTab) {
+          setActiveTab('scheduled');
         }
       }
     } catch (error) {
@@ -275,37 +275,11 @@ export default function BatchContent() {
     }
   };
 
-  const handleOpenTestModal = () => {
-    if (weeklyTest) {
-      setTestForm({
-        title: weeklyTest.title,
-        instructions: weeklyTest.instructions || '',
-        pass_percentage: weeklyTest.pass_percentage,
-      });
-    } else {
-      setTestForm({
-        title: `Week ${weeks.find(w => w.id.toString() === activeTab)?.week_number} Test`,
-        instructions: '',
-        pass_percentage: 70,
-      });
-    }
+  const handleOpenTestManager = (week: BatchWeek) => {
+    setTestWeek(week);
     setIsTestModalOpen(true);
   };
 
-  const handleSaveTest = async () => {
-    if (!batchId || !activeTab) return;
-    setIsSavingTest(true);
-    try {
-      await batchContentApi.manageWeeklyTest(parseInt(batchId), parseInt(activeTab), testForm);
-      toast({ title: 'Success', description: 'Test configured successfully' });
-      setIsTestModalOpen(false);
-      fetchContent(parseInt(activeTab));
-    } catch (err) {
-      toast({ title: 'Error', description: 'Failed to save test settings', variant: 'destructive' });
-    } finally {
-      setIsSavingTest(false);
-    }
-  };
 
   return (
     <DashboardLayout>
@@ -333,15 +307,6 @@ export default function BatchContent() {
           <div className="flex items-center justify-center py-20">
             <Loader2 className="h-8 w-8 animate-spin text-primary" />
           </div>
-        ) : weeks.length === 0 ? (
-          <div className="text-center py-20 bg-muted/20 border-2 border-dashed rounded-xl">
-            <Settings className="h-12 w-12 mx-auto mb-4 opacity-30" />
-            <h3 className="text-lg font-medium">No content initialized</h3>
-            <p className="text-muted-foreground mb-6">Initialize this batch with a course template first.</p>
-            <Button variant="gradient" onClick={() => navigate('/batches')}>
-              Go to Batches
-            </Button>
-          </div>
         ) : (
           <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
             <TabsList className="bg-muted/50 w-full justify-start overflow-x-auto flex-nowrap">
@@ -350,47 +315,61 @@ export default function BatchContent() {
                   Week {week.week_number}
                 </TabsTrigger>
               ))}
+              <TabsTrigger value="scheduled" className="whitespace-nowrap px-6">
+                Scheduled
+              </TabsTrigger>
             </TabsList>
 
-            {weeks.map(week => (
-              <TabsContent key={week.id} value={week.id.toString()} className="space-y-6 mt-4">
-                <div className="flex flex-col md:flex-row gap-6">
-                  {/* Week info card */}
-                  <Card className="flex-1 shadow-card">
-                    <CardHeader className="flex flex-row items-center justify-between">
-                      <div>
-                        <CardTitle className="text-2xl font-bold">{week.title}</CardTitle>
-                        <CardDescription>{week.description || 'No description provided.'}</CardDescription>
-                      </div>
-                      <Button variant="outline" size="sm" onClick={() => handleOpenEdit(week)}>
-                        <Edit className="h-4 w-4 mr-2" />
-                        Edit Week
-                      </Button>
-                    </CardHeader>
-                    <CardContent className="space-y-4">
-                      <div className="grid grid-cols-2 gap-4">
-                        <div className="p-4 bg-muted/30 rounded-lg">
-                          <p className="text-xs text-muted-foreground uppercase font-semibold mb-1">Unlock Date</p>
-                          <div className="flex items-center gap-2">
-                            <Calendar className="h-4 w-4 text-primary" />
-                            <span className="font-medium">
-                              {week.unlock_date ? format(new Date(week.unlock_date), 'PPP') : 'Not Set'}
-                            </span>
+            {weeks.length === 0 && activeTab !== 'scheduled' ? (
+              <div className="text-center py-20 bg-muted/20 border-2 border-dashed rounded-xl">
+                <Settings className="h-12 w-12 mx-auto mb-4 opacity-30" />
+                <h3 className="text-lg font-medium">No weeks initialized</h3>
+                <p className="text-muted-foreground mb-6">This batch doesn't have any weekly content yet. Check the Scheduled tab for upcoming events.</p>
+                <Button variant="gradient" onClick={() => navigate('/batches')}>
+                  Go to Batches
+                </Button>
+              </div>
+            ) : (
+              weeks.map(week => (
+                <TabsContent key={week.id} value={week.id.toString()} className="space-y-6 mt-4">
+                  <div className="flex flex-col md:flex-row gap-6">
+                    {/* Week info card */}
+                    <Card className="flex-1 shadow-card">
+                      <CardHeader className="flex flex-row items-center justify-between">
+                        <div>
+                          <CardTitle className="text-2xl font-bold">{week.title}</CardTitle>
+                          <CardDescription>{week.description || 'No description provided.'}</CardDescription>
+                        </div>
+                        <Button variant="outline" size="sm" onClick={() => handleOpenEdit(week)}>
+                          <Edit className="h-4 w-4 mr-2" />
+                          Edit Week
+                        </Button>
+                      </CardHeader>
+                      <CardContent className="space-y-4">
+                        <div className="grid grid-cols-2 gap-4">
+                          <div className="p-4 bg-muted/30 rounded-lg">
+                            <p className="text-xs text-muted-foreground uppercase font-semibold mb-1">Unlock Date</p>
+                            <div className="flex items-center gap-2">
+                              <Calendar className="h-4 w-4 text-primary" />
+                              <span className="font-medium">
+                                {week.unlock_date ? format(new Date(week.unlock_date), 'PPP') : 'Not Set'}
+                              </span>
+                            </div>
+                          </div>
+                          <div className="p-4 bg-muted/30 rounded-lg">
+                            <p className="text-xs text-muted-foreground uppercase font-semibold mb-1">Status</p>
+                            <Badge variant={week.is_unlocked ? "outline" : "secondary"}>
+                              {week.is_unlocked ? 'Unlocked' : 'Scheduled'}
+                            </Badge>
                           </div>
                         </div>
-                        <div className="p-4 bg-muted/30 rounded-lg">
-                          <p className="text-xs text-muted-foreground uppercase font-semibold mb-1">Status</p>
-                          <Badge variant={week.is_unlocked ? "outline" : "secondary"}>
-                            {week.is_unlocked ? 'Unlocked' : 'Scheduled'}
-                          </Badge>
-                        </div>
-                      </div>
-                    </CardContent>
-                  </Card>
-                </div>
+                      </CardContent>
+                    </Card>
+                  </div>
 
-                <div className="pt-4 border-t">
-                   <div className="flex items-center justify-between mb-6">
+                  {/* Class Sessions Section */}
+                  <div className="pt-4 border-t">
+                    <div className="flex items-center justify-between mb-6">
                       <div className="flex items-center gap-2">
                         <Play className="h-5 w-5 text-primary" />
                         <h3 className="text-xl font-bold">Class Sessions</h3>
@@ -399,16 +378,16 @@ export default function BatchContent() {
                         <Plus className="h-4 w-4 mr-2" />
                         Add Session
                       </Button>
-                   </div>
-                   
-                   {loadingContent ? (
+                    </div>
+                    
+                    {loadingContent ? (
                       <div className="flex justify-center py-10"><Loader2 className="h-6 w-6 animate-spin" /></div>
-                   ) : sessions.length === 0 ? (
+                    ) : sessions.length === 0 ? (
                       <div className="text-center py-10 bg-muted/20 border border-dashed rounded-lg">
                         <p className="text-muted-foreground">No sessions in this week yet.</p>
                       </div>
-                   ) : (
-                      <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
+                    ) : (
+                      <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
                         {[...sessions]
                           .sort((a, b) => {
                             const days: Record<string, number> = { monday: 1, tuesday: 2, wednesday: 3, thursday: 4, friday: 5, saturday: 6, sunday: 7 };
@@ -418,61 +397,89 @@ export default function BatchContent() {
                             return (a.session_number || 0) - (b.session_number || 0);
                           })
                           .map((session) => (
-                          <Card key={session.id} className="overflow-hidden group hover:shadow-md transition-shadow flex flex-col h-full">
-                            <div className="aspect-video bg-muted relative flex items-center justify-center flex-shrink-0">
+                          <Card key={session.id} className="shadow-card overflow-hidden group hover:shadow-lg transition-all duration-300 flex flex-col h-full">
+                            <div className="relative aspect-video">
                               {session.thumbnail ? (
-                                <img src={session.thumbnail} alt={session.title} className="w-full h-full object-cover" />
+                                <img src={session.thumbnail} alt={session.title} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" />
                               ) : (
-                                <Play className="h-10 w-10 text-muted-foreground/30" />
+                                <div className="w-full h-full bg-muted flex items-center justify-center group-hover:scale-105 transition-transform duration-300">
+                                  <ImageIcon className="h-12 w-12 text-muted-foreground/50" />
+                                </div>
                               )}
-                              <div className="absolute top-2 right-2 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                                <Button size="icon" variant="secondary" className="h-8 w-8" onClick={() => handleOpenSessionModal(session)}>
-                                  <Edit className="h-3 w-3" />
-                                </Button>
-                                <Button size="icon" variant="destructive" className="h-8 w-8" onClick={() => setDeleteSessionId(session.id)}>
-                                  <Trash2 className="h-3 w-3" />
-                                </Button>
-                              </div>
-                              <div className="absolute bottom-2 left-2 flex gap-1">
-                                <Badge variant="secondary" className="bg-black/50 text-white backdrop-blur-sm border-0 font-mono">
+                              <div className="absolute inset-0 bg-gradient-to-t from-foreground/80 via-transparent to-transparent" />
+                              
+                              <button 
+                                className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 p-4 rounded-full bg-primary text-primary-foreground opacity-0 group-hover:opacity-100 transition-opacity shadow-lg"
+                                onClick={() => {
+                                  if (session.video_url) {
+                                    setPlayingVideoUrl(session.video_url);
+                                  } else {
+                                    toast({ title: 'Video Unavailable', description: 'This video cannot be played directly at this time.', variant: 'destructive' });
+                                  }
+                                }}
+                              >
+                                <Play className="h-6 w-6 fill-current ml-1" />
+                              </button>
+                              
+                              <div className="absolute bottom-3 left-3 right-3 flex items-end justify-between">
+                                <Badge variant="secondary" className="bg-foreground/80 text-background flex items-center">
+                                  <Clock className="h-3 w-3 mr-1" />
                                   S{session.session_number}
                                 </Badge>
                                 {session.weekday && (
-                                  <Badge variant="outline" className="bg-black/50 text-white backdrop-blur-sm border-0 capitalize text-xs">
+                                  <Badge variant="outline" className="bg-background/80 backdrop-blur-md shadow-sm border-primary/20 capitalize font-medium text-xs">
                                     {session.weekday}
                                   </Badge>
                                 )}
                               </div>
                             </div>
-                            <CardHeader className="p-4 flex-1">
-                              <CardTitle className="text-sm font-semibold truncate leading-tight">{session.title}</CardTitle>
-                              <CardDescription className="text-xs line-clamp-2 mt-1">{session.description || 'No description'}</CardDescription>
-                            </CardHeader>
+                            <CardContent className="p-4 flex flex-col justify-between flex-1">
+                              <div>
+                                <h3 className="font-semibold text-foreground line-clamp-1">{session.title}</h3>
+                                <p className="text-sm text-muted-foreground mt-1 line-clamp-2">{session.description || 'No description'}</p>
+                              </div>
+
+                              <div className="flex items-center justify-end mt-4">
+                                <div className="flex gap-1">
+                                  <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => handleOpenSessionModal(session)} disabled={!week.can_modify_content}>
+                                    <Edit className="h-4 w-4" />
+                                  </Button>
+                                  <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive" onClick={() => setDeleteSessionId(session.id)} disabled={!week.can_modify_content}>
+                                    <Trash2 className="h-4 w-4" />
+                                  </Button>
+                                </div>
+                              </div>
+                            </CardContent>
                           </Card>
                         ))}
                       </div>
-                   )}
-                </div>
+                    )}
+                  </div>
 
-                <div className="pt-8 mt-4 border-t">
-                   <div className="flex items-center justify-between mb-6">
+                  {/* Weekly Test Section */}
+                  <div className="pt-8 mt-4 border-t">
+                    <div className="flex items-center justify-between mb-6">
                       <div className="flex items-center gap-2">
                         <FileText className="h-5 w-5 text-primary" />
                         <h3 className="text-xl font-bold">Weekly Test</h3>
                       </div>
-                      <Button variant="outline" size="sm" onClick={handleOpenTestModal} disabled={!week.can_modify_content}>
-                        {weeklyTest ? <Settings className="h-4 w-4 mr-2" /> : <Plus className="h-4 w-4 mr-2" />}
-                        {weeklyTest ? 'Test Settings' : 'Add Test'}
-                      </Button>
-                   </div>
-                   
-                   {loadingContent ? (
+                      <Button variant="outline" size="sm" onClick={() => handleOpenTestManager(week)} disabled={!week.can_modify_content}>
+                         {weeklyTest ? <Settings className="h-4 w-4 mr-2" /> : <Plus className="h-4 w-4 mr-2" />}
+                         {weeklyTest ? 'Manage Assessment' : 'Add Test'}
+                       </Button>
+                    </div>
+                    
+                    {loadingContent ? (
                       <div className="flex justify-center py-10"><Loader2 className="h-6 w-6 animate-spin" /></div>
-                   ) : !weeklyTest ? (
+                    ) : !weeklyTest ? (
                       <div className="text-center py-10 bg-muted/20 border border-dashed rounded-lg">
-                        <p className="text-muted-foreground">No test configured for this week.</p>
+                        <FileText className="h-10 w-10 text-muted-foreground/40 mx-auto mb-3" />
+                        <p className="text-sm text-muted-foreground mb-4">No test configured for this week.</p>
+                        <Button variant="outline" size="sm" onClick={() => handleOpenTestManager(week)} disabled={!week.can_modify_content}>
+                          <Plus className="h-4 w-4 mr-2" />Add Test
+                        </Button>
                       </div>
-                   ) : (
+                    ) : (
                       <Card className="bg-primary/5 border-primary/10 shadow-none">
                         <CardHeader className="pb-2">
                           <CardTitle className="text-lg flex items-center gap-2">
@@ -480,22 +487,121 @@ export default function BatchContent() {
                             <Badge variant="outline" className="text-[10px] ml-2">REQUIRED</Badge>
                           </CardTitle>
                           <CardDescription className="text-xs">
-                            Passing score: {weeklyTest.pass_percentage}% | Questions: {weeklyTest.questions?.length || 0}
+                            Passing score: {weeklyTest.pass_percentage}% &middot; {weeklyTest.questions?.length || 0} question{(weeklyTest.questions?.length || 0) !== 1 ? 's' : ''}
                           </CardDescription>
                         </CardHeader>
                         <CardContent className="flex gap-3 pt-2">
-                           <Button variant="outline" size="sm" className="bg-background" onClick={() => navigate(`/admin/batches/${batchId}/content/weeks/${activeTab}/test`)}>
-                              Manage Questions
-                           </Button>
-                           <Button variant="ghost" size="sm" className="text-destructive hover:text-destructive hover:bg-destructive/10" onClick={() => {/* Handle delete test */}} disabled={!week.can_modify_content}>
-                              Remove Test
+                           <Button variant="outline" size="sm" className="bg-background" onClick={() => handleOpenTestManager(week)} disabled={!week.can_modify_content}>
+                              <Edit className="h-4 w-4 mr-1.5" />
+                              Manage Assessment
                            </Button>
                         </CardContent>
                       </Card>
-                   )}
+                    )}
+                  </div>
+                </TabsContent>
+              ))
+            )}
+
+            {/* Scheduled Webinars Tab - always visible */}
+            <TabsContent value="scheduled" className="space-y-6 mt-4">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h2 className="text-xl font-bold text-foreground">Scheduled Webinars</h2>
+                  <p className="text-muted-foreground text-sm mt-1">Upcoming recorded sessions and special webinars for this batch</p>
                 </div>
-              </TabsContent>
-            ))}
+                <Button variant="gradient" size="sm">
+                  <Plus className="h-4 w-4 mr-2" />
+                  Schedule Webinar
+                </Button>
+              </div>
+
+              {/* Dummy scheduled webinar cards */}
+              <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+                {[
+                  {
+                    id: 1,
+                    title: 'Advanced Python Webinar',
+                    description: 'Special session on advanced topics',
+                    scheduledAt: 'Feb 5, 2028 at 2:00 PM',
+                    duration: '90:00',
+                    thumbnail: null,
+                  },
+                  {
+                    id: 2,
+                    title: 'Data Structures Deep Dive',
+                    description: 'In-depth walkthrough of arrays, trees, and graphs',
+                    scheduledAt: 'Feb 12, 2028 at 4:00 PM',
+                    duration: '75:00',
+                    thumbnail: null,
+                  },
+                  {
+                    id: 3,
+                    title: 'System Design Q&A',
+                    description: 'Live Q&A session covering design patterns',
+                    scheduledAt: 'Feb 19, 2028 at 11:00 AM',
+                    duration: '60:00',
+                    thumbnail: null,
+                  },
+                ].map((webinar) => (
+                  <Card key={webinar.id} className="shadow-card overflow-hidden group hover:shadow-lg transition-all duration-300 flex flex-col h-full">
+                    <div className="relative aspect-video">
+                      {webinar.thumbnail ? (
+                        <img src={webinar.thumbnail} alt={webinar.title} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" />
+                      ) : (
+                        <div className="w-full h-full bg-muted flex items-center justify-center group-hover:scale-105 transition-transform duration-300">
+                           <ImageIcon className="h-12 w-12 text-muted-foreground/50" />
+                        </div>
+                      )}
+                      <div className="absolute inset-0 bg-gradient-to-t from-foreground/80 via-transparent to-transparent" />
+                      
+                      {/* Play overlay matching Content.tsx */}
+                      <button 
+                        className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 p-4 rounded-full bg-primary text-primary-foreground opacity-0 group-hover:opacity-100 transition-opacity shadow-lg"
+                        onClick={() => {
+                           toast({ title: 'Upcoming Webinar', description: 'This webinar is scheduled for ' + webinar.scheduledAt });
+                        }}
+                      >
+                        <Play className="h-6 w-6 fill-current ml-1" />
+                      </button>
+
+                      {/* Bottom badges */}
+                      <div className="absolute bottom-3 left-3 right-3 flex items-end justify-between">
+                        <Badge variant="secondary" className="bg-foreground/80 text-background flex items-center">
+                          <Clock className="h-3 w-3 mr-1" />
+                          {webinar.duration}
+                        </Badge>
+                        <Badge className="bg-orange-500 hover:bg-orange-500 text-white border-0 text-[10px] font-bold uppercase tracking-wider">
+                          Scheduled
+                        </Badge>
+                      </div>
+                    </div>
+
+                    <CardContent className="p-4 flex flex-col justify-between flex-1">
+                      <div>
+                        <h3 className="font-semibold text-foreground line-clamp-1">{webinar.title}</h3>
+                        <p className="text-sm text-muted-foreground mt-1 line-clamp-2">{webinar.description}</p>
+                        <div className="flex items-center gap-1.5 mt-2">
+                          <Calendar className="h-3.5 w-3.5 text-orange-500" />
+                          <span className="text-xs text-orange-500 font-medium">{webinar.scheduledAt}</span>
+                        </div>
+                      </div>
+
+                      <div className="flex items-center justify-end mt-4">
+                        <div className="flex gap-1">
+                          <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => {}}>
+                            <Edit className="h-4 w-4" />
+                          </Button>
+                          <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive" onClick={() => {}}>
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
+            </TabsContent>
           </Tabs>
         )}
       </div>
@@ -662,41 +768,17 @@ export default function BatchContent() {
         </DialogContent>
       </Dialog>
 
-      {/* Test Modal */}
-      <Dialog open={isTestModalOpen} onOpenChange={setIsTestModalOpen}>
-        <DialogContent onOpenAutoFocus={(e) => e.preventDefault()}>
-          <DialogHeader>
-            <DialogTitle>Weekly Test Settings</DialogTitle>
-            <DialogDescription>Configure the passing threshold and instructions for this batch's test.</DialogDescription>
-          </DialogHeader>
-          <div className="space-y-4 py-4">
-            <div className="space-y-2">
-              <Label>Test Title</Label>
-              <Input value={testForm.title} onChange={e => setTestForm({...testForm, title: e.target.value})} />
-            </div>
-            <div className="space-y-2">
-              <Label>Instructions</Label>
-              <Textarea value={testForm.instructions} onChange={e => setTestForm({...testForm, instructions: e.target.value})} />
-            </div>
-            <div className="space-y-2">
-              <Label>Passing Percentage ({testForm.pass_percentage}%)</Label>
-              <Input 
-                type="range" 
-                min="0" max="100" step="1" 
-                value={testForm.pass_percentage} 
-                onChange={e => setTestForm({...testForm, pass_percentage: parseInt(e.target.value)})} 
-              />
-            </div>
-          </div>
-          <div className="flex justify-end gap-3 pt-4 border-t">
-            <Button variant="ghost" onClick={() => setIsTestModalOpen(false)}>Cancel</Button>
-            <Button variant="gradient" onClick={handleSaveTest} disabled={isSavingTest}>
-              {isSavingTest && <Loader2 className="h-4 w-4 animate-spin mr-2" />}
-              Save Test Settings
-            </Button>
-          </div>
-        </DialogContent>
-      </Dialog>
+      {/* Weekly Test Manager (Batch) */}
+      {testWeek && batchId && (
+        <WeeklyTestManager
+          open={isTestModalOpen}
+          onClose={() => { setIsTestModalOpen(false); setTestWeek(null); }}
+          existingTest={weeklyTest ?? null}
+          weekLabel={`Week ${testWeek.week_number}: ${testWeek.title}`}
+          testApiBase={`/api/courses/v1/batches/${batchId}/weeks/${testWeek.id}/test`}
+          onSaved={() => fetchContent(parseInt(activeTab))}
+        />
+      )}
 
       {/* Delete Confirmation */}
       <AlertDialog open={!!deleteSessionId} onOpenChange={() => setDeleteSessionId(null)}>
@@ -720,6 +802,16 @@ export default function BatchContent() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+      {/* Video Player Modal */}
+      <Dialog open={!!playingVideoUrl} onOpenChange={(open) => !open && setPlayingVideoUrl(null)}>
+        <DialogContent className="sm:max-w-4xl max-w-[90vw] p-0 overflow-hidden bg-black/95 border-none shadow-2xl" onOpenAutoFocus={(e) => e.preventDefault()}>
+           {playingVideoUrl && (
+             <div className="w-full aspect-video flex justify-center items-center">
+               <VideoPlayer url={playingVideoUrl} />
+             </div>
+           )}
+        </DialogContent>
+      </Dialog>
     </DashboardLayout>
   );
 }
