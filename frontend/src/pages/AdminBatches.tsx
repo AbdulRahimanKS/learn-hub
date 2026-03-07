@@ -593,46 +593,49 @@ export default function AdminBatches() {
                     </div>
                   </div>
                   
-                  {/* Actions (Footer style) */}
-                  <div className="flex items-center justify-between gap-2 p-4 mt-auto border-t border-border/40 bg-muted/20">
-                    <Button variant="ghost" className="text-primary hover:text-primary hover:bg-primary/10 px-2 group" asChild>
-                      <Link to={`/batches/${batch.id}/students`}>
+                  {/* Actions (Footer) */}
+                  <div className="flex items-center justify-between gap-2 px-4 py-3 mt-auto border-t border-border/60 bg-muted/40 rounded-b-xl">
+                    {/* Left: Nav pills */}
+                    <div className="flex items-center gap-1.5">
+                      <Link
+                        to={`/batches/${batch.id}/students`}
+                        className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium bg-primary/10 text-primary hover:bg-primary/20 transition-colors"
+                      >
+                        <Users className="h-3.5 w-3.5" />
                         Students
-                        <Users className="h-4 w-4 ml-2 group-hover:scale-110 transition-transform" />
                       </Link>
-                    </Button>
-                    <Button variant="ghost" className="text-primary hover:text-primary hover:bg-primary/10 px-2 group" asChild>
-                      <Link to={`/admin/batches/${batch.id}/content`}>
+                      <Link
+                        to={`/admin/batches/${batch.id}/content`}
+                        className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium bg-primary/10 text-primary hover:bg-primary/20 transition-colors"
+                      >
+                        <LayoutGrid className="h-3.5 w-3.5" />
                         Content
-                        <LayoutGrid className="h-4 w-4 ml-2 group-hover:scale-110 transition-transform" />
                       </Link>
-                    </Button>
-                    <div className="flex gap-1">
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="h-8 w-8 text-muted-foreground hover:text-primary hover:bg-primary/10"
-                        onClick={() => {
-                          setPushTargetBatchId(batch.id);
-                          setIsPushModalOpen(true);
-                        }}
+                    </div>
+
+                    {/* Right: Icon actions */}
+                    <div className="flex items-center gap-0.5">
+                      <button
                         title="Push Content"
+                        onClick={() => { setPushTargetBatchId(batch.id); setIsPushModalOpen(true); }}
+                        className="h-8 w-8 inline-flex items-center justify-center rounded-md text-muted-foreground hover:text-primary hover:bg-primary/10 transition-colors"
                       >
                         <CloudDownload className="h-4 w-4" />
-                      </Button>
-
-                      <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-foreground" onClick={() => handleOpenModal(batch)}>
+                      </button>
+                      <button
+                        title="Edit Batch"
+                        onClick={() => handleOpenModal(batch)}
+                        className="h-8 w-8 inline-flex items-center justify-center rounded-md text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
+                      >
                         <Edit className="h-4 w-4" />
-                      </Button>
-
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="h-8 w-8 text-muted-foreground hover:text-destructive hover:bg-destructive/10"
+                      </button>
+                      <button
+                        title="Delete Batch"
                         onClick={() => setDeleteBatchId(batch.id)}
+                        className="h-8 w-8 inline-flex items-center justify-center rounded-md text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors"
                       >
                         <Trash2 className="h-4 w-4" />
-                      </Button>
+                      </button>
                     </div>
                   </div>
                 </CardContent>

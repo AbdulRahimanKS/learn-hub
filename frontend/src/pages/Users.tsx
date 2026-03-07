@@ -738,7 +738,7 @@ export default function Users() {
                             <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground" onClick={() => openEditModal(student)} title="Edit Student">
                               <Edit className="h-4 w-4" />
                             </Button>
-                            <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive hover:text-destructive" onClick={() => openDeleteModal(student)} title="Delete Student" disabled={isDeleting}>
+                            <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-destructive hover:bg-destructive/10" onClick={() => openDeleteModal(student)} title="Delete Student" disabled={isDeleting}>
                               <Trash2 className="h-4 w-4" />
                             </Button>
                           </div>
@@ -822,7 +822,7 @@ export default function Users() {
                                 <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground" onClick={() => openEditModal(teacher)} title="Edit Teacher">
                                     <Edit className="h-4 w-4" />
                                 </Button>
-                                <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive hover:text-destructive" onClick={() => openDeleteModal(teacher)} title="Delete Teacher" disabled={isDeleting}>
+                                <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-destructive hover:bg-destructive/10" onClick={() => openDeleteModal(teacher)} title="Delete Teacher" disabled={isDeleting}>
                                     <Trash2 className="h-4 w-4" />
                                 </Button>
                             </div>
