@@ -5,12 +5,12 @@ from rest_framework.parsers import MultiPartParser, FormParser, JSONParser
 from drf_spectacular.utils import extend_schema
 from django.db import IntegrityError
 
-from apps.courses.models import Course, CourseWeek, ClassSession, WeeklyTest, WeeklyTestQuestion
+from apps.courses.models import Course, CourseWeek, CourseClassSession, WeeklyTest, WeeklyTestQuestion, BatchEnrollment
 from apps.courses.serializers.course_module_serializers import (
     CourseWeekSerializer,
     CourseWeekCreateUpdateSerializer,
-    ClassSessionSerializer,
-    ClassSessionCreateUpdateSerializer,
+    CourseClassSessionSerializer,
+    CourseClassSessionCreateUpdateSerializer,
     WeeklyTestSerializer,
     WeeklyTestCreateUpdateSerializer,
     WeeklyTestQuestionSerializer,
@@ -18,6 +18,7 @@ from apps.courses.serializers.course_module_serializers import (
 from utils.permissions import IsSuperAdminAdminOrTeacher, IsAuthenticated
 from utils.common import format_success_response, handle_serializer_errors, ServiceError
 from utils.constants import UserTypeConstants
+from apps.courses.services import delete_unused_video_from_storage
 
 logger = logging.getLogger(__name__)
 
@@ -74,6 +75,17 @@ class CourseWeekListCreateView(APIView):
                         detail=f"Week {missing_str} must be created first before adding Week {week_number}.",
                         status_code=status.HTTP_400_BAD_REQUEST
                     )
+
+                if week_number > 1:
+                    prev_week = CourseWeek.objects.filter(course=course, week_number=week_number - 1).first()
+                    if prev_week:
+                        has_session = prev_week.class_sessions.exists()
+                        has_test = hasattr(prev_week, 'weekly_test') and prev_week.weekly_test is not None
+                        if not (has_session or has_test):
+                            raise ServiceError(
+                                detail=f"Week {week_number - 1} must have at least one session or test before you can add Week {week_number}.",
+                                status_code=status.HTTP_400_BAD_REQUEST
+                            )
 
             CourseWeek.objects.create(
                 course=course,
@@ -146,22 +158,6 @@ class CourseWeekDetailView(APIView):
                 except CourseWeek.DoesNotExist:
                     pass  # Target slot is free — no swap needed
 
-            # Publish guard: must have ≥1 video (ClassSession) AND a WeeklyTest
-            publishing = serializer.validated_data.get('is_published')
-            if publishing and not week.is_published:
-                has_sessions = week.class_sessions.exists()
-                has_test = hasattr(week, 'weekly_test') and week.weekly_test is not None
-                if not has_sessions:
-                    raise ServiceError(
-                        detail="Cannot publish this week: at least one video session must be added first.",
-                        status_code=status.HTTP_400_BAD_REQUEST
-                    )
-                if not has_test:
-                    raise ServiceError(
-                        detail="Cannot publish this week: a weekly test must be configured first.",
-                        status_code=status.HTTP_400_BAD_REQUEST
-                    )
-
             # Step 2: save the main week to its new number (target slot is now free)
             for attr, value in serializer.validated_data.items():
                 setattr(week, attr, value)
@@ -185,21 +181,26 @@ class CourseWeekDetailView(APIView):
     def delete(self, request, course_id, week_id):
         try:
             week = self.get_object(course_id, week_id)
+            course = week.course
+            deleted_week_number = week.week_number
 
-            # Block deletion if any active students are enrolled in batches of this course
-            from apps.courses.models import Batch, BatchEnrollment
-            active_enrollments = BatchEnrollment.objects.filter(
-                batch__course=week.course,
-                status=BatchEnrollment.Status.ACTIVE
-            ).exists()
-            if active_enrollments:
-                raise ServiceError(
-                    detail="Cannot delete this week: there are active students enrolled in batches for this course.",
-                    status_code=status.HTTP_400_BAD_REQUEST
+            # Delete the current week
+            week.delete()
+
+            # Re-order the subsequent weeks to fill the gap left by the deleted week.
+            # E.g., if Week 2 is deleted from [1, 2, 3, 4], Week 3 becomes 2, and 4 becomes 3.
+            subsequent_weeks = CourseWeek.objects.filter(
+                course=course,
+                week_number__gt=deleted_week_number
+            ).order_by('week_number')
+
+            for subsequent_week in subsequent_weeks:
+                # Direct update to avoid unique constraint issues if we did it out of order
+                CourseWeek.objects.filter(id=subsequent_week.id).update(
+                    week_number=subsequent_week.week_number - 1
                 )
 
-            week.delete()
-            return format_success_response(message="Course week deleted successfully")
+            return format_success_response(message="Course week deleted and order adjusted successfully")
         except ServiceError:
             raise
         except Exception as e:
@@ -218,7 +219,7 @@ class ClassSessionListCreateView(APIView):
         except CourseWeek.DoesNotExist:
             raise ServiceError(detail="Course week not found.", status_code=status.HTTP_404_NOT_FOUND)
 
-    @extend_schema(summary="List class sessions for a week", responses={200: ClassSessionSerializer(many=True)})
+    @extend_schema(summary="List class sessions for a week", responses={200: CourseClassSessionSerializer(many=True)})
     def get(self, request, course_id, week_id):
         week = self.get_week(course_id, week_id)
         
@@ -227,48 +228,53 @@ class ClassSessionListCreateView(APIView):
             if not week.is_published:
                 raise ServiceError(detail="This week is not published yet.", status_code=status.HTTP_403_FORBIDDEN)
 
-        sessions = ClassSession.objects.filter(course_week=week)
-        serializer = ClassSessionSerializer(sessions, many=True, context={'request': request})
+        sessions = CourseClassSession.objects.filter(course_week=week)
+        serializer = CourseClassSessionSerializer(sessions, many=True, context={'request': request})
         return format_success_response(message="Class sessions retrieved successfully", data=serializer.data)
 
     @extend_schema(
         summary="Create a new class session (Admin/Teacher only)", 
-        request=ClassSessionCreateUpdateSerializer, 
-        responses={201: ClassSessionSerializer}
+        request=CourseClassSessionCreateUpdateSerializer, 
+        responses={201: CourseClassSessionSerializer}
     )
     def post(self, request, course_id, week_id):
-        user = request.user
-        if getattr(user, 'user_type', None) and user.user_type.name not in [UserTypeConstants.ADMIN, UserTypeConstants.SUPERADMIN, UserTypeConstants.TEACHER]:
-            raise ServiceError(detail="You do not have permission to perform this action.", status_code=status.HTTP_403_FORBIDDEN)
-
-        week = self.get_week(course_id, week_id)
-        serializer = ClassSessionCreateUpdateSerializer(data=request.data, context={'request': request})
-        if not serializer.is_valid():
-            error_str = handle_serializer_errors(serializer)
-            raise ServiceError(detail=error_str, status_code=status.HTTP_400_BAD_REQUEST)
-
         try:
+            user = request.user
+            if getattr(user, 'user_type', None) and user.user_type.name not in [UserTypeConstants.ADMIN, UserTypeConstants.SUPERADMIN, UserTypeConstants.TEACHER]:
+                raise ServiceError(detail="You do not have permission to perform this action.", status_code=status.HTTP_403_FORBIDDEN)
+
+            week = self.get_week(course_id, week_id)
+            serializer = CourseClassSessionCreateUpdateSerializer(data=request.data, context={'request': request})
+            if not serializer.is_valid():
+                error_str = handle_serializer_errors(serializer)
+                raise ServiceError(detail=error_str, status_code=status.HTTP_400_BAD_REQUEST)
+
             session_number = serializer.validated_data.get('session_number')
-            if session_number:
-                # Sequential validation: all sessions 1..N-1 must exist
+            weekday = serializer.validated_data.get('weekday')
+            if session_number and weekday:
+                # Sequential validation: all sessions 1..N-1 must exist for the given weekday
                 existing_numbers = set(
-                    ClassSession.objects.filter(course_week=week).values_list('session_number', flat=True)
+                    CourseClassSession.objects.filter(course_week=week, weekday=weekday).values_list('session_number', flat=True)
                 )
+                if session_number in existing_numbers:
+                    raise ServiceError(
+                        detail=f"Session {session_number} already exists for {weekday.capitalize()}.",
+                        status_code=status.HTTP_400_BAD_REQUEST
+                    )
                 missing = [i for i in range(1, session_number) if i not in existing_numbers]
                 if missing:
                     missing_str = ', '.join(str(m) for m in missing)
                     raise ServiceError(
-                        detail=f"Session {missing_str} must be created first before adding Session {session_number}.",
+                        detail=f"Session {missing_str} for {weekday.capitalize()} must be created first before adding Session {session_number}.",
                         status_code=status.HTTP_400_BAD_REQUEST
                     )
 
-
-            session = ClassSession.objects.create(
+            session = CourseClassSession.objects.create(
                 course_week=week,
                 uploaded_by=request.user,
                 **serializer.validated_data
             )
-            response_serializer = ClassSessionSerializer(session, context={'request': request})
+            response_serializer = CourseClassSessionSerializer(session, context={'request': request})
             return format_success_response(
                 message="Class session created successfully", 
                 data=response_serializer.data, 
@@ -290,11 +296,11 @@ class ClassSessionDetailView(APIView):
 
     def get_object(self, course_id, week_id, session_id):
         try:
-            return ClassSession.objects.get(id=session_id, course_week_id=week_id, course_week__course_id=course_id)
-        except ClassSession.DoesNotExist:
+            return CourseClassSession.objects.get(id=session_id, course_week_id=week_id, course_week__course_id=course_id)
+        except CourseClassSession.DoesNotExist:
             raise ServiceError(detail="Class session not found.", status_code=status.HTTP_404_NOT_FOUND)
 
-    @extend_schema(summary="Retrieve a class session", responses={200: ClassSessionSerializer})
+    @extend_schema(summary="Retrieve a class session", responses={200: CourseClassSessionSerializer})
     def get(self, request, course_id, week_id, session_id):
         session = self.get_object(course_id, week_id, session_id)
         user = request.user
@@ -303,13 +309,13 @@ class ClassSessionDetailView(APIView):
             if not session.course_week.is_published:
                 raise ServiceError(detail="This session is not available.", status_code=status.HTTP_403_FORBIDDEN)
 
-        serializer = ClassSessionSerializer(session, context={'request': request})
+        serializer = CourseClassSessionSerializer(session, context={'request': request})
         return format_success_response(message="Class session retrieved successfully", data=serializer.data)
 
     @extend_schema(
         summary="Update a class session", 
-        request=ClassSessionCreateUpdateSerializer, 
-        responses={200: ClassSessionSerializer}
+        request=CourseClassSessionCreateUpdateSerializer, 
+        responses={200: CourseClassSessionSerializer}
     )
     def patch(self, request, course_id, week_id, session_id):
         user = request.user
@@ -317,7 +323,7 @@ class ClassSessionDetailView(APIView):
             raise ServiceError(detail="You do not have permission to perform this action.", status_code=status.HTTP_403_FORBIDDEN)
 
         session = self.get_object(course_id, week_id, session_id)
-        serializer = ClassSessionCreateUpdateSerializer(session, data=request.data, partial=True, context={'request': request})
+        serializer = CourseClassSessionCreateUpdateSerializer(session, data=request.data, partial=True, context={'request': request})
         if not serializer.is_valid():
             error_str = handle_serializer_errors(serializer)
             raise ServiceError(detail=error_str, status_code=status.HTTP_400_BAD_REQUEST)
@@ -325,25 +331,31 @@ class ClassSessionDetailView(APIView):
         try:
             new_session_number = serializer.validated_data.get('session_number')
             old_session_number = session.session_number
+            new_weekday = serializer.validated_data.get('weekday')
+            old_weekday = session.weekday
+            final_weekday = new_weekday if new_weekday else old_weekday
+            
             occupying_session = None
 
-            if new_session_number and new_session_number != old_session_number:
-                max_existing = ClassSession.objects.filter(course_week=session.course_week).exclude(id=session.id).count()
-                if new_session_number > max_existing + 1 or new_session_number < 1:
+            if (new_session_number and new_session_number != old_session_number) or (new_weekday and new_weekday != old_weekday):
+                max_existing = CourseClassSession.objects.filter(course_week=session.course_week, weekday=final_weekday).exclude(id=session.id).count()
+                if new_session_number and (new_session_number > max_existing + 1 or new_session_number < 1):
                     raise ServiceError(
-                        detail=f"Session number must be between 1 and {max_existing + 1}.",
+                        detail=f"Session number must be between 1 and {max_existing + 1} for {final_weekday.capitalize()}.",
                         status_code=status.HTTP_400_BAD_REQUEST
                     )
                 try:
-                    occupying_session = ClassSession.objects.get(
+                    target_session_number = new_session_number if new_session_number else old_session_number
+                    occupying_session = CourseClassSession.objects.get(
                         course_week=session.course_week,
-                        session_number=new_session_number
+                        weekday=final_weekday,
+                        session_number=target_session_number
                     )
                     from django.db.models import Max as _Max
-                    current_max = ClassSession.objects.filter(course_week=session.course_week).aggregate(m=_Max('session_number'))['m'] or 0
+                    current_max = CourseClassSession.objects.filter(course_week=session.course_week, weekday=final_weekday).aggregate(m=_Max('session_number'))['m'] or 0
                     safe_temp = current_max + 9999
-                    ClassSession.objects.filter(id=occupying_session.id).update(session_number=safe_temp)
-                except ClassSession.DoesNotExist:
+                    CourseClassSession.objects.filter(id=occupying_session.id).update(session_number=safe_temp)
+                except CourseClassSession.DoesNotExist:
                     pass
 
             for attr, value in serializer.validated_data.items():
@@ -357,9 +369,9 @@ class ClassSessionDetailView(APIView):
             session.save()
 
             if occupying_session is not None:
-                ClassSession.objects.filter(id=occupying_session.id).update(session_number=old_session_number)
+                CourseClassSession.objects.filter(id=occupying_session.id).update(session_number=old_session_number)
             
-            response_serializer = ClassSessionSerializer(session, context={'request': request})
+            response_serializer = CourseClassSessionSerializer(session, context={'request': request})
             return format_success_response(message="Class session updated successfully", data=response_serializer.data)
         except IntegrityError:
             raise ServiceError(detail="A session with this number already exists for this week.", status_code=status.HTTP_400_BAD_REQUEST)
@@ -369,15 +381,37 @@ class ClassSessionDetailView(APIView):
             logger.error(f"Error updating class session: {str(e)}")
             raise ServiceError(detail="An error occurred while updating the class session.", status_code=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
-    @extend_schema(summary="Delete a class session", responses={200: None})
+    @extend_schema(summary="Delete a class session", responses={204: None})
     def delete(self, request, course_id, week_id, session_id):
+        user = request.user
+        if getattr(user, 'user_type', None) and user.user_type.name not in [UserTypeConstants.ADMIN, UserTypeConstants.SUPERADMIN, UserTypeConstants.TEACHER]:
+            raise ServiceError(detail="You do not have permission to perform this action.", status_code=status.HTTP_403_FORBIDDEN)
+            
         try:
-            user = request.user
-            if getattr(user, 'user_type', None) and user.user_type.name not in [UserTypeConstants.ADMIN, UserTypeConstants.SUPERADMIN, UserTypeConstants.TEACHER]:
-                raise ServiceError(detail="You do not have permission to perform this action.", status_code=status.HTTP_403_FORBIDDEN)
-
             session = self.get_object(course_id, week_id, session_id)
+            course_week = session.course_week
+            deleted_session_number = session.session_number
+            video_file_key = session.video_file
+
             session.delete()
+
+            # Re-order subsequent sessions to fill the gap left by the deleted session.
+            # E.g., if Session 2 is deleted from [1, 2, 3], Session 3 becomes 2.
+            subsequent_sessions = CourseClassSession.objects.filter(
+                course_week=course_week,
+                weekday=session.weekday,
+                session_number__gt=deleted_session_number
+            ).order_by('session_number')
+
+            for subsequent_session in subsequent_sessions:
+                # Direct update to bypass save signals/unique constraints during the loop
+                CourseClassSession.objects.filter(id=subsequent_session.id).update(
+                    session_number=subsequent_session.session_number - 1
+                )
+
+            if video_file_key:
+                delete_unused_video_from_storage(video_file_key)
+
             return format_success_response(message="Class session deleted successfully")
         except ServiceError:
             raise

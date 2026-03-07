@@ -2,15 +2,14 @@ import logging
 from rest_framework import status
 from rest_framework.views import APIView
 from rest_framework.parsers import MultiPartParser, FormParser, JSONParser
-from drf_spectacular.utils import extend_schema, OpenApiParameter
-from drf_spectacular.types import OpenApiTypes
+from drf_spectacular.utils import extend_schema
 
-from apps.courses.models import Batch, BatchWeek, ClassSession, WeeklyTest, WeeklyTestQuestion
+from apps.courses.models import Batch, BatchWeek, BatchClassSession, WeeklyTest, WeeklyTestQuestion
 from apps.courses.serializers.course_module_serializers import (
     BatchWeekSerializer,
     BatchWeekCreateUpdateSerializer,
-    ClassSessionSerializer,
-    ClassSessionCreateUpdateSerializer,
+    BatchClassSessionSerializer,
+    BatchClassSessionCreateUpdateSerializer,
     WeeklyTestSerializer,
     WeeklyTestCreateUpdateSerializer,
     WeeklyTestQuestionSerializer,
@@ -18,6 +17,7 @@ from apps.courses.serializers.course_module_serializers import (
 from utils.permissions import IsAdminOrTeacher, IsAuthenticated
 from utils.common import format_success_response, handle_serializer_errors, ServiceError
 from utils.constants import UserTypeConstants
+from apps.courses.services import delete_unused_video_from_storage
 
 logger = logging.getLogger(__name__)
 
@@ -63,8 +63,25 @@ class BatchWeekDetailView(APIView):
         week = self.get_object(batch_id, week_id)
         if not week.can_modify_content():
             raise ServiceError(detail="Cannot delete a week that has already been unlocked.", status_code=status.HTTP_400_BAD_REQUEST)
+        
+        batch = week.batch
+        deleted_week_number = week.week_number
+
         week.delete()
-        return format_success_response(message="Batch week deleted successfully")
+
+        # Re-order subsequent batch weeks
+        subsequent_weeks = BatchWeek.objects.filter(
+            batch=batch,
+            week_number__gt=deleted_week_number
+        ).order_by('week_number')
+
+        for subsequent_week in subsequent_weeks:
+            # Direct update
+            BatchWeek.objects.filter(id=subsequent_week.id).update(
+                week_number=subsequent_week.week_number - 1
+            )
+
+        return format_success_response(message="Batch week deleted and order adjusted successfully")
 
 @extend_schema(tags=["Batch Content"])
 class BatchClassSessionListCreateView(APIView):
@@ -80,24 +97,50 @@ class BatchClassSessionListCreateView(APIView):
     @extend_schema(summary="List sessions for a batch week")
     def get(self, request, batch_id, week_id):
         week = self.get_week(batch_id, week_id)
-        sessions = ClassSession.objects.filter(batch_week=week)
-        serializer = ClassSessionSerializer(sessions, many=True, context={'request': request})
+        sessions = BatchClassSession.objects.filter(batch_week=week)
+        serializer = BatchClassSessionSerializer(sessions, many=True, context={'request': request})
         return format_success_response(message="Batch sessions retrieved successfully", data=serializer.data)
 
-    @extend_schema(summary="Create a session for a batch week", request=ClassSessionCreateUpdateSerializer)
+    @extend_schema(summary="Create a session for a batch week", request=BatchClassSessionCreateUpdateSerializer)
     def post(self, request, batch_id, week_id):
         week = self.get_week(batch_id, week_id)
-        serializer = ClassSessionCreateUpdateSerializer(data=request.data, context={'request': request})
+        serializer = BatchClassSessionCreateUpdateSerializer(data=request.data, context={'request': request})
         if not serializer.is_valid():
             error_str = handle_serializer_errors(serializer)
             raise ServiceError(detail=error_str, status_code=status.HTTP_400_BAD_REQUEST)
 
-        ClassSession.objects.create(
-            batch_week=week,
-            uploaded_by=request.user,
-            **serializer.validated_data
-        )
-        return format_success_response(message="Batch session created successfully", status_code=status.HTTP_201_CREATED)
+        session_number = serializer.validated_data.get('session_number')
+        weekday = serializer.validated_data.get('weekday')
+        if session_number and weekday:
+            existing_numbers = set(
+                BatchClassSession.objects.filter(batch_week=week, weekday=weekday).values_list('session_number', flat=True)
+            )
+            if session_number in existing_numbers:
+                raise ServiceError(
+                    detail=f"Session {session_number} already exists for {weekday.capitalize()}.",
+                    status_code=status.HTTP_400_BAD_REQUEST
+                )
+            missing = [i for i in range(1, session_number) if i not in existing_numbers]
+            if missing:
+                missing_str = ', '.join(str(m) for m in missing)
+                raise ServiceError(
+                    detail=f"Session {missing_str} for {weekday.capitalize()} must be created first before adding Session {session_number}.",
+                    status_code=status.HTTP_400_BAD_REQUEST
+                )
+
+        try:
+            BatchClassSession.objects.create(
+                batch_week=week,
+                uploaded_by=request.user,
+                **serializer.validated_data
+            )
+            return format_success_response(message="Batch session created successfully", status_code=status.HTTP_201_CREATED)
+        except IntegrityError:
+            raise ServiceError(detail="A session with this number already exists for this week.", status_code=status.HTTP_400_BAD_REQUEST)
+        except ServiceError:
+            raise
+        except Exception as e:
+            raise ServiceError(detail="An error occurred while creating the batch session.", status_code=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 @extend_schema(tags=["Batch Content"])
 class BatchWeeklyTestView(APIView):
@@ -123,14 +166,14 @@ class BatchClassSessionDetailView(APIView):
 
     def get_object(self, batch_id, week_id, session_id):
         try:
-            return ClassSession.objects.get(id=session_id, batch_week_id=week_id, batch_week__batch_id=batch_id)
-        except ClassSession.DoesNotExist:
+            return BatchClassSession.objects.get(id=session_id, batch_week_id=week_id, batch_week__batch_id=batch_id)
+        except BatchClassSession.DoesNotExist:
             raise ServiceError(detail="Batch session not found.", status_code=status.HTTP_404_NOT_FOUND)
 
-    @extend_schema(summary="Update a batch session", request=ClassSessionCreateUpdateSerializer)
+    @extend_schema(summary="Update a batch session", request=BatchClassSessionCreateUpdateSerializer)
     def patch(self, request, batch_id, week_id, session_id):
         session = self.get_object(batch_id, week_id, session_id)
-        serializer = ClassSessionCreateUpdateSerializer(session, data=request.data, partial=True)
+        serializer = BatchClassSessionCreateUpdateSerializer(session, data=request.data, partial=True)
         if not serializer.is_valid():
             error_str = handle_serializer_errors(serializer)
             raise ServiceError(detail=error_str, status_code=status.HTTP_400_BAD_REQUEST)
@@ -143,8 +186,30 @@ class BatchClassSessionDetailView(APIView):
         session = self.get_object(batch_id, week_id, session_id)
         if not session.batch_week.can_modify_content():
             raise ServiceError(detail="Cannot delete content from an unlocked week.", status_code=status.HTTP_400_BAD_REQUEST)
+        
+        batch_week = session.batch_week
+        deleted_session_number = session.session_number
+        video_file_key = session.video_file
+
         session.delete()
-        return format_success_response(message="Batch session deleted successfully")
+
+        # Re-order subsequent sessions to fill the gap left by the deleted session.
+        subsequent_sessions = BatchClassSession.objects.filter(
+            batch_week=batch_week,
+            weekday=session.weekday,
+            session_number__gt=deleted_session_number
+        ).order_by('session_number')
+
+        for subsequent_session in subsequent_sessions:
+            # Direct update to bypass constraints/signals
+            BatchClassSession.objects.filter(id=subsequent_session.id).update(
+                session_number=subsequent_session.session_number - 1
+            )
+
+        if video_file_key:
+            delete_unused_video_from_storage(video_file_key)
+
+        return format_success_response(message="Batch session deleted and order adjusted successfully")
 
 @extend_schema(tags=["Batch Content"])
 class BatchWeeklyTestManageView(APIView):

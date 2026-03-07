@@ -2,7 +2,9 @@ import logging
 from django.db import transaction
 from django.utils import timezone
 from datetime import timedelta
-from apps.courses.models import Batch, BatchWeek, ClassSession, WeeklyTest, WeeklyTestQuestion, CourseWeek
+from django.conf import settings
+from apps.courses.models import Batch, BatchWeek, BatchClassSession, CourseClassSession, WeeklyTest, WeeklyTestQuestion, CourseWeek
+from apps.courses.views.upload_views import get_s3_client
 
 logger = logging.getLogger(__name__)
 
@@ -73,18 +75,17 @@ def push_content_to_batch(source_batch_id=None, source_course_id=None, target_ba
             }
         )
 
-        # 2. Clone ClassSessions
+        # 2. Clone ClassSessions (from CourseClassSession → BatchClassSession)
         source_sessions = sw.class_sessions.all()
         for ss in source_sessions:
             # Check if session already exists in target batch week
-            if not ClassSession.objects.filter(batch_week=bw, session_number=ss.session_number).exists():
-                ClassSession.objects.create(
+            if not BatchClassSession.objects.filter(batch_week=bw, session_number=ss.session_number).exists():
+                BatchClassSession.objects.create(
                     batch_week=bw,
                     session_number=ss.session_number,
                     title=ss.title,
                     description=ss.description,
                     video_file=ss.video_file,
-                    video_url=ss.video_url,
                     thumbnail=ss.thumbnail,
                     duration_seconds=ss.duration_seconds,
                     uploaded_by=ss.uploaded_by
@@ -133,3 +134,26 @@ def extend_batch_timeline(batch_id, days):
         week.save()
     
     return True
+
+def delete_unused_video_from_storage(video_key):
+    """
+    Checks if a video file key is used anywhere else in CourseClassSession or BatchClassSession.
+    If it is not used, it deletes the object from the AWS/R2 storage bucket.
+    """
+    if not video_key:
+        return
+
+    # Check references across both models
+    is_used_in_course = CourseClassSession.objects.filter(video_file=video_key).exists()
+    is_used_in_batch = BatchClassSession.objects.filter(video_file=video_key).exists()
+
+    if not is_used_in_course and not is_used_in_batch:
+        try:
+            s3_client = get_s3_client()
+            s3_client.delete_object(
+                Bucket=settings.AWS_STORAGE_BUCKET_NAME,
+                Key=video_key
+            )
+            logger.info(f"Successfully deleted unused video from storage: {video_key}")
+        except Exception as e:
+            logger.error(f"Failed to delete video {video_key} from storage: {str(e)}")

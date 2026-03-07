@@ -227,17 +227,6 @@ class BatchEnrollment(models.Model):
     def __str__(self):
         return f"{self.student.fullname} → {self.batch.name} [{self.status}]"
 
-    def clean(self):
-        if BatchEnrollment.objects.filter(
-            student=self.student,
-            status__in=[BatchEnrollment.Status.ACTIVE, BatchEnrollment.Status.SUSPENDED]
-        ).exclude(pk=self.pk).exists():
-            raise ValidationError("Student already enrolled in another active batch.")
-
-    def save(self, *args, **kwargs):
-        self.clean()
-        super().save(*args, **kwargs)
-
 
 # StudentProgress
 class StudentProgress(models.Model):
@@ -268,9 +257,10 @@ class StudentSessionView(models.Model):
         BatchEnrollment, on_delete=models.CASCADE,
         related_name='session_views'
     )
-    class_session = models.ForeignKey(
-        'ClassSession', on_delete=models.CASCADE,
-        related_name='student_views'
+    batch_session = models.ForeignKey(
+        'BatchClassSession', on_delete=models.CASCADE,
+        related_name='student_views',
+        null=True, blank=True
     )
     watched_percent   = models.FloatField(
         _('Watched (%)'), default=0.0,
@@ -283,17 +273,17 @@ class StudentSessionView(models.Model):
     last_watched_at   = models.DateTimeField(auto_now=True)
 
     class Meta:
-        unique_together = ('enrollment', 'class_session')
+        unique_together = ('enrollment', 'batch_session')
         verbose_name    = _('Student Session View')
         indexes = [
             models.Index(fields=["enrollment"]),
-            models.Index(fields=["class_session"]),
+            models.Index(fields=["batch_session"]),
         ]
 
     def __str__(self):
         return (
             f"{self.enrollment.student.fullname} | "
-            f"{self.class_session.title} | {self.watched_percent:.0f}%"
+            f"{self.batch_session.title} | {self.watched_percent:.0f}%"
         )
 
 
@@ -379,34 +369,34 @@ class BatchWeek(models.Model):
         return not self.is_unlocked
 
 
-# Class Session
-class ClassSession(models.Model):
-    course_week  = models.ForeignKey(
-        CourseWeek, on_delete=models.CASCADE, related_name='class_sessions',
-        null=True, blank=True
-    )
-    batch_week = models.ForeignKey(
-        BatchWeek, on_delete=models.CASCADE, related_name='class_sessions',
-        null=True, blank=True
-    )
-    class Weekday(models.TextChoices):
-        MONDAY = 'monday', _('Monday')
-        TUESDAY = 'tuesday', _('Tuesday')
-        WEDNESDAY = 'wednesday', _('Wednesday')
-        THURSDAY = 'thursday', _('Thursday')
-        FRIDAY = 'friday', _('Friday')
-        SATURDAY = 'saturday', _('Saturday')
-        SUNDAY = 'sunday', _('Sunday')
+# Shared weekday choices (both session models use the same values)
+WEEKDAY_CHOICES = [
+    ('monday',    _('Monday')),
+    ('tuesday',   _('Tuesday')),
+    ('wednesday', _('Wednesday')),
+    ('thursday',  _('Thursday')),
+    ('friday',    _('Friday')),
+    ('saturday',  _('Saturday')),
+    ('sunday',    _('Sunday')),
+]
 
+
+# Course Class Session (template content, attached to a CourseWeek)
+class CourseClassSession(models.Model):
+    """A recorded session that belongs to a course week (the content template)."""
+
+    course_week = models.ForeignKey(
+        CourseWeek, on_delete=models.CASCADE, related_name='class_sessions'
+    )
     session_number = models.PositiveSmallIntegerField(
         _('Session Number within Week'), default=1
     )
     title          = models.CharField(_('Session Title'), max_length=255)
     description    = models.TextField(_('Description / Notes'), blank=True)
     weekday        = models.CharField(
-        _('Weekday Tag'), max_length=15, 
-        choices=Weekday.choices, null=True, blank=True,
-        help_text=_('Optional weekday tag for this session')
+        _('Weekday Tag'), max_length=15,
+        choices=WEEKDAY_CHOICES,
+        help_text=_('Weekday tag for this session')
     )
 
     video_file     = models.CharField(
@@ -415,40 +405,95 @@ class ClassSession(models.Model):
         null=True, blank=True,
         help_text=_('Cloudflare R2 object key for the video')
     )
-    video_url      = models.URLField(
-        _('External Video URL'), blank=True, null=True,
-        help_text=_('YouTube / Vimeo / CDN URL if not directly uploaded')
-    )
     thumbnail      = models.ImageField(
-        upload_to='class_sessions/thumbnails/',
+        upload_to='course_sessions/thumbnails/',
         null=True, blank=True,
         help_text=_('Thumbnail image for the class session')
     )
-    duration_seconds  = models.PositiveIntegerField(
+    duration_seconds = models.PositiveIntegerField(
         _('Video Duration (seconds)'), default=0
     )
 
     uploaded_by    = models.ForeignKey(
         'users.User', on_delete=models.SET_NULL, null=True, blank=True,
-        related_name='uploaded_sessions'
+        related_name='uploaded_course_sessions'
+    )
+    updated_by     = models.ForeignKey(
+        'users.User', on_delete=models.SET_NULL, null=True, blank=True,
+        related_name='updated_course_sessions'
     )
 
     created_at     = models.DateTimeField(auto_now_add=True)
     updated_at     = models.DateTimeField(auto_now=True)
 
     class Meta:
-        verbose_name        = _('Class Session')
-        verbose_name_plural = _('Class Sessions')
-        # Allow either course_week or batch_week to be set, but enforce session sequence within whichever is set
-        ordering            = ['course_week__week_number', 'batch_week__week_number', 'session_number']
+        verbose_name        = _('Course Class Session')
+        verbose_name_plural = _('Course Class Sessions')
+        ordering            = ['course_week__week_number', 'session_number']
+        unique_together     = ('course_week', 'weekday', 'session_number')
         indexes             = [
-            models.Index(fields=['course_week'], name='classsess_module_idx'),
-            models.Index(fields=['batch_week'], name='classsess_batchweek_idx'),
+            models.Index(fields=['course_week'], name='crsess_week_idx'),
         ]
 
     def __str__(self):
-        week_num = self.course_week.week_number if self.course_week else self.batch_week.week_number
-        return f"Week {week_num} | S{self.session_number}: {self.title}"
+        return f"Week {self.course_week.week_number} | S{self.session_number}: {self.title}"
+
+
+# Batch Class Session (live/batch-specific content, attached to a BatchWeek)
+class BatchClassSession(models.Model):
+    """A recorded session that belongs to a batch week (the actual delivery)."""
+
+    batch_week = models.ForeignKey(
+        BatchWeek, on_delete=models.CASCADE, related_name='class_sessions'
+    )
+    session_number = models.PositiveSmallIntegerField(
+        _('Session Number within Week'), default=1
+    )
+    title          = models.CharField(_('Session Title'), max_length=255)
+    description    = models.TextField(_('Description / Notes'), blank=True)
+    weekday        = models.CharField(
+        _('Weekday Tag'), max_length=15,
+        choices=WEEKDAY_CHOICES,
+        help_text=_('Weekday tag for this session')
+    )
+
+    video_file     = models.CharField(
+        _('Video Object Key'),
+        max_length=1024,
+        null=True, blank=True,
+        help_text=_('Cloudflare R2 object key for the video')
+    )
+    thumbnail      = models.ImageField(
+        upload_to='batch_sessions/thumbnails/',
+        null=True, blank=True,
+        help_text=_('Thumbnail image for the class session')
+    )
+    duration_seconds = models.PositiveIntegerField(
+        _('Video Duration (seconds)'), default=0
+    )
+
+    uploaded_by    = models.ForeignKey(
+        'users.User', on_delete=models.SET_NULL, null=True, blank=True,
+        related_name='uploaded_batch_sessions'
+    )
+    updated_by     = models.ForeignKey(
+        'users.User', on_delete=models.SET_NULL, null=True, blank=True,
+        related_name='updated_batch_sessions'
+    )
+    created_at     = models.DateTimeField(auto_now_add=True)
+    updated_at     = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name        = _('Batch Class Session')
+        verbose_name_plural = _('Batch Class Sessions')
+        ordering            = ['batch_week__week_number', 'session_number']
+        unique_together     = ('batch_week', 'weekday', 'session_number')
+        indexes             = [
+            models.Index(fields=['batch_week'], name='bsess_week_idx'),
+        ]
+
+    def __str__(self):
+        return f"Week {self.batch_week.week_number} | S{self.session_number}: {self.title}"
 
 
 # WeeklyTest
@@ -554,8 +599,9 @@ class TestQuestionAttachment(models.Model):
 # ─────────────────────────────────────────────────────────────────────────────
 
 class PostSessionQuestion(models.Model):
-    class_session = models.ForeignKey(
-        ClassSession, on_delete=models.CASCADE, related_name='mcq_questions'
+    course_session = models.ForeignKey(
+        CourseClassSession, on_delete=models.CASCADE, related_name='mcq_questions',
+        null=True, blank=True
     )
     text = models.TextField(_('Question Text'))
     is_fill_in_the_blank = models.BooleanField(
@@ -570,7 +616,7 @@ class PostSessionQuestion(models.Model):
         verbose_name_plural = _('Post-Session Questions')
 
     def __str__(self):
-        return f"MCQ Q{self.order} for Session {self.class_session.id}"
+        return f"MCQ Q{self.order} for Session {self.course_session_id}"
 
 
 class PostSessionChoice(models.Model):

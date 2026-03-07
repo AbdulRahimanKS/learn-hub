@@ -82,7 +82,7 @@ export default function BatchContent() {
     title: '',
     description: '',
     session_number: 1,
-    video_url: '',
+    weekday: '',
     video_file: null as File | null,
     thumbnail: null as File | null,
   });
@@ -207,7 +207,7 @@ export default function BatchContent() {
         title: session.title,
         description: session.description || '',
         session_number: session.session_number,
-        video_url: session.video_url || '',
+        weekday: session.weekday || '',
         video_file: null,
         thumbnail: null,
       });
@@ -217,7 +217,7 @@ export default function BatchContent() {
         title: '',
         description: '',
         session_number: sessions.length + 1,
-        video_url: '',
+        weekday: '',
         video_file: null,
         thumbnail: null,
       });
@@ -227,13 +227,19 @@ export default function BatchContent() {
 
   const handleSaveSession = async () => {
     if (!batchId || !activeTab) return;
+    
+    if (!sessionForm.weekday) {
+      toast({ title: 'Validation Error', description: 'Please select a weekday.', variant: 'destructive' });
+      return;
+    }
+    
     setIsSavingSession(true);
     try {
       const formData = new FormData();
       formData.append('title', sessionForm.title);
       formData.append('description', sessionForm.description);
       formData.append('session_number', sessionForm.session_number.toString());
-      if (sessionForm.video_url) formData.append('video_url', sessionForm.video_url);
+      if (sessionForm.weekday) formData.append('weekday', sessionForm.weekday);
       if (sessionForm.video_file) formData.append('video_file', sessionForm.video_file);
       if (sessionForm.thumbnail) formData.append('thumbnail', sessionForm.thumbnail);
 
@@ -403,9 +409,17 @@ export default function BatchContent() {
                       </div>
                    ) : (
                       <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
-                        {sessions.map((session) => (
-                          <Card key={session.id} className="overflow-hidden group hover:shadow-md transition-shadow">
-                            <div className="aspect-video bg-muted relative flex items-center justify-center">
+                        {[...sessions]
+                          .sort((a, b) => {
+                            const days: Record<string, number> = { monday: 1, tuesday: 2, wednesday: 3, thursday: 4, friday: 5, saturday: 6, sunday: 7 };
+                            const dayA = days[a.weekday?.toLowerCase()] || 8;
+                            const dayB = days[b.weekday?.toLowerCase()] || 8;
+                            if (dayA !== dayB) return dayA - dayB;
+                            return (a.session_number || 0) - (b.session_number || 0);
+                          })
+                          .map((session) => (
+                          <Card key={session.id} className="overflow-hidden group hover:shadow-md transition-shadow flex flex-col h-full">
+                            <div className="aspect-video bg-muted relative flex items-center justify-center flex-shrink-0">
                               {session.thumbnail ? (
                                 <img src={session.thumbnail} alt={session.title} className="w-full h-full object-cover" />
                               ) : (
@@ -419,15 +433,20 @@ export default function BatchContent() {
                                   <Trash2 className="h-3 w-3" />
                                 </Button>
                               </div>
-                              <div className="absolute bottom-2 left-2">
+                              <div className="absolute bottom-2 left-2 flex gap-1">
                                 <Badge variant="secondary" className="bg-black/50 text-white backdrop-blur-sm border-0 font-mono">
                                   S{session.session_number}
                                 </Badge>
+                                {session.weekday && (
+                                  <Badge variant="outline" className="bg-black/50 text-white backdrop-blur-sm border-0 capitalize text-xs">
+                                    {session.weekday}
+                                  </Badge>
+                                )}
                               </div>
                             </div>
-                            <CardHeader className="p-4">
+                            <CardHeader className="p-4 flex-1">
                               <CardTitle className="text-sm font-semibold truncate leading-tight">{session.title}</CardTitle>
-                              <CardDescription className="text-xs line-clamp-1">{session.description || 'No description'}</CardDescription>
+                              <CardDescription className="text-xs line-clamp-2 mt-1">{session.description || 'No description'}</CardDescription>
                             </CardHeader>
                           </Card>
                         ))}
@@ -483,7 +502,7 @@ export default function BatchContent() {
 
       {/* Edit Week Dialog */}
       <Dialog open={isEditOpen} onOpenChange={setIsEditOpen}>
-        <DialogContent>
+        <DialogContent onOpenAutoFocus={(e) => e.preventDefault()}>
           <DialogHeader>
             <DialogTitle>Edit Batch Week</DialogTitle>
             <DialogDescription>Modify title and schedule for this batch.</DialogDescription>
@@ -514,7 +533,7 @@ export default function BatchContent() {
 
       {/* Extend Timeline Dialog */}
       <Dialog open={isExtendOpen} onOpenChange={setIsExtendOpen}>
-        <DialogContent className="sm:max-w-md">
+        <DialogContent className="sm:max-w-md" onOpenAutoFocus={(e) => e.preventDefault()}>
           <DialogHeader>
             <DialogTitle>Extend Program Timeline</DialogTitle>
             <DialogDescription>
@@ -544,51 +563,92 @@ export default function BatchContent() {
       </Dialog>
       {/* Session Modal */}
       <Dialog open={isSessionModalOpen} onOpenChange={setIsSessionModalOpen}>
-        <DialogContent className="sm:max-w-[500px]">
+        <DialogContent className="sm:max-w-2xl max-h-[90vh] overflow-y-auto" onOpenAutoFocus={(e) => e.preventDefault()}>
           <DialogHeader>
             <DialogTitle>{editingSession ? 'Edit Session' : 'Add New Session'}</DialogTitle>
             <DialogDescription>Create a session specific to this batch week.</DialogDescription>
           </DialogHeader>
-          <div className="grid gap-4 py-4">
-            <div className="grid grid-cols-4 items-center gap-4">
-              <Label className="text-right">No.</Label>
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label>Video Title <span className="text-destructive">*</span></Label>
               <Input 
-                type="number" 
-                className="col-span-1" 
-                value={sessionForm.session_number} 
-                onChange={e => setSessionForm({...sessionForm, session_number: parseInt(e.target.value)})}
-              />
-              <Label className="text-right">Title</Label>
-              <Input 
-                className="col-span-2" 
+                placeholder="Enter video title"
                 value={sessionForm.title} 
                 onChange={e => setSessionForm({...sessionForm, title: e.target.value})}
               />
             </div>
-            <div className="grid gap-2">
-              <Label>Description</Label>
+            
+            <div className="space-y-2">
+              <Label>Description <span className="text-muted-foreground font-normal text-xs ml-2">(Optional)</span></Label>
               <Textarea 
                 value={sessionForm.description} 
                 onChange={e => setSessionForm({...sessionForm, description: e.target.value})}
                 placeholder="What will students learn in this session?"
+                className="resize-none"
+                rows={2}
               />
             </div>
-            <div className="grid gap-2">
-              <Label>Video URL (Optional)</Label>
-              <Input 
-                value={sessionForm.video_url} 
-                onChange={e => setSessionForm({...sessionForm, video_url: e.target.value})}
-                placeholder="YouTube / Vimeo link"
-              />
-            </div>
-            <div className="grid grid-cols-2 gap-4">
-              <div className="grid gap-2">
-                <Label>Video File</Label>
-                <Input type="file" onChange={e => setSessionForm({...sessionForm, video_file: e.target.files?.[0] || null})} accept="video/*" />
+            
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label>Session Number <span className="text-destructive">*</span></Label>
+                <Input 
+                  type="number" 
+                  min="1"
+                  value={sessionForm.session_number} 
+                  onChange={e => setSessionForm({...sessionForm, session_number: parseInt(e.target.value)})}
+                />
               </div>
-              <div className="grid gap-2">
-                <Label>Thumbnail</Label>
-                <Input type="file" onChange={e => setSessionForm({...sessionForm, thumbnail: e.target.files?.[0] || null})} accept="image/*" />
+
+              <div className="space-y-2">
+                <Label>Weekday Tag <span className="text-destructive">*</span></Label>
+                <select 
+                  className="flex h-10 w-full items-center justify-between rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                  value={sessionForm.weekday}
+                  onChange={e => setSessionForm({...sessionForm, weekday: e.target.value})}
+                >
+                  <option value="" disabled>Select a weekday</option>
+                  <option value="monday">Monday</option>
+                  <option value="tuesday">Tuesday</option>
+                  <option value="wednesday">Wednesday</option>
+                  <option value="thursday">Thursday</option>
+                  <option value="friday">Friday</option>
+                  <option value="saturday">Saturday</option>
+                  <option value="sunday">Sunday</option>
+                </select>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-2">
+              <div className="space-y-2">
+                <Label>Video File <span className="text-destructive">*</span> <span className="text-muted-foreground font-normal text-xs ml-1">(MP4 only)</span></Label>
+                <div className="border border-input rounded-md p-1">
+                   <Input 
+                     type="file" 
+                     className="border-0 shadow-none bg-transparent"
+                     onChange={e => {
+                       const file = e.target.files?.[0];
+                       if (file && file.type !== 'video/mp4') {
+                         toast({ title: 'Invalid format', description: 'Only MP4 videos are allowed.', variant: 'destructive' });
+                         e.target.value = '';
+                         return;
+                       }
+                       setSessionForm({...sessionForm, video_file: file || null});
+                     }} 
+                     accept="video/mp4" 
+                   />
+                </div>
+              </div>
+              <div className="space-y-2">
+                <Label>Thumbnail <span className="text-muted-foreground font-normal text-xs ml-2">(Optional)</span></Label>
+                <div className="border border-input rounded-md p-1">
+                   <Input 
+                     type="file" 
+                     className="border-0 shadow-none bg-transparent"
+                     onChange={e => setSessionForm({...sessionForm, thumbnail: e.target.files?.[0] || null})} 
+                     accept="image/*" 
+                   />
+                </div>
               </div>
             </div>
           </div>
@@ -604,7 +664,7 @@ export default function BatchContent() {
 
       {/* Test Modal */}
       <Dialog open={isTestModalOpen} onOpenChange={setIsTestModalOpen}>
-        <DialogContent>
+        <DialogContent onOpenAutoFocus={(e) => e.preventDefault()}>
           <DialogHeader>
             <DialogTitle>Weekly Test Settings</DialogTitle>
             <DialogDescription>Configure the passing threshold and instructions for this batch's test.</DialogDescription>

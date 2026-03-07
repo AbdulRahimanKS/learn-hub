@@ -358,6 +358,7 @@ export default function Content() {
     if (!uploadWeekId) errors.week = 'Please select a week';
     if (!courseId) errors.course = 'System Error: Course missing';
     if (sessionNumber === '' || sessionNumber <= 0) errors.session_number = 'Session number must be a valid number greater than 0';
+    if (!weekday || weekday === 'none') errors.weekday = 'Weekday is required';
     if (!videoFile) errors.video_file = 'You must select a video file to upload';
 
     setVideoFormErrors(errors);
@@ -427,8 +428,6 @@ export default function Content() {
       formData.append('session_number', sessionNumber.toString());
       if (weekday && weekday !== 'none') {
         formData.append('weekday', weekday);
-      } else {
-        formData.append('weekday', '');
       }
       formData.append('duration_seconds', actualDurationSeconds.toString()); 
       if (finalVideoKey) {
@@ -473,6 +472,7 @@ export default function Content() {
     if (!videoTitle.trim()) errors.title = 'Title is required';
     if (!uploadWeekId || !editVideoId || !courseId) errors.course = 'System validation missing data';
     if (sessionNumber === '' || sessionNumber <= 0) errors.session_number = 'Session number must be a valid number greater than 0';
+    if (!weekday || weekday === 'none') errors.weekday = 'Weekday is required';
 
     setVideoFormErrors(errors);
     if (Object.keys(errors).length > 0) return;
@@ -483,8 +483,6 @@ export default function Content() {
     formData.append('session_number', sessionNumber.toString());
     if (weekday && weekday !== 'none') {
       formData.append('weekday', weekday);
-    } else {
-      formData.append('weekday', '');
     }
 
     if (videoThumbnail) {
@@ -552,7 +550,7 @@ export default function Content() {
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const VideoCard = ({ video }: { video: any }) => (
-    <Card className="shadow-card overflow-hidden group hover:shadow-lg transition-all duration-300">
+    <Card className="shadow-card overflow-hidden group hover:shadow-lg transition-all duration-300 flex flex-col h-full">
       <div className="relative aspect-video">
         {video.thumbnail ? (
           <img
@@ -711,7 +709,15 @@ export default function Content() {
               {/* Videos Grid */}
               {week.class_sessions.length > 0 ? (
                 <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-                  {week.class_sessions.map((video) => (
+                  {[...week.class_sessions]
+                    .sort((a, b) => {
+                      const days: Record<string, number> = { monday: 1, tuesday: 2, wednesday: 3, thursday: 4, friday: 5, saturday: 6, sunday: 7 };
+                      const dayA = days[a.weekday?.toLowerCase()] || 8;
+                      const dayB = days[b.weekday?.toLowerCase()] || 8;
+                      if (dayA !== dayB) return dayA - dayB;
+                      return (a.session_number || 0) - (b.session_number || 0);
+                    })
+                    .map((video) => (
                     <VideoCard key={video.id} video={video} />
                   ))}
                 </div>
@@ -767,27 +773,55 @@ export default function Content() {
 
       {/* Upload Video Modal */}
       <Dialog open={isUploadOpen} onOpenChange={(open) => !isUploading && setIsUploadOpen(open)}>
-        <DialogContent className="sm:max-w-lg">
+        <DialogContent className="sm:max-w-2xl max-h-[90vh] overflow-y-auto" onOpenAutoFocus={(e) => e.preventDefault()}>
           <DialogHeader>
             <DialogTitle>Upload New Video</DialogTitle>
             <DialogDescription>Add a new video to your course content</DialogDescription>
           </DialogHeader>
           <div className="space-y-4 py-4">
-            <div className="space-y-2">
-              <Label htmlFor="title">Video Title <span className="text-destructive">*</span></Label>
-              <Input 
-                id="title" 
-                placeholder="Enter video title" 
-                value={videoTitle}
-                disabled={isUploading}
-                onChange={(e) => {
-                  setVideoTitle(e.target.value);
-                  if (videoFormErrors.title) setVideoFormErrors({...videoFormErrors, title: ''});
-                }}
-                className={videoFormErrors.title ? "border-destructive focus-visible:ring-destructive" : ""}
-              />
-              {videoFormErrors.title && <p className="text-xs text-destructive">{videoFormErrors.title}</p>}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="title">Video Title <span className="text-destructive">*</span></Label>
+                <Input 
+                  id="title" 
+                  placeholder="Enter video title" 
+                  value={videoTitle}
+                  disabled={isUploading}
+                  onChange={(e) => {
+                    setVideoTitle(e.target.value);
+                    if (videoFormErrors.title) setVideoFormErrors({...videoFormErrors, title: ''});
+                  }}
+                  className={videoFormErrors.title ? "border-destructive focus-visible:ring-destructive" : ""}
+                />
+                {videoFormErrors.title && <p className="text-xs text-destructive">{videoFormErrors.title}</p>}
+              </div>
+
+              {/* Week Selection */}
+              <div className="space-y-2">
+                <Label>Select Week <span className="text-destructive">*</span></Label>
+                <Select 
+                  value={uploadWeekId} 
+                  disabled={isUploading}
+                  onValueChange={(val) => {
+                    setUploadWeekId(val);
+                    if (videoFormErrors.week) setVideoFormErrors({...videoFormErrors, week: ''});
+                  }}
+                >
+                  <SelectTrigger className={videoFormErrors.week ? "border-destructive focus:ring-destructive" : ""}>
+                    <SelectValue placeholder="Select a week" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {weeks.map((week) => (
+                      <SelectItem key={week.id} value={week.id.toString()}>
+                        Week {week.week_number}: {week.title}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                {videoFormErrors.week && <p className="text-xs text-destructive">{videoFormErrors.week}</p>}
+              </div>
             </div>
+
             <div className="space-y-2">
               <Label htmlFor="description">Description (Optional)</Label>
               <Textarea 
@@ -796,68 +830,51 @@ export default function Content() {
                 value={videoDesc}
                 disabled={isUploading}
                 onChange={(e) => setVideoDesc(e.target.value)}
+                className="resize-none"
+                rows={2}
               />
             </div>
             
-            <div className="space-y-2">
-              <Label htmlFor="sessionNumber">Session Number (Order in week) <span className="text-destructive">*</span></Label>
-              <Input 
-                id="sessionNumber"
-                type="number"
-                min="1"
-                value={sessionNumber}
-                disabled={isUploading}
-                onChange={(e) => {
-                  setSessionNumber(e.target.value === '' ? '' : parseInt(e.target.value, 10));
-                  if (videoFormErrors.session_number) setVideoFormErrors({...videoFormErrors, session_number: ''});
-                }}
-                className={videoFormErrors.session_number ? "border-destructive focus-visible:ring-destructive" : ""}
-              />
-              {videoFormErrors.session_number && <p className="text-xs text-destructive">{videoFormErrors.session_number}</p>}
-            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="sessionNumber">Session Number <span className="text-destructive">*</span></Label>
+                <Input 
+                  id="sessionNumber"
+                  type="number"
+                  min="1"
+                  value={sessionNumber}
+                  disabled={isUploading}
+                  onChange={(e) => {
+                    setSessionNumber(e.target.value === '' ? '' : parseInt(e.target.value, 10));
+                    if (videoFormErrors.session_number) setVideoFormErrors({...videoFormErrors, session_number: ''});
+                  }}
+                  className={videoFormErrors.session_number ? "border-destructive focus-visible:ring-destructive" : ""}
+                />
+                {videoFormErrors.session_number && <p className="text-xs text-destructive">{videoFormErrors.session_number}</p>}
+              </div>
 
-            <div className="space-y-2">
-              <Label>Weekday Tag (Optional)</Label>
-              <Select value={weekday} disabled={isUploading} onValueChange={setWeekday}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Select a weekday" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="none">None</SelectItem>
-                  <SelectItem value="monday">Monday</SelectItem>
-                  <SelectItem value="tuesday">Tuesday</SelectItem>
-                  <SelectItem value="wednesday">Wednesday</SelectItem>
-                  <SelectItem value="thursday">Thursday</SelectItem>
-                  <SelectItem value="friday">Friday</SelectItem>
-                  <SelectItem value="saturday">Saturday</SelectItem>
-                  <SelectItem value="sunday">Sunday</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-            
-            {/* Week Selection instead of text input */}
-            <div className="space-y-2">
-              <Label>Select Week <span className="text-destructive">*</span></Label>
-              <Select 
-                value={uploadWeekId} 
-                disabled={isUploading}
-                onValueChange={(val) => {
-                  setUploadWeekId(val);
-                  if (videoFormErrors.week) setVideoFormErrors({...videoFormErrors, week: ''});
-                }}
-              >
-                <SelectTrigger className={videoFormErrors.week ? "border-destructive focus:ring-destructive" : ""}>
-                  <SelectValue placeholder="Select a week" />
-                </SelectTrigger>
-                <SelectContent>
-                  {weeks.map((week) => (
-                    <SelectItem key={week.id} value={week.id.toString()}>
-                      Week {week.week_number}: {week.title}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              {videoFormErrors.week && <p className="text-xs text-destructive">{videoFormErrors.week}</p>}
+              <div className="space-y-2">
+                <Label>Weekday Tag <span className="text-destructive">*</span></Label>
+                <select 
+                  className={`flex h-10 w-full items-center justify-between rounded-md border bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 ${videoFormErrors.weekday ? "border-destructive focus:ring-destructive" : "border-input"}`}
+                  value={weekday}
+                  disabled={isUploading}
+                  onChange={(e) => {
+                    setWeekday(e.target.value);
+                    if (videoFormErrors.weekday) setVideoFormErrors({...videoFormErrors, weekday: ''});
+                  }}
+                >
+                  <option value="" disabled>Select a weekday</option>
+                  <option value="monday">Monday</option>
+                  <option value="tuesday">Tuesday</option>
+                  <option value="wednesday">Wednesday</option>
+                  <option value="thursday">Thursday</option>
+                  <option value="friday">Friday</option>
+                  <option value="saturday">Saturday</option>
+                  <option value="sunday">Sunday</option>
+                </select>
+                {videoFormErrors.weekday && <p className="text-xs text-destructive">{videoFormErrors.weekday}</p>}
+              </div>
             </div>
 
             <div className="space-y-2">
@@ -922,10 +939,16 @@ export default function Content() {
                 ref={fileInputRef} 
                 disabled={isUploading}
                 className="hidden" 
-                accept="video/mp4,video/webm"
+                accept="video/mp4"
                 onChange={(e) => {
                   if (e.target.files && e.target.files.length > 0) {
-                    setVideoFile(e.target.files[0]);
+                    const file = e.target.files[0];
+                    if (file.type !== 'video/mp4') {
+                      toast({ title: "Invalid format", description: "Only MP4 videos are allowed", variant: "destructive" });
+                      e.target.value = '';
+                      return;
+                    }
+                    setVideoFile(file);
                     if (videoFormErrors.video_file) setVideoFormErrors({...videoFormErrors, video_file: ''});
                   }
                 }}
@@ -948,8 +971,8 @@ export default function Content() {
                     <p className={`text-sm ${videoFormErrors.video_file ? 'text-destructive' : 'text-muted-foreground'}`}>
                       Drag and drop or click to upload
                     </p>
-                    <p className="text-xs text-muted-foreground mt-1">
-                      MP4, WebM
+                    <p className="text-xs text-muted-foreground mt-1 text-primary">
+                      MP4 videos only
                     </p>
                   </>
                 )}
@@ -980,7 +1003,7 @@ export default function Content() {
 
       {/* Add Week Modal */}
       <Dialog open={isWeekOpen} onOpenChange={setIsWeekOpen}>
-        <DialogContent className="sm:max-w-md">
+        <DialogContent className="sm:max-w-md" onOpenAutoFocus={(e) => e.preventDefault()}>
           <DialogHeader>
             <DialogTitle>Create New Week</DialogTitle>
             <DialogDescription>Add a new module week for the course curriculum.</DialogDescription>
@@ -1086,7 +1109,7 @@ export default function Content() {
 
       {/* Weekly Test Modal */}
       <Dialog open={isTestOpen} onOpenChange={setIsTestOpen}>
-        <DialogContent className="sm:max-w-2xl max-h-[90vh] overflow-y-auto">
+        <DialogContent className="sm:max-w-2xl max-h-[90vh] overflow-y-auto" onOpenAutoFocus={(e) => e.preventDefault()}>
           <DialogHeader>
             <DialogTitle>Weekly Test Configuration</DialogTitle>
             <DialogDescription>Create a test that students must pass completing this week's content.</DialogDescription>
@@ -1231,7 +1254,7 @@ export default function Content() {
 
       {/* Edit Video Modal */}
       <Dialog open={isEditVideoOpen} onOpenChange={setIsEditVideoOpen}>
-        <DialogContent className="sm:max-w-lg" onOpenAutoFocus={(e) => e.preventDefault()}>
+        <DialogContent className="sm:max-w-2xl max-h-[90vh] overflow-y-auto" onOpenAutoFocus={(e) => e.preventDefault()}>
           <DialogHeader>
             <DialogTitle>Edit Video Session</DialogTitle>
             <DialogDescription>Update the details of this video.</DialogDescription>
@@ -1251,6 +1274,7 @@ export default function Content() {
               />
               {videoFormErrors.title && <p className="text-xs text-destructive">{videoFormErrors.title}</p>}
             </div>
+            
             <div className="space-y-2">
               <Label htmlFor="editVDesc">Description (Optional)</Label>
               <Textarea 
@@ -1258,42 +1282,49 @@ export default function Content() {
                 placeholder="Enter video description" 
                 value={videoDesc}
                 onChange={(e) => setVideoDesc(e.target.value)}
+                className="resize-none"
+                rows={2}
               />
             </div>
             
-            <div className="space-y-2">
-              <Label htmlFor="editVSessionNumber">Session Number (Order in week) <span className="text-destructive">*</span></Label>
-              <Input 
-                id="editVSessionNumber"
-                type="number"
-                min="1"
-                value={sessionNumber}
-                onChange={(e) => {
-                  setSessionNumber(e.target.value === '' ? '' : parseInt(e.target.value, 10));
-                  if (videoFormErrors.session_number) setVideoFormErrors({...videoFormErrors, session_number: ''});
-                }}
-                className={videoFormErrors.session_number ? "border-destructive focus-visible:ring-destructive" : ""}
-              />
-              {videoFormErrors.session_number && <p className="text-xs text-destructive">{videoFormErrors.session_number}</p>}
-            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="editVSessionNumber">Session Number <span className="text-destructive">*</span></Label>
+                <Input 
+                  id="editVSessionNumber"
+                  type="number"
+                  min="1"
+                  value={sessionNumber}
+                  onChange={(e) => {
+                    setSessionNumber(e.target.value === '' ? '' : parseInt(e.target.value, 10));
+                    if (videoFormErrors.session_number) setVideoFormErrors({...videoFormErrors, session_number: ''});
+                  }}
+                  className={videoFormErrors.session_number ? "border-destructive focus-visible:ring-destructive" : ""}
+                />
+                {videoFormErrors.session_number && <p className="text-xs text-destructive">{videoFormErrors.session_number}</p>}
+              </div>
 
-            <div className="space-y-2">
-              <Label>Weekday Tag (Optional)</Label>
-              <Select value={weekday || "none"} onValueChange={(v) => setWeekday(v === "none" ? "" : v)}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Select a weekday" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="none">None</SelectItem>
-                  <SelectItem value="monday">Monday</SelectItem>
-                  <SelectItem value="tuesday">Tuesday</SelectItem>
-                  <SelectItem value="wednesday">Wednesday</SelectItem>
-                  <SelectItem value="thursday">Thursday</SelectItem>
-                  <SelectItem value="friday">Friday</SelectItem>
-                  <SelectItem value="saturday">Saturday</SelectItem>
-                  <SelectItem value="sunday">Sunday</SelectItem>
-                </SelectContent>
-              </Select>
+              <div className="space-y-2">
+                <Label>Weekday Tag <span className="text-destructive">*</span></Label>
+                <select 
+                  className={`flex h-10 w-full items-center justify-between rounded-md border bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 ${videoFormErrors.weekday ? "border-destructive focus:ring-destructive" : "border-input"}`}
+                  value={weekday}
+                  onChange={(e) => {
+                    setWeekday(e.target.value);
+                    if (videoFormErrors.weekday) setVideoFormErrors({...videoFormErrors, weekday: ''});
+                  }}
+                >
+                  <option value="" disabled>Select a weekday</option>
+                  <option value="monday">Monday</option>
+                  <option value="tuesday">Tuesday</option>
+                  <option value="wednesday">Wednesday</option>
+                  <option value="thursday">Thursday</option>
+                  <option value="friday">Friday</option>
+                  <option value="saturday">Saturday</option>
+                  <option value="sunday">Sunday</option>
+                </select>
+                {videoFormErrors.weekday && <p className="text-xs text-destructive">{videoFormErrors.weekday}</p>}
+              </div>
             </div>
 
             <div className="space-y-2">
@@ -1375,7 +1406,7 @@ export default function Content() {
 
       {/* Video Player Modal */}
       <Dialog open={!!playingVideoUrl} onOpenChange={(open) => !open && setPlayingVideoUrl(null)}>
-        <DialogContent className="sm:max-w-4xl p-0 overflow-hidden bg-black/95 border-none shadow-2xl">
+        <DialogContent className="sm:max-w-4xl p-0 overflow-hidden bg-black/95 border-none shadow-2xl" onOpenAutoFocus={(e) => e.preventDefault()}>
            {playingVideoUrl && (
              <video 
                src={playingVideoUrl} 
