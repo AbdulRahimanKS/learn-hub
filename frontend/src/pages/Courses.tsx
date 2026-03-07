@@ -233,11 +233,13 @@ export default function Courses() {
                 }
               }}
             >
-              <DialogContent className="max-w-5xl w-[90vw] p-0 bg-black border-none overflow-hidden shadow-2xl [&>button]:text-white [&>button]:hover:text-white/80 [&>button]:hover:bg-white/10 [&>button]:z-[60] [&>button]:right-4 [&>button]:top-4 [&>button>svg]:w-6 [&>button>svg]:h-6">
-                <div className="w-full aspect-video bg-black relative flex items-center justify-center">
-                   {activeVideoUrl && <VideoPlayer url={activeVideoUrl} />}
-                </div>
-              </DialogContent>
+              {activeVideoUrl && (
+                <DialogContent className="max-w-5xl w-[90vw] p-0 bg-black border-none overflow-hidden shadow-2xl [&>button]:text-white [&>button]:hover:text-white/80 [&>button]:hover:bg-white/10 [&>button]:z-[60] [&>button]:right-4 [&>button]:top-4 [&>button>svg]:w-6 [&>button>svg]:h-6">
+                  <div className="w-full aspect-video bg-black relative flex items-center justify-center">
+                     <VideoPlayer url={activeVideoUrl} />
+                  </div>
+                </DialogContent>
+              )}
             </Dialog>
 
             {/* Course Overview Header */}

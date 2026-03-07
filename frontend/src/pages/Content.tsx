@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
+import { VideoPlayer } from '@/components/VideoPlayer';
 import { DashboardLayout } from '@/components/layout/DashboardLayout';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -1406,15 +1407,11 @@ export default function Content() {
 
       {/* Video Player Modal */}
       <Dialog open={!!playingVideoUrl} onOpenChange={(open) => !open && setPlayingVideoUrl(null)}>
-        <DialogContent className="sm:max-w-4xl p-0 overflow-hidden bg-black/95 border-none shadow-2xl" onOpenAutoFocus={(e) => e.preventDefault()}>
+        <DialogContent className="sm:max-w-4xl max-w-[90vw] p-0 overflow-hidden bg-black/95 border-none shadow-2xl" onOpenAutoFocus={(e) => e.preventDefault()}>
            {playingVideoUrl && (
-             <video 
-               src={playingVideoUrl} 
-               controls 
-               autoPlay 
-               controlsList="nodownload"
-               className="w-full h-full max-h-[85vh] outline-none" 
-             />
+             <div className="w-full aspect-video flex justify-center items-center">
+               <VideoPlayer url={playingVideoUrl} />
+             </div>
            )}
         </DialogContent>
       </Dialog>
