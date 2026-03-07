@@ -1,6 +1,7 @@
 import logging
 from rest_framework import status
 from rest_framework.views import APIView
+from rest_framework import serializers
 from rest_framework.parsers import MultiPartParser, FormParser, JSONParser
 from drf_spectacular.utils import extend_schema, OpenApiParameter
 from drf_spectacular.types import OpenApiTypes
@@ -14,29 +15,24 @@ from apps.courses.serializers import (
 )
 from apps.users.serializers.user_management_serializers import UserManagementSerializer
 from apps.users.models import User
+from apps.courses.models import BatchWeek
 
-from utils.permissions import IsAdminOrTeacher, IsAuthenticated
+from utils.permissions import IsAuthenticated, IsSuperAdminAdminOrTeacher
 from utils.common import (
     format_success_response, handle_serializer_errors, ServiceError, 
-    generate_temp_password, activate_user_and_send_welcome_email
+    activate_user_and_send_welcome_email, get_current_local_date,
+    create_notification
 )
 from utils.pagination import CustomPageNumberPagination
 from utils.constants import UserTypeConstants
-from utils.email_utils import send_email
 from apps.courses.services import initialize_batch_weeks, push_content_to_batch, extend_batch_timeline
 
 logger = logging.getLogger(__name__)
 
 
-
-
 @extend_schema(tags=["Batches"])
 class BatchSummaryView(APIView):
-    """
-    Returns aggregate stats for the summary cards at the top of the Batches page.
-    Respects the same role-based filtering as BatchListView.
-    """
-    permission_classes = [IsAdminOrTeacher]
+    permission_classes = [IsSuperAdminAdminOrTeacher]
 
     @extend_schema(
         summary="Get batch summary stats",
@@ -52,9 +48,8 @@ class BatchSummaryView(APIView):
             ).distinct()
 
         total_batches = qs.count()
-        active_batches = qs.filter(is_active=True).count()
-        upcoming_batches = 0 
-        on_hold_batches = 0
+        active_batches = qs.filter(status=Batch.Status.ACTIVE).count()
+        completed_batches = qs.filter(status=Batch.Status.COMPLETED).count()
 
         total_students = BatchEnrollment.objects.filter(
             batch__in=qs,
@@ -66,8 +61,7 @@ class BatchSummaryView(APIView):
             data={
                 'total_batches': total_batches,
                 'active_batches': active_batches,
-                'upcoming_batches': upcoming_batches,
-                'on_hold_batches': on_hold_batches,
+                'completed_batches': completed_batches,
                 'total_students': total_students,
             }
         )
@@ -81,8 +75,8 @@ class BatchListView(APIView):
     @extend_schema(
         summary="List all batches",
         parameters=[
-            OpenApiParameter("search", OpenApiTypes.STR, description="Search by name or batch code"),
-            OpenApiParameter("is_active", OpenApiTypes.BOOL, description="Filter by active status"),
+            OpenApiParameter("search", OpenApiTypes.STR, description="Search by name"),
+            OpenApiParameter("status", OpenApiTypes.STR, description="Filter by status (ACTIVE, COMPLETED)"),
             OpenApiParameter("paginate", OpenApiTypes.BOOL, description="Set to false to return all results without pagination (default: true)"),
             OpenApiParameter("page", OpenApiTypes.INT, description="Page number (when paginated)"),
             OpenApiParameter("page_size", OpenApiTypes.INT, description="Results per page, default 10, max 100 (when paginated)"),
@@ -104,15 +98,14 @@ class BatchListView(APIView):
                     enrollments__student=user
                 ).distinct()
 
-        is_active_param = request.query_params.get('is_active')
-        if is_active_param is not None:
-            qs = qs.filter(is_active=is_active_param.lower() == 'true')
+        status_param = request.query_params.get('status')
+        if status_param is not None:
+            qs = qs.filter(status=status_param.upper())
 
         search = request.query_params.get('search', '').strip()
         if search:
             qs = qs.filter(
-                Q(name__icontains=search) |
-                Q(batch_code__icontains=search)
+                Q(name__icontains=search)
             )
 
         paginate_param = request.query_params.get('paginate', 'true').lower() == 'true'
@@ -132,7 +125,7 @@ class BatchListView(APIView):
 
 @extend_schema(tags=["Batches"])
 class BatchCreateView(APIView):
-    permission_classes = [IsAdminOrTeacher]
+    permission_classes = [IsSuperAdminAdminOrTeacher]
     parser_classes = [MultiPartParser, FormParser, JSONParser]
 
     @extend_schema(
@@ -148,14 +141,15 @@ class BatchCreateView(APIView):
                 raise ServiceError(detail=error_str, status_code=status.HTTP_400_BAD_REQUEST)
             
             batch = serializer.save()
-
-            # Initialize BatchWeeks based on CourseWeeks
-            initialize_batch_weeks(batch)
-
+            
             if batch.teacher:
                 activate_user_and_send_welcome_email(batch.teacher, request.user)
-            for co_teacher in batch.co_teachers.all():
-                activate_user_and_send_welcome_email(co_teacher, request.user)
+                create_notification(batch.teacher, title="New Batch Assignment", message=f"You have been assigned as the Primary Teacher for the batch '{batch.name}'.", notification_type="info")
+                
+            if batch.co_teachers.exists():
+                for co_teacher in batch.co_teachers.all():
+                    activate_user_and_send_welcome_email(co_teacher, request.user)
+                create_notification(list(batch.co_teachers.all()), title="New Batch Assignment", message=f"You have been assigned as a Co-Teacher for the batch '{batch.name}'.", notification_type="info")
 
             return format_success_response(
                 message="Batch created successfully",
@@ -172,7 +166,7 @@ class BatchCreateView(APIView):
 
 @extend_schema(tags=["Batches"])
 class BatchDetailView(APIView):
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsSuperAdminAdminOrTeacher]
 
     def get_object(self, pk):
         try:
@@ -198,11 +192,39 @@ class BatchDetailView(APIView):
             logger.error(f"Error retrieving batch {pk}: {str(e)}")
             raise ServiceError(detail=str(e), status_code=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
+    @extend_schema(summary="Delete a batch (Admin or Assigned Teacher only, if before start date)")
+    def delete(self, request, pk):
+        try:
+            batch = self.get_object(pk)
+            user = request.user
+            
+            is_admin = getattr(user, 'user_type', None) and user.user_type.name in [UserTypeConstants.ADMIN, UserTypeConstants.SUPERADMIN]
+            is_assigned_teacher = (
+                getattr(user, 'user_type', None) and
+                user.user_type.name == UserTypeConstants.TEACHER and
+                (batch.teacher == user or batch.co_teachers.filter(pk=user.pk).exists())
+            )
+
+            if not (is_admin or is_assigned_teacher):
+                raise ServiceError(detail="You do not have permission to delete this batch.", status_code=status.HTTP_403_FORBIDDEN)
+            
+            today = get_current_local_date()
+            if batch.start_date and batch.start_date <= today:
+                raise ServiceError(detail="Cannot delete a batch that has already started.", status_code=status.HTTP_400_BAD_REQUEST)
+                
+            batch.delete()
+            return format_success_response(message="Batch deleted successfully")
+        except ServiceError:
+            raise
+        except Exception as e:
+            logger.error(f"Error deleting batch {pk}: {str(e)}")
+            raise ServiceError(detail=str(e), status_code=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
 
 
 @extend_schema(tags=["Batches"])
 class BatchUpdateView(APIView):
-    permission_classes = [IsAdminOrTeacher]
+    permission_classes = [IsSuperAdminAdminOrTeacher]
     parser_classes = [MultiPartParser, FormParser, JSONParser]
 
     def get_object(self, pk):
@@ -221,7 +243,7 @@ class BatchUpdateView(APIView):
             batch = self.get_object(pk)
             user = request.user
 
-            is_admin = getattr(user, 'user_type', None) and user.user_type.name == UserTypeConstants.ADMIN
+            is_admin = getattr(user, 'user_type', None) and user.user_type.name in [UserTypeConstants.ADMIN, UserTypeConstants.SUPERADMIN]
             is_assigned_teacher = (
                 getattr(user, 'user_type', None) and
                 user.user_type.name == UserTypeConstants.TEACHER and
@@ -231,6 +253,19 @@ class BatchUpdateView(APIView):
             if not (is_admin or is_assigned_teacher):
                 raise ServiceError(detail="You do not have permission to update this batch.", status_code=status.HTTP_403_FORBIDDEN)
 
+            if 'start_date' in request.data:
+                new_start_date_str = str(request.data.get('start_date'))
+                if batch.start_date and str(batch.start_date) != new_start_date_str:
+                    today = get_current_local_date()
+                    if batch.start_date <= today:
+                        raise ServiceError(detail="Cannot edit the start date of a batch that has already started.", status_code=status.HTTP_400_BAD_REQUEST)
+                    
+                    if BatchWeek.objects.filter(batch=batch).exists():
+                        raise ServiceError(detail="Cannot edit the start date of a batch that already has content weeks added.", status_code=status.HTTP_400_BAD_REQUEST)
+
+            old_teacher_id = batch.teacher_id if batch.teacher else None
+            old_co_teachers = set(batch.co_teachers.values_list('id', flat=True)) if batch.pk else set()
+
             serializer = BatchCreateUpdateSerializer(batch, data=request.data, partial=True, context={'request': request})
             
             if not serializer.is_valid():
@@ -239,14 +274,33 @@ class BatchUpdateView(APIView):
             
             batch = serializer.save()
 
-            # Re-initialize/Sync BatchWeeks if course or start_date changed
-            if 'course' in request.data or 'start_date' in request.data:
-                initialize_batch_weeks(batch)
-
             if batch.teacher:
                 activate_user_and_send_welcome_email(batch.teacher, request.user)
-            for co_teacher in batch.co_teachers.all():
-                activate_user_and_send_welcome_email(co_teacher, request.user)
+                if batch.teacher_id != old_teacher_id:
+                    create_notification(batch.teacher, title="New Batch Assignment", message=f"You have been assigned as the Primary Teacher for the batch '{batch.name}'.", notification_type="info")
+
+            if old_teacher_id and old_teacher_id != batch.teacher_id:
+                try:
+                    old_teacher = User.objects.get(pk=old_teacher_id)
+                    create_notification(old_teacher, title="Batch Assignment Removed", message=f"You have been removed as the Primary Teacher from the batch '{batch.name}'.", notification_type="warning")
+                except User.DoesNotExist:
+                    pass
+
+            new_co_teachers = set(batch.co_teachers.values_list('id', flat=True))
+
+            if batch.co_teachers.exists():
+                for co_teacher in batch.co_teachers.all():
+                    activate_user_and_send_welcome_email(co_teacher, request.user)
+                
+                added_co_teachers = new_co_teachers - old_co_teachers
+                if added_co_teachers:
+                    co_teacher_users = list(batch.co_teachers.filter(id__in=added_co_teachers))
+                    create_notification(co_teacher_users, title="New Batch Assignment", message=f"You have been assigned as a Co-Teacher for the batch '{batch.name}'.", notification_type="info")
+
+            removed_co_teachers = old_co_teachers - new_co_teachers
+            if removed_co_teachers:
+                removed_users = list(User.objects.filter(id__in=removed_co_teachers))
+                create_notification(removed_users, title="Batch Assignment Removed", message=f"You have been removed as a Co-Teacher from the batch '{batch.name}'.", notification_type="warning")
 
             return format_success_response(
                 message="Batch updated successfully",
@@ -261,8 +315,11 @@ class BatchUpdateView(APIView):
 
 
 @extend_schema(tags=["Batches"])
-class BatchToggleActiveView(APIView):
-    permission_classes = [IsAdminOrTeacher]
+class BatchUpdateStatusView(APIView):
+    permission_classes = [IsSuperAdminAdminOrTeacher]
+
+    class InputSerializer(serializers.Serializer):
+        status = serializers.ChoiceField(choices=Batch.Status.choices)
 
     def get_object(self, pk):
         try:
@@ -271,16 +328,16 @@ class BatchToggleActiveView(APIView):
             raise ServiceError(detail="Batch not found.", status_code=status.HTTP_404_NOT_FOUND)
 
     @extend_schema(
-        summary="Toggle batch active status (Admin or Assigned Teacher only)",
-        request=None,
+        summary="Update batch status (Admin or Assigned Teacher only)",
+        request=InputSerializer,
         responses={200: BatchListSerializer},
     )
-    def post(self, request, pk):
+    def patch(self, request, pk):
         try:
             batch = self.get_object(pk)
             user = request.user
 
-            is_admin = getattr(user, 'user_type', None) and user.user_type.name == UserTypeConstants.ADMIN
+            is_admin = getattr(user, 'user_type', None) and user.user_type.name in [UserTypeConstants.ADMIN, UserTypeConstants.SUPERADMIN]
             is_assigned_teacher = (
                 getattr(user, 'user_type', None) and
                 user.user_type.name == UserTypeConstants.TEACHER and
@@ -290,25 +347,32 @@ class BatchToggleActiveView(APIView):
             if not (is_admin or is_assigned_teacher):
                 raise ServiceError(detail="You do not have permission to update this batch.", status_code=status.HTTP_403_FORBIDDEN)
 
-            batch.is_active = not batch.is_active
+            serializer = self.InputSerializer(data=request.data)
+            if not serializer.is_valid():
+                raise ServiceError(detail=handle_serializer_errors(serializer), status_code=status.HTTP_400_BAD_REQUEST)
+
+            new_status = serializer.validated_data['status']
+            if new_status not in [Batch.Status.ACTIVE, Batch.Status.COMPLETED]:
+                raise ServiceError(detail="Invalid status. Only 'ACTIVE' or 'COMPLETED' are allowed.", status_code=status.HTTP_400_BAD_REQUEST)
+
+            batch.status = new_status
             batch.updated_by = request.user
             batch.save()
 
-            status_label = "activated" if batch.is_active else "deactivated"
             return format_success_response(
-                message=f"Batch {status_label} successfully",
+                message=f"Batch status updated successfully",
                 data=None,
             )
         except ServiceError:
             raise
         except Exception as e:
-            logger.error(f"Error toggling batch active status: {str(e)}")
+            logger.error(f"Error updating batch status: {str(e)}")
             raise ServiceError(detail=str(e), status_code=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
 @extend_schema(tags=["Batches"])
 class BatchAddStudentView(APIView):
-    permission_classes = [IsAdminOrTeacher]
+    permission_classes = [IsSuperAdminAdminOrTeacher]
 
     def get_batch(self, pk):
         try:
@@ -326,7 +390,7 @@ class BatchAddStudentView(APIView):
             batch = self.get_batch(pk)
             user = request.user
 
-            is_admin = getattr(user, 'user_type', None) and user.user_type.name == UserTypeConstants.ADMIN
+            is_admin = getattr(user, 'user_type', None) and user.user_type.name in [UserTypeConstants.ADMIN, UserTypeConstants.SUPERADMIN]
             is_assigned_teacher = (
                 getattr(user, 'user_type', None) and
                 user.user_type.name == UserTypeConstants.TEACHER and
@@ -401,7 +465,7 @@ class BatchAddStudentView(APIView):
 
 @extend_schema(tags=["Batches"])
 class AvailableStudentListView(APIView):
-    permission_classes = [IsAdminOrTeacher]
+    permission_classes = [IsSuperAdminAdminOrTeacher]
 
     @extend_schema(
         summary="List students available for batch enrollment (not in any active batch)",
@@ -473,7 +537,7 @@ class BatchStudentListView(APIView):
 
 @extend_schema(tags=["Batches"])
 class ExtendBatchTimelineView(APIView):
-    permission_classes = [IsAdminOrTeacher]
+    permission_classes = [IsSuperAdminAdminOrTeacher]
 
     @extend_schema(
         summary="Extend batch timeline by adding days to future unlock dates",
@@ -496,7 +560,7 @@ class ExtendBatchTimelineView(APIView):
 
 @extend_schema(tags=["Batches"])
 class CloneBatchContentView(APIView):
-    permission_classes = [IsAdminOrTeacher]
+    permission_classes = [IsSuperAdminAdminOrTeacher]
 
     @extend_schema(
         summary="Push/Clone content from a Course or another Batch to this Batch",

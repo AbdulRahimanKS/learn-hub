@@ -549,11 +549,6 @@ export default function AdminCourses() {
                   <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent opacity-60" />
                   
                   {/* Top overlay badges */}
-                  <div className="absolute top-3 left-3 flex gap-2">
-                    <Badge variant="secondary" className="bg-background/95 backdrop-blur font-semibold border-none text-foreground border border-black/10">
-                      {course.course_code}
-                    </Badge>
-                  </div>
                   <div className="absolute top-3 right-3 flex gap-2">
                     <Badge 
                       className={`font-semibold shadow-sm ${(user?.role === 'admin' || user?.role === 'teacher') ? 'cursor-pointer hover:bg-success/90' : 'cursor-default'} ${course.is_active ? 'bg-success text-success-foreground border-none' : 'bg-secondary text-secondary-foreground border-none'}`}

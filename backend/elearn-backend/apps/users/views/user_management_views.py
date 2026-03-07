@@ -246,8 +246,6 @@ class UserManagementDetailView(APIView):
             elif role == UserTypeConstants.STUDENT:
                 enrollments = BatchEnrollment.objects.filter(
                     student=user
-                ).exclude(
-                    status__in=[BatchEnrollment.Status.DROPPED, BatchEnrollment.Status.COMPLETED]
                 ).exists()
                 
                 if enrollments:

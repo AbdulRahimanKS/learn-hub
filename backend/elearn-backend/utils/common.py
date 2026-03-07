@@ -142,3 +142,24 @@ def create_notification(user_or_users, title, message, notification_type="info",
     if notifications:
         return Notification.objects.bulk_create(notifications)
     return []
+
+
+def get_current_local_date():
+    """
+    Returns the current local date based on the AppConfiguration timezone.
+    Fallback to Django timezone aware date if not set.
+    """
+    from django.utils import timezone
+    from apps.users.models import AppConfiguration
+    import pytz
+
+    now = timezone.now()
+    try:
+        config = AppConfiguration.load()
+        if config and config.timezone:
+            tz = pytz.timezone(config.timezone)
+            now = now.astimezone(tz)
+    except Exception as e:
+        logger.warning(f"Could not load local timezone: {str(e)}")
+    
+    return now.date()

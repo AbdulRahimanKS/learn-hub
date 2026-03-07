@@ -27,7 +27,7 @@ class CourseListView(APIView):
     @extend_schema(
         summary="List all courses",
         parameters=[
-            OpenApiParameter("search", OpenApiTypes.STR, description="Search by title, course code, or description"),
+            OpenApiParameter("search", OpenApiTypes.STR, description="Search by title or description"),
             OpenApiParameter("is_active", OpenApiTypes.BOOL, description="Filter by active status"),
             OpenApiParameter("paginate", OpenApiTypes.BOOL, description="Set to false to return all results without pagination (default: true)"),
             OpenApiParameter("page", OpenApiTypes.INT, description="Page number (when paginated)"),
@@ -58,7 +58,6 @@ class CourseListView(APIView):
         if search:
             qs = qs.filter(
                 Q(title__icontains=search) |
-                Q(course_code__icontains=search) |
                 Q(description__icontains=search)
             )
 

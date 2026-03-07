@@ -21,8 +21,7 @@ export interface PaginatedUserResponse {
 export interface BatchSummary {
   total_batches: number;
   active_batches: number;
-  upcoming_batches: number;
-  on_hold_batches: number;
+  completed_batches: number;
   total_students: number;
 }
 
@@ -38,9 +37,8 @@ export interface Batch {
   enrolled_count: number;
   is_full: boolean;
   start_date: string | null;
-  end_date: string | null;
   progress_percent: number;
-  is_active: boolean;
+  status: 'ACTIVE' | 'COMPLETED';
   created_at: string;
   updated_at: string;
 }
@@ -49,12 +47,15 @@ export interface BatchFormData {
   name: string;
   description?: string;
   course?: number | null;
+  course_name?: string;
   teacher?: number | null;
+  teacher_name?: string;
+  teacher_email?: string;
   co_teachers?: number[];
+  co_teacher_details?: { id: number; fullname: string; email: string }[];
   max_students?: number;
   start_date?: string | null;
-  end_date?: string | null;
-  is_active?: boolean;
+  status?: 'INACTIVE' | 'ACTIVE' | 'COMPLETED';
 }
 
 export interface BatchWeek {
@@ -86,7 +87,7 @@ export interface PaginatedBatchResponse {
 
 export interface BatchListParams {
   search?: string;
-  is_active?: boolean;
+  status?: string;
   page?: number;
   page_size?: number;
   paginate?: boolean;
@@ -135,9 +136,10 @@ export const batchApi = {
     return response.data;
   },
 
-  toggleActive: async (id: number) => {
-    const response = await apiClient.post<{ data: null; success: boolean; message: string }>(
-      `/api/courses/v1/batches/${id}/toggle-active/`
+  updateStatus: async (id: number, status: string) => {
+    const response = await apiClient.patch<{ data: null; success: boolean; message: string }>(
+      `/api/courses/v1/batches/${id}/status/`,
+      { status }
     );
     return response.data;
   },
@@ -323,9 +325,9 @@ export interface PaginatedManageUsers {
 }
 
 export const userApi = {
-  listByRole: async (role?: string, search?: string, paginate?: boolean, page?: number) => {
+  listByRole: async (role?: string, search?: string, paginate?: boolean, page?: number, is_active?: boolean) => {
     const response = await apiClient.get<{ data: BatchUser[] | PaginatedUserResponse; success: boolean; message: string }>(
-      '/api/users/v1/list/', { params: { role, search, paginate, page } }
+      '/api/users/v1/list/', { params: { role, search, paginate, page, is_active } }
     );
     return response.data.data;
   },

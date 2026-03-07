@@ -92,6 +92,10 @@ class Course(models.Model):
 
 # Batch
 class Batch(models.Model):
+    class Status(models.TextChoices):
+        ACTIVE    = 'ACTIVE', _('Active')
+        COMPLETED = 'COMPLETED', _('Completed')
+
     batch_code  = models.CharField(max_length=20, unique=True, editable=False)
     name        = models.CharField(_('Batch Name'), max_length=255)
     description = models.TextField(_('Description'), blank=True)
@@ -117,10 +121,13 @@ class Batch(models.Model):
         _('Max Students'), default=30, validators=[MinValueValidator(1)]
     )
 
-    start_date     = models.DateField(_('Start Date'), null=True, blank=True)
-    end_date       = models.DateField(_('End Date'),   null=True, blank=True)
+    start_date     = models.DateField(_('Start Date'))
 
-    is_active = models.BooleanField(default=False)
+    status = models.CharField(
+        _('Status'), max_length=20,
+        choices=Status.choices,
+        default=Status.ACTIVE
+    )
 
     created_by = models.ForeignKey(
         'users.User', on_delete=models.SET_NULL, null=True, blank=True,
@@ -136,9 +143,9 @@ class Batch(models.Model):
     class Meta:
         verbose_name        = _('Batch')
         verbose_name_plural = _('Batches')
-        ordering            = ['-created_at']
+        ordering            = ['start_date']
         indexes             = [
-            models.Index(fields=['is_active'],   name='batch_is_active_idx'),
+            models.Index(fields=['status'],   name='batch_status_idx'),
             models.Index(fields=['course'],      name='batch_course_idx'),
             models.Index(fields=['teacher'],     name='batch_teacher_idx'),
             models.Index(fields=['start_date'],  name='batch_start_date_idx'),
@@ -173,24 +180,6 @@ class Batch(models.Model):
     def is_full(self):
         return self.enrolled_count >= self.max_students
 
-    @property
-    def progress_percent(self):
-        if not self.start_date or not self.end_date:
-            return 0.0
-        
-        today = timezone.now().date()
-        if today < self.start_date:
-            return 0.0
-        if today >= self.end_date:
-            return 100.0
-            
-        total_days = (self.end_date - self.start_date).days
-        if total_days <= 0:
-            return 0.0
-            
-        elapsed_days = (today - self.start_date).days
-        return round((elapsed_days / total_days) * 100, 1)
-
 
 # Batch Enrollment
 class BatchEnrollment(models.Model):
@@ -213,12 +202,8 @@ class BatchEnrollment(models.Model):
     dropped_at   = models.DateTimeField(null=True, blank=True)
     suspended_at = models.DateTimeField(null=True, blank=True)
     notes        = models.TextField(blank=True)
-    fee_paid     = models.BooleanField(_('Fee Paid'), default=False)
-    fee_amount   = models.DecimalField(
-        _('Fee Amount'), max_digits=10, decimal_places=2,
-        null=True, blank=True
-    )
 
+    current_week_unlocked = models.PositiveIntegerField(default=1)
 
     enrolled_by = models.ForeignKey(
         'users.User', on_delete=models.SET_NULL, null=True, blank=True,
@@ -233,8 +218,83 @@ class BatchEnrollment(models.Model):
         unique_together     = ('batch', 'student')
         ordering            = ['-enrolled_at']
 
+        indexes = [
+            models.Index(fields=["batch"]),
+            models.Index(fields=["student"]),
+            models.Index(fields=["status"]),
+        ]
+
     def __str__(self):
         return f"{self.student.fullname} → {self.batch.name} [{self.status}]"
+
+    def clean(self):
+        if BatchEnrollment.objects.filter(
+            student=self.student,
+            status__in=[BatchEnrollment.Status.ACTIVE, BatchEnrollment.Status.SUSPENDED]
+        ).exclude(pk=self.pk).exists():
+            raise ValidationError("Student already enrolled in another active batch.")
+
+    def save(self, *args, **kwargs):
+        self.clean()
+        super().save(*args, **kwargs)
+
+
+# StudentProgress
+class StudentProgress(models.Model):
+    enrollment = models.OneToOneField(
+        BatchEnrollment, on_delete=models.CASCADE, related_name='progress'
+    )
+
+    tests_attempted  = models.PositiveSmallIntegerField(default=0)
+    tests_passed     = models.PositiveSmallIntegerField(default=0)
+
+    last_activity_at  = models.DateTimeField(null=True, blank=True)
+
+    teacher_remarks   = models.TextField(blank=True)
+
+    updated_at        = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name        = _('Student Progress')
+        verbose_name_plural = _('Student Progress Records')
+
+    def __str__(self):
+        return f"{self.enrollment.student.fullname} Progress"
+
+
+# StudentSessionView
+class StudentSessionView(models.Model):
+    enrollment   = models.ForeignKey(
+        BatchEnrollment, on_delete=models.CASCADE,
+        related_name='session_views'
+    )
+    class_session = models.ForeignKey(
+        'ClassSession', on_delete=models.CASCADE,
+        related_name='student_views'
+    )
+    watched_percent   = models.FloatField(
+        _('Watched (%)'), default=0.0,
+        validators=[MinValueValidator(0), MaxValueValidator(100)]
+    )
+    is_completed      = models.BooleanField(
+        _('Marked Complete'), default=False,
+    )
+    first_watched_at  = models.DateTimeField(auto_now_add=True)
+    last_watched_at   = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        unique_together = ('enrollment', 'class_session')
+        verbose_name    = _('Student Session View')
+        indexes = [
+            models.Index(fields=["enrollment"]),
+            models.Index(fields=["class_session"]),
+        ]
+
+    def __str__(self):
+        return (
+            f"{self.enrollment.student.fullname} | "
+            f"{self.class_session.title} | {self.watched_percent:.0f}%"
+        )
 
 
 # Course Week
@@ -524,50 +584,7 @@ class PostSessionChoice(models.Model):
         return self.text
 
 
-# ─────────────────────────────────────────────────────────────────────────────
-# StudentSessionView  (tracks which videos a student has watched)
-# ─────────────────────────────────────────────────────────────────────────────
-
-class StudentSessionView(models.Model):
-    """
-    Records when and how much of a ClassSession video a student has watched.
-    Used to compute attendance / engagement metrics without a test requirement.
-    """
-
-    enrollment   = models.ForeignKey(
-        BatchEnrollment, on_delete=models.CASCADE,
-        related_name='session_views'
-    )
-    class_session = models.ForeignKey(
-        ClassSession, on_delete=models.CASCADE,
-        related_name='student_views'
-    )
-    watched_percent   = models.FloatField(
-        _('Watched (%)'), default=0.0,
-        validators=[MinValueValidator(0), MaxValueValidator(100)]
-    )
-    is_completed      = models.BooleanField(
-        _('Marked Complete'), default=False,
-        help_text=_('Auto-set when watched_percent >= 90')
-    )
-    first_watched_at  = models.DateTimeField(auto_now_add=True)
-    last_watched_at   = models.DateTimeField(auto_now=True)
-
-    class Meta:
-        unique_together = ('enrollment', 'class_session')
-        verbose_name    = _('Student Session View')
-
-    def __str__(self):
-        return (
-            f"{self.enrollment.student.fullname} | "
-            f"{self.class_session.title} | {self.watched_percent:.0f}%"
-        )
-
-
-# ─────────────────────────────────────────────────────────────────────────────
-# LiveSession  (real-time class with screen-sharing + whiteboard)
-# ─────────────────────────────────────────────────────────────────────────────
-
+# LiveSession
 class LiveSession(models.Model):
     """
     A LIVE interactive class session within a WeeklyModule.
@@ -815,78 +832,3 @@ class BatchChatMessage(models.Model):
         preview = (self.message[:40] + '…') if len(self.message) > 40 else self.message
         return f"{sender_name} → {self.batch.name}: {preview}"
 
-
-# ─────────────────────────────────────────────────────────────────────────────
-# StudentProgress  (aggregated scorecard per enrollment)
-# ─────────────────────────────────────────────────────────────────────────────
-
-class StudentProgress(models.Model):
-    """
-    Aggregated performance record for one student across their entire Batch.
-    Updated by signals whenever TestSubmission or StudentSessionView is saved.
-    """
-
-    enrollment = models.OneToOneField(
-        BatchEnrollment, on_delete=models.CASCADE, related_name='progress'
-    )
-
-    # Video engagement
-    videos_watched   = models.PositiveSmallIntegerField(default=0)
-    videos_total     = models.PositiveSmallIntegerField(default=0)
-
-    # Test performance
-    tests_attempted  = models.PositiveSmallIntegerField(default=0)
-    tests_passed     = models.PositiveSmallIntegerField(default=0)
-    average_score    = models.FloatField(
-        _('Average Test Score (%)'), default=0.0,
-        validators=[MinValueValidator(0), MaxValueValidator(100)]
-    )
-
-    # Weeks unlocked (tracks how far the student has progressed)
-    current_week_unlocked = models.PositiveSmallIntegerField(
-        _('Highest Week Unlocked'), default=1,
-        help_text=_('This can be auto-calculated by current date vs batch_week.unlock_date')
-    )
-
-    def update_unlocked_week(self):
-        """
-        Calculates the highest week number that should be unlocked based on today's date.
-        """
-        now = timezone.now()
-        highest_unlocked = self.enrollment.batch.batch_weeks.filter(
-            unlock_date__lte=now,
-            is_published=True
-        ).order_by('-week_number').first()
-        
-        if highest_unlocked:
-            self.current_week_unlocked = highest_unlocked.week_number
-            self.save(update_fields=['current_week_unlocked'])
-
-    # Overall batch completion
-    progress_percent   = models.FloatField(
-        _('Batch Completion (%)'), default=0.0,
-        validators=[MinValueValidator(0), MaxValueValidator(100)]
-    )
-    is_passed          = models.BooleanField(default=False)
-    certificate_issued = models.BooleanField(default=False)
-    certificate_url    = models.URLField(blank=True, null=True)
-
-    teacher_remarks   = models.TextField(blank=True)
-    last_activity_at  = models.DateTimeField(null=True, blank=True)
-    updated_at        = models.DateTimeField(auto_now=True)
-
-    class Meta:
-        verbose_name        = _('Student Progress')
-        verbose_name_plural = _('Student Progress Records')
-
-    def __str__(self):
-        return (
-            f"{self.enrollment.student.fullname} | "
-            f"{self.enrollment.batch.name} | {self.progress_percent:.0f}%"
-        )
-
-    @property
-    def video_completion_percent(self):
-        if not self.videos_total:
-            return 0
-        return round((self.videos_watched / self.videos_total) * 100, 1)

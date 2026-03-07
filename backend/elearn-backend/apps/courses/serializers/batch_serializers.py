@@ -1,8 +1,10 @@
 """
 Serializers for the Batch models.
 """
+from utils.common import ServiceError
 from rest_framework import serializers
 from apps.courses.models import Course, Batch, BatchEnrollment
+from rest_framework import status
 
 
 class BatchListSerializer(serializers.ModelSerializer):
@@ -12,17 +14,19 @@ class BatchListSerializer(serializers.ModelSerializer):
     teacher_name = serializers.CharField(source='teacher.fullname', read_only=True)
     enrolled_count = serializers.IntegerField(read_only=True)
     is_full = serializers.BooleanField(read_only=True)
-
     progress_percent = serializers.FloatField(read_only=True)
+    weeks_count = serializers.SerializerMethodField()
 
     class Meta:
         model = Batch
         fields = [
             'id', 'batch_code', 'name', 'description', 'course',
             'teacher', 'teacher_name', 'max_students', 'enrolled_count', 'is_full',
-            'start_date', 'end_date', 'progress_percent', 'is_active',
-            'created_at', 'updated_at'
+            'start_date', 'status', 'progress_percent', 'weeks_count', 'created_at', 'updated_at'
         ]
+
+    def get_weeks_count(self, obj):
+        return obj.batch_weeks.count()
 
 
 class BatchCreateUpdateSerializer(serializers.ModelSerializer):
@@ -40,16 +44,31 @@ class BatchCreateUpdateSerializer(serializers.ModelSerializer):
         }
     )
 
+    course_name = serializers.CharField(source='course.title', read_only=True)
+    teacher_name = serializers.CharField(source='teacher.fullname', read_only=True)
+    teacher_email = serializers.CharField(source='teacher.email', read_only=True)
+    co_teacher_details = serializers.SerializerMethodField()
+
     class Meta:
         model = Batch
         fields = [
-            'name', 'description', 'course', 'teacher', 'co_teachers',
-            'max_students', 'start_date', 'end_date', 'is_active'
+            'name', 'description', 'course', 'course_name', 'teacher', 'teacher_name', 'teacher_email', 'co_teachers', 'co_teacher_details',
+            'max_students', 'start_date', 'status'
         ]
+
+    def get_co_teacher_details(self, obj):
+        return [{'id': t.id, 'fullname': t.fullname, 'email': t.email} for t in obj.co_teachers.all()]
+
+    def validate_status(self, value):
+        if self.instance:
+            if value not in [Batch.Status.ACTIVE, Batch.Status.COMPLETED]:
+                raise ServiceError(detail="Invalid status. Only 'ACTIVE' or 'COMPLETED' are allowed.", status_code=status.HTTP_400_BAD_REQUEST)
+        return value
 
     def create(self, validated_data):
         user = self.context['request'].user
         co_teachers = validated_data.pop('co_teachers', [])
+        validated_data.setdefault('status', Batch.Status.ACTIVE)
         batch = Batch.objects.create(**validated_data, created_by=user)
         if co_teachers:
             batch.co_teachers.set(co_teachers)

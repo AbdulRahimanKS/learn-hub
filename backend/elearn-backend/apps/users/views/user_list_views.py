@@ -22,6 +22,7 @@ class UserListByRoleView(APIView):
         parameters=[
             OpenApiParameter("role", OpenApiTypes.STR, description="Filter by role name: Teacher, Student, Admin"),
             OpenApiParameter("search", OpenApiTypes.STR, description="Search by name or email"),
+            OpenApiParameter("is_active", OpenApiTypes.BOOL, description="Filter by active status"),
             OpenApiParameter("paginate", OpenApiTypes.BOOL, description="Set to true to return paginated results (default: false)"),
             OpenApiParameter("page", OpenApiTypes.INT, description="Page number (when paginated)"),
             OpenApiParameter("page_size", OpenApiTypes.INT, description="Results per page (when paginated)"),
@@ -43,6 +44,11 @@ class UserListByRoleView(APIView):
                 Q(fullname__icontains=search) |
                 Q(email__icontains=search)
             )
+
+        is_active_param = request.query_params.get('is_active')
+        if is_active_param is not None:
+            is_active = is_active_param.lower() == 'true'
+            qs = qs.filter(is_active=is_active)
 
         qs = qs.order_by('fullname')
 

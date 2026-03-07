@@ -61,6 +61,7 @@ import { cn } from "@/lib/utils";
 import { batchApi, userApi, Batch, BatchFormData, BatchUser, BatchSummary } from '@/lib/batch-api';
 import { courseApi, Course } from '@/lib/course-api';
 import { useToast } from '@/hooks/use-toast';
+import { useAuth } from '@/contexts/AuthContext';
 
 // Debounce hook
 function useDebounceValue<T>(value: T, delay: number): T {
@@ -80,12 +81,13 @@ const initialForm: BatchFormData = {
   co_teachers: [],
   max_students: 30,
   start_date: null,
-  end_date: null,
-  is_active: true,
+  status: 'ACTIVE',
 };
 
 export default function AdminBatches() {
   const { toast } = useToast();
+  const { user } = useAuth();
+  const isAdmin = user?.role === 'admin';
 
   // Data State
   const [batches, setBatches] = useState<Batch[]>([]);
@@ -96,7 +98,8 @@ export default function AdminBatches() {
   // Search / Filter / Pagination
   const [searchQuery, setSearchQuery] = useState('');
   const debouncedSearch = useDebounceValue(searchQuery, 500);
-  const [statusFilter, setStatusFilter] = useState<'all' | 'active' | 'inactive'>('all');
+  const [statusFilter, setStatusFilter] = useState<'all' | 'ACTIVE' | 'COMPLETED'>('all');
+
   const [currentPage, setCurrentPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
   const pageSize = 6;
@@ -105,8 +108,7 @@ export default function AdminBatches() {
   const [summary, setSummary] = useState<BatchSummary>({
     total_batches: 0,
     active_batches: 0,
-    upcoming_batches: 0,
-    on_hold_batches: 0,
+    completed_batches: 0,
     total_students: 0,
   });
 
@@ -163,7 +165,7 @@ export default function AdminBatches() {
         page: currentPage,
         page_size: pageSize,
       };
-      if (statusFilter !== 'all') params.is_active = statusFilter === 'active';
+      if (statusFilter !== 'all') params.status = statusFilter;
 
       const res = await batchApi.getBatches(params);
       if (res.success) {
@@ -202,7 +204,7 @@ export default function AdminBatches() {
   const fetchAsyncCourses = useCallback(async (page: number, search: string) => {
     try {
       setIsLoadingCourses(true);
-      const res = await courseApi.getCourses({ paginate: true, page, search, page_size: 10 });
+      const res = await courseApi.getCourses({ paginate: true, page, search, page_size: 10, is_active: true });
       const pagedData = res as any;
       setHasMoreCourses(pagedData.next !== null);
       setCoursesList(prev => page === 1 ? pagedData.data : [...prev, ...pagedData.data]);
@@ -228,7 +230,7 @@ export default function AdminBatches() {
   const fetchAsyncPrimaryTeachers = useCallback(async (page: number, search: string) => {
     try {
       setIsLoadingPrimaryTeachers(true);
-      const res = await userApi.listByRole('Teacher', search, true, page);
+      const res = await userApi.listByRole('Teacher', search, true, page, true);
       const pagedData = res as any;
       setHasMorePrimaryTeachers(pagedData.next !== null);
       setPrimaryTeachersList(prev => page === 1 ? pagedData.data : [...prev, ...pagedData.data]);
@@ -254,7 +256,7 @@ export default function AdminBatches() {
   const fetchAsyncTeachers = useCallback(async (page: number, search: string) => {
     try {
       setIsLoadingCoTeachers(true);
-      const res = await userApi.listByRole('Teacher', search, true, page);
+      const res = await userApi.listByRole('Teacher', search, true, page, true);
       const pagedData = res as any;
       
       setHasMoreCoTeachers(pagedData.next !== null);
@@ -286,9 +288,8 @@ export default function AdminBatches() {
     else if (formData.name.length > 255) errors.name = 'Batch name must be 255 characters or less.';
     if (!formData.course) errors.course = 'A course must be selected for this batch.';
     if (!formData.teacher) errors.teacher = 'Primary teacher is required.';
+    if (!formData.start_date) errors.start_date = 'Start date is required.';
     if ((formData.max_students ?? 0) < 1) errors.max_students = 'Max students must be at least 1.';
-    if (formData.start_date && formData.end_date && formData.start_date > formData.end_date)
-      errors.end_date = 'End date must be after start date.';
     setFormErrors(errors);
     return Object.keys(errors).length === 0;
   };
@@ -308,6 +309,26 @@ export default function AdminBatches() {
       try {
         const res = await batchApi.getBatch(batch.id);
         const d = res.data as any;
+        
+        // Populate inactive fields into the local cache if they aren't already present
+        if (d.course && d.course_name) {
+          setCourses(prev => prev.find(c => c.id === d.course) ? prev : [...prev, { id: d.course, title: d.course_name } as Course]);
+        }
+        const newTeachers: BatchUser[] = [];
+        if (d.teacher && d.teacher_name) {
+          newTeachers.push({ id: d.teacher, fullname: d.teacher_name, email: d.teacher_email || '' } as BatchUser);
+        }
+        if (d.co_teacher_details?.length) {
+          newTeachers.push(...d.co_teacher_details);
+        }
+        if (newTeachers.length > 0) {
+          setTeachers(prev => {
+            const merged = [...prev];
+            newTeachers.forEach(nt => { if (!merged.find(t => t.id === nt.id)) merged.push(nt); });
+            return merged;
+          });
+        }
+
         setFormData({
           name: d.name || '',
           description: d.description || '',
@@ -316,8 +337,7 @@ export default function AdminBatches() {
           co_teachers: d.co_teachers ?? [],
           max_students: d.max_students ?? 30,
           start_date: d.start_date ?? null,
-          end_date: d.end_date ?? null,
-          is_active: d.is_active ?? true,
+          status: d.status ?? 'ACTIVE',
         });
       } catch (_) {
         toast({ title: 'Error', description: 'Failed to load batch details', variant: 'destructive' });
@@ -402,10 +422,12 @@ export default function AdminBatches() {
   };
 
   // Re-fetch summary whenever batches change (create/delete/toggle)
+  // Updated logic for toggling through some status state (e.g. ACTIVE -> COMPLETED) if ever called
   const handleToggleActive = async (batch: Batch) => {
     try {
-      await batchApi.toggleActive(batch.id);
-      toast({ title: 'Updated', description: `Batch ${batch.is_active ? 'deactivated' : 'activated'} successfully`, variant: 'success' });
+      const newStatus = batch.status === 'ACTIVE' ? 'COMPLETED' : 'ACTIVE';
+      await batchApi.updateStatus(batch.id, newStatus);
+      toast({ title: 'Updated', description: `Batch status changed to ${newStatus}`, variant: 'success' });
       fetchBatches();
       fetchSummary();
     } catch (err: any) {
@@ -424,11 +446,11 @@ export default function AdminBatches() {
   };
   const getTeacherName = (id: number) => teachers.find(t => t.id === id)?.fullname ?? `Teacher #${id}`;
 
-  // Stat cards — sourced from API summary (avg progress is static for now)
+  // Stat cards — sourced from API summary
   const statsCards = [
-    { label: 'Total Batches',   value: summary.total_batches,  icon: GraduationCap, color: 'bg-primary/10 text-primary' },
-    { label: 'Active Batches',  value: summary.active_batches,  icon: BookOpen,      color: 'bg-success/10 text-success' },
-    { label: 'Avg Progress',    value: '—',                     icon: Calendar,      color: 'bg-warning/10 text-warning' },
+    { label: 'Total Batches',     value: summary.total_batches,     icon: GraduationCap, color: 'bg-primary/10 text-primary' },
+    { label: 'Active Batches',    value: summary.active_batches,    icon: BookOpen,      color: 'bg-success/10 text-success' },
+    { label: 'Completed Batches', value: summary.completed_batches, icon: Check,         color: 'bg-primary/10 text-primary' },
   ];
 
   return (
@@ -438,7 +460,7 @@ export default function AdminBatches() {
         <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           <div>
             <h1 className="font-display text-3xl font-bold text-foreground">Batches</h1>
-            <p className="mt-1 text-muted-foreground">Manage student batches and assignments</p>
+            <p className="mt-1 text-muted-foreground">Manage student batches</p>
           </div>
           <Button variant="gradient" onClick={() => handleOpenModal()}>
             <Plus className="h-4 w-4" />
@@ -459,7 +481,7 @@ export default function AdminBatches() {
                     <p className="text-2xl font-bold text-foreground">{value}</p>
                     <p className="text-sm text-muted-foreground">{label}</p>
                   </div>
-                </div>
+                  </div>
               </CardContent>
             </Card>
           ))}
@@ -475,6 +497,19 @@ export default function AdminBatches() {
               onChange={e => setSearchQuery(e.target.value)}
               className="pl-10"
             />
+          </div>
+          <div className="w-[180px] shrink-0">
+            <Select value={statusFilter} onValueChange={(v: any) => setStatusFilter(v)}>
+              <SelectTrigger className="border-primary text-primary">
+                <Filter className="h-4 w-4 mr-2" />
+                <SelectValue placeholder="Filter by status" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Batches</SelectItem>
+                <SelectItem value="ACTIVE">Active Only</SelectItem>
+                <SelectItem value="COMPLETED">Completed Only</SelectItem>
+              </SelectContent>
+            </Select>
           </div>
         </div>
 
@@ -507,6 +542,17 @@ export default function AdminBatches() {
                         <p className="text-sm text-muted-foreground line-clamp-2">{batch.description}</p>
                       )}
                     </div>
+                    {/* Status badge top-right of card header */}
+                    <Badge
+                      variant="outline"
+                      className={cn(
+                        "text-xs font-medium shrink-0",
+                        batch.status === 'ACTIVE' && "text-green-600 border-green-500/50 bg-green-500/10",
+                        batch.status === 'COMPLETED' && "text-blue-600 border-blue-500/50 bg-blue-500/10",
+                      )}
+                    >
+                      {batch.status === 'ACTIVE' ? 'Active' : 'Completed'}
+                    </Badge>
                   </div>
                 </CardHeader>
                 <CardContent className="flex-1 flex flex-col p-0">
@@ -524,11 +570,15 @@ export default function AdminBatches() {
                       <div className="space-y-2 mt-2">
                         <div className="flex items-center justify-between text-sm">
                           <span className="text-muted-foreground">Progress</span>
+                          <div className="flex items-center gap-1 text-muted-foreground">
+                            <BookOpen className="h-3.5 w-3.5" />
+                            <span>{(batch as any).weeks_count ?? 0} week{((batch as any).weeks_count ?? 0) !== 1 ? 's' : ''}</span>
+                          </div>
                         </div>
                         <Progress value={batch.progress_percent} className="h-2" />
                       </div>
 
-                      {/* Stats */}
+                      {/* Stats row: enrolled + date */}
                       <div className="flex items-center justify-between text-sm pt-2 border-t border-border mt-2">
                         <div className="flex items-center gap-1 text-muted-foreground">
                           <Users className="h-4 w-4" />
@@ -537,7 +587,7 @@ export default function AdminBatches() {
                         </div>
                         <div className="flex items-center gap-1 text-muted-foreground">
                           <Calendar className="h-4 w-4" />
-                          <span>{batch.start_date ?? 'No date set'}</span>
+                          <span>{batch.start_date ? new Date(batch.start_date).toLocaleDateString('en-US', { day: 'numeric', month: 'short', year: 'numeric' }) : 'No date set'}</span>
                         </div>
                       </div>
                     </div>
@@ -592,14 +642,26 @@ export default function AdminBatches() {
         )}
 
         {/* Pagination */}
-        {totalPages > 1 && (
-          <div className="flex items-center justify-center gap-2">
-            <Button variant="outline" size="icon" onClick={() => setCurrentPage(p => Math.max(1, p - 1))} disabled={currentPage === 1}>
-              <ChevronLeft className="h-4 w-4" />
+        {!loading && batches.length > 0 && totalPages > 1 && (
+          <div className="flex items-center justify-center gap-2 mt-8">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+              disabled={currentPage === 1}
+            >
+              Previous
             </Button>
-            <span className="text-sm text-muted-foreground">Page {currentPage} of {totalPages}</span>
-            <Button variant="outline" size="icon" onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))} disabled={currentPage === totalPages}>
-              <ChevronRight className="h-4 w-4" />
+            <div className="text-sm font-medium text-muted-foreground px-4">
+              Page {currentPage} of {totalPages}
+            </div>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+              disabled={currentPage === totalPages}
+            >
+              Next
             </Button>
           </div>
         )}
@@ -607,7 +669,7 @@ export default function AdminBatches() {
 
       {/* ─── Create / Edit Modal ─── */}
       <Dialog open={isModalOpen} onOpenChange={open => { if (!open) resetForm(); setIsModalOpen(open); }}>
-        <DialogContent className="sm:max-w-2xl max-h-[90vh] overflow-y-auto">
+        <DialogContent className="sm:max-w-2xl max-h-[90vh] overflow-y-auto" onOpenAutoFocus={e => e.preventDefault()}>
           <DialogHeader>
             <DialogTitle>{editBatchId ? 'Edit Batch' : 'Create New Batch'}</DialogTitle>
             <DialogDescription>{editBatchId ? 'Update the batch details below.' : 'Fill in the details to create a new batch.'}</DialogDescription>
@@ -626,6 +688,7 @@ export default function AdminBatches() {
               <Label htmlFor="batch-name">Batch Name <span className="text-destructive">*</span></Label>
               <Input
                 id="batch-name"
+                autoFocus={false}
                 value={formData.name}
                 onChange={e => {
                   setFormData(p => ({ ...p, name: e.target.value }));
@@ -651,118 +714,137 @@ export default function AdminBatches() {
             {/* Course */}
             <div className="space-y-1.5 flex flex-col justify-end">
               <Label>Course <span className="text-destructive">*</span></Label>
-              <Popover modal={true}>
-                <PopoverTrigger asChild>
-                  <button
-                    type="button"
-                    role="combobox"
-                    className={cn(
-                      "flex w-full justify-between items-center h-10 px-3 py-2 text-sm font-normal bg-background hover:bg-transparent border border-input rounded-md ring-offset-background placeholder:text-muted-foreground focus:outline-none disabled:cursor-not-allowed disabled:opacity-50",
-                      !formData.course && "text-muted-foreground",
-                      formErrors.course && "border-destructive text-destructive"
-                    )}
-                  >
-                    <span className="truncate">{formData.course ? courses.find(c => c.id === formData.course)?.title : "— Select Course —"}</span>
-                  </button>
-                </PopoverTrigger>
-                <PopoverContent className="w-[400px] p-0" align="start">
-                  <Command shouldFilter={false}>
-                    <CommandInput 
-                      placeholder="Search courses..." 
-                      value={courseSearch} 
-                      onValueChange={setCourseSearch} 
-                    />
-                    <CommandList>
-                      <CommandEmpty>{isLoadingCourses ? "Loading..." : "No course found."}</CommandEmpty>
-                      <CommandGroup>
-                        {coursesList.map(c => (
-                          <CommandItem
-                            key={c.id}
-                            value={c.id.toString()}
-                            onSelect={() => {
-                              setFormData(p => ({ ...p, course: c.id }));
-                              if (formErrors.course) setFormErrors(p => ({ ...p, course: '' }));
-                              // hack to close popover natively if needed since onselect doesnt always auto-close in manual mode
-                            }}
-                          >
-                            <Check className={cn("mr-2 h-4 w-4", formData.course === c.id ? "opacity-100" : "opacity-0")} />
-                            {c.title}
-                          </CommandItem>
-                        ))}
-                        {hasMoreCourses && (
-                          <CommandItem 
-                            value="load-more"
-                            onSelect={() => setCoursePage(p => p + 1)}
-                            className="justify-center text-primary font-medium cursor-pointer py-2 mt-1"
-                          >
-                            {isLoadingCourses ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : "Load more..."}
-                            {isLoadingCourses ? "Loading" : ""}
-                          </CommandItem>
+              {editBatchId ? (
+                <Input
+                  disabled
+                  value={courses.find(c => c.id === formData.course)?.title ?? formData.course_name ?? ''}
+                  className="bg-muted text-muted-foreground cursor-not-allowed"
+                />
+              ) : (
+                <>
+                  <Popover modal={true}>
+                    <PopoverTrigger asChild>
+                      <button
+                        type="button"
+                        role="combobox"
+                        className={cn(
+                          "flex w-full justify-between items-center h-10 px-3 py-2 text-sm font-normal bg-background hover:bg-transparent border border-input rounded-md ring-offset-background placeholder:text-muted-foreground focus:outline-none disabled:cursor-not-allowed disabled:opacity-50",
+                          !formData.course && "text-muted-foreground",
+                          formErrors.course && "border-destructive text-destructive"
                         )}
-                      </CommandGroup>
-                    </CommandList>
-                  </Command>
-                </PopoverContent>
-              </Popover>
-              {formErrors.course && <p className="text-xs text-destructive">{formErrors.course}</p>}
+                      >
+                        <span className="truncate">{formData.course ? courses.find(c => c.id === formData.course)?.title : "— Select Course —"}</span>
+                      </button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-[400px] p-0" align="start">
+                      <Command shouldFilter={false}>
+                        <CommandInput 
+                          placeholder="Search courses..." 
+                          value={courseSearch} 
+                          onValueChange={setCourseSearch} 
+                        />
+                        <CommandList>
+                          <CommandEmpty>{isLoadingCourses ? "Loading..." : "No course found."}</CommandEmpty>
+                          <CommandGroup>
+                            {coursesList.map(c => (
+                              <CommandItem
+                                key={c.id}
+                                value={c.id.toString()}
+                                onSelect={() => {
+                                  setFormData(p => ({ ...p, course: c.id }));
+                                  if (formErrors.course) setFormErrors(p => ({ ...p, course: '' }));
+                                }}
+                              >
+                                <Check className={cn("mr-2 h-4 w-4", formData.course === c.id ? "opacity-100" : "opacity-0")} />
+                                {c.title}
+                              </CommandItem>
+                            ))}
+                            {hasMoreCourses && (
+                              <CommandItem 
+                                value="load-more"
+                                onSelect={() => setCoursePage(p => p + 1)}
+                                className="justify-center text-primary font-medium cursor-pointer py-2 mt-1"
+                              >
+                                {isLoadingCourses ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : "Load more..."}
+                                {isLoadingCourses ? "Loading" : ""}
+                              </CommandItem>
+                            )}
+                          </CommandGroup>
+                        </CommandList>
+                      </Command>
+                    </PopoverContent>
+                  </Popover>
+                  {formErrors.course && <p className="text-xs text-destructive">{formErrors.course}</p>}
+                </>
+              )}
             </div>
 
             {/* Primary Teacher */}
             <div className="space-y-1.5 flex flex-col justify-end">
               <Label>Primary Teacher <span className="text-destructive">*</span></Label>
-              <Popover modal={true}>
-                <PopoverTrigger asChild>
-                  <button
-                    type="button"
-                    role="combobox"
-                    className={cn(
-                      "flex w-full justify-between items-center h-10 px-3 py-2 text-sm font-normal bg-background hover:bg-transparent border border-input rounded-md ring-offset-background placeholder:text-muted-foreground focus:outline-none disabled:cursor-not-allowed disabled:opacity-50",
-                      !formData.teacher && "text-muted-foreground",
-                      formErrors.teacher && "border-destructive text-destructive"
-                    )}
-                  >
-                    <span className="truncate">{formData.teacher ? getTeacherName(formData.teacher) : "— Select Primary Teacher —"}</span>
-                  </button>
-                </PopoverTrigger>
-                <PopoverContent className="w-[400px] p-0" align="start">
-                  <Command shouldFilter={false}>
-                    <CommandInput 
-                      placeholder="Search teachers..." 
-                      value={primaryTeacherSearch} 
-                      onValueChange={setPrimaryTeacherSearch} 
-                    />
-                    <CommandList>
-                      <CommandEmpty>{isLoadingPrimaryTeachers ? "Loading..." : "No teacher found."}</CommandEmpty>
-                      <CommandGroup>
-                        {primaryTeachersList.map(t => (
-                          <CommandItem
-                            key={t.id}
-                            value={t.id.toString()}
-                            onSelect={() => {
-                              setFormData(p => ({ ...p, teacher: t.id, co_teachers: (p.co_teachers || []).filter(c => c !== t.id) }));
-                              if (formErrors.teacher) setFormErrors(p => ({ ...p, teacher: '' }));
-                            }}
-                          >
-                            <Check className={cn("mr-2 h-4 w-4", formData.teacher === t.id ? "opacity-100" : "opacity-0")} />
-                            {t.fullname} <span className="text-muted-foreground text-xs ml-1">({t.email})</span>
-                          </CommandItem>
-                        ))}
-                        {hasMorePrimaryTeachers && (
-                          <CommandItem 
-                            value="load-more"
-                            onSelect={() => setPrimaryTeacherPage(p => p + 1)}
-                            className="justify-center text-primary font-medium cursor-pointer py-2 mt-1"
-                          >
-                            {isLoadingPrimaryTeachers ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : "Load more..."}
-                            {isLoadingPrimaryTeachers ? "Loading" : ""}
-                          </CommandItem>
+              {editBatchId && !isAdmin ? (
+                <Input
+                  disabled
+                  value={formData.teacher ? getTeacherName(formData.teacher) : '—'}
+                  className="bg-muted text-muted-foreground cursor-not-allowed"
+                />
+              ) : (
+                <>
+                  <Popover modal={true}>
+                    <PopoverTrigger asChild>
+                      <button
+                        type="button"
+                        role="combobox"
+                        className={cn(
+                          "flex w-full justify-between items-center h-10 px-3 py-2 text-sm font-normal bg-background hover:bg-transparent border border-input rounded-md ring-offset-background placeholder:text-muted-foreground focus:outline-none disabled:cursor-not-allowed disabled:opacity-50",
+                          !formData.teacher && "text-muted-foreground",
+                          formErrors.teacher && "border-destructive text-destructive"
                         )}
-                      </CommandGroup>
-                    </CommandList>
-                  </Command>
-                </PopoverContent>
-              </Popover>
-              {formErrors.teacher && <p className="text-xs text-destructive">{formErrors.teacher}</p>}
+                      >
+                        <span className="truncate">{formData.teacher ? getTeacherName(formData.teacher) : "— Select Primary Teacher —"}</span>
+                      </button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-[400px] p-0" align="start">
+                      <Command shouldFilter={false}>
+                        <CommandInput 
+                          placeholder="Search teachers..." 
+                          value={primaryTeacherSearch} 
+                          onValueChange={setPrimaryTeacherSearch} 
+                        />
+                        <CommandList>
+                          <CommandEmpty>{isLoadingPrimaryTeachers ? "Loading..." : "No teacher found."}</CommandEmpty>
+                          <CommandGroup>
+                            {primaryTeachersList.map(t => (
+                              <CommandItem
+                                key={t.id}
+                                value={t.id.toString()}
+                                onSelect={() => {
+                                  setFormData(p => ({ ...p, teacher: t.id, co_teachers: (p.co_teachers || []).filter(c => c !== t.id) }));
+                                  if (formErrors.teacher) setFormErrors(p => ({ ...p, teacher: '' }));
+                                }}
+                              >
+                                <Check className={cn("mr-2 h-4 w-4", formData.teacher === t.id ? "opacity-100" : "opacity-0")} />
+                                {t.fullname} <span className="text-muted-foreground text-xs ml-1">({t.email})</span>
+                              </CommandItem>
+                            ))}
+                            {hasMorePrimaryTeachers && (
+                              <CommandItem 
+                                value="load-more"
+                                onSelect={() => setPrimaryTeacherPage(p => p + 1)}
+                                className="justify-center text-primary font-medium cursor-pointer py-2 mt-1"
+                              >
+                                {isLoadingPrimaryTeachers ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : "Load more..."}
+                                {isLoadingPrimaryTeachers ? "Loading" : ""}
+                              </CommandItem>
+                            )}
+                          </CommandGroup>
+                        </CommandList>
+                      </Command>
+                    </PopoverContent>
+                  </Popover>
+                  {formErrors.teacher && <p className="text-xs text-destructive">{formErrors.teacher}</p>}
+                </>
+              )}
             </div>
 
             {/* Co-teachers */}
@@ -829,10 +911,10 @@ export default function AdminBatches() {
               </Popover>
             </div>
 
-            {/* Dates */}
+            {/* Dates & Requirements */}
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <div className="space-y-1.5 flex flex-col justify-end">
-                <Label>Start Date <span className="text-muted-foreground font-normal text-xs ml-2">(Must be a Monday)</span></Label>
+              <div className="space-y-1.5 flex flex-col justify-start">
+                <Label>Start Date <span className="text-destructive">*</span> <span className="text-muted-foreground font-normal text-xs ml-2">(Must be a Monday)</span></Label>
                 <Popover modal={true}>
                   <PopoverTrigger asChild>
                     <button
@@ -853,68 +935,54 @@ export default function AdminBatches() {
                       onSelect={(date) => {
                         const dateStr = date ? format(date, "yyyy-MM-dd") : null;
                         setFormData(p => ({ ...p, start_date: dateStr }));
+                        if (formErrors.start_date) setFormErrors(p => ({ ...p, start_date: '' }));
                       }}
                       disabled={(date) => {
-                        if (date.getDay() !== 1) return true; // Rule: Must be a Monday
-                        if (formData.end_date) return format(date, "yyyy-MM-dd") > formData.end_date;
+                        // Rule: Must be a Monday
+                        if (date.getDay() !== 1) return true; 
+                        // Rule: Cannot be in the past
+                        const today = new Date();
+                        today.setHours(0, 0, 0, 0);
+                        if (date < today) return true;
+                        
                         return false;
                       }}
                       initialFocus
                     />
                   </PopoverContent>
                 </Popover>
+                {formErrors.start_date && <p className="text-xs text-destructive">{formErrors.start_date}</p>}
               </div>
-              <div className="space-y-1.5 flex flex-col justify-end">
-                <Label>End Date</Label>
-                <Popover modal={true}>
-                  <PopoverTrigger asChild>
-                    <button
-                      type="button"
-                      className={cn(
-                        "flex w-full justify-between items-center h-10 px-3 py-2 text-sm font-normal bg-background hover:bg-transparent border border-input rounded-md ring-offset-background placeholder:text-muted-foreground focus:outline-none disabled:cursor-not-allowed disabled:opacity-50",
-                        !formData.end_date && "text-muted-foreground",
-                        formErrors.end_date && "border-destructive text-destructive"
-                      )}
-                    >
-                      {formData.end_date ? format(new Date(formData.end_date), "PPP") : <span>Pick a date</span>}
-                      <Calendar className="ml-auto h-4 w-4 opacity-50" />
-                    </button>
-                  </PopoverTrigger>
-                  <PopoverContent className="w-auto p-0" align="start">
-                    <CalendarUI
-                      mode="single"
-                      selected={formData.end_date ? new Date(formData.end_date) : undefined}
-                      onSelect={(date) => {
-                        const dateStr = date ? format(date, "yyyy-MM-dd") : null;
-                        setFormData(p => ({ ...p, end_date: dateStr }));
-                        if (formErrors.end_date) setFormErrors(p => ({ ...p, end_date: '' }));
-                      }}
-                      disabled={(date) => {
-                        if (formData.start_date) return format(date, "yyyy-MM-dd") < formData.start_date;
-                        return false;
-                      }}
-                      initialFocus
-                    />
-                  </PopoverContent>
-                </Popover>
-                {formErrors.end_date && <p className="text-xs text-destructive">{formErrors.end_date}</p>}
-              </div>
-            </div>
 
-            {/* Max Students */}
-            <div className="space-y-1.5">
-              <Label htmlFor="batch-max">Max Students <span className="text-destructive">*</span></Label>
-              <Input
-                id="batch-max"
-                type="number"
-                min={1}
-                value={formData.max_students ?? 30}
-                onChange={e => {
-                  setFormData(p => ({ ...p, max_students: parseInt(e.target.value) || 1 }));
-                  if (formErrors.max_students) setFormErrors(p => ({ ...p, max_students: '' }));
-                }}
-              />
-              {formErrors.max_students && <p className="text-xs text-destructive">{formErrors.max_students}</p>}
+              <div className="space-y-1.5 flex flex-col justify-start">
+                <Label htmlFor="batch-max">Max Students <span className="text-destructive">*</span></Label>
+                <Input
+                  id="batch-max"
+                  type="number"
+                  min={1}
+                  value={formData.max_students ?? 30}
+                  onChange={e => {
+                    setFormData(p => ({ ...p, max_students: parseInt(e.target.value) || 1 }));
+                    if (formErrors.max_students) setFormErrors(p => ({ ...p, max_students: '' }));
+                  }}
+                />
+                {formErrors.max_students && <p className="text-xs text-destructive">{formErrors.max_students}</p>}
+              </div>
+
+              {editBatchId && (
+                <div className="space-y-1.5 flex flex-col justify-start">
+                  <Label>Status</Label>
+                  <Select value={formData.status || 'INACTIVE'} onValueChange={(val: any) => setFormData(p => ({ ...p, status: val }))}>
+                    <SelectTrigger className="w-full">
+                      <SelectValue placeholder="Select Status" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="ACTIVE">Active</SelectItem>
+                      <SelectItem value="COMPLETED">Completed</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              )}
             </div>
 
           </div>
@@ -942,7 +1010,7 @@ export default function AdminBatches() {
           <AlertDialogHeader>
             <AlertDialogTitle>Delete Batch?</AlertDialogTitle>
             <AlertDialogDescription>
-              This action cannot be undone. The batch will be permanently removed. Batches with active enrollments cannot be deleted.
+              This action cannot be undone. The batch will be permanently removed. Note: Batches cannot be deleted if their start date has already passed.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
