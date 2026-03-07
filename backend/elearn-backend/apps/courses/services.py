@@ -3,7 +3,11 @@ from django.db import transaction
 from django.utils import timezone
 from datetime import timedelta
 from django.conf import settings
-from apps.courses.models import Batch, BatchWeek, BatchClassSession, CourseClassSession, WeeklyTest, WeeklyTestQuestion, CourseWeek
+from apps.courses.models import (
+    Batch, BatchWeek, BatchClassSession, CourseClassSession, CourseWeek,
+    CourseWeeklyTest, CourseTestQuestion,
+    BatchWeeklyTest, BatchTestQuestion, BatchTestQuestionAttachment,
+)
 from apps.courses.views.upload_views import get_s3_client
 
 logger = logging.getLogger(__name__)
@@ -91,10 +95,10 @@ def push_content_to_batch(source_batch_id=None, source_course_id=None, target_ba
                     uploaded_by=ss.uploaded_by
                 )
 
-        # 3. Clone WeeklyTest
+        # 3. Clone WeeklyTest → independent BatchWeeklyTest
         if hasattr(sw, 'weekly_test') and sw.weekly_test:
-            st = sw.weekly_test
-            tt, created = WeeklyTest.objects.get_or_create(
+            st = sw.weekly_test  # CourseWeeklyTest (or BatchWeeklyTest if cloning from batch)
+            tt, created = BatchWeeklyTest.objects.get_or_create(
                 batch_week=bw,
                 defaults={
                     'title': st.title,
@@ -103,19 +107,29 @@ def push_content_to_batch(source_batch_id=None, source_course_id=None, target_ba
                     'created_by': st.created_by
                 }
             )
-            
-            # Clone Questions
+
+            # Clone Questions + their supporting attachments into batch
             for sq in st.questions.all():
-                if not WeeklyTestQuestion.objects.filter(test=tt, order=sq.order, text=sq.text).exists():
-                    WeeklyTestQuestion.objects.create(
-                        test=tt,
-                        text=sq.text,
-                        question_file=sq.question_file,
-                        image=sq.image,
-                        order=sq.order,
-                        marks=sq.marks
-                    )
-    
+                bq, q_created = BatchTestQuestion.objects.get_or_create(
+                    test=tt,
+                    order=sq.order,
+                    defaults={
+                        'text': sq.text,
+                        'question_file': sq.question_file,
+                        'image': sq.image,
+                        'marks': sq.marks,
+                    }
+                )
+
+                # Clone attachments only if the question was just created
+                if q_created:
+                    for attachment in sq.attachments.all():
+                        BatchTestQuestionAttachment.objects.create(
+                            question=bq,
+                            file=attachment.file,
+                            name=attachment.name,
+                        )
+
     return True
 
 def extend_batch_timeline(batch_id, days):

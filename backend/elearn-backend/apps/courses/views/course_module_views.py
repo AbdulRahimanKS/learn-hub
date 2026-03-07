@@ -5,15 +5,15 @@ from rest_framework.parsers import MultiPartParser, FormParser, JSONParser
 from drf_spectacular.utils import extend_schema
 from django.db import IntegrityError
 
-from apps.courses.models import Course, CourseWeek, CourseClassSession, WeeklyTest, WeeklyTestQuestion, BatchEnrollment
+from apps.courses.models import Course, CourseWeek, CourseClassSession, CourseWeeklyTest, CourseTestQuestion, BatchEnrollment
 from apps.courses.serializers.course_module_serializers import (
     CourseWeekSerializer,
     CourseWeekCreateUpdateSerializer,
     CourseClassSessionSerializer,
     CourseClassSessionCreateUpdateSerializer,
-    WeeklyTestSerializer,
-    WeeklyTestCreateUpdateSerializer,
-    WeeklyTestQuestionSerializer,
+    CourseWeeklyTestSerializer,
+    CourseWeeklyTestCreateUpdateSerializer,
+    CourseTestQuestionSerializer,
 )
 from utils.permissions import IsSuperAdminAdminOrTeacher, IsAuthenticated
 from utils.common import format_success_response, handle_serializer_errors, ServiceError
@@ -75,18 +75,6 @@ class CourseWeekListCreateView(APIView):
                         detail=f"Week {missing_str} must be created first before adding Week {week_number}.",
                         status_code=status.HTTP_400_BAD_REQUEST
                     )
-
-                if week_number > 1:
-                    prev_week = CourseWeek.objects.filter(course=course, week_number=week_number - 1).first()
-                    if prev_week:
-                        has_session = prev_week.class_sessions.exists()
-                        has_test = hasattr(prev_week, 'weekly_test') and prev_week.weekly_test is not None
-                        if not (has_session or has_test):
-                            raise ServiceError(
-                                detail=f"Week {week_number - 1} must have at least one session or test before you can add Week {week_number}.",
-                                status_code=status.HTTP_400_BAD_REQUEST
-                            )
-
             CourseWeek.objects.create(
                 course=course,
                 created_by=user,
@@ -431,7 +419,7 @@ class WeeklyTestView(APIView):
         except CourseWeek.DoesNotExist:
             raise ServiceError(detail="Course week not found.", status_code=status.HTTP_404_NOT_FOUND)
 
-    @extend_schema(summary="Retrieve the weekly test for a course week", responses={200: WeeklyTestSerializer})
+    @extend_schema(summary="Retrieve the weekly test for a course week", responses={200: CourseWeeklyTestSerializer})
     def get(self, request, course_id, week_id):
         week = self.get_week(course_id, week_id)
         user = request.user
@@ -443,13 +431,13 @@ class WeeklyTestView(APIView):
         if not hasattr(week, 'weekly_test'):
             raise ServiceError(detail="No test configured for this week.", status_code=status.HTTP_404_NOT_FOUND)
 
-        serializer = WeeklyTestSerializer(week.weekly_test, context={'request': request})
+        serializer = CourseWeeklyTestSerializer(week.weekly_test, context={'request': request})
         return format_success_response(message="Weekly test retrieved", data=serializer.data)
 
     @extend_schema(
         summary="Create a weekly test (Admin/Teacher only)", 
-        request=WeeklyTestCreateUpdateSerializer, 
-        responses={201: WeeklyTestSerializer}
+        request=CourseWeeklyTestCreateUpdateSerializer, 
+        responses={201: CourseWeeklyTestSerializer}
     )
     def post(self, request, course_id, week_id):
         user = request.user
@@ -461,13 +449,13 @@ class WeeklyTestView(APIView):
         if hasattr(week, 'weekly_test'):
             raise ServiceError(detail="A test already exists for this week.", status_code=status.HTTP_400_BAD_REQUEST)
 
-        serializer = WeeklyTestCreateUpdateSerializer(data=request.data, context={'request': request})
+        serializer = CourseWeeklyTestCreateUpdateSerializer(data=request.data, context={'request': request})
         if not serializer.is_valid():
             error_str = handle_serializer_errors(serializer)
             raise ServiceError(detail=error_str, status_code=status.HTTP_400_BAD_REQUEST)
 
         try:
-            test = WeeklyTest.objects.create(
+            test = CourseWeeklyTest.objects.create(
                 course_week=week,
                 created_by=user,
                 **serializer.validated_data
@@ -485,8 +473,8 @@ class WeeklyTestView(APIView):
 
     @extend_schema(
         summary="Update a weekly test (Admin/Teacher only)", 
-        request=WeeklyTestCreateUpdateSerializer, 
-        responses={200: WeeklyTestSerializer}
+        request=CourseWeeklyTestCreateUpdateSerializer, 
+        responses={200: CourseWeeklyTestSerializer}
     )
     def patch(self, request, course_id, week_id):
         user = request.user
@@ -499,7 +487,7 @@ class WeeklyTestView(APIView):
             raise ServiceError(detail="No test configured for this week.", status_code=status.HTTP_404_NOT_FOUND)
             
         test = week.weekly_test
-        serializer = WeeklyTestCreateUpdateSerializer(test, data=request.data, partial=True, context={'request': request})
+        serializer = CourseWeeklyTestCreateUpdateSerializer(test, data=request.data, partial=True, context={'request': request})
         if not serializer.is_valid():
             error_str = handle_serializer_errors(serializer)
             raise ServiceError(detail=error_str, status_code=status.HTTP_400_BAD_REQUEST)
@@ -551,7 +539,7 @@ class WeeklyTestQuestionListCreateView(APIView):
         except CourseWeek.DoesNotExist:
             raise ServiceError(detail="Course week not found.", status_code=status.HTTP_404_NOT_FOUND)
 
-    @extend_schema(summary="List questions for a weekly test", responses={200: WeeklyTestQuestionSerializer(many=True)})
+    @extend_schema(summary="List questions for a course weekly test", responses={200: CourseTestQuestionSerializer(many=True)})
     def get(self, request, course_id, week_id):
         test = self.get_test(course_id, week_id)
         user = request.user
@@ -561,13 +549,13 @@ class WeeklyTestQuestionListCreateView(APIView):
                 raise ServiceError(detail="This test's questions are not available yet.", status_code=status.HTTP_403_FORBIDDEN)
 
         questions = test.questions.all()
-        serializer = WeeklyTestQuestionSerializer(questions, many=True, context={'request': request})
+        serializer = CourseTestQuestionSerializer(questions, many=True, context={'request': request})
         return format_success_response(message="Questions retrieved", data=serializer.data)
 
     @extend_schema(
         summary="Create a new question (Admin/Teacher only)", 
-        request=WeeklyTestQuestionSerializer, 
-        responses={201: WeeklyTestQuestionSerializer}
+        request=CourseTestQuestionSerializer, 
+        responses={201: CourseTestQuestionSerializer}
     )
     def post(self, request, course_id, week_id):
         user = request.user
@@ -575,14 +563,14 @@ class WeeklyTestQuestionListCreateView(APIView):
             raise ServiceError(detail="You do not have permission to perform this action.", status_code=status.HTTP_403_FORBIDDEN)
 
         test = self.get_test(course_id, week_id)
-        serializer = WeeklyTestQuestionSerializer(data=request.data, context={'request': request})
+        serializer = CourseTestQuestionSerializer(data=request.data, context={'request': request})
         
         if not serializer.is_valid():
             error_str = handle_serializer_errors(serializer)
             raise ServiceError(detail=error_str, status_code=status.HTTP_400_BAD_REQUEST)
 
         try:
-            question = WeeklyTestQuestion.objects.create(
+            question = CourseTestQuestion.objects.create(
                 test=test,
                 **serializer.validated_data
             )
@@ -605,15 +593,15 @@ class WeeklyTestQuestionDetailView(APIView):
 
     def get_object(self, course_id, week_id, question_id):
         try:
-            return WeeklyTestQuestion.objects.get(
+            return CourseTestQuestion.objects.get(
                 id=question_id, 
                 test__course_week_id=week_id, 
                 test__course_week__course_id=course_id
             )
-        except WeeklyTestQuestion.DoesNotExist:
+        except CourseTestQuestion.DoesNotExist:
             raise ServiceError(detail="Question not found.", status_code=status.HTTP_404_NOT_FOUND)
 
-    @extend_schema(summary="Retrieve a single question", responses={200: WeeklyTestQuestionSerializer})
+    @extend_schema(summary="Retrieve a single question", responses={200: CourseTestQuestionSerializer})
     def get(self, request, course_id, week_id, question_id):
         question = self.get_object(course_id, week_id, question_id)
         user = request.user
@@ -622,13 +610,13 @@ class WeeklyTestQuestionDetailView(APIView):
             if not question.test.course_week.is_published:
                 raise ServiceError(detail="This question is not available yet.", status_code=status.HTTP_403_FORBIDDEN)
 
-        serializer = WeeklyTestQuestionSerializer(question, context={'request': request})
+        serializer = CourseTestQuestionSerializer(question, context={'request': request})
         return format_success_response(message="Question retrieved", data=serializer.data)
 
     @extend_schema(
         summary="Update a question (Admin/Teacher only)", 
-        request=WeeklyTestQuestionSerializer, 
-        responses={200: WeeklyTestQuestionSerializer}
+        request=CourseTestQuestionSerializer, 
+        responses={200: CourseTestQuestionSerializer}
     )
     def patch(self, request, course_id, week_id, question_id):
         user = request.user
@@ -636,7 +624,7 @@ class WeeklyTestQuestionDetailView(APIView):
             raise ServiceError(detail="You do not have permission to perform this action.", status_code=status.HTTP_403_FORBIDDEN)
 
         question = self.get_object(course_id, week_id, question_id)
-        serializer = WeeklyTestQuestionSerializer(question, data=request.data, partial=True, context={'request': request})
+        serializer = CourseTestQuestionSerializer(question, data=request.data, partial=True, context={'request': request})
         
         if not serializer.is_valid():
             error_str = handle_serializer_errors(serializer)

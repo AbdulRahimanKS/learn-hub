@@ -1,8 +1,10 @@
 from rest_framework import serializers
 from apps.courses.models import (
     CourseWeek, CourseClassSession, BatchClassSession,
-    WeeklyTest, WeeklyTestQuestion, BatchWeek,
-    TestQuestionAttachment, PostSessionQuestion, PostSessionChoice
+    CourseWeeklyTest, CourseTestQuestion, CourseTestQuestionAttachment,
+    BatchWeeklyTest, BatchTestQuestion, BatchTestQuestionAttachment,
+    BatchWeek,
+    PostSessionQuestion, PostSessionChoice
 )
 from utils.common import ServiceError
 from rest_framework import status
@@ -114,7 +116,7 @@ class CourseWeekSerializer(serializers.ModelSerializer):
 
     def get_weekly_test(self, obj):
         if hasattr(obj, 'weekly_test') and obj.weekly_test:
-            return WeeklyTestSerializer(obj.weekly_test).data
+            return CourseWeeklyTestSerializer(obj.weekly_test).data
         return None
 
 
@@ -133,7 +135,7 @@ class BatchWeekSerializer(serializers.ModelSerializer):
 
     def get_weekly_test(self, obj):
         if hasattr(obj, 'weekly_test') and obj.weekly_test:
-            return WeeklyTestSerializer(obj.weekly_test).data
+            return BatchWeeklyTestSerializer(obj.weekly_test).data
         return None
 
 
@@ -186,39 +188,85 @@ class BatchClassSessionCreateUpdateSerializer(serializers.ModelSerializer):
         return value
 
 
-class TestQuestionAttachmentSerializer(serializers.ModelSerializer):
+class CourseTestQuestionAttachmentSerializer(serializers.ModelSerializer):
     class Meta:
-        model = TestQuestionAttachment
+        model = CourseTestQuestionAttachment
         fields = ['id', 'question', 'file', 'name']
         read_only_fields = ['question']
 
 
-class WeeklyTestQuestionSerializer(serializers.ModelSerializer):
-    attachments = TestQuestionAttachmentSerializer(many=True, read_only=True)
+class BatchTestQuestionAttachmentSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = BatchTestQuestionAttachment
+        fields = ['id', 'question', 'file', 'name']
+        read_only_fields = ['question']
+
+
+# Legacy alias
+TestQuestionAttachmentSerializer = CourseTestQuestionAttachmentSerializer
+
+
+class CourseTestQuestionSerializer(serializers.ModelSerializer):
+    attachments = CourseTestQuestionAttachmentSerializer(many=True, read_only=True)
 
     class Meta:
-        model = WeeklyTestQuestion
+        model = CourseTestQuestion
         fields = [
             'id', 'test', 'text', 'question_file', 'image', 'order', 'marks', 'attachments'
         ]
         read_only_fields = ['test']
 
 
-class WeeklyTestSerializer(serializers.ModelSerializer):
-    questions = WeeklyTestQuestionSerializer(many=True, read_only=True)
+class CourseWeeklyTestSerializer(serializers.ModelSerializer):
+    questions = CourseTestQuestionSerializer(many=True, read_only=True)
 
     class Meta:
-        model = WeeklyTest
+        model = CourseWeeklyTest
         fields = [
-            'id', 'course_week', 'batch_week', 'title', 'instructions', 'pass_percentage', 
+            'id', 'course_week', 'title', 'instructions', 'pass_percentage',
             'answer_key', 'questions', 'created_by', 'updated_by', 'created_at', 'updated_at'
         ]
-        read_only_fields = ['course_week', 'batch_week', 'created_by', 'updated_by', 'created_at', 'updated_at']
+        read_only_fields = ['course_week', 'created_by', 'updated_by', 'created_at', 'updated_at']
 
 
-class WeeklyTestCreateUpdateSerializer(serializers.ModelSerializer):
+class CourseWeeklyTestCreateUpdateSerializer(serializers.ModelSerializer):
     class Meta:
-        model = WeeklyTest
+        model = CourseWeeklyTest
+        fields = ['id', 'title', 'instructions', 'pass_percentage', 'answer_key']
+
+
+# ── Batch-level ──────────────────────────────────────────────────────────────
+
+class BatchTestQuestionSerializer(serializers.ModelSerializer):
+    attachments = BatchTestQuestionAttachmentSerializer(many=True, read_only=True)
+
+    class Meta:
+        model = BatchTestQuestion
         fields = [
-            'id', 'title', 'instructions', 'pass_percentage', 'answer_key'
+            'id', 'test', 'text', 'question_file', 'image', 'order', 'marks', 'attachments'
         ]
+        read_only_fields = ['test']
+
+
+class BatchWeeklyTestSerializer(serializers.ModelSerializer):
+    questions = BatchTestQuestionSerializer(many=True, read_only=True)
+
+    class Meta:
+        model = BatchWeeklyTest
+        fields = [
+            'id', 'batch_week', 'title', 'instructions', 'pass_percentage',
+            'answer_key', 'questions', 'created_by', 'updated_by', 'created_at', 'updated_at'
+        ]
+        read_only_fields = ['batch_week', 'created_by', 'updated_by', 'created_at', 'updated_at']
+
+
+class BatchWeeklyTestCreateUpdateSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = BatchWeeklyTest
+        fields = ['id', 'title', 'instructions', 'pass_percentage', 'answer_key']
+
+
+# Legacy aliases kept for backward compat during transition (will remove later)
+WeeklyTestQuestionSerializer = CourseTestQuestionSerializer
+WeeklyTestSerializer = CourseWeeklyTestSerializer
+WeeklyTestCreateUpdateSerializer = CourseWeeklyTestCreateUpdateSerializer

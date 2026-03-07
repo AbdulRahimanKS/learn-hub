@@ -4,15 +4,15 @@ from rest_framework.views import APIView
 from rest_framework.parsers import MultiPartParser, FormParser, JSONParser
 from drf_spectacular.utils import extend_schema
 
-from apps.courses.models import Batch, BatchWeek, BatchClassSession, WeeklyTest, WeeklyTestQuestion
+from apps.courses.models import Batch, BatchWeek, BatchClassSession, BatchWeeklyTest, BatchTestQuestion
 from apps.courses.serializers.course_module_serializers import (
     BatchWeekSerializer,
     BatchWeekCreateUpdateSerializer,
     BatchClassSessionSerializer,
     BatchClassSessionCreateUpdateSerializer,
-    WeeklyTestSerializer,
-    WeeklyTestCreateUpdateSerializer,
-    WeeklyTestQuestionSerializer,
+    BatchWeeklyTestSerializer,
+    BatchWeeklyTestCreateUpdateSerializer,
+    BatchTestQuestionSerializer,
 )
 from utils.permissions import IsAdminOrTeacher, IsAuthenticated
 from utils.common import format_success_response, handle_serializer_errors, ServiceError
@@ -157,7 +157,7 @@ class BatchWeeklyTestView(APIView):
         week = self.get_week(batch_id, week_id)
         if not hasattr(week, 'weekly_test'):
             raise ServiceError(detail="No test configured for this batch week.", status_code=status.HTTP_404_NOT_FOUND)
-        serializer = WeeklyTestSerializer(week.weekly_test, context={'request': request})
+        serializer = BatchWeeklyTestSerializer(week.weekly_test, context={'request': request})
         return format_success_response(message="Batch weekly test retrieved", data=serializer.data)
 @extend_schema(tags=["Batch Content"])
 class BatchClassSessionDetailView(APIView):
@@ -221,13 +221,13 @@ class BatchWeeklyTestManageView(APIView):
         except BatchWeek.DoesNotExist:
             raise ServiceError(detail="Batch week not found.", status_code=status.HTTP_404_NOT_FOUND)
 
-    @extend_schema(summary="Create or update batch weekly test", request=WeeklyTestCreateUpdateSerializer)
+    @extend_schema(summary="Create or update batch weekly test", request=BatchWeeklyTestCreateUpdateSerializer)
     def post(self, request, batch_id, week_id):
         week = self.get_week(batch_id, week_id)
         if hasattr(week, 'weekly_test'):
-            serializer = WeeklyTestCreateUpdateSerializer(week.weekly_test, data=request.data)
+            serializer = BatchWeeklyTestCreateUpdateSerializer(week.weekly_test, data=request.data)
         else:
-            serializer = WeeklyTestCreateUpdateSerializer(data=request.data)
+            serializer = BatchWeeklyTestCreateUpdateSerializer(data=request.data)
             
         if not serializer.is_valid():
             error_str = handle_serializer_errors(serializer)
@@ -237,7 +237,7 @@ class BatchWeeklyTestManageView(APIView):
             serializer.save()
             message = "Batch test updated successfully"
         else:
-            WeeklyTest.objects.create(batch_week=week, created_by=request.user, **serializer.validated_data)
+            BatchWeeklyTest.objects.create(batch_week=week, created_by=request.user, **serializer.validated_data)
             message = "Batch test created successfully"
             
         return format_success_response(message=message)
@@ -267,20 +267,20 @@ class BatchWeeklyTestQuestionListCreateView(APIView):
         except BatchWeek.DoesNotExist:
             raise ServiceError(detail="Batch week not found.", status_code=status.HTTP_404_NOT_FOUND)
 
-    @extend_schema(summary="List/Add questions to batch weekly test", request=WeeklyTestQuestionSerializer)
+    @extend_schema(summary="List/Add questions to batch weekly test", request=BatchTestQuestionSerializer)
     def get(self, request, batch_id, week_id):
         test = self.get_test(batch_id, week_id)
-        serializer = WeeklyTestQuestionSerializer(test.questions.all(), many=True)
+        serializer = BatchTestQuestionSerializer(test.questions.all(), many=True)
         return format_success_response(message="Questions retrieved", data=serializer.data)
 
     def post(self, request, batch_id, week_id):
         test = self.get_test(batch_id, week_id)
-        serializer = WeeklyTestQuestionSerializer(data=request.data)
+        serializer = BatchTestQuestionSerializer(data=request.data)
         if not serializer.is_valid():
             error_str = handle_serializer_errors(serializer)
             raise ServiceError(detail=error_str, status_code=status.HTTP_400_BAD_REQUEST)
         
-        WeeklyTestQuestion.objects.create(test=test, **serializer.validated_data)
+        BatchTestQuestion.objects.create(test=test, **serializer.validated_data)
         return format_success_response(message="Question added to batch test")
 
 @extend_schema(tags=["Batch Content"])
@@ -289,23 +289,23 @@ class BatchWeeklyTestQuestionDetailView(APIView):
 
     def get_object(self, batch_id, week_id, question_id):
         try:
-            return WeeklyTestQuestion.objects.get(
+            return BatchTestQuestion.objects.get(
                 id=question_id, 
                 test__batch_week_id=week_id, 
                 test__batch_week__batch_id=batch_id
             )
-        except WeeklyTestQuestion.DoesNotExist:
+        except BatchTestQuestion.DoesNotExist:
             raise ServiceError(detail="Question not found.", status_code=status.HTTP_404_NOT_FOUND)
 
     @extend_schema(summary="Retrieve/Update/Delete batch test question")
     def get(self, request, batch_id, week_id, question_id):
         question = self.get_object(batch_id, week_id, question_id)
-        serializer = WeeklyTestQuestionSerializer(question)
+        serializer = BatchTestQuestionSerializer(question)
         return format_success_response(message="Question retrieved", data=serializer.data)
 
     def patch(self, request, batch_id, week_id, question_id):
         question = self.get_object(batch_id, week_id, question_id)
-        serializer = WeeklyTestQuestionSerializer(question, data=request.data, partial=True)
+        serializer = BatchTestQuestionSerializer(question, data=request.data, partial=True)
         if not serializer.is_valid():
             error_str = handle_serializer_errors(serializer)
             raise ServiceError(detail=error_str, status_code=status.HTTP_400_BAD_REQUEST)

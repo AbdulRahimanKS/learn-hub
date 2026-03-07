@@ -210,7 +210,6 @@ SPECTACULAR_SETTINGS = {
         'ClassSessionStatusEnum': 'apps.courses.models.ClassSession.Status',
         'LiveSessionStatusEnum': 'apps.courses.models.LiveSession.Status',
         'ScheduledWebinarStatusEnum': 'apps.courses.models.ScheduledWebinar.Status',
-        'WeeklyTestStatusEnum': 'apps.courses.models.WeeklyTest.Status',
         'TestSubmissionStatusEnum': 'apps.courses.models.TestSubmission.Status',
     },
 }

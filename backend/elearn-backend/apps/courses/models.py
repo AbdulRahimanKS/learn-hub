@@ -174,7 +174,7 @@ class Batch(models.Model):
 
     @property
     def enrolled_count(self):
-        return self.enrollments.filter(status=BatchEnrollment.Status.ACTIVE).count()
+        return self.enrollments.all().count()
 
     @property
     def is_full(self):
@@ -186,8 +186,6 @@ class BatchEnrollment(models.Model):
     class Status(models.TextChoices):
         ACTIVE    = 'active',    _('Active')
         COMPLETED = 'completed', _('Completed')
-        DROPPED   = 'dropped',   _('Dropped')
-        SUSPENDED = 'suspended', _('Suspended')
 
     batch   = models.ForeignKey(Batch, on_delete=models.CASCADE, related_name='enrollments')
     student = models.ForeignKey(
@@ -199,8 +197,6 @@ class BatchEnrollment(models.Model):
     )
     enrolled_at  = models.DateTimeField(auto_now_add=True)
     completed_at = models.DateTimeField(null=True, blank=True)
-    dropped_at   = models.DateTimeField(null=True, blank=True)
-    suspended_at = models.DateTimeField(null=True, blank=True)
     notes        = models.TextField(blank=True)
 
     current_week_unlocked = models.PositiveIntegerField(default=1)
@@ -496,103 +492,267 @@ class BatchClassSession(models.Model):
         return f"Week {self.batch_week.week_number} | S{self.session_number}: {self.title}"
 
 
-# WeeklyTest
-class WeeklyTest(models.Model):
-    course_week  = models.OneToOneField(
-        CourseWeek, on_delete=models.CASCADE, related_name='weekly_test',
-        null=True, blank=True,
-        help_text=_('Template test for a course week')
-    )
-    batch_week = models.OneToOneField(
-        BatchWeek, on_delete=models.CASCADE, related_name='weekly_test',
-        null=True, blank=True,
-        help_text=_('Specific test for a batch week')
-    )
-    title          = models.CharField(_('Test Title'), max_length=255)
-    instructions   = models.TextField(_('Instructions'), blank=True)
 
-    answer_key     = models.FileField(
+# Course-level Weekly Test
+class CourseWeeklyTest(models.Model):
+    """
+    Template test attached to a CourseWeek.
+    This is the master copy. When content is pushed to a batch,
+    a fully independent BatchWeeklyTest is created from this template.
+    """
+    course_week = models.OneToOneField(
+        CourseWeek, on_delete=models.CASCADE, related_name='weekly_test'
+    )
+    title           = models.CharField(_('Test Title'), max_length=255)
+    instructions    = models.TextField(_('Instructions'), blank=True)
+    answer_key      = models.FileField(
         _('Answer Key'), upload_to='test_answer_keys/',
         null=True, blank=True,
         help_text=_('Upload answer key (PDF or .ipynb) for evaluation')
     )
-
     pass_percentage = models.FloatField(default=70.0)
-    
-    created_by     = models.ForeignKey(
+    created_by      = models.ForeignKey(
         'users.User', on_delete=models.SET_NULL, null=True, blank=True,
-        related_name='created_tests'
+        related_name='created_course_tests'
     )
-    updated_by     = models.ForeignKey(
+    updated_by      = models.ForeignKey(
         'users.User', on_delete=models.SET_NULL, null=True, blank=True,
-        related_name='updated_tests'
+        related_name='updated_course_tests'
     )
-    created_at     = models.DateTimeField(auto_now_add=True)
-    updated_at     = models.DateTimeField(auto_now=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
 
     class Meta:
-        verbose_name        = _('Weekly Test')
-        verbose_name_plural = _('Weekly Tests')
-        ordering            = ['course_week__week_number', 'batch_week__week_number']
+        verbose_name        = _('Course Weekly Test')
+        verbose_name_plural = _('Course Weekly Tests')
+        ordering            = ['course_week__week_number']
         indexes             = [
-            models.Index(fields=['course_week'], name='weeklytest_module_idx'),
-            models.Index(fields=['batch_week'], name='weeklytest_batch_idx'),
+            models.Index(fields=['course_week'], name='cwtest_week_idx'),
         ]
 
     def __str__(self):
-        if self.course_week:
-            return f"{self.course_week.course.title} – Week {self.course_week.week_number} Test"
-        return f"{self.batch_week.batch.name} – Week {self.batch_week.week_number} Test"
+        return f"{self.course_week.course.title} – Week {self.course_week.week_number} Test (Template)"
 
 
-# Question Model
-class WeeklyTestQuestion(models.Model):
-    test = models.ForeignKey(
-        WeeklyTest, on_delete=models.CASCADE, related_name='questions'
+class CourseTestQuestion(models.Model):
+    """
+    A question belonging to a CourseWeeklyTest template.
+    """
+    test           = models.ForeignKey(
+        CourseWeeklyTest, on_delete=models.CASCADE, related_name='questions'
     )
-    text = models.TextField(_('Question Text'), blank=True)
-
+    text           = models.TextField(_('Question Text'), blank=True)
     question_file  = models.FileField(
-        upload_to='test_questions/files/',
+        upload_to='test_questions/course/files/',
         null=True, blank=True,
         help_text=_('Supported: .ipynb, .pdf, .doc, .docx, .jpg, .jpeg, .png')
     )
-    
     image = models.ImageField(
-        upload_to='test_questions/images/', 
+        upload_to='test_questions/course/images/',
         null=True, blank=True
     )
     order = models.PositiveIntegerField(_('Order'), default=1)
     marks = models.FloatField(_('Marks'), default=1.0)
 
     class Meta:
-        ordering = ['order', 'id']
-        verbose_name = _('Question')
-        verbose_name_plural = _('Questions')
+        ordering        = ['order', 'id']
+        verbose_name        = _('Course Test Question')
+        verbose_name_plural = _('Course Test Questions')
 
     def __str__(self):
-        return f"Q{self.order} for Test {self.test.id}"
+        return f"Course Q{self.order} for Test {self.test.id}"
 
 
-class TestQuestionAttachment(models.Model):
+
+# Batch-level Weekly Test
+class BatchWeeklyTest(models.Model):
     """
-    Allows multiple file attachments (instructions/data) per weekly test question.
+    Independent test copy attached to a BatchWeek.
+    Created by cloning a CourseWeeklyTest template (or built from scratch).
+    Changes here NEVER affect the course template and vice-versa.
+    """
+    batch_week      = models.OneToOneField(
+        BatchWeek, on_delete=models.CASCADE, related_name='weekly_test'
+    )
+    title           = models.CharField(_('Test Title'), max_length=255)
+    instructions    = models.TextField(_('Instructions'), blank=True)
+    answer_key      = models.FileField(
+        _('Answer Key'), upload_to='batch_test_answer_keys/',
+        null=True, blank=True,
+        help_text=_('Upload answer key (PDF or .ipynb) for evaluation')
+    )
+    pass_percentage = models.FloatField(default=70.0)
+    created_by      = models.ForeignKey(
+        'users.User', on_delete=models.SET_NULL, null=True, blank=True,
+        related_name='created_batch_tests'
+    )
+    updated_by      = models.ForeignKey(
+        'users.User', on_delete=models.SET_NULL, null=True, blank=True,
+        related_name='updated_batch_tests'
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name        = _('Batch Weekly Test')
+        verbose_name_plural = _('Batch Weekly Tests')
+        ordering            = ['batch_week__week_number']
+        indexes             = [
+            models.Index(fields=['batch_week'], name='bwtest_week_idx'),
+        ]
+
+    def __str__(self):
+        return f"{self.batch_week.batch.name} – Week {self.batch_week.week_number} Test"
+
+
+class BatchTestQuestion(models.Model):
+    """
+    A question belonging to a BatchWeeklyTest.
+    Fully independent from CourseTestQuestion.
+    """
+    test           = models.ForeignKey(
+        BatchWeeklyTest, on_delete=models.CASCADE, related_name='questions'
+    )
+    text           = models.TextField(_('Question Text'), blank=True)
+    question_file  = models.FileField(
+        upload_to='test_questions/batch/files/',
+        null=True, blank=True,
+        help_text=_('Supported: .ipynb, .pdf, .doc, .docx, .jpg, .jpeg, .png')
+    )
+    image = models.ImageField(
+        upload_to='test_questions/batch/images/',
+        null=True, blank=True
+    )
+    order = models.PositiveIntegerField(_('Order'), default=1)
+    marks = models.FloatField(_('Marks'), default=1.0)
+
+    class Meta:
+        ordering        = ['order', 'id']
+        verbose_name        = _('Batch Test Question')
+        verbose_name_plural = _('Batch Test Questions')
+
+    def __str__(self):
+        return f"Batch Q{self.order} for Test {self.test.id}"
+
+
+class CourseTestQuestionAttachment(models.Model):
+    """
+    Allows multiple file attachments per course template question.
+    Used when designing the master test (e.g. uploading datasets, PDFs).
     """
     question = models.ForeignKey(
-        WeeklyTestQuestion, on_delete=models.CASCADE, related_name='attachments'
+        CourseTestQuestion, on_delete=models.CASCADE, related_name='attachments'
     )
     file = models.FileField(
-        upload_to='test_questions/attachments/',
+        upload_to='test_questions/course/attachments/',
         help_text=_('Supported: .ipynb, .pdf, .xlsx, .csv, .doc, etc.')
     )
     name = models.CharField(max_length=255, blank=True, help_text=_('Optional file name/label'))
 
     class Meta:
-        verbose_name = _('Question Attachment')
-        verbose_name_plural = _('Question Attachments')
+        verbose_name        = _('Course Test Question Attachment')
+        verbose_name_plural = _('Course Test Question Attachments')
 
     def __str__(self):
-        return self.name or f"Attachment {self.id} for Q{self.question.id}"
+        return self.name or f"Attachment {self.id} for Course Q{self.question.id}"
+
+
+
+class BatchTestQuestionAttachment(models.Model):
+    """
+    Allows multiple file attachments per batch test question.
+    Independent from CourseTestQuestionAttachment — edits here don't affect the template.
+    """
+    question = models.ForeignKey(
+        BatchTestQuestion, on_delete=models.CASCADE, related_name='attachments'
+    )
+    file = models.FileField(
+        upload_to='test_questions/batch/attachments/',
+        help_text=_('Supported: .ipynb, .pdf, .xlsx, .csv, .doc, etc.')
+    )
+    name = models.CharField(max_length=255, blank=True, help_text=_('Optional file name/label'))
+
+    class Meta:
+        verbose_name        = _('Batch Test Question Attachment')
+        verbose_name_plural = _('Batch Test Question Attachments')
+
+    def __str__(self):
+        return self.name or f"Attachment {self.id} for Batch Q{self.question.id}"
+
+
+
+# TestSubmission
+class TestSubmission(models.Model):
+    """
+    A student's answer submission for a WeeklyTest.
+    The answer file can be any of: .ipynb, .pdf, .doc, .docx, .jpg, .jpeg.
+    """
+
+    class Status(models.TextChoices):
+        PENDING         = 'pending',         _('Pending')
+        EVALUATING      = 'evaluating',      _('Evaluating via AI')
+        PUBLISHED       = 'published',       _('Published')
+
+    batch_weekly_test = models.ForeignKey(
+        BatchWeeklyTest,
+        on_delete=models.CASCADE,
+        related_name='submissions'
+    )
+    enrollment   = models.ForeignKey(
+        BatchEnrollment, on_delete=models.CASCADE, related_name='test_submissions'
+    )
+    attempt_number = models.PositiveSmallIntegerField(_('Attempt #'), default=1)
+
+    # Student uploads their answer file
+    answer_file  = models.FileField(
+        upload_to='test_submissions/',
+        null=True, blank=True,
+        help_text=_('Supported: .ipynb, .pdf, .doc, .docx, .jpg, .jpeg, .png')
+    )
+    answer_text  = models.TextField(
+        _('Inline Answer Text'), blank=True,
+        help_text=_('For text-only answers; used alongside or instead of file')
+    )
+
+    submitted_at = models.DateTimeField(auto_now_add=True)
+
+    # Grading
+    marks_obtained = models.FloatField(
+        _('Marks Obtained (%)'), null=True, blank=True,
+        validators=[MinValueValidator(0), MaxValueValidator(100)]
+    )
+    is_passed      = models.BooleanField(default=False)
+    grader_remarks = models.TextField(blank=True)
+    graded_at      = models.DateTimeField(null=True, blank=True)
+    graded_by      = models.ForeignKey(
+        'users.User', on_delete=models.SET_NULL, null=True, blank=True,
+        related_name='graded_submissions'
+    )
+
+    status         = models.CharField(
+        _('Status'), max_length=20,
+        choices=Status.choices, default=Status.PENDING
+    )
+
+    class Meta:
+        verbose_name        = _('Test Submission')
+        verbose_name_plural = _('Test Submissions')
+        unique_together     = ('batch_weekly_test', 'enrollment', 'attempt_number')
+        ordering            = ['-submitted_at']
+        indexes             = [
+            models.Index(fields=['status'],            name='testsub_status_idx'),
+            models.Index(fields=['is_passed'],         name='testsub_passed_idx'),
+            models.Index(fields=['enrollment'],        name='testsub_enrollment_idx'),
+            models.Index(fields=['batch_weekly_test'], name='testsub_bwtest_idx'),
+        ]
+
+    def __str__(self):
+        return (
+            f"{self.enrollment.student.fullname} | "
+            f"Batch {self.batch_weekly_test.batch_week.batch.name} "
+            f"W{self.batch_weekly_test.batch_week.week_number} | "
+            f"Attempt {self.attempt_number}"
+        )
 
 # ─────────────────────────────────────────────────────────────────────────────
 # Post-Session MCQ (In-Lesson Assessment)
@@ -746,81 +906,6 @@ class ScheduledWebinar(models.Model):
     def __str__(self):
         return f"Webinar: {self.title} [{self.batch.name}]"
 
-# ─────────────────────────────────────────────────────────────────────────────
-# TestSubmission  (student answers)
-# ─────────────────────────────────────────────────────────────────────────────
-
-class TestSubmission(models.Model):
-    """
-    A student's answer submission for a WeeklyTest.
-    The answer file can be any of: .ipynb, .pdf, .doc, .docx, .jpg, .jpeg.
-    """
-
-    class Status(models.TextChoices):
-        PENDING         = 'pending',         _('Pending (Submitted)')
-        EVALUATING      = 'evaluating',      _('Evaluating via AI')
-        PENDING_REVIEW  = 'pending_review',  _('Pending Review')
-        PUBLISHED       = 'published',       _('Published')
-        RETURNED        = 'returned',        _('Returned for Revision')
-
-    weekly_test  = models.ForeignKey(
-        WeeklyTest, on_delete=models.CASCADE, related_name='submissions'
-    )
-    enrollment   = models.ForeignKey(
-        BatchEnrollment, on_delete=models.CASCADE, related_name='test_submissions'
-    )
-    attempt_number = models.PositiveSmallIntegerField(_('Attempt #'), default=1)
-
-    # Student uploads their answer file
-    answer_file  = models.FileField(
-        upload_to='test_submissions/',
-        null=True, blank=True,
-        help_text=_('Supported: .ipynb, .pdf, .doc, .docx, .jpg, .jpeg, .png')
-    )
-    answer_text  = models.TextField(
-        _('Inline Answer Text'), blank=True,
-        help_text=_('For text-only answers; used alongside or instead of file')
-    )
-
-    submitted_at = models.DateTimeField(auto_now_add=True)
-
-    # Grading
-    marks_obtained = models.FloatField(
-        _('Marks Obtained (%)'), null=True, blank=True,
-        validators=[MinValueValidator(0), MaxValueValidator(100)]
-    )
-    is_passed      = models.BooleanField(default=False)
-    grader_remarks = models.TextField(blank=True)
-    graded_at      = models.DateTimeField(null=True, blank=True)
-    graded_by      = models.ForeignKey(
-        'users.User', on_delete=models.SET_NULL, null=True, blank=True,
-        related_name='graded_submissions'
-    )
-
-    status         = models.CharField(
-        _('Status'), max_length=20,
-        choices=Status.choices, default=Status.PENDING
-    )
-
-    class Meta:
-        verbose_name        = _('Test Submission')
-        verbose_name_plural = _('Test Submissions')
-        unique_together     = ('weekly_test', 'enrollment', 'attempt_number')
-        ordering            = ['-submitted_at']
-        indexes             = [
-            models.Index(fields=['status'],       name='testsub_status_idx'),
-            models.Index(fields=['is_passed'],    name='testsub_passed_idx'),
-            models.Index(fields=['enrollment'],   name='testsub_enrollment_idx'),
-        ]
-
-    def __str__(self):
-        week = self.weekly_test.course_week or self.weekly_test.batch_week
-        week_num = week.week_number if week else '?'
-        return (
-            f"{self.enrollment.student.fullname} | "
-            f"Test W{week_num} | "
-            f"Attempt {self.attempt_number}"
-        )
 
 
 # ─────────────────────────────────────────────────────────────────────────────

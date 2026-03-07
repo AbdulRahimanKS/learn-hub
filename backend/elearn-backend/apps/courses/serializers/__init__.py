@@ -16,6 +16,15 @@ from .course_module_serializers import (
     CourseClassSessionCreateUpdateSerializer,
     BatchClassSessionSerializer,
     BatchClassSessionCreateUpdateSerializer,
+    # Course-level test serializers
+    CourseWeeklyTestSerializer,
+    CourseWeeklyTestCreateUpdateSerializer,
+    CourseTestQuestionSerializer,
+    # Batch-level test serializers
+    BatchWeeklyTestSerializer,
+    BatchWeeklyTestCreateUpdateSerializer,
+    BatchTestQuestionSerializer,
+    # Legacy aliases (kept for backward compat)
     WeeklyTestSerializer,
     WeeklyTestCreateUpdateSerializer,
     WeeklyTestQuestionSerializer,
@@ -35,6 +44,12 @@ __all__ = [
     'CourseClassSessionCreateUpdateSerializer',
     'BatchClassSessionSerializer',
     'BatchClassSessionCreateUpdateSerializer',
+    'CourseWeeklyTestSerializer',
+    'CourseWeeklyTestCreateUpdateSerializer',
+    'CourseTestQuestionSerializer',
+    'BatchWeeklyTestSerializer',
+    'BatchWeeklyTestCreateUpdateSerializer',
+    'BatchTestQuestionSerializer',
     'WeeklyTestSerializer',
     'WeeklyTestCreateUpdateSerializer',
     'WeeklyTestQuestionSerializer',
