@@ -39,6 +39,7 @@ export default function Courses() {
   
   // State for active video playback
   const [activeVideoUrl, setActiveVideoUrl] = useState<string | null>(null);
+  const [playingSession, setPlayingSession] = useState<{weekId: number, sessionId: number} | null>(null);
 
   // State for MCQ practice
   const [activeMcqSession, setActiveMcqSession] = useState<{title: string, questions: any[]} | null>(null);
@@ -98,11 +99,12 @@ export default function Courses() {
     setActiveVideoUrl(null);
   };
 
-  const handlePlaySession = (session: ClassSession) => {
+  const handlePlaySession = (weekId: number, session: ClassSession) => {
     if (session.video_presigned_url || session.video_url) {
       const url = session.video_presigned_url || session.video_url;
       if (url) {
         setActiveVideoUrl(url);
+        setPlayingSession({ weekId, sessionId: session.id });
         // Optimistically mark as viewed
         const sessionIdent = `${session.id}`;
         if (!viewedSessions.includes(sessionIdent)) {
@@ -111,6 +113,19 @@ export default function Courses() {
       }
     } else {
        toast({ title: 'Not Available', description: 'Video is still processing or unavailable.', variant: 'destructive' });
+    }
+  };
+
+  const handleVideoEnded = () => {
+    if (playingSession) {
+      // Find the current session status
+      const week = weeks.find(w => w.id === playingSession.weekId);
+      const session = week?.class_sessions?.find(s => s.id === playingSession.sessionId);
+      
+      // Only mark as completed if not already completed
+      if (session && !session.is_completed) {
+        toggleSessionCompletion(playingSession.weekId, playingSession.sessionId, false);
+      }
     }
   };
 
@@ -136,7 +151,7 @@ export default function Courses() {
         
         if (incompleteSession) {
           setActiveTab(weeks[i].id.toString());
-          handlePlaySession(incompleteSession);
+          handlePlaySession(weeks[i].id, incompleteSession);
           return;
         }
         
@@ -297,13 +312,14 @@ export default function Courses() {
               onOpenChange={(open) => {
                 if (!open) {
                   setActiveVideoUrl(null);
+                  setPlayingSession(null);
                 }
               }}
             >
               {activeVideoUrl && (
                 <DialogContent className="max-w-5xl w-[90vw] p-0 bg-black border-none overflow-hidden shadow-2xl [&>button]:text-white [&>button]:hover:text-white/80 [&>button]:hover:bg-white/10 [&>button]:z-[60] [&>button]:right-4 [&>button]:top-4 [&>button>svg]:w-6 [&>button>svg]:h-6">
                   <div className="w-full aspect-video bg-black relative flex items-center justify-center">
-                     <VideoPlayer url={activeVideoUrl} />
+                     <VideoPlayer url={activeVideoUrl} onEnded={handleVideoEnded} />
                   </div>
                 </DialogContent>
               )}
@@ -429,7 +445,7 @@ export default function Courses() {
                               return (
                               <div
                                 key={session.id}
-                                onClick={() => !locked && handlePlaySession(session)}
+                                onClick={() => !locked && handlePlaySession(week.id, session)}
                                 className={`group relative rounded-xl overflow-hidden border bg-card transition-all flex flex-col duration-300 transform ${isActive ? 'ring-2 ring-primary border-transparent scale-[1.02] shadow-xl' : locked ? 'border-border/40 opacity-70 cursor-not-allowed grayscale-[20%]' : 'border-border/60 shadow-sm hover:shadow-lg hover:border-primary/40 hover:-translate-y-1 cursor-pointer'}`}
                               >
                                 <div className="aspect-video relative bg-muted flex items-center justify-center overflow-hidden">
@@ -478,16 +494,27 @@ export default function Courses() {
                                           {session.weekday}
                                         </Badge>
                                       )}
-                                      {session.is_completed && !locked && (
+                                      {session.is_completed && !locked ? (
                                         <Badge 
                                           variant="secondary" 
-                                          className="bg-success/20 text-success border border-success/30 backdrop-blur-md font-bold text-[10px] h-5 px-2 shadow-sm"
+                                          className="bg-success/20 text-success border border-success/30 backdrop-blur-md font-bold text-[10px] h-5 px-2 shadow-sm cursor-pointer hover:bg-success/30"
                                           onClick={(e) => {
                                             e.stopPropagation();
                                             toggleSessionCompletion(week.id, session.id, true);
                                           }}
                                         >
-                                          <span className="flex items-center gap-1 cursor-pointer"><CheckCircle2 className="w-2.5 h-2.5" /> COMPLETED</span>
+                                          <span className="flex items-center gap-1"><CheckCircle2 className="w-2.5 h-2.5" /> COMPLETED</span>
+                                        </Badge>
+                                      ) : !locked && (
+                                        <Badge 
+                                          variant="outline" 
+                                          className="bg-background/90 text-muted-foreground border-border backdrop-blur-md font-bold text-[10px] h-5 px-2 shadow-sm cursor-pointer hover:bg-primary/10 hover:text-primary transition-colors"
+                                          onClick={(e) => {
+                                            e.stopPropagation();
+                                            toggleSessionCompletion(week.id, session.id, false);
+                                          }}
+                                        >
+                                          MARK COMPLETE
                                         </Badge>
                                       )}
                                     </div>

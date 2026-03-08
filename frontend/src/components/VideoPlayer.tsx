@@ -6,9 +6,10 @@ import 'plyr/dist/plyr.css';
 interface VideoPlayerProps {
   url: string;
   poster?: string;
+  onEnded?: () => void;
 }
 
-export function VideoPlayer({ url, poster }: VideoPlayerProps) {
+export function VideoPlayer({ url, poster, onEnded }: VideoPlayerProps) {
   const videoRef = useRef<HTMLVideoElement>(null);
   const playerRef = useRef<Plyr>();
   const [isReady, setIsReady] = React.useState(false);
@@ -36,6 +37,10 @@ export function VideoPlayer({ url, poster }: VideoPlayerProps) {
         setIsReady(true);
         // Force a layout recalculation
         window.dispatchEvent(new Event('resize'));
+      });
+
+      player.on('ended', () => {
+        if (onEnded) onEnded();
       });
 
       playerRef.current = player;
