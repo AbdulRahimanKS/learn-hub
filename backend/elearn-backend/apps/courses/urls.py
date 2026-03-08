@@ -43,6 +43,8 @@ from apps.courses.views import (
     BatchPostSessionQuestionListCreateView,
     BatchPostSessionQuestionDetailView,
     BatchClassSessionCompletionView,
+    ScheduledWebinarListCreateView,
+    ScheduledWebinarDetailView,
 )
 from apps.courses.views.test_submission_views import (
     BatchTestSubmissionListView,
@@ -108,4 +110,8 @@ urlpatterns = [
     path("submissions/<int:pk>/", TestSubmissionDetailView.as_view(), name="submission-detail"),
     path("submissions/<int:pk>/trigger-evaluation/", TriggerAIEvaluationView.as_view(), name="trigger-ai-evaluation"),
     path("submissions/<int:pk>/simulate-evaluation-complete/", SimulateAIEvaluationCompleteView.as_view(), name="simulate-ai-evaluation-complete"),
+
+    # Webinars
+    path("batches/<int:batch_id>/webinars/", ScheduledWebinarListCreateView.as_view(), name="batch-webinar-list-create"),
+    path("batches/<int:batch_id>/webinars/<int:webinar_id>/", ScheduledWebinarDetailView.as_view(), name="batch-webinar-detail"),
 ]

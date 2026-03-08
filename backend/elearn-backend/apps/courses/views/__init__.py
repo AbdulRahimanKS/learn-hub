@@ -58,6 +58,11 @@ from .session_mcq_views import (
     BatchPostSessionQuestionDetailView,
 )
 
+from .scheduled_webinar_views import (
+    ScheduledWebinarListCreateView,
+    ScheduledWebinarDetailView,
+)
+
 __all__ = [
     'CourseListView',
     'CourseCreateView',
@@ -103,4 +108,7 @@ __all__ = [
     'CoursePostSessionQuestionDetailView',
     'BatchPostSessionQuestionListCreateView',
     'BatchPostSessionQuestionDetailView',
+
+    'ScheduledWebinarListCreateView',
+    'ScheduledWebinarDetailView',
 ]

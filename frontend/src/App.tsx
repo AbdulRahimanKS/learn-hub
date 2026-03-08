@@ -26,6 +26,8 @@ import AccessDenied from "./pages/AccessDenied";
 import AdminBatchStudents from "./pages/AdminBatchStudents";
 import BatchContent from "./pages/BatchContent";
 import BatchTestManagement from "./pages/BatchTestManagement";
+import WebinarManagement from "./pages/WebinarManagement";
+import StudentWebinars from "./pages/StudentWebinars";
 import Notifications from "./pages/Notifications";
 import NotFound from "./pages/NotFound";
 
@@ -59,11 +61,13 @@ function AppRoutes() {
       <Route path="/batches" element={<ProtectedRoute><AdminBatches /></ProtectedRoute>} />
       <Route path="/batches/:batchId/students" element={<ProtectedRoute><AdminBatchStudents /></ProtectedRoute>} />
       <Route path="/admin/batches/:batchId/content" element={<ProtectedRoute><BatchContent /></ProtectedRoute>} />
+      <Route path="/admin/batches/:batchId/webinars" element={<ProtectedRoute><WebinarManagement /></ProtectedRoute>} />
       <Route path="/admin/batches/:batchId/content/weeks/:weekId/test" element={<ProtectedRoute><BatchTestManagement /></ProtectedRoute>} />
       <Route path="/progress" element={<ProtectedRoute><Progress /></ProtectedRoute>} />
       <Route path="/chat" element={<ProtectedRoute><Chat /></ProtectedRoute>} />
       <Route path="/admin-courses" element={<ProtectedRoute><AdminCourses /></ProtectedRoute>} />
       <Route path="/courses" element={<ProtectedRoute><Courses /></ProtectedRoute>} />
+      <Route path="/webinars" element={<ProtectedRoute><StudentWebinars /></ProtectedRoute>} />
       <Route path="/schedule" element={<ProtectedRoute><Schedule /></ProtectedRoute>} />
       <Route path="/live-sessions" element={<ProtectedRoute><LiveSessions /></ProtectedRoute>} />
       <Route path="/settings" element={<ProtectedRoute><Settings /></ProtectedRoute>} />

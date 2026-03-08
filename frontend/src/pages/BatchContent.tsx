@@ -200,8 +200,6 @@ export default function BatchContent() {
         setWeeks(res.data);
         if (res.data.length > 0 && !activeTab) {
           setActiveTab(res.data[0].id.toString());
-        } else if (res.data.length === 0 && !activeTab) {
-          setActiveTab('scheduled');
         }
       }
     } catch (error) {
@@ -525,19 +523,9 @@ export default function BatchContent() {
                   Week {week.week_number}
                 </TabsTrigger>
               ))}
-              <TabsTrigger 
-                value="scheduled" 
-                className={cn(
-                  "px-6 py-2.5 shrink-0 rounded-full transition-all border border-border/50 text-sm font-medium",
-                  "data-[state=active]:bg-primary data-[state=active]:text-white data-[state=active]:border-primary data-[state=active]:shadow-lg shadow-primary/20",
-                  "bg-muted/30 text-muted-foreground hover:bg-muted/50"
-                )}
-              >
-                Scheduled
-              </TabsTrigger>
             </TabsList>
 
-            {weeks.length === 0 && activeTab !== 'scheduled' ? (
+            {weeks.length === 0 ? (
               <div className="text-center py-20 bg-muted/20 border-2 border-dashed rounded-xl">
                 <Settings className="h-12 w-12 mx-auto mb-4 opacity-30" />
                 <h3 className="text-lg font-medium">No weeks initialized</h3>
@@ -748,106 +736,6 @@ export default function BatchContent() {
               </TabsContent>
             ))
             )}
-
-            {/* Scheduled Webinars Tab - always visible */}
-            <TabsContent value="scheduled" className="space-y-6 mt-4">
-              <div className="flex items-center justify-between">
-                <div>
-                  <h2 className="text-xl font-bold text-foreground">Scheduled Webinars</h2>
-                  <p className="text-muted-foreground text-sm mt-1">Upcoming recorded sessions and special webinars for this batch</p>
-                </div>
-                <Button variant="gradient" size="sm">
-                  <Plus className="h-4 w-4 mr-2" />
-                  Schedule Webinar
-                </Button>
-              </div>
-
-              {/* Dummy scheduled webinar cards */}
-              <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-                {[
-                  {
-                    id: 1,
-                    title: 'Advanced Python Webinar',
-                    description: 'Special session on advanced topics',
-                    scheduledAt: 'Feb 5, 2028 at 2:00 PM',
-                    duration: '90:00',
-                    thumbnail: null,
-                  },
-                  {
-                    id: 2,
-                    title: 'Data Structures Deep Dive',
-                    description: 'In-depth walkthrough of arrays, trees, and graphs',
-                    scheduledAt: 'Feb 12, 2028 at 4:00 PM',
-                    duration: '75:00',
-                    thumbnail: null,
-                  },
-                  {
-                    id: 3,
-                    title: 'System Design Q&A',
-                    description: 'Live Q&A session covering design patterns',
-                    scheduledAt: 'Feb 19, 2028 at 11:00 AM',
-                    duration: '60:00',
-                    thumbnail: null,
-                  },
-                ].map((webinar) => (
-                  <Card key={webinar.id} className="shadow-card overflow-hidden group hover:shadow-lg transition-all duration-300 flex flex-col h-full">
-                    <div className="relative aspect-video">
-                      {webinar.thumbnail ? (
-                        <img src={webinar.thumbnail} alt={webinar.title} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" />
-                      ) : (
-                        <div className="w-full h-full bg-muted flex items-center justify-center group-hover:scale-105 transition-transform duration-300">
-                           <ImageIcon className="h-12 w-12 text-muted-foreground/50" />
-                        </div>
-                      )}
-                      <div className="absolute inset-0 bg-gradient-to-t from-foreground/80 via-transparent to-transparent" />
-                      
-                      {/* Play overlay matching Content.tsx */}
-                      <button 
-                        className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 p-4 rounded-full bg-primary text-primary-foreground opacity-0 group-hover:opacity-100 transition-opacity shadow-lg"
-                        onClick={() => {
-                           toast({ title: 'Upcoming Webinar', description: 'This webinar is scheduled for ' + webinar.scheduledAt });
-                        }}
-                      >
-                        <Play className="h-6 w-6 fill-current ml-1" />
-                      </button>
-
-                      {/* Bottom badges */}
-                      <div className="absolute bottom-3 left-3 right-3 flex items-end justify-between">
-                        <Badge variant="secondary" className="bg-foreground/80 text-background flex items-center">
-                          <Clock className="h-3 w-3 mr-1" />
-                          {webinar.duration}
-                        </Badge>
-                        <Badge className="bg-orange-500 hover:bg-orange-500 text-white border-0 text-[10px] font-bold uppercase tracking-wider">
-                          Scheduled
-                        </Badge>
-                      </div>
-                    </div>
-
-                    <CardContent className="p-4 flex flex-col justify-between flex-1">
-                      <div>
-                        <h3 className="font-semibold text-foreground line-clamp-1">{webinar.title}</h3>
-                        <p className="text-sm text-muted-foreground mt-1 line-clamp-2">{webinar.description}</p>
-                        <div className="flex items-center gap-1.5 mt-2">
-                          <Calendar className="h-3.5 w-3.5 text-orange-500" />
-                          <span className="text-xs text-orange-500 font-medium">{webinar.scheduledAt}</span>
-                        </div>
-                      </div>
-
-                      <div className="flex items-center justify-end mt-4">
-                        <div className="flex gap-1">
-                          <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => {}}>
-                            <Edit className="h-4 w-4" />
-                          </Button>
-                          <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => {}}>
-                            <Trash2 className="h-4 w-4" />
-                          </Button>
-                        </div>
-                      </div>
-                    </CardContent>
-                  </Card>
-                ))}
-              </div>
-            </TabsContent>
           </Tabs>
         )}
       </div>

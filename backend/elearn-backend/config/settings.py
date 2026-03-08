@@ -209,7 +209,6 @@ SPECTACULAR_SETTINGS = {
         'BatchEnrollmentStatusEnum': 'apps.courses.models.BatchEnrollment.Status',
         'ClassSessionStatusEnum': 'apps.courses.models.ClassSession.Status',
         'LiveSessionStatusEnum': 'apps.courses.models.LiveSession.Status',
-        'ScheduledWebinarStatusEnum': 'apps.courses.models.ScheduledWebinar.Status',
         'TestSubmissionStatusEnum': 'apps.courses.models.TestSubmission.Status',
     },
 }

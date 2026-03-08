@@ -888,47 +888,30 @@ class LiveSession(models.Model):
         return f"LIVE: {self.title} @ {self.scheduled_at:%Y-%m-%d %H:%M}"
 
 
-# ─────────────────────────────────────────────────────────────────────────────
-# ScheduledWebinar  (separate from weekly flow — does NOT affect progress)
-# ─────────────────────────────────────────────────────────────────────────────
 
+# ScheduledWebinar
 class ScheduledWebinar(models.Model):
-    """
-    A special / bonus session (guest lecture, Q&A, recorded webinar).
-    RULE: Does NOT affect weekly progress or content-unlocking rules.
-    Attached to a Batch directly (not to a WeeklyModule).
-    """
-
-    class Status(models.TextChoices):
-        UPCOMING  = 'upcoming',  _('Upcoming')
-        ONGOING   = 'ongoing',   _('Ongoing')
-        COMPLETED = 'completed', _('Completed')
-        CANCELLED = 'cancelled', _('Cancelled')
+    class SessionType(models.TextChoices):
+        WEBINAR = "webinar", _("Webinar")
+        SPECIAL_SESSION = "special_session", _("Special Session")
 
     batch         = models.ForeignKey(
         Batch, on_delete=models.CASCADE, related_name='webinars'
     )
     title         = models.CharField(_('Webinar Title'), max_length=255)
+
+    session_type  = models.CharField(
+        _('Session Type'), max_length=20,
+        choices=SessionType.choices, default=SessionType.WEBINAR
+    )
+
     description   = models.TextField(blank=True)
-    speaker_name  = models.CharField(_('Speaker / Presenter'), max_length=255, blank=True)
-    scheduled_at  = models.DateTimeField(_('Scheduled At'))
+    unlock_at  = models.DateTimeField(_('Unlock At'))
     duration_mins = models.PositiveSmallIntegerField(
         _('Duration (mins)'), default=60
     )
-    meeting_link  = models.URLField(_('Meeting / Join Link'), blank=True, null=True)
-    recording_url = models.URLField(_('Recording URL'), blank=True, null=True)
-    status        = models.CharField(
-        _('Status'), max_length=20,
-        choices=Status.choices, default=Status.UPCOMING
-    )
-    is_mandatory     = models.BooleanField(
-        _('Mandatory Attendance'), default=False,
-        help_text=_('Mark if attendance is required (tracking only, no unlock effect)')
-    )
-    affects_progress = models.BooleanField(
-        _('Affects Weekly Progress'), default=False,
-        help_text=_('ALWAYS False per platform rules. Field kept for future flexibility.')
-    )
+    video_file = models.FileField(upload_to='webinars/videos', blank=True, null=True)
+
     created_by    = models.ForeignKey(
         'users.User', on_delete=models.SET_NULL, null=True, blank=True,
         related_name='created_webinars'
@@ -939,17 +922,14 @@ class ScheduledWebinar(models.Model):
     class Meta:
         verbose_name        = _('Scheduled Webinar')
         verbose_name_plural = _('Scheduled Webinars')
-        ordering            = ['scheduled_at']
+        ordering            = ['unlock_at']
 
     def __str__(self):
         return f"Webinar: {self.title} [{self.batch.name}]"
 
 
 
-# ─────────────────────────────────────────────────────────────────────────────
-# BatchChatMessage  (per-batch chat with file attachments)
-# ─────────────────────────────────────────────────────────────────────────────
-
+# BatchChatMessage
 class BatchChatMessage(models.Model):
     """
     A message in the batch group chat.
