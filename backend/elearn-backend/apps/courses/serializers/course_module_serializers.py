@@ -327,14 +327,49 @@ class BatchTestQuestionSerializer(serializers.ModelSerializer):
 
 class BatchWeeklyTestSerializer(serializers.ModelSerializer):
     questions = BatchTestQuestionSerializer(many=True, read_only=True)
+    is_passed = serializers.SerializerMethodField()
+    has_attempted = serializers.SerializerMethodField()
 
     class Meta:
         model = BatchWeeklyTest
         fields = [
             'id', 'batch_week', 'title', 'instructions', 'pass_percentage',
-            'answer_key', 'questions', 'created_by', 'updated_by', 'created_at', 'updated_at'
+            'answer_key', 'questions', 'is_passed', 'has_attempted', 
+            'created_by', 'updated_by', 'created_at', 'updated_at'
         ]
         read_only_fields = ['batch_week', 'created_by', 'updated_by', 'created_at', 'updated_at']
+
+    def get_is_passed(self, obj):
+        request = self.context.get('request')
+        if not request or not request.user.is_authenticated:
+            return False
+        
+        from apps.courses.models import BatchEnrollment, TestSubmission
+        enrollment = BatchEnrollment.objects.filter(student=request.user, batch=obj.batch_week.batch).first()
+        if not enrollment:
+            return False
+            
+        return TestSubmission.objects.filter(
+            enrollment=enrollment,
+            batch_weekly_test=obj,
+            status='published',
+            is_passed=True
+        ).exists()
+
+    def get_has_attempted(self, obj):
+        request = self.context.get('request')
+        if not request or not request.user.is_authenticated:
+            return False
+        
+        from apps.courses.models import BatchEnrollment, TestSubmission
+        enrollment = BatchEnrollment.objects.filter(student=request.user, batch=obj.batch_week.batch).first()
+        if not enrollment:
+            return False
+            
+        return TestSubmission.objects.filter(
+            enrollment=enrollment,
+            batch_weekly_test=obj
+        ).exists()
 
 
 class BatchWeeklyTestCreateUpdateSerializer(serializers.ModelSerializer):

@@ -241,12 +241,18 @@ export default function Courses() {
     }
   };
 
-  // ===================== Computed values =====================
-  const totalSessions = weeks.reduce((acc, w) => acc + (w.class_sessions?.length || 0), 0);
-  const completedSessions = weeks.reduce(
-    (acc, w) => acc + (w.class_sessions?.filter((s: any) => s.is_completed).length || 0),
-    0
-  );
+  // ===================== Computed values (Sessions + Tests) =====================
+  const totalSessions = weeks.reduce((acc, w) => {
+    const sessionCount = w.class_sessions?.length || 0;
+    const testCount = w.weekly_test ? 1 : 0;
+    return acc + sessionCount + testCount;
+  }, 0);
+
+  const completedSessions = weeks.reduce((acc, w) => {
+    const completedSessionCount = w.class_sessions?.filter((s: any) => s.is_completed).length || 0;
+    const completedTestCount = (w.weekly_test as any)?.is_passed ? 1 : 0;
+    return acc + completedSessionCount + completedTestCount;
+  }, 0);
 
   const inProgressWeek = weeks.find(w => {
     const lockInfo = getWeekLockInfo(w);
@@ -441,25 +447,27 @@ export default function Courses() {
                   )}
                 </div>
 
-                {/* Right: Overall Progress (Integrated Into Header) */}
                 <div className="lg:w-80 shrink-0 bg-white/10 backdrop-blur-md border border-white/20 rounded-2xl p-6 shadow-xl">
-                  <div className="flex items-center justify-between mb-4">
-                    <span className="text-sm font-bold uppercase tracking-wider text-white/90">Overall Progress</span>
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="text-xs font-black uppercase tracking-[0.2em] text-white/50">Overall Progress</span>
                     <span className="text-xl font-black text-white">{totalSessions > 0 ? Math.round((completedSessions / totalSessions) * 100) : 0}%</span>
                   </div>
-                  
-                  <div className="w-full h-2.5 rounded-full bg-white/10 overflow-hidden">
-                    <div
-                      className="h-full bg-gradient-to-r from-emerald-400 to-green-300 rounded-full transition-all duration-700"
+                  <div className="h-2 w-full bg-white/10 rounded-full overflow-hidden border border-white/5">
+                    <div 
+                      className="h-full bg-gradient-to-r from-emerald-400 to-emerald-500 rounded-full transition-all duration-1000 ease-out shadow-[0_0_10px_rgba(52,211,153,0.3)]"
                       style={{ width: `${totalSessions > 0 ? (completedSessions / totalSessions) * 100 : 0}%` }}
                     />
                   </div>
-                  
-                  <div className="flex items-center justify-between mt-3 text-[11px] text-white/60 font-bold tracking-tight">
-                    <span>{completedSessions} SESSIONS DONE</span>
-                    <span>{totalSessions - completedSessions} REMAINING</span>
+                  <div className="flex items-center gap-4 mt-3">
+                    <div className="flex items-center gap-1.5">
+                      <div className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
+                      <span className="text-[10px] font-bold text-white/50 uppercase tracking-wider">{completedSessions} DONE</span>
+                    </div>
+                    <div className="flex items-center gap-1.5">
+                      <div className="w-1.5 h-1.5 rounded-full bg-white/20" />
+                      <span className="text-[10px] font-bold text-white/50 uppercase tracking-wider">{totalSessions - completedSessions} REMAINING</span>
+                    </div>
                   </div>
-                  
                   <Button
                     onClick={handleStartLearning}
                     disabled={isBatchNotStarted}
