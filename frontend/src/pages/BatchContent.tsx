@@ -89,6 +89,7 @@ export default function BatchContent() {
     video_file: null as File | null,
     thumbnail: null as File | null,
   });
+  const [sessionErrors, setSessionErrors] = useState<Record<string, string>>({});
 
   // Test Modal (now replaced by WeeklyTestManager)
   const [isTestModalOpen, setIsTestModalOpen] = useState(false);
@@ -216,12 +217,13 @@ export default function BatchContent() {
       setSessionForm({
         title: '',
         description: '',
-        session_number: sessions.length + 1,
+        session_number: 1,
         weekday: '',
         video_file: null,
         thumbnail: null,
       });
     }
+    setSessionErrors({});
     setIsSessionModalOpen(true);
   };
 
@@ -309,7 +311,7 @@ export default function BatchContent() {
           </div>
         ) : (
           <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
-            <TabsList className="bg-muted/50 w-full justify-start overflow-x-auto flex-nowrap">
+            <TabsList className="bg-background p-1 border border-border/50 rounded-lg w-fit justify-start overflow-x-auto overflow-y-hidden flex-nowrap scrollbar-hide">
               {weeks.map(week => (
                 <TabsTrigger key={week.id} value={week.id.toString()} className="whitespace-nowrap px-6">
                   Week {week.week_number}
@@ -331,7 +333,7 @@ export default function BatchContent() {
               </div>
             ) : (
               weeks.map(week => (
-                <TabsContent key={week.id} value={week.id.toString()} className="space-y-6 mt-4">
+                <TabsContent key={week.id} value={week.id.toString()} className="space-y-6">
                   <div className="flex flex-col md:flex-row gap-6">
                     {/* Week info card */}
                     <Card className="flex-1 shadow-card">
@@ -728,22 +730,24 @@ export default function BatchContent() {
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-2">
               <div className="space-y-2">
                 <Label>Video File <span className="text-destructive">*</span> <span className="text-muted-foreground font-normal text-xs ml-1">(MP4 only)</span></Label>
-                <div className="border border-input rounded-md p-1">
+                <div className={`border rounded-md p-1 ${sessionErrors.video_file ? 'border-destructive' : 'border-input'}`}>
                    <Input 
                      type="file" 
                      className="border-0 shadow-none bg-transparent"
                      onChange={e => {
                        const file = e.target.files?.[0];
                        if (file && file.type !== 'video/mp4') {
-                         toast({ title: 'Invalid format', description: 'Only MP4 videos are allowed.', variant: 'destructive' });
+                         setSessionErrors(prev => ({...prev, video_file: "Only MP4 videos are allowed"}));
                          e.target.value = '';
                          return;
                        }
+                       setSessionErrors(prev => ({...prev, video_file: ""}));
                        setSessionForm({...sessionForm, video_file: file || null});
                      }} 
                      accept="video/mp4" 
                    />
                 </div>
+                {sessionErrors.video_file && <p className="text-[10px] text-destructive mt-1 font-medium">{sessionErrors.video_file}</p>}
               </div>
               <div className="space-y-2">
                 <Label>Thumbnail <span className="text-muted-foreground font-normal text-xs ml-2">(Optional)</span></Label>

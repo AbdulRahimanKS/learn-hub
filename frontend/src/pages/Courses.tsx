@@ -22,6 +22,7 @@ import { courseApi, Course } from '@/lib/course-api';
 import { courseModuleApi, CourseWeek, ClassSession } from '@/lib/course-module-api';
 import { batchContentApi } from '@/lib/batch-api';
 import { useToast } from '@/hooks/use-toast';
+import { cn } from '@/lib/utils';
 
 export default function Courses() {
   const { toast } = useToast();
@@ -296,14 +297,18 @@ export default function Courses() {
                  }
                  setActiveTab(val);
               }}>
-                <TabsList className="bg-muted/50 h-auto p-1 overflow-x-auto flex-nowrap w-full justify-start sm:flex-wrap">
+                <TabsList className="bg-background h-auto p-1 border border-border/50 rounded-lg w-fit flex-nowrap justify-start overflow-x-auto overflow-y-hidden scrollbar-hide">
                   {weeks.map((week, idx) => {
                     const locked = isWeekLocked(idx);
                     return (
                         <TabsTrigger
                           key={week.id}
                           value={week.id.toString()}
-                          className={`px-4 py-2 shrink-0 rounded-md transition-all ${locked ? 'opacity-50 cursor-not-allowed text-muted-foreground' : 'data-[state=active]:bg-background'}`}
+                          disabled={locked}
+                          className={cn(
+                            "px-4 py-2 shrink-0 rounded-md transition-all data-[state=active]:bg-muted data-[state=active]:text-foreground data-[state=active]:shadow-sm",
+                            locked && "opacity-50 cursor-not-allowed text-muted-foreground"
+                          )}
                         >
                           <div className="flex items-center gap-2">
                             {locked ? <Lock className="h-3 w-3" /> : null}
@@ -317,7 +322,7 @@ export default function Courses() {
                 {weeks.map((week, idx) => {
                   const locked = isWeekLocked(idx);
                   return (
-                  <TabsContent key={week.id} value={week.id.toString()} className="mt-8 animate-in fade-in slide-in-from-bottom-2 duration-300">
+                  <TabsContent key={week.id} value={week.id.toString()} className="mt-6 animate-in fade-in slide-in-from-bottom-2 duration-300">
                     <Card className="shadow-card mb-8 border-none ring-1 ring-border/50">
                       <CardHeader className="pb-5 border-b border-border/40 bg-muted/10 rounded-t-xl">
                         <div className="flex flex-col gap-2">

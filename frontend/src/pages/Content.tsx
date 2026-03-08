@@ -192,12 +192,9 @@ export default function Content() {
       setVideoDesc('');
       setVideoFile(null);
       setVideoThumbnail(null);
-      
-      const activeWeek = weeks.find(w => w.id.toString() === activeTab);
-      const nextSession = activeWeek && activeWeek.class_sessions ? activeWeek.class_sessions.length + 1 : 1;
-      setSessionNumber(nextSession);
+      setSessionNumber(1);
     }
-  }, [isUploadOpen, activeTab, weeks]);
+  }, [isUploadOpen]);
 
   const handleCreateWeek = async () => {
     let hasError = false;
@@ -341,7 +338,7 @@ export default function Content() {
   const handleOpenAddVideo = () => {
     setVideoTitle('');
     setVideoDesc('');
-    setSessionNumber('');
+    setSessionNumber(1);
     setWeekday('');
     setVideoFile(null);
     setVideoThumbnail(null);
@@ -641,8 +638,28 @@ export default function Content() {
 
 
         {/* ── Tabbed View ───────────────── */}
-        <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
-          <TabsList className="bg-muted/50 w-full justify-start overflow-x-auto">
+        {isLoading ? (
+          <div className="flex justify-center items-center py-32 bg-muted/10 rounded-2xl border-2 border-dashed border-border/50">
+            <div className="flex flex-col items-center gap-4">
+              <Loader2 className="h-10 w-10 animate-spin text-primary/60" />
+              <p className="text-muted-foreground font-medium animate-pulse">Loading course content...</p>
+            </div>
+          </div>
+        ) : weeks.length === 0 ? (
+          <div className="text-center py-24 bg-muted/20 border-2 border-dashed border-border rounded-xl">
+            <BookOpen className="h-16 w-16 mx-auto mb-6 text-muted-foreground/30" />
+            <h3 className="text-2xl font-bold text-foreground mb-2">No Weeks Initialized</h3>
+            <p className="text-muted-foreground mb-8 max-w-sm mx-auto">
+              This course doesn't have any weekly content yet. Start by defining the first week to begin uploading videos and assessments.
+            </p>
+            <Button variant="gradient" onClick={() => setIsWeekOpen(true)}>
+              <Plus className="h-5 w-5 mr-2" />
+              Add First Week
+            </Button>
+          </div>
+        ) : (
+          <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
+            <TabsList className="bg-background p-1 border border-border/50 rounded-lg w-fit justify-start overflow-x-auto overflow-y-hidden flex-nowrap scrollbar-hide">
             {weeks.map(week => (
               <TabsTrigger key={week.id} value={week.id.toString()} className="whitespace-nowrap">
                 Week {week.week_number}: {week.title}
@@ -651,7 +668,7 @@ export default function Content() {
           </TabsList>
 
           {weeks.map(week => (
-            <TabsContent key={week.id} value={week.id.toString()} className="space-y-6 mt-4">
+            <TabsContent key={week.id} value={week.id.toString()} className="space-y-6">
               
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 py-2 border-b">
                 <div>
@@ -739,7 +756,8 @@ export default function Content() {
             </TabsContent>
           ))}
 
-        </Tabs>
+          </Tabs>
+        )}
       </div>
 
       {/* Upload Video Modal */}
@@ -915,12 +933,17 @@ export default function Content() {
                   if (e.target.files && e.target.files.length > 0) {
                     const file = e.target.files[0];
                     if (file.type !== 'video/mp4') {
-                      toast({ title: "Invalid format", description: "Only MP4 videos are allowed", variant: "destructive" });
+                      setVideoFormErrors(prev => ({...prev, video_file: "Only MP4 videos are allowed"}));
+                      setVideoFile(null);
                       e.target.value = '';
                       return;
                     }
                     setVideoFile(file);
-                    if (videoFormErrors.video_file) setVideoFormErrors({...videoFormErrors, video_file: ''});
+                    setVideoFormErrors(prev => {
+                      const newErrs = { ...prev };
+                      delete newErrs.video_file;
+                      return newErrs;
+                    });
                   }
                 }}
               />

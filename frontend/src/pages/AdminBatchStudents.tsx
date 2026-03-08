@@ -34,7 +34,9 @@ import {
   Mail,
   Calendar as CalendarIcon,
   Trophy,
+  Info,
 } from 'lucide-react';
+import { Alert, AlertDescription } from '@/components/ui/alert';
 import { batchApi, Batch, BatchUser } from '@/lib/batch-api';
 import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
@@ -177,6 +179,16 @@ export default function AdminBatchStudents() {
                   Select from available students who are not currently assigned to any active batch.
                 </DialogDescription>
               </DialogHeader>
+
+              <div className="px-1 pt-2">
+                <div className="flex items-center gap-2.5 bg-primary/5 border border-primary/20 rounded-lg py-2 px-3">
+                  <Info className="h-4 w-4 text-primary shrink-0" />
+                  <p className="text-xs text-primary/80 leading-relaxed m-0 p-0">
+                    Students will receive their login credentials via email once they are added to this batch.
+                  </p>
+                </div>
+              </div>
+
               <div className="flex-1 overflow-hidden flex flex-col gap-4 pt-4">
                 <div className="relative">
                   <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />

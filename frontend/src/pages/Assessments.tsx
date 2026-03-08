@@ -171,7 +171,7 @@ export default function Assessments() {
 
       {/* Tabs */}
       <Tabs defaultValue="weekly" className="space-y-6">
-        <TabsList className="bg-muted/50 w-full justify-start overflow-x-auto h-auto p-1">
+        <TabsList className="bg-background p-1 border border-border/50 rounded-lg w-fit h-auto justify-start overflow-x-auto overflow-y-hidden flex-nowrap scrollbar-hide">
           <TabsTrigger value="weekly">Weekly Tests</TabsTrigger>
           <TabsTrigger value="post-class">Post-Class Quizzes</TabsTrigger>
           <TabsTrigger value="review">

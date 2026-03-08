@@ -3,7 +3,6 @@ import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { useTheme } from '@/components/theme-provider';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -15,7 +14,7 @@ import {
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
-import { User, Bell, KeyRound, LogOut, Sun, Moon, Search, Check } from 'lucide-react';
+import { User, Bell, KeyRound, LogOut, Sun, Moon, Check } from 'lucide-react';
 import { notificationsApi, Notification } from '@/lib/notifications-api';
 import { formatDistanceToNow } from 'date-fns';
 
@@ -39,7 +38,11 @@ export function Header() {
     try {
       const res = await notificationsApi.getNotifications();
       if (res.success) {
-        setNotifications(res.data);
+        if (Array.isArray(res.data)) {
+          setNotifications(res.data);
+        } else if (res.data && 'data' in res.data) {
+          setNotifications(res.data.data);
+        }
       }
     } catch(err) {
       console.error(err);
@@ -88,17 +91,8 @@ export function Header() {
 
   return (
     <header className="sticky top-0 z-30 flex h-16 items-center justify-between gap-4 border-b border-border/40 bg-background/80 px-6 backdrop-blur-md transition-all">
-      {/* Left Section: Search */}
-      <div className="flex flex-1 items-center gap-4 ml-12 lg:ml-0">
-        <div className="relative w-full max-w-sm">
-          <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
-          <Input
-            type="search"
-            placeholder="Search"
-            className="w-full bg-background pl-9 md:w-[300px] lg:w-[400px] rounded-xl focus-visible:ring-primary/20"
-          />
-        </div>
-      </div>
+      {/* Left Section: Spacer to push actions to the right */}
+      <div className="flex-1 lg:ml-0" />
 
       {/* Right Section: Actions */}
       <div className="flex items-center gap-4">

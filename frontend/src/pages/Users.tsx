@@ -47,7 +47,9 @@ import {
   ChevronLeft,
   ChevronRight,
   AlertTriangle,
+  Info,
 } from 'lucide-react';
+import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Textarea } from '@/components/ui/textarea';
 import {
   Select,
@@ -346,6 +348,18 @@ export default function Users() {
                 <DialogTitle>Add New User</DialogTitle>
                 <DialogDescription>Create a new teacher or student account</DialogDescription>
               </DialogHeader>
+
+              <div className="px-1 pt-2">
+                <div className="flex items-center gap-2.5 bg-primary/5 border border-primary/20 rounded-lg py-2 px-3">
+                  <Info className="h-4 w-4 text-primary shrink-0" />
+                  <p className="text-xs text-primary/80 leading-relaxed m-0 p-0">
+                    {watchedUserType === 'student' 
+                      ? "Student will get credentials once they are added to a batch via email." 
+                      : "Teacher will get credentials once created through email."}
+                  </p>
+                </div>
+              </div>
+
               <Form {...form}>
                 <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4 py-4">
                   <div className="space-y-4">
