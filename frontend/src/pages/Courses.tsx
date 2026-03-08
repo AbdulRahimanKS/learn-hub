@@ -535,6 +535,7 @@ export default function Courses() {
                     const completedCount = sessions.filter((s: any) => s.is_completed).length;
                     const allDone = sessions.length > 0 && completedCount === sessions.length;
                     const progressPct = sessions.length > 0 ? (completedCount / sessions.length) * 100 : 0;
+                    const isPass = (week.weekly_test as any)?.is_passed;
 
                     return (
                       <div key={week.id} className="rounded-xl border border-border/60 bg-card overflow-hidden shadow-sm">
@@ -558,7 +559,7 @@ export default function Courses() {
                                 : 'bg-primary/10 text-primary'
                             )}
                           >
-                            {locked ? <Lock className="h-3.5 w-3.5" /> : allDone ? <CheckCircle2 className="h-4 w-4" /> : week.week_number}
+                            {locked ? <Lock className="h-3.5 w-3.5" /> : allDone ? <Award className="h-4 w-4" /> : week.week_number}
                           </div>
                           <div className="flex-1 min-w-0">
                             <div className="flex items-center gap-2 flex-wrap">
@@ -574,8 +575,8 @@ export default function Courses() {
                                 </Badge>
                               )}
                               {allDone && (
-                                <Badge className="bg-emerald-500/15 text-emerald-500 border-emerald-500/25 text-[10px] h-5 px-2">
-                                  ✓ Completed
+                                <Badge className="bg-emerald-500/20 text-emerald-400 border-emerald-500/30 text-[10px] h-5 px-2 font-black uppercase tracking-wider shadow-[0_0_10px_rgba(16,185,129,0.1)]">
+                                  Completed
                                 </Badge>
                               )}
                             </div>
@@ -644,6 +645,8 @@ export default function Courses() {
                                         'flex items-center gap-4 px-5 py-3.5 transition-all group',
                                         locked
                                           ? 'opacity-60 cursor-not-allowed'
+                                          : completed
+                                          ? 'cursor-pointer hover:bg-emerald-500/5 bg-emerald-500/[0.02]'
                                           : 'cursor-pointer hover:bg-muted/20'
                                       )}
                                       onClick={() => !locked && handlePlaySession(week.id, session)}
@@ -690,7 +693,11 @@ export default function Courses() {
                                               <Clock className="h-3 w-3 text-primary/60" />
                                               {formatSessionDuration(session.duration_seconds)}
                                             </span>
-                                            {completed && <CheckCircle2 className="h-3 w-3 text-emerald-500" />}
+                                            {completed && (
+                                              <span className="flex items-center gap-1 px-1.5 py-0.5 rounded bg-emerald-500/20 text-emerald-400 text-[9px] font-black uppercase tracking-wider">
+                                                Watched
+                                              </span>
+                                            )}
                                           </p>
                                         )}
                                       </div>
@@ -754,18 +761,25 @@ export default function Courses() {
                                     >
                                       {locked ? (
                                         <Lock className="h-5 w-5 text-muted-foreground" />
+                                      ) : isPass ? (
+                                        <Award className="h-5 w-5 text-emerald-400 drop-shadow-[0_0_5px_rgba(52,211,153,0.5)]" />
                                       ) : (
                                         <FlaskConical className="h-5 w-5" />
                                       )}
                                     </div>
                                     <div>
-                                      <p className="font-bold text-sm text-foreground">{week.weekly_test.title || 'Weekly Assessment'}</p>
-                                      <p className="text-xs text-muted-foreground mt-0.5">
+                                      <p className="font-bold text-sm text-foreground flex items-center gap-2">
+                                        {week.weekly_test.title || 'Weekly Assessment'}
+                                      </p>
+                                      <p className="text-xs text-muted-foreground mt-0.5 flex items-center gap-2">
                                         {locked 
                                           ? lockInfo.reason === 'date_locked'
                                             ? `Unlocks on ${new Date((lockInfo as any).unlock_date).toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric' })}`
                                             : 'Pass previous assessment to unlock'
                                           : 'Test your understanding of this week\'s lessons'}
+                                        {isPass && (
+                                          <span className="text-[10px] px-2 py-0.5 rounded-full bg-emerald-500 text-white font-black uppercase inline-block">Passed</span>
+                                        )}
                                       </p>
                                     </div>
                                   </div>
