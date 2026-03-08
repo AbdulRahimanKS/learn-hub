@@ -116,7 +116,7 @@ class CourseWeekSerializer(serializers.ModelSerializer):
 
     def get_weekly_test(self, obj):
         if hasattr(obj, 'weekly_test') and obj.weekly_test:
-            return CourseWeeklyTestSerializer(obj.weekly_test).data
+            return CourseWeeklyTestSerializer(obj.weekly_test, context=self.context).data
         return None
 
 
@@ -135,7 +135,7 @@ class BatchWeekSerializer(serializers.ModelSerializer):
 
     def get_weekly_test(self, obj):
         if hasattr(obj, 'weekly_test') and obj.weekly_test:
-            return BatchWeeklyTestSerializer(obj.weekly_test).data
+            return BatchWeeklyTestSerializer(obj.weekly_test, context=self.context).data
         return None
 
 

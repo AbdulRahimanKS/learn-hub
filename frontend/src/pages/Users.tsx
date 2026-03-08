@@ -576,8 +576,8 @@ export default function Users() {
           <Card className="shadow-card">
             <CardContent className="p-6">
               <div className="flex items-center gap-4">
-                <div className="p-3 rounded-xl bg-accent/10">
-                  <UsersIcon className="h-6 w-6 text-accent" />
+                <div className="p-3 rounded-xl bg-info/10">
+                  <UsersIcon className="h-6 w-6 text-info" />
                 </div>
                 <div>
                   <p className="text-2xl font-bold text-foreground">{summary.total_students}</p>

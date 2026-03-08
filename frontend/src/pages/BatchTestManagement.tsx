@@ -39,8 +39,7 @@ export default function BatchTestManagement() {
   const [editingQuestion, setEditingQuestion] = useState<any>(null);
   const [isSaving, setIsSaving] = useState(false);
   const [formData, setFormData] = useState({
-    question_text: '',
-    question_type: 'subjective',
+    text: '',
   });
 
   const fetchData = async () => {
@@ -68,14 +67,12 @@ export default function BatchTestManagement() {
     if (question) {
       setEditingQuestion(question);
       setFormData({
-        question_text: question.question_text,
-        question_type: question.question_type,
+        text: question.text || '',
       });
     } else {
       setEditingQuestion(null);
       setFormData({
-        question_text: '',
-        question_type: 'subjective',
+        text: '',
       });
     }
     setIsModalOpen(true);
@@ -85,12 +82,13 @@ export default function BatchTestManagement() {
     if (!batchId || !weekId) return;
     setIsSaving(true);
     try {
+      let res;
       if (editingQuestion) {
-        await batchContentApi.updateTestQuestion(parseInt(batchId), parseInt(weekId), editingQuestion.id, formData);
+        res = await batchContentApi.updateTestQuestion(parseInt(batchId), parseInt(weekId), editingQuestion.id, formData);
       } else {
-        await batchContentApi.addTestQuestion(parseInt(batchId), parseInt(weekId), formData);
+        res = await batchContentApi.addTestQuestion(parseInt(batchId), parseInt(weekId), formData);
       }
-      toast({ title: 'Success', description: 'Question saved' });
+      toast({ title: 'Success', description: res.message || 'Question saved', variant: 'success' });
       setIsModalOpen(false);
       fetchData();
     } catch (err) {
@@ -103,8 +101,8 @@ export default function BatchTestManagement() {
   const handleDeleteQuestion = async (id: number) => {
     if (!batchId || !weekId || !confirm('Delete this question?')) return;
     try {
-      await batchContentApi.deleteTestQuestion(parseInt(batchId), parseInt(weekId), id);
-      toast({ title: 'Success', description: 'Question removed' });
+      const res = await batchContentApi.deleteTestQuestion(parseInt(batchId), parseInt(weekId), id);
+      toast({ title: 'Deleted', description: res.message || 'Question removed', variant: 'success' });
       fetchData();
     } catch (err) {
       toast({ title: 'Error', description: 'Failed to delete question', variant: 'destructive' });
@@ -156,10 +154,7 @@ export default function BatchTestManagement() {
                     </div>
                   </CardHeader>
                   <CardContent className="p-4 pt-0">
-                    <p className="text-foreground whitespace-pre-wrap">{q.question_text}</p>
-                    <div className="mt-2 text-xs text-muted-foreground uppercase font-bold tracking-wider">
-                      Type: {q.question_type}
-                    </div>
+                    <p className="text-foreground whitespace-pre-wrap">{q.text}</p>
                   </CardContent>
                 </Card>
               ))
@@ -177,8 +172,8 @@ export default function BatchTestManagement() {
             <div className="space-y-2">
               <Label>Question Text</Label>
               <Textarea 
-                value={formData.question_text} 
-                onChange={e => setFormData({...formData, question_text: e.target.value})}
+                value={formData.text} 
+                onChange={e => setFormData({...formData, text: e.target.value})}
                 placeholder="Enter the question contents..."
                 rows={5}
               />
@@ -186,7 +181,7 @@ export default function BatchTestManagement() {
           </div>
           <div className="flex justify-end gap-3 pt-4 border-t">
             <Button variant="ghost" onClick={() => setIsModalOpen(false)}>Cancel</Button>
-            <Button variant="gradient" onClick={handleSaveQuestion} disabled={isSaving || !formData.question_text}>
+            <Button variant="gradient" onClick={handleSaveQuestion} disabled={isSaving || !formData.text}>
               {isSaving && <Loader2 className="h-4 w-4 animate-spin mr-2" />}
               Save Question
             </Button>

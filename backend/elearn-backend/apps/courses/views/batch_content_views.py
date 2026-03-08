@@ -4,7 +4,10 @@ from rest_framework.views import APIView
 from rest_framework.parsers import MultiPartParser, FormParser, JSONParser
 from drf_spectacular.utils import extend_schema
 
-from apps.courses.models import Batch, BatchWeek, BatchClassSession, BatchWeeklyTest, BatchTestQuestion
+from apps.courses.models import (
+    Batch, BatchWeek, BatchClassSession, BatchWeeklyTest, BatchTestQuestion,
+    BatchTestQuestionAttachment
+)
 from apps.courses.serializers.course_module_serializers import (
     BatchWeekSerializer,
     BatchWeekCreateUpdateSerializer,
@@ -13,6 +16,7 @@ from apps.courses.serializers.course_module_serializers import (
     BatchWeeklyTestSerializer,
     BatchWeeklyTestCreateUpdateSerializer,
     BatchTestQuestionSerializer,
+    BatchTestQuestionAttachmentSerializer,
 )
 from utils.permissions import IsAdminOrTeacher, IsAuthenticated
 from utils.common import format_success_response, handle_serializer_errors, ServiceError
@@ -270,18 +274,19 @@ class BatchWeeklyTestQuestionListCreateView(APIView):
     @extend_schema(summary="List/Add questions to batch weekly test", request=BatchTestQuestionSerializer)
     def get(self, request, batch_id, week_id):
         test = self.get_test(batch_id, week_id)
-        serializer = BatchTestQuestionSerializer(test.questions.all(), many=True)
+        serializer = BatchTestQuestionSerializer(test.questions.all(), many=True, context={'request': request})
         return format_success_response(message="Questions retrieved", data=serializer.data)
 
     def post(self, request, batch_id, week_id):
         test = self.get_test(batch_id, week_id)
-        serializer = BatchTestQuestionSerializer(data=request.data)
+        serializer = BatchTestQuestionSerializer(data=request.data, context={'request': request})
         if not serializer.is_valid():
             error_str = handle_serializer_errors(serializer)
             raise ServiceError(detail=error_str, status_code=status.HTTP_400_BAD_REQUEST)
         
-        BatchTestQuestion.objects.create(test=test, **serializer.validated_data)
-        return format_success_response(message="Question added to batch test")
+        question = BatchTestQuestion.objects.create(test=test, **serializer.validated_data)
+        response_serializer = BatchTestQuestionSerializer(question, context={'request': request})
+        return format_success_response(message="Question added to batch test", data=response_serializer.data, status_code=status.HTTP_201_CREATED)
 
 @extend_schema(tags=["Batch Content"])
 class BatchWeeklyTestQuestionDetailView(APIView):
@@ -300,20 +305,74 @@ class BatchWeeklyTestQuestionDetailView(APIView):
     @extend_schema(summary="Retrieve/Update/Delete batch test question")
     def get(self, request, batch_id, week_id, question_id):
         question = self.get_object(batch_id, week_id, question_id)
-        serializer = BatchTestQuestionSerializer(question)
+        serializer = BatchTestQuestionSerializer(question, context={'request': request})
         return format_success_response(message="Question retrieved", data=serializer.data)
 
     def patch(self, request, batch_id, week_id, question_id):
         question = self.get_object(batch_id, week_id, question_id)
-        serializer = BatchTestQuestionSerializer(question, data=request.data, partial=True)
+        serializer = BatchTestQuestionSerializer(question, data=request.data, partial=True, context={'request': request})
         if not serializer.is_valid():
             error_str = handle_serializer_errors(serializer)
             raise ServiceError(detail=error_str, status_code=status.HTTP_400_BAD_REQUEST)
         
         serializer.save()
-        return format_success_response(message="Question updated")
+        response_serializer = BatchTestQuestionSerializer(question, context={'request': request})
+        return format_success_response(message="Question updated", data=response_serializer.data)
 
     def delete(self, request, batch_id, week_id, question_id):
         question = self.get_object(batch_id, week_id, question_id)
         question.delete()
         return format_success_response(message="Question deleted")
+
+@extend_schema(tags=["Batch Content"])
+class BatchWeeklyTestQuestionAttachmentView(APIView):
+    permission_classes = [IsAdminOrTeacher]
+    parser_classes = [MultiPartParser, FormParser]
+
+    def get_question(self, batch_id, week_id, question_id):
+        try:
+            return BatchTestQuestion.objects.get(
+                id=question_id,
+                test__batch_week_id=week_id,
+                test__batch_week__batch_id=batch_id
+            )
+        except BatchTestQuestion.DoesNotExist:
+            raise ServiceError(detail="Question not found.", status_code=status.HTTP_404_NOT_FOUND)
+
+    @extend_schema(summary="Add an attachment to a batch test question")
+    def post(self, request, batch_id, week_id, question_id):
+        question = self.get_question(batch_id, week_id, question_id)
+        file = request.FILES.get('file')
+        if not file:
+            raise ServiceError(detail="No file provided.", status_code=status.HTTP_400_BAD_REQUEST)
+        name = request.data.get('name', file.name)
+        attachment = BatchTestQuestionAttachment.objects.create(
+            question=question, file=file, name=name
+        )
+        serializer = BatchTestQuestionAttachmentSerializer(attachment, context={'request': request})
+        return format_success_response(
+            message="Attachment added successfully",
+            data=serializer.data,
+            status_code=status.HTTP_201_CREATED
+        )
+
+@extend_schema(tags=["Batch Content"])
+class BatchWeeklyTestQuestionAttachmentDetailView(APIView):
+    permission_classes = [IsAdminOrTeacher]
+
+    def get_object(self, batch_id, week_id, question_id, attachment_id):
+        try:
+            return BatchTestQuestionAttachment.objects.get(
+                id=attachment_id,
+                question_id=question_id,
+                question__test__batch_week_id=week_id,
+                question__test__batch_week__batch_id=batch_id
+            )
+        except BatchTestQuestionAttachment.DoesNotExist:
+            raise ServiceError(detail="Attachment not found.", status_code=status.HTTP_404_NOT_FOUND)
+
+    @extend_schema(summary="Delete a batch question attachment")
+    def delete(self, request, batch_id, week_id, question_id, attachment_id):
+        attachment = self.get_object(batch_id, week_id, question_id, attachment_id)
+        attachment.delete()
+        return format_success_response(message="Attachment deleted successfully")

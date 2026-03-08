@@ -575,9 +575,10 @@ class WeeklyTestQuestionListCreateView(APIView):
                 test=test,
                 **serializer.validated_data
             )
+            response_serializer = CourseTestQuestionSerializer(question, context={'request': request})
             return format_success_response(
                 message="Question created successfully", 
-                data=None, 
+                data=response_serializer.data, 
                 status_code=status.HTTP_201_CREATED
             )
         except ServiceError:
@@ -636,7 +637,8 @@ class WeeklyTestQuestionDetailView(APIView):
                 setattr(question, attr, value)
             question.save()
             
-            return format_success_response(message="Question updated successfully", data=None)
+            response_serializer = CourseTestQuestionSerializer(question, context={'request': request})
+            return format_success_response(message="Question updated successfully", data=response_serializer.data)
         except ServiceError:
             raise
         except Exception as e:

@@ -446,7 +446,7 @@ export default function BatchContent() {
                                   <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => handleOpenSessionModal(session)} disabled={!week.can_modify_content}>
                                     <Edit className="h-4 w-4" />
                                   </Button>
-                                  <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive" onClick={() => setDeleteSessionId(session.id)} disabled={!week.can_modify_content}>
+                                  <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => setDeleteSessionId(session.id)} disabled={!week.can_modify_content}>
                                     <Trash2 className="h-4 w-4" />
                                   </Button>
                                 </div>
@@ -594,7 +594,7 @@ export default function BatchContent() {
                           <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => {}}>
                             <Edit className="h-4 w-4" />
                           </Button>
-                          <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive" onClick={() => {}}>
+                          <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => {}}>
                             <Trash2 className="h-4 w-4" />
                           </Button>
                         </div>

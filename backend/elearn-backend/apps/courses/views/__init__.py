@@ -40,6 +40,8 @@ from .batch_content_views import (
     BatchWeeklyTestManageView,
     BatchWeeklyTestQuestionListCreateView,
     BatchWeeklyTestQuestionDetailView,
+    BatchWeeklyTestQuestionAttachmentView,
+    BatchWeeklyTestQuestionAttachmentDetailView,
 )
 
 from .upload_views import (
@@ -77,7 +79,13 @@ __all__ = [
     'BatchWeekListView',
     'BatchWeekDetailView',
     'BatchClassSessionListCreateView',
+    'BatchClassSessionDetailView',
     'BatchWeeklyTestView',
+    'BatchWeeklyTestManageView',
+    'BatchWeeklyTestQuestionListCreateView',
+    'BatchWeeklyTestQuestionDetailView',
+    'BatchWeeklyTestQuestionAttachmentView',
+    'BatchWeeklyTestQuestionAttachmentDetailView',
     'InitMultipartUploadView',
     'CompleteMultipartUploadView',
     'AbortMultipartUploadView',

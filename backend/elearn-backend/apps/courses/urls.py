@@ -31,6 +31,8 @@ from apps.courses.views import (
     BatchWeeklyTestManageView,
     BatchWeeklyTestQuestionListCreateView,
     BatchWeeklyTestQuestionDetailView,
+    BatchWeeklyTestQuestionAttachmentView,
+    BatchWeeklyTestQuestionAttachmentDetailView,
     CloneBatchContentView,
     ExtendBatchTimelineView,
     InitMultipartUploadView,
@@ -88,6 +90,8 @@ urlpatterns = [
     path("batches/<int:batch_id>/weeks/<int:week_id>/test/manage/", BatchWeeklyTestManageView.as_view(), name="batch-weekly-test-manage"),
     path("batches/<int:batch_id>/weeks/<int:week_id>/test/questions/", BatchWeeklyTestQuestionListCreateView.as_view(), name="batch-test-question-list"),
     path("batches/<int:batch_id>/weeks/<int:week_id>/test/questions/<int:question_id>/", BatchWeeklyTestQuestionDetailView.as_view(), name="batch-test-question-detail"),
+    path("batches/<int:batch_id>/weeks/<int:week_id>/test/questions/<int:question_id>/attachments/", BatchWeeklyTestQuestionAttachmentView.as_view(), name="batch-test-question-attachments"),
+    path("batches/<int:batch_id>/weeks/<int:week_id>/test/questions/<int:question_id>/attachments/<int:attachment_id>/", BatchWeeklyTestQuestionAttachmentDetailView.as_view(), name="batch-test-question-attachment-detail"),
 
     # Test Submissions / Evaluation Workflow
     path("batches/<int:batch_id>/submissions/", BatchTestSubmissionListView.as_view(), name="batch-submissions-list"),

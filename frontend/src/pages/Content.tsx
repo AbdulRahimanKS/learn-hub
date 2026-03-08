@@ -587,7 +587,7 @@ export default function Content() {
             <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => handleOpenEditVideo(video, activeTab)}>
               <Edit className="h-4 w-4" />
             </Button>
-            <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive" onClick={() => setDeleteVideoId(video.id)}>
+            <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => setDeleteVideoId(video.id)}>
               <Trash2 className="h-4 w-4" />
             </Button>
           </div>
@@ -683,7 +683,7 @@ export default function Content() {
                   <Button variant="outline" size="icon" onClick={() => handleOpenEditWeek(week)}>
                     <Edit className="h-4 w-4" />
                   </Button>
-                  <Button variant="outline" size="icon" className="text-destructive hover:bg-destructive hover:text-destructive-foreground" onClick={() => setDeleteWeekId(week.id)}>
+                  <Button variant="outline" size="icon" className="text-primary" onClick={() => setDeleteWeekId(week.id)}>
                     <Trash2 className="h-4 w-4" />
                   </Button>
                 </div>
@@ -878,7 +878,7 @@ export default function Content() {
                          variant="ghost" 
                          size="icon" 
                          disabled={isUploading}
-                         className="h-8 w-8 text-destructive hover:text-destructive hover:bg-destructive/20"
+                         className="h-8 w-8 text-white hover:bg-white/20"
                          onClick={() => {
                            setVideoThumbnail(null);
                            setImagePreview(null);
@@ -1218,7 +1218,7 @@ export default function Content() {
                          type="button" 
                          variant="ghost" 
                          size="icon" 
-                         className="h-8 w-8 text-destructive hover:text-destructive hover:bg-destructive/20"
+                         className="h-8 w-8 text-white hover:bg-white/20"
                          onClick={() => {
                            setVideoThumbnail(null);
                            setImagePreview(null);

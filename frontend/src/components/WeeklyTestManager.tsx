@@ -41,6 +41,7 @@ import {
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { apiClient } from '@/lib/api';
+import { cn } from '@/lib/utils';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -120,7 +121,10 @@ function FieldError({ msg }: { msg?: string }) {
 }
 
 /** Trim a long filename to a readable short form */
-function shortName(url: string) {
+function shortName(url: string | null | undefined) {
+  if (!url) return 'File';
+  // If it's a blob/URL from a File object, use name if possible, but here we expect strings
+  if (typeof url !== 'string') return 'File';
   return url.split('/').pop()?.split('?')[0] || url;
 }
 
@@ -242,13 +246,22 @@ export function WeeklyTestManager({
         await apiClient.patch(`${testApiBase}/`, formData, {
           headers: { 'Content-Type': 'multipart/form-data' },
         });
-        toast({ title: 'Test updated', variant: 'success' });
+        toast({ 
+          title: 'Assessment Updated', 
+          description: 'The test configuration has been successfully saved.', 
+          variant: 'success' 
+        });
       } else {
         const res = await apiClient.post(`${testApiBase}/`, formData, {
           headers: { 'Content-Type': 'multipart/form-data' },
         });
         setTestId(res.data?.data?.id ?? null);
-        toast({ title: 'Test created', description: 'Now add questions below.', variant: 'success' });
+        toast({ 
+          title: 'Assessment Created', 
+          description: 'Configuration saved. You can now add questions.', 
+          variant: 'success' 
+        });
+        onClose();
       }
       onSaved();
     } catch (err: any) {
@@ -267,7 +280,11 @@ export function WeeklyTestManager({
     setIsDeletingTest(true);
     try {
       await apiClient.delete(`${testApiBase}/`);
-      toast({ title: 'Assessment deleted', variant: 'success' });
+      toast({ 
+        title: 'Assessment Deleted', 
+        description: 'The weekly assessment has been removed successfully.', 
+        variant: 'success' 
+      });
       setIsDeleteTestOpen(false);
       onSaved();
       onDeleted?.();
@@ -320,6 +337,9 @@ export function WeeklyTestManager({
   };
 
   const openEditQuestion = (q: TestQuestion) => {
+    // Ensure existingAttachments is extracted safely
+    const existingAtts = Array.isArray(q.attachments) ? q.attachments : [];
+    
     setEditingQuestion({
       id: q.id,
       text: q.text,
@@ -328,7 +348,7 @@ export function WeeklyTestManager({
       question_file_url: q.question_file,
       image: null,
       image_url: q.image,
-      existingAttachments: q.attachments || [],
+      existingAttachments: existingAtts,
       newAttachmentFiles: [],
     });
     setEditingQuestionId(q.id);
@@ -354,12 +374,14 @@ export function WeeklyTestManager({
       let savedQuestionId = editingQuestionId;
 
       if (editingQuestionId) {
-        await apiClient.patch(
+        const res = await apiClient.patch(
           `${testApiBase}/questions/${editingQuestionId}/`,
           fd,
           { headers: { 'Content-Type': 'multipart/form-data' } }
         );
-        toast({ title: 'Question updated', variant: 'success' });
+        // Ensure we have the latest ID and any server-side updates (though ID shouldn't change)
+        savedQuestionId = res.data?.data?.id ?? editingQuestionId;
+        toast({ title: 'Success', description: res.data?.message || 'Question updated', variant: 'success' });
       } else {
         const res = await apiClient.post(
           `${testApiBase}/questions/`,
@@ -367,7 +389,7 @@ export function WeeklyTestManager({
           { headers: { 'Content-Type': 'multipart/form-data' } }
         );
         savedQuestionId = res.data?.data?.id ?? null;
-        toast({ title: 'Question added', variant: 'success' });
+        toast({ title: 'Success', description: res.data?.message || 'Question added', variant: 'success' });
       }
 
       // Upload any queued new attachment files
@@ -414,8 +436,8 @@ export function WeeklyTestManager({
     if (!deleteQuestionId) return;
     setIsDeletingQuestion(true);
     try {
-      await apiClient.delete(`${testApiBase}/questions/${deleteQuestionId}/`);
-      toast({ title: 'Question removed', variant: 'success' });
+      const res = await apiClient.delete(`${testApiBase}/questions/${deleteQuestionId}/`);
+      toast({ title: 'Deleted', description: res.data?.message || 'Question removed', variant: 'success' });
       setDeleteQuestionId(null);
       await refreshQuestions();
     } catch {
@@ -430,12 +452,12 @@ export function WeeklyTestManager({
     if (!editingQuestionId) return;
     setDeletingAttachmentIds(prev => new Set(prev).add(attachmentId));
     try {
-      await apiClient.delete(`${testApiBase}/questions/${editingQuestionId}/attachments/${attachmentId}/`);
+      const res = await apiClient.delete(`${testApiBase}/questions/${editingQuestionId}/attachments/${attachmentId}/`);
       setEditingQuestion(prev => ({
         ...prev,
         existingAttachments: prev.existingAttachments.filter(a => a.id !== attachmentId),
       }));
-      toast({ title: 'Attachment removed', variant: 'success' });
+      toast({ title: 'Removed', description: res.data?.message || 'Attachment removed', variant: 'success' });
     } catch {
       toast({ title: 'Error', description: 'Failed to remove attachment.', variant: 'destructive' });
     } finally {
@@ -476,143 +498,119 @@ export function WeeklyTestManager({
           onOpenAutoFocus={(e) => e.preventDefault()}
         >
           <DialogHeader>
-            <DialogTitle className="flex items-center gap-2 text-xl">
-              <BookOpen className="h-5 w-5 text-primary" />
-              {existingTest ? 'Edit' : 'Create'} Weekly Assessment
+            <DialogTitle className="text-2xl font-bold text-foreground tracking-tight">
+              Weekly Test Configuration
             </DialogTitle>
-            <DialogDescription>{weekLabel} — Configure the test and questions</DialogDescription>
+            <DialogDescription className="text-muted-foreground/80">
+              {weekLabel} — Configure the core settings for this week's assessment.
+            </DialogDescription>
           </DialogHeader>
 
-          <div className="flex-1 overflow-y-auto pr-1 space-y-6 py-2">
+          <div className="flex-1 overflow-y-auto px-2 space-y-8 py-4 scrollbar-hide">
 
-            {/* ── Test Settings Card ───────────────────────────────────────── */}
-            <Card className="border-primary/20 bg-primary/5">
-              <CardHeader className="pb-2">
-                <p className="text-sm font-semibold text-primary uppercase tracking-wide">Test Settings</p>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            {/* ── Configuration Section (Screenshot Design) ── */}
+            <div className="space-y-6">
+              <div className="space-y-2">
+                <Label htmlFor="wt-title" className="text-sm font-semibold text-foreground/90">
+                  Test Title <span className="text-destructive">*</span>
+                </Label>
+                <Input
+                  id="wt-title"
+                  value={title}
+                  onChange={e => {
+                    setTitle(e.target.value);
+                    if (headerErrors.title) setHeaderErrors(p => ({ ...p, title: undefined }));
+                  }}
+                  placeholder="Weekly Assessment"
+                  className={cn(
+                    "bg-background/50 border-border focus:border-primary/50 transition-all font-medium",
+                    headerErrors.title && "border-destructive focus:ring-destructive"
+                  )}
+                />
+                <FieldError msg={headerErrors.title} />
+              </div>
 
-                  {/* Title */}
-                  <div className="space-y-1.5 sm:col-span-2">
-                    <Label htmlFor="wt-title">
-                      Test Title <span className="text-destructive">*</span>
-                    </Label>
+              <div className="space-y-2">
+                <Label htmlFor="wt-instructions" className="text-sm font-semibold text-foreground/90">
+                  Instructions
+                </Label>
+                <Textarea
+                  id="wt-instructions"
+                  value={instructions}
+                  onChange={e => setInstructions(e.target.value)}
+                  placeholder="Optional instructions for students..."
+                  rows={3}
+                  className="bg-background/50 border-border focus:border-primary/50 transition-all resize-none"
+                />
+              </div>
+
+              <div className="space-y-6">
+                <div className="space-y-2">
+                  <Label htmlFor="wt-pass" className="text-sm font-semibold text-foreground/90 flex items-center gap-2">
+                    Pass Percentage <span className="text-destructive">*</span>
+                  </Label>
+                  <div className="relative w-full sm:w-1/2">
                     <Input
-                      id="wt-title"
-                      value={title}
+                      id="wt-pass"
+                      type="number"
+                      min={0}
+                      max={100}
+                      value={passPercentage}
                       onChange={e => {
-                        setTitle(e.target.value);
-                        if (headerErrors.title) setHeaderErrors(p => ({ ...p, title: undefined }));
+                        setPassPercentage(e.target.value);
+                        if (headerErrors.pass_percentage) setHeaderErrors(p => ({ ...p, pass_percentage: undefined }));
                       }}
-                      placeholder="e.g. Week 1 Assessment"
-                      className={headerErrors.title ? 'border-destructive focus-visible:ring-destructive' : ''}
+                      className="bg-background/50 border-border focus:border-primary/50 pr-8"
                     />
-                    <FieldError msg={headerErrors.title} />
+                    <span className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground text-xs">%</span>
                   </div>
-
-                  {/* Pass percentage */}
-                  <div className="space-y-1.5">
-                    <Label htmlFor="wt-pass">
-                      Pass Percentage <span className="text-destructive">*</span>
-                    </Label>
-                    <div className="relative">
-                      <Input
-                        id="wt-pass"
-                        type="number"
-                        min={0}
-                        max={100}
-                        value={passPercentage}
-                        onChange={e => {
-                          setPassPercentage(e.target.value);
-                          if (headerErrors.pass_percentage) setHeaderErrors(p => ({ ...p, pass_percentage: undefined }));
-                        }}
-                        className={`pr-8 ${headerErrors.pass_percentage ? 'border-destructive focus-visible:ring-destructive' : ''}`}
-                      />
-                      <span className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground text-sm">%</span>
-                    </div>
-                    <FieldError msg={headerErrors.pass_percentage} />
-                  </div>
-
-                  {/* Answer key — spans full width */}
-                  <div className="space-y-1.5 sm:col-span-2">
-                    <Label>
-                      Answer Key{' '}
-                      <span className="text-destructive">*</span>
-                      <span className="ml-2 text-xs text-muted-foreground font-normal">(.pdf / .ipynb / .doc / .docx)</span>
-                    </Label>
-                    <div className="flex items-center gap-2 flex-wrap">
-                      <Button
-                        type="button"
-                        variant="outline"
-                        size="sm"
-                        className={`gap-1.5 ${headerErrors.answer_key && !answerKeyFile && !existingTest?.answer_key ? 'border-destructive' : ''}`}
-                        onClick={() => {
-                          answerKeyRef.current?.click();
-                          if (headerErrors.answer_key) setHeaderErrors(p => ({ ...p, answer_key: undefined }));
-                        }}
-                      >
-                        <UploadCloud className="h-4 w-4" />
-                        {answerKeyFile ? answerKeyFile.name : 'Upload File'}
-                      </Button>
-                      {answerKeyFile && (
-                        <button
-                          type="button"
-                          className="text-muted-foreground hover:text-destructive transition-colors"
-                          onClick={() => setAnswerKeyFile(null)}
-                        >
-                          <X className="h-4 w-4" />
-                        </button>
-                      )}
-                      {!answerKeyFile && existingTest?.answer_key && (
-                        <span className="text-xs text-muted-foreground truncate max-w-[200px]">
-                          Current: {shortName(existingTest.answer_key)}
-                        </span>
-                      )}
-                    </div>
-                    <FieldError msg={headerErrors.answer_key} />
-                    <input
-                      ref={answerKeyRef}
-                      type="file"
-                      accept=".pdf,.ipynb,.doc,.docx"
-                      className="hidden"
-                      onChange={e => {
-                        setAnswerKeyFile(e.target.files?.[0] || null);
-                        if (headerErrors.answer_key) setHeaderErrors(p => ({ ...p, answer_key: undefined }));
-                      }}
-                    />
-                  </div>
+                  <FieldError msg={headerErrors.pass_percentage} />
                 </div>
 
-                {/* Instructions (optional) */}
-                <div className="space-y-1.5">
-                  <Label htmlFor="wt-instructions">
-                    Instructions
-                    <span className="ml-2 text-xs text-muted-foreground font-normal">optional</span>
+                <div className="space-y-2">
+                  <Label className="text-sm font-semibold text-foreground/90 flex items-center gap-2">
+                    Answer Key <span className="text-xs text-muted-foreground font-normal">(PDF or .ipynb)</span>
                   </Label>
-                  <Textarea
-                    id="wt-instructions"
-                    value={instructions}
-                    onChange={e => setInstructions(e.target.value)}
-                    placeholder="Optional instructions for students…"
-                    rows={3}
+                  <div className="flex items-center gap-3 p-1 rounded-lg border border-border bg-background/30 h-10 w-full">
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      className="h-8 hover:bg-muted text-xs px-3"
+                      onClick={() => answerKeyRef.current?.click()}
+                    >
+                      Choose File
+                    </Button>
+                    <span className="text-[11px] text-muted-foreground truncate flex-1 px-1">
+                      {answerKeyFile ? answerKeyFile.name : (existingTest?.answer_key ? shortName(existingTest.answer_key) : 'No file chosen')}
+                    </span>
+                    {answerKeyFile && (
+                      <Button variant="ghost" size="icon" className="h-6 w-6 text-muted-foreground" onClick={() => setAnswerKeyFile(null)}>
+                        <X className="h-3 w-3" />
+                      </Button>
+                    )}
+                  </div>
+                  <FieldError msg={headerErrors.answer_key} />
+                  <input 
+                    ref={answerKeyRef} 
+                    type="file" 
+                    accept=".pdf,.ipynb,.doc,.docx" 
+                    className="hidden" 
+                    onChange={e => {
+                      setAnswerKeyFile(e.target.files?.[0] || null);
+                      if (headerErrors.answer_key) setHeaderErrors(p => ({ ...p, answer_key: undefined }));
+                    }} 
                   />
                 </div>
+              </div>
 
-                <div className="flex justify-end">
-                  <Button
-                    id="wt-save-btn"
-                    variant="gradient"
-                    onClick={handleSaveHeader}
-                    disabled={isSavingHeader}
-                  >
-                    {isSavingHeader && <Loader2 className="h-4 w-4 animate-spin mr-2" />}
-                    <Save className="h-4 w-4 mr-2" />
-                    {testId ? 'Update Test' : 'Save Test & Add Questions'}
-                  </Button>
-                </div>
-              </CardContent>
-            </Card>
+              <div className="flex justify-end pt-2">
+                <Button id="wt-save-btn" variant="gradient" size="sm" onClick={handleSaveHeader} disabled={isSavingHeader}>
+                  {isSavingHeader ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Save className="h-4 w-4 mr-2" />}
+                  {testId ? 'Update Configuration' : 'Save & Add Questions'}
+                </Button>
+              </div>
+            </div>
 
             {/* ── Questions ────────────────────────────────────────────────── */}
             {testId && (
@@ -702,7 +700,7 @@ export function WeeklyTestManager({
                               <Button
                                 variant="ghost"
                                 size="icon"
-                                className="h-7 w-7 text-destructive hover:bg-destructive/10"
+                                className="h-7 w-7"
                                 onClick={() => setDeleteQuestionId(q.id)}
                               >
                                 <Trash2 className="h-3.5 w-3.5" />
@@ -765,7 +763,7 @@ export function WeeklyTestManager({
           </DialogHeader>
 
           {/* Scrollable body — fixed max height so dialog stays compact */}
-          <div className="max-h-[60vh] overflow-y-auto space-y-4 pr-1 py-1">
+          <div className="max-h-[60vh] overflow-y-auto space-y-5 px-2 py-1 scrollbar-hide">
 
             {/* Content error banner */}
             {questionErrors.content && (
@@ -790,7 +788,10 @@ export function WeeklyTestManager({
                 }}
                 placeholder="Type the question here…"
                 rows={3}
-                className={questionErrors.content ? 'border-destructive focus-visible:ring-destructive' : ''}
+                className={cn(
+                  "bg-background/50 border-border focus:border-primary/50 transition-all resize-none",
+                  questionErrors.content && "border-destructive focus:ring-destructive"
+                )}
               />
             </div>
 
@@ -809,7 +810,10 @@ export function WeeklyTestManager({
                   setEditingQuestion(prev => ({ ...prev, marks: e.target.value }));
                   if (questionErrors.marks) setQuestionErrors(p => ({ ...p, marks: undefined }));
                 }}
-                className={`w-32 ${questionErrors.marks ? 'border-destructive focus-visible:ring-destructive' : ''}`}
+                className={cn(
+                  "w-32 bg-background/50 border-border focus:border-primary/50 transition-all",
+                  questionErrors.marks && "border-destructive focus:ring-destructive"
+                )}
               />
               <FieldError msg={questionErrors.marks} />
             </div>
@@ -888,59 +892,72 @@ export function WeeklyTestManager({
                 </Label>
 
                 {/* Existing saved attachments */}
-                {editingQuestion.existingAttachments.length > 0 && (
-                  <ul className="space-y-1">
+                {(editingQuestion.existingAttachments.length > 0 || editingQuestion.newAttachmentFiles.length > 0) && (
+                  <div className="grid grid-cols-1 gap-2">
                     {editingQuestion.existingAttachments.map(att => (
-                      <li key={att.id} className="flex items-center gap-2 bg-muted/40 rounded px-2 py-1">
-                        <FilePlus2 className="h-3.5 w-3.5 text-primary flex-shrink-0" />
-                        <a href={att.file} target="_blank" rel="noreferrer"
-                          className="text-xs text-primary hover:underline flex-1 truncate">
-                          {att.name || shortName(att.file)}
-                        </a>
+                      <div key={att.id} className="group relative flex items-center gap-3 bg-background border border-border rounded-xl p-3 transition-all hover:border-primary/50 hover:shadow-md">
+                        <div className="flex-shrink-0 w-10 h-10 rounded-lg bg-primary/5 flex items-center justify-center border border-primary/10">
+                          <FilePlus2 className="h-5 w-5 text-primary" />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <a href={att.file} target="_blank" rel="noreferrer"
+                            className="text-sm font-semibold text-foreground hover:text-primary transition-colors block truncate">
+                            {att.name || shortName(att.file)}
+                          </a>
+                          <p className="text-[10px] text-muted-foreground uppercase tracking-tight font-medium">Existing Attachment</p>
+                        </div>
                         <button
                           type="button"
-                          className="text-muted-foreground hover:text-destructive flex-shrink-0 disabled:opacity-50"
+                          className="flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors disabled:opacity-50"
                           disabled={deletingAttachmentIds.has(att.id)}
                           onClick={() => handleDeleteExistingAttachment(att.id)}
                         >
                           {deletingAttachmentIds.has(att.id)
-                            ? <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                            : <X className="h-3.5 w-3.5" />}
+                            ? <Loader2 className="h-4 w-4 animate-spin" />
+                            : <X className="h-4 w-4" />}
                         </button>
-                      </li>
+                      </div>
                     ))}
-                  </ul>
-                )}
 
-                {/* New queued attachments */}
-                {editingQuestion.newAttachmentFiles.length > 0 && (
-                  <ul className="space-y-1">
+                    {/* New queued attachments */}
                     {editingQuestion.newAttachmentFiles.map((file, idx) => (
-                      <li key={idx} className="flex items-center gap-2 bg-primary/5 border border-primary/20 rounded px-2 py-1">
-                        <FilePlus2 className="h-3.5 w-3.5 text-primary flex-shrink-0" />
-                        <span className="text-xs flex-1 truncate">{file.name}</span>
-                        <Badge variant="secondary" className="text-[10px] py-0 px-1">new</Badge>
+                      <div key={idx} className="group relative flex items-center gap-3 bg-primary/[0.02] border border-primary/20 border-dashed rounded-xl p-3 transition-all hover:bg-primary/[0.04]">
+                        <div className="flex-shrink-0 w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center border border-primary/20">
+                          <UploadCloud className="h-5 w-5 text-primary" />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <span className="text-sm font-semibold text-foreground block truncate">{file.name}</span>
+                          <div className="flex items-center gap-2">
+                             <Badge variant="secondary" className="text-[9px] h-3.5 px-1 font-bold bg-primary/10 text-primary border-none">NEW</Badge>
+                             <span className="text-[10px] text-muted-foreground">{(file.size / 1024).toFixed(0)} KB</span>
+                          </div>
+                        </div>
                         <button
                           type="button"
-                          className="text-muted-foreground hover:text-destructive flex-shrink-0"
+                          className="flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors p-0.5"
                           onClick={() => handleRemoveNewAttachment(idx)}
                         >
-                          <X className="h-3.5 w-3.5" />
+                          <X className="h-4 w-4" />
                         </button>
-                      </li>
+                      </div>
                     ))}
-                  </ul>
+                  </div>
                 )}
 
-                {/* Upload button */}
-                <Button
-                  type="button" variant="outline" size="sm"
-                  className="h-8 text-xs gap-1.5"
+                {/* Styled Upload Area */}
+                <div 
+                  className="group relative border-2 border-dashed border-muted-foreground/20 rounded-xl p-6 text-center transition-all hover:border-primary/50 hover:bg-primary/[0.02] cursor-pointer"
                   onClick={() => attachmentFileRef.current?.click()}
                 >
-                  <FilePlus2 className="h-3.5 w-3.5" />
-                  Add File(s)
-                </Button>
+                  <div className="w-12 h-12 rounded-full bg-muted/50 flex items-center justify-center mx-auto mb-3 group-hover:bg-primary/10 group-hover:scale-110 transition-all">
+                    <Paperclip className="h-6 w-6 text-muted-foreground group-hover:text-primary" />
+                  </div>
+                  <div className="space-y-1">
+                    <p className="text-sm font-semibold text-foreground group-hover:text-primary transition-colors">Click to add extra materials</p>
+                    <p className="text-xs text-muted-foreground">Support for .pdf, .ipynb, .xlsx, etc.</p>
+                  </div>
+                </div>
+
                 <input
                   ref={attachmentFileRef}
                   type="file"
