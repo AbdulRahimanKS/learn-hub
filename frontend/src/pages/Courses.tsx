@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { useNavigate, useParams } from 'react-router-dom';
 import { DashboardLayout } from '@/components/layout/DashboardLayout';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -37,6 +38,8 @@ import { SessionMcqPractice } from '@/components/SessionMcqPractice';
 
 export default function Courses() {
   const { toast } = useToast();
+  const navigate = useNavigate();
+  const { courseId } = useParams();
   const [courses, setCourses] = useState<Course[]>([]);
   const [loadingCourses, setLoadingCourses] = useState(true);
 
@@ -64,6 +67,33 @@ export default function Courses() {
   useEffect(() => {
     fetchCourses();
   }, []);
+
+  useEffect(() => {
+    if (!loadingCourses) {
+      if (courseId) {
+        const course = courses.find(c => c.id.toString() === courseId);
+        if (course) {
+          loadCourseContent(course);
+        } else if (courses.length > 0) {
+          toast({
+            title: 'Course Not Found',
+            description: 'The requested course does not exist or you do not have access.',
+            variant: 'destructive',
+          });
+          navigate('/courses', { replace: true });
+        }
+      } else {
+        // Reset everything when on the list page
+        setSelectedCourse(null);
+        setWeeks([]);
+        setActiveVideoUrl(null);
+        setPlayingSession(null);
+        setActiveMcqSession(null);
+        setActiveWeekId(null);
+        setExpandedWeeks(new Set());
+      }
+    }
+  }, [courseId, courses, loadingCourses]);
 
   const fetchCourses = async () => {
     try {
@@ -93,7 +123,11 @@ export default function Courses() {
     }
   };
 
-  const handleSelectCourse = async (course: Course) => {
+  const handleSelectCourse = (course: Course) => {
+    navigate(`/courses/${course.id}`);
+  };
+
+  const loadCourseContent = async (course: Course) => {
     setSelectedCourse(course);
     setLoadingWeeks(true);
     setActiveVideoUrl(null);
@@ -127,12 +161,7 @@ export default function Courses() {
   };
 
   const handleBack = () => {
-    setSelectedCourse(null);
-    setWeeks([]);
-    setActiveVideoUrl(null);
-    setActiveWeekId(null);
-    setExpandedWeeks(new Set());
-    setUpcomingWebinars([]);
+    navigate('/courses');
   };
 
   const handlePlaySession = (weekId: number, session: ClassSession) => {
@@ -420,81 +449,73 @@ export default function Courses() {
               )}
             </Dialog>
 
-            {/* ===== HEADER BANNER ===== */}
-            <div className="rounded-2xl overflow-hidden bg-gradient-to-br from-[#1a237e] via-[#283593] to-[#3949ab] text-white p-6 md:p-8 relative">
-              {/* Decorative blobs */}
+            {/* ===== HEADER BANNER WITH OVERALL PROGRESS ===== */}
+            <div className="rounded-2xl overflow-hidden bg-gradient-to-br from-[#1a237e] via-[#283593] to-[#3949ab] text-white p-6 md:p-8 relative shadow-lg">
+              {/* Decorative gradients */}
               <div className="absolute inset-0 overflow-hidden pointer-events-none">
-                <div className="absolute -top-12 -right-12 w-64 h-64 bg-white/5 rounded-full blur-3xl" />
-                <div className="absolute bottom-0 left-1/3 w-40 h-40 bg-primary/20 rounded-full blur-2xl" />
+                <div className="absolute top-0 right-0 w-64 h-64 bg-white/5 rounded-full blur-3xl" />
+                <div className="absolute bottom-0 left-0 w-32 h-32 bg-primary/20 rounded-full blur-2xl" />
               </div>
 
-              <div className="relative flex flex-col gap-6 lg:flex-row lg:items-start lg:justify-between">
+              <div className="relative flex flex-col lg:flex-row lg:items-center gap-8">
                 {/* Left: Course info */}
                 <div className="flex-1 min-w-0">
-                  <h1 className="text-3xl md:text-4xl font-extrabold tracking-tight leading-tight">
+                  <h1 className="text-2xl md:text-3xl font-bold tracking-tight leading-snug">
                     {selectedCourse.title}
                   </h1>
+                  
                   {selectedCourse.batch_name && (
-                    <p className="mt-2 text-white/80 text-sm font-medium">
-                      Enrolled in: {selectedCourse.batch_name}
+                    <p className="mt-2 text-white/80 text-sm font-medium flex items-center gap-2">
+                       <Users className="w-4 h-4" />
+                       Enrolled in: {selectedCourse.batch_name}
                     </p>
                   )}
-                  {selectedCourse.description && (
-                    <p className="mt-3 text-white/70 text-sm leading-relaxed line-clamp-2 max-w-2xl">
-                      {selectedCourse.description}
-                    </p>
-                  )}
-                  <div className="flex flex-wrap items-center gap-4 mt-5">
+
+                  <div className="flex flex-wrap items-center gap-5 mt-5">
                     <div className="flex items-center gap-2 bg-white/10 backdrop-blur-md px-4 py-2 rounded-full border border-white/10 text-sm font-medium shadow-sm">
-                      <LayoutGrid className="h-3.5 w-3.5" />
+                      <LayoutGrid className="h-4 w-4" />
                       <span>{weeks.length} Week{weeks.length !== 1 ? 's' : ''}</span>
                     </div>
                     <div className="flex items-center gap-2 bg-white/10 backdrop-blur-md px-4 py-2 rounded-full border border-white/10 text-sm font-medium shadow-sm">
-                      <Video className="h-3.5 w-3.5" />
+                      <Video className="h-4 w-4" />
                       <span>{totalSessions} Session{totalSessions !== 1 ? 's' : ''}</span>
                     </div>
                   </div>
+
+                  {selectedCourse.description && (
+                    <p className="mt-5 text-white/70 text-sm leading-relaxed line-clamp-2 max-w-2xl">
+                      {selectedCourse.description}
+                    </p>
+                  )}
                 </div>
 
-                {/* Right: Progress Card */}
-                {inProgressWeek && (
-                  <div className="shrink-0 bg-white/10 backdrop-blur-md border border-white/20 rounded-xl p-5 min-w-[240px] max-w-[300px]">
-                    <div className="flex items-center justify-between mb-1">
-                      <p className="font-bold text-base">Week {inProgressWeek.week_number} in Progress</p>
-                      <div className="w-8 h-8 rounded-full bg-white/10 flex items-center justify-center border border-white/20">
-                        <Play className="h-3.5 w-3.5 fill-white text-white" />
-                      </div>
-                    </div>
-                    <div className="mt-3">
-                      {/* Progress bar */}
-                      <div className="w-full h-2 rounded-full bg-white/20 overflow-hidden">
-                        <div
-                          className="h-full bg-gradient-to-r from-emerald-400 to-green-300 rounded-full transition-all duration-500"
-                          style={{
-                            width: `${
-                              inProgressWeek.class_sessions && inProgressWeek.class_sessions.length > 0
-                                ? (inProgressWeek.class_sessions.filter((s: any) => s.is_completed).length /
-                                    inProgressWeek.class_sessions.length) *
-                                  100
-                                : 0
-                            }%`,
-                          }}
-                        />
-                      </div>
-                      <p className="text-white/60 text-xs mt-2 uppercase tracking-wider font-semibold">
-                        {inProgressWeek.class_sessions?.filter((s: any) => s.is_completed).length || 0} /{' '}
-                        {inProgressWeek.class_sessions?.length || 0} LESSONS COMPLETE
-                      </p>
-                    </div>
-                    <Button
-                      onClick={handleStartLearning}
-                      className="w-full mt-4 bg-white text-[#1a237e] hover:bg-white/90 font-bold h-10 rounded-full shadow-lg text-sm"
-                    >
-                      <Play className="w-4 h-4 mr-1.5 fill-[#1a237e]" />
-                      Continue Learning
-                    </Button>
+                {/* Right: Overall Progress (Integrated Into Header) */}
+                <div className="lg:w-80 shrink-0 bg-white/10 backdrop-blur-md border border-white/20 rounded-2xl p-6 shadow-xl">
+                  <div className="flex items-center justify-between mb-4">
+                    <span className="text-sm font-bold uppercase tracking-wider text-white/90">Overall Progress</span>
+                    <span className="text-xl font-black text-white">{totalSessions > 0 ? Math.round((completedSessions / totalSessions) * 100) : 0}%</span>
                   </div>
-                )}
+                  
+                  <div className="w-full h-2.5 rounded-full bg-white/10 overflow-hidden">
+                    <div
+                      className="h-full bg-gradient-to-r from-emerald-400 to-green-300 rounded-full transition-all duration-700"
+                      style={{ width: `${totalSessions > 0 ? (completedSessions / totalSessions) * 100 : 0}%` }}
+                    />
+                  </div>
+                  
+                  <div className="flex items-center justify-between mt-3 text-[11px] text-white/60 font-bold tracking-tight">
+                    <span>{completedSessions} SESSIONS DONE</span>
+                    <span>{totalSessions - completedSessions} REMAINING</span>
+                  </div>
+                  
+                  <Button
+                    onClick={handleStartLearning}
+                    className="w-full mt-5 bg-white text-[#1a237e] hover:bg-white/90 font-black h-11 rounded-xl shadow-lg transition-transform hover:scale-[1.02]"
+                  >
+                    <Play className="w-4 h-4 mr-2 fill-[#1a237e]" />
+                    {completedSessions === 0 ? 'Start Learning' : 'Continue Journey'}
+                  </Button>
+                </div>
               </div>
             </div>
 
@@ -511,382 +532,175 @@ export default function Courses() {
               </div>
             ) : (
               <>
-                {/* Week selector pills */}
-                <div className="flex flex-nowrap overflow-x-auto gap-2 pb-1 scrollbar-hide">
+                {/* ===== MAIN CONTENT (FULL WIDTH) ===== */}
+                <div className="space-y-4">
                   {weeks.map(week => {
                     const lockInfo = getWeekLockInfo(week);
                     const locked = lockInfo.is_locked;
-                    const allDone =
-                      week.class_sessions &&
-                      week.class_sessions.length > 0 &&
-                      week.class_sessions.every((s: any) => s.is_completed);
-                    const isActive = activeWeekId === week.id;
+                    const isExpanded = expandedWeeks.has(week.id);
+                    const sessions: ClassSession[] = week.class_sessions || [];
+                    const completedCount = sessions.filter((s: any) => s.is_completed).length;
+                    const allDone = sessions.length > 0 && completedCount === sessions.length;
+                    const progressPct = sessions.length > 0 ? (completedCount / sessions.length) * 100 : 0;
 
                     return (
-                      <button
-                        key={week.id}
-                        onClick={() => toggleWeekExpand(week.id)}
-                        className={cn(
-                          'shrink-0 px-4 py-2 rounded-full text-sm font-semibold transition-all duration-200 flex items-center gap-2 border',
-                          isActive
-                            ? 'bg-primary text-white border-primary shadow-lg shadow-primary/25'
-                            : locked
-                            ? 'bg-muted/30 text-muted-foreground border-border/50 opacity-60 cursor-not-allowed'
-                            : 'bg-muted/30 text-muted-foreground border-border/50 hover:bg-muted/60 hover:text-foreground'
-                        )}
-                        disabled={locked}
-                      >
-                        {locked ? (
-                          <Lock className="h-3 w-3" />
-                        ) : allDone ? (
-                          <CheckCircle2 className={cn('h-3.5 w-3.5', isActive ? 'text-white' : 'text-emerald-500')} />
-                        ) : null}
-                        <span>Week {week.week_number}</span>
-                      </button>
-                    );
-                  })}
-                </div>
-
-                {/* ===== MAIN CONTENT + SIDEBAR ===== */}
-                <div className="flex flex-col lg:flex-row gap-6">
-                  {/* Left: Weeks Content */}
-                  <div className="flex-1 min-w-0 space-y-4">
-                    {weeks.map(week => {
-                      const lockInfo = getWeekLockInfo(week);
-                      const locked = lockInfo.is_locked;
-                      const isExpanded = expandedWeeks.has(week.id);
-                      const sessions: ClassSession[] = week.class_sessions || [];
-                      const completedCount = sessions.filter((s: any) => s.is_completed).length;
-                      const allDone = sessions.length > 0 && completedCount === sessions.length;
-                      const progressPct = sessions.length > 0 ? (completedCount / sessions.length) * 100 : 0;
-
-                      return (
-                        <div key={week.id} className="rounded-xl border border-border/60 bg-card overflow-hidden shadow-sm">
-                          {/* Week Header */}
-                          <button
-                            className={cn(
-                              'w-full text-left px-5 py-4 flex items-center gap-3 transition-colors',
-                              locked ? 'opacity-60 cursor-not-allowed' : 'hover:bg-muted/30',
-                              isExpanded ? 'bg-muted/20' : ''
-                            )}
-                            onClick={() => toggleWeekExpand(week.id)}
-                          >
-                            {/* Number badge */}
-                            <div
-                              className={cn(
-                                'flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold',
-                                locked
-                                  ? 'bg-muted text-muted-foreground'
-                                  : allDone
-                                  ? 'bg-emerald-500/20 text-emerald-500'
-                                  : 'bg-primary/10 text-primary'
-                              )}
-                            >
-                              {locked ? <Lock className="h-3.5 w-3.5" /> : allDone ? <CheckCircle2 className="h-4 w-4" /> : week.week_number}
-                            </div>
-                            <div className="flex-1 min-w-0">
-                              <div className="flex items-center gap-2 flex-wrap">
-                                <h3 className="font-bold text-base text-foreground">
-                                  Week {week.week_number}
-                                  {week.title && week.title !== `Week ${week.week_number}` && (
-                                    <span className="text-muted-foreground font-medium ml-1">– {week.title}</span>
-                                  )}
-                                </h3>
-                                {allDone && (
-                                  <Badge className="bg-emerald-500/15 text-emerald-500 border-emerald-500/25 text-[10px] h-5 px-2">
-                                    ✓ Completed
-                                  </Badge>
-                                )}
-                              </div>
-                              {sessions.length > 0 && (
-                                <div className="flex items-center gap-3 mt-1">
-                                  <div className="flex-1 h-1 rounded-full bg-border overflow-hidden max-w-[120px]">
-                                    <div
-                                      className={cn(
-                                        'h-full rounded-full transition-all duration-500',
-                                        allDone ? 'bg-emerald-500' : 'bg-primary'
-                                      )}
-                                      style={{ width: `${progressPct}%` }}
-                                    />
-                                  </div>
-                                  <span className="text-xs text-muted-foreground font-medium">
-                                    {completedCount} / {sessions.length} LESSONS COMPLETE
-                                  </span>
-                                </div>
-                              )}
-                            </div>
-                            {isExpanded ? (
-                              <ChevronUp className="h-4 w-4 text-muted-foreground shrink-0" />
-                            ) : (
-                              <ChevronDown className="h-4 w-4 text-muted-foreground shrink-0" />
-                            )}
-                          </button>
-
-                          {/* Expanded Content */}
-                          {isExpanded && (
-                            <div className="border-t border-border/40">
-                              {/* Session List Header */}
-                              {sessions.length > 0 && (
-                                <div className="flex items-center gap-2 px-5 py-3 bg-muted/10">
-                                  <Monitor className="h-4 w-4 text-primary" />
-                                  <span className="font-semibold text-sm">Lessons</span>
-                                  <ChevronDown className="h-3.5 w-3.5 text-muted-foreground ml-auto" />
-                                </div>
-                              )}
-
-                              {/* Sessions */}
-                              {sessions.length === 0 ? (
-                                <div className="px-5 py-8 text-center text-sm text-muted-foreground">
-                                  <VideoIcon className="h-8 w-8 mx-auto mb-2 opacity-30" />
-                                  No video sessions yet for this week.
-                                </div>
-                              ) : (
-                                <div className="divide-y divide-border/30">
-                                  {sessions.map((session: any) => {
-                                    const isPlaying =
-                                      playingSession?.weekId === week.id && playingSession?.sessionId === session.id;
-                                    const completed = session.is_completed;
-
-                                    return (
-                                      <div
-                                        key={session.id}
-                                        className={cn(
-                                          'flex items-center gap-4 px-5 py-3.5 transition-all group',
-                                          locked
-                                            ? 'opacity-60 cursor-not-allowed'
-                                            : 'cursor-pointer hover:bg-muted/20'
-                                        )}
-                                        onClick={() => !locked && handlePlaySession(week.id, session)}
-                                      >
-                                        {/* Play Button */}
-                                        <div
-                                          className={cn(
-                                            'shrink-0 w-9 h-9 rounded-full flex items-center justify-center border-2 transition-all duration-200',
-                                            locked
-                                              ? 'border-muted-foreground/30 bg-muted text-muted-foreground'
-                                              : isPlaying
-                                              ? 'border-primary bg-primary text-white shadow-md shadow-primary/30'
-                                              : completed
-                                              ? 'border-emerald-500/30 bg-emerald-500/10 text-emerald-500'
-                                              : 'border-primary/30 bg-primary/5 text-primary group-hover:bg-primary/10 group-hover:border-primary/50'
-                                          )}
-                                        >
-                                          {locked ? (
-                                            <Lock className="h-3.5 w-3.5" />
-                                          ) : isPlaying ? (
-                                            <div className="w-2.5 h-2.5 rounded-full bg-white animate-pulse" />
-                                          ) : (
-                                            <Play className="h-3.5 w-3.5 fill-current ml-0.5" />
-                                          )}
-                                        </div>
-
-                                        {/* Info */}
-                                        <div className="flex-1 min-w-0">
-                                          <h4
-                                            className={cn(
-                                              'font-semibold text-sm leading-snug line-clamp-1',
-                                              completed ? 'text-muted-foreground line-through' : 'text-foreground'
-                                            )}
-                                          >
-                                            {session.title}
-                                          </h4>
-                                          {session.duration_seconds > 0 && (
-                                            <p className="text-xs text-muted-foreground mt-0.5 flex items-center gap-1">
-                                              <Clock className="h-3 w-3" />
-                                              {formatSessionDuration(session.duration_seconds)}
-                                            </p>
-                                          )}
-                                        </div>
-
-                                        {/* Right: date + status */}
-                                        <div className="flex items-center gap-3 shrink-0">
-                                          {session.weekday && (
-                                            <span className="hidden sm:block text-xs text-muted-foreground capitalize font-medium">
-                                              {session.weekday}
-                                            </span>
-                                          )}
-                                          {completed ? (
-                                            <Badge className="bg-emerald-500/15 text-emerald-500 border-emerald-500/25 h-6 text-[10px] px-2 font-semibold">
-                                              ✓ Completed
-                                            </Badge>
-                                          ) : isPlaying ? (
-                                            <Badge className="bg-primary/10 text-primary border-primary/20 h-6 text-[10px] px-2 font-semibold animate-pulse">
-                                              Playing...
-                                            </Badge>
-                                          ) : session.has_mcq ? (
-                                            <Badge variant="outline" className="h-6 text-[10px] px-2 bg-blue-500/5 text-blue-500 border-blue-500/20">
-                                              MCQ
-                                            </Badge>
-                                          ) : null}
-                                        </div>
-                                      </div>
-                                    );
-                                  })}
-                                </div>
-                              )}
-
-                              {/* MCQ Practice section */}
-                              {sessions.some((s: any) => s.has_mcq) && (
-                                <div className="mx-4 my-3 flex items-center justify-between rounded-xl bg-muted/30 border border-border/50 px-4 py-3.5">
-                                  <div className="flex items-center gap-3">
-                                    <div className="w-8 h-8 rounded-full bg-blue-500/15 flex items-center justify-center">
-                                      <HelpCircle className="h-4 w-4 text-blue-500" />
-                                    </div>
-                                    <div>
-                                      <p className="font-semibold text-sm">Practice Quiz</p>
-                                      <p className="text-xs text-muted-foreground">Multiple Choice Questions</p>
-                                    </div>
-                                  </div>
-                                  <Button
-                                    size="sm"
-                                    className="bg-primary hover:bg-primary/90 text-white font-bold rounded-lg h-9 px-4 text-xs shadow-md"
-                                    onClick={e => {
-                                      e.stopPropagation();
-                                      const mcqSession = sessions.find((s: any) => s.has_mcq && s.mcq_questions?.length > 0);
-                                      if (mcqSession) {
-                                        setActiveMcqSession({
-                                          title: mcqSession.title,
-                                          questions: mcqSession.mcq_questions,
-                                        });
-                                      } else {
-                                        toast({
-                                          title: 'Not Available',
-                                          description: 'No practice questions available yet.',
-                                          variant: 'destructive',
-                                        });
-                                      }
-                                    }}
-                                  >
-                                    Practice MCQs
-                                  </Button>
-                                </div>
-                              )}
-
-                              {/* Weekly Test Banner */}
-                              {week.weekly_test ? (
-                                <div
-                                  className={cn(
-                                    'mx-4 my-3 flex items-center justify-between rounded-xl px-4 py-3.5 border',
-                                    locked
-                                      ? 'bg-muted/30 border-border/50 opacity-70'
-                                      : 'bg-gradient-to-r from-amber-500/10 to-orange-500/5 border-amber-500/20'
-                                  )}
-                                >
-                                  <div className="flex items-center gap-3">
-                                    <div
-                                      className={cn(
-                                        'w-8 h-8 rounded-full flex items-center justify-center',
-                                        locked ? 'bg-muted' : 'bg-amber-500/15'
-                                      )}
-                                    >
-                                      {locked ? (
-                                        <Lock className="h-4 w-4 text-muted-foreground" />
-                                      ) : (
-                                        <FlaskConical className="h-4 w-4 text-amber-600 dark:text-amber-400" />
-                                      )}
-                                    </div>
-                                    <div>
-                                      <p className="font-semibold text-sm">{week.weekly_test.title || 'Weekly Test'}</p>
-                                      <p className="text-xs text-muted-foreground">
-                                        {locked ? 'Unlocks after completing this week' : 'Scheduled for this week'}
-                                      </p>
-                                    </div>
-                                  </div>
-                                  <Button
-                                    size="sm"
-                                    disabled={locked || !sessions.every((s: any) => s.is_completed)}
-                                    className={cn(
-                                      'font-bold rounded-lg h-9 px-4 text-xs shadow-md',
-                                      locked || !sessions.every((s: any) => s.is_completed)
-                                        ? 'bg-muted text-muted-foreground cursor-not-allowed'
-                                        : 'bg-amber-500 hover:bg-amber-600 text-white'
-                                    )}
-                                  >
-                                    {locked
-                                      ? 'Locked'
-                                      : !sessions.every((s: any) => s.is_completed)
-                                      ? 'Complete Videos First'
-                                      : 'Take Test'}
-                                  </Button>
-                                </div>
-                              ) : (
-                                <div className="mx-4 my-3 flex items-center gap-3 rounded-xl bg-muted/20 border border-dashed border-border/50 px-4 py-3 text-muted-foreground">
-                                  <Award className="h-4 w-4 opacity-40" />
-                                  <p className="text-xs font-medium">No assessment available for this week yet.</p>
-                                </div>
-                              )}
-                            </div>
-                          )}
-                        </div>
-                      );
-                    })}
-                  </div>
-
-                  {/* Right: Upcoming Sidebar */}
-                  {selectedCourse.batch_id && (
-                    <div className="lg:w-72 xl:w-80 shrink-0 space-y-4">
-                      <div className="rounded-xl border border-border/60 bg-card shadow-sm overflow-hidden">
-                        {/* Sidebar Header */}
+                      <div key={week.id} className="rounded-xl border border-border/60 bg-card overflow-hidden shadow-sm">
+                        {/* Week Header */}
                         <button
-                          className="w-full flex items-center justify-between px-4 py-3.5 hover:bg-muted/20 transition-colors"
-                          onClick={() => setUpcomingExpanded(prev => !prev)}
+                          className={cn(
+                            'w-full text-left px-5 py-4 flex items-center gap-3 transition-colors',
+                            locked ? 'opacity-60 cursor-not-allowed' : 'hover:bg-muted/30',
+                            isExpanded ? 'bg-muted/20' : ''
+                          )}
+                          onClick={() => toggleWeekExpand(week.id)}
                         >
-                          <div className="flex items-center gap-2.5">
-                            <div className="w-7 h-7 rounded-full bg-amber-500/15 flex items-center justify-center">
-                              <Bell className="h-3.5 w-3.5 text-amber-600 dark:text-amber-400" />
-                            </div>
-                            <span className="font-bold text-sm">Upcoming</span>
+                          {/* Number badge */}
+                          <div
+                            className={cn(
+                              'flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold',
+                              locked
+                                ? 'bg-muted text-muted-foreground'
+                                : allDone
+                                ? 'bg-emerald-500/20 text-emerald-500'
+                                : 'bg-primary/10 text-primary'
+                            )}
+                          >
+                            {locked ? <Lock className="h-3.5 w-3.5" /> : allDone ? <CheckCircle2 className="h-4 w-4" /> : week.week_number}
                           </div>
-                          {upcomingExpanded ? (
-                            <ChevronDown className="h-4 w-4 text-muted-foreground" />
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center gap-2 flex-wrap">
+                              <h3 className="font-bold text-base text-foreground">
+                                Week {week.week_number}
+                                {week.title && week.title !== `Week ${week.week_number}` && (
+                                  <span className="text-muted-foreground font-medium ml-1">– {week.title}</span>
+                                )}
+                              </h3>
+                              {allDone && (
+                                <Badge className="bg-emerald-500/15 text-emerald-500 border-emerald-500/25 text-[10px] h-5 px-2">
+                                  ✓ Completed
+                                </Badge>
+                              )}
+                            </div>
+                            {sessions.length > 0 && (
+                              <div className="flex items-center gap-3 mt-1">
+                                <div className="flex-1 h-1 rounded-full bg-border overflow-hidden max-w-[120px]">
+                                  <div
+                                    className={cn(
+                                      'h-full rounded-full transition-all duration-500',
+                                      allDone ? 'bg-emerald-500' : 'bg-primary'
+                                    )}
+                                    style={{ width: `${progressPct}%` }}
+                                  />
+                                </div>
+                                <span className="text-xs text-muted-foreground font-medium">
+                                  {completedCount} / {sessions.length} LESSONS COMPLETE
+                                </span>
+                              </div>
+                            )}
+                          </div>
+                          {isExpanded ? (
+                            <ChevronUp className="h-4 w-4 text-muted-foreground shrink-0" />
                           ) : (
-                            <ChevronUp className="h-4 w-4 text-muted-foreground" />
+                            <ChevronDown className="h-4 w-4 text-muted-foreground shrink-0" />
                           )}
                         </button>
 
-                        {upcomingExpanded && (
-                          <div className="border-t border-border/30">
-                            {loadingWebinars ? (
-                              <div className="flex justify-center py-6">
-                                <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+                        {/* Expanded Content */}
+                        {isExpanded && (
+                          <div className="border-t border-border/40">
+                            {/* Session List Header */}
+                            {sessions.length > 0 && (
+                              <div className="flex items-center gap-2 px-5 py-3 bg-muted/10">
+                                <Monitor className="h-4 w-4 text-primary" />
+                                <span className="font-semibold text-sm">Lessons</span>
+                                <ChevronDown className="h-3.5 w-3.5 text-muted-foreground ml-auto" />
                               </div>
-                            ) : upcomingWebinars.length === 0 ? (
-                              <p className="text-center text-sm text-muted-foreground py-6 px-4">
-                                No upcoming sessions scheduled.
-                              </p>
+                            )}
+
+                            {/* Sessions */}
+                            {sessions.length === 0 ? (
+                              <div className="px-5 py-8 text-center text-sm text-muted-foreground">
+                                <VideoIcon className="h-8 w-8 mx-auto mb-2 opacity-30" />
+                                No video sessions yet for this week.
+                              </div>
                             ) : (
                               <div className="divide-y divide-border/30">
-                                {upcomingWebinars.map(webinar => {
-                                  const unlocked = isWebinarUnlocked(webinar);
-                                  const daysLeft = getDaysUntilUnlock(webinar.unlock_at);
-                                  const isLive = webinar.session_type === 'webinar';
+                                {sessions.map((session: any) => {
+                                  const isPlaying =
+                                    playingSession?.weekId === week.id && playingSession?.sessionId === session.id;
+                                  const completed = session.is_completed;
 
                                   return (
-                                    <div key={webinar.id} className="px-4 py-3.5 flex items-start gap-3">
+                                    <div
+                                      key={session.id}
+                                      className={cn(
+                                        'flex items-center gap-4 px-5 py-3.5 transition-all group',
+                                        locked
+                                          ? 'opacity-60 cursor-not-allowed'
+                                          : 'cursor-pointer hover:bg-muted/20'
+                                      )}
+                                      onClick={() => !locked && handlePlaySession(week.id, session)}
+                                    >
+                                      {/* Play Button */}
                                       <div
                                         className={cn(
-                                          'shrink-0 w-8 h-8 rounded-lg flex items-center justify-center mt-0.5',
-                                          isLive ? 'bg-blue-500/10' : 'bg-purple-500/10'
+                                          'shrink-0 w-9 h-9 rounded-full flex items-center justify-center border-2 transition-all duration-200',
+                                          locked
+                                            ? 'border-muted-foreground/30 bg-muted text-muted-foreground'
+                                            : isPlaying
+                                            ? 'border-primary bg-primary text-white shadow-md shadow-primary/30'
+                                            : completed
+                                            ? 'border-emerald-500/30 bg-emerald-500/10 text-emerald-500'
+                                            : 'border-primary/30 bg-primary/5 text-primary group-hover:bg-primary/10 group-hover:border-primary/50'
                                         )}
                                       >
-                                        {isLive ? (
-                                          <Monitor className="h-4 w-4 text-blue-500" />
+                                        {locked ? (
+                                          <Lock className="h-3.5 w-3.5" />
+                                        ) : isPlaying ? (
+                                          <div className="w-2.5 h-2.5 rounded-full bg-white animate-pulse" />
                                         ) : (
-                                          <VideoIcon className="h-4 w-4 text-purple-500" />
+                                          <Play className="h-3.5 w-3.5 fill-current ml-0.5" />
                                         )}
                                       </div>
+
+                                      {/* Info */}
                                       <div className="flex-1 min-w-0">
-                                        <p className="font-semibold text-sm leading-snug">
-                                          {isLive ? 'Live Session' : 'Recorded Webinar'}
-                                        </p>
-                                        <p className="text-xs text-muted-foreground mt-0.5 truncate">
-                                          {formatWebinarDate(webinar.unlock_at)}
-                                        </p>
-                                        {!unlocked && daysLeft > 0 && (
-                                          <Badge className="mt-1.5 bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/20 text-[10px] h-4 px-1.5 font-semibold">
-                                            Unlocks in {daysLeft} days
-                                          </Badge>
+                                        <h4
+                                          className={cn(
+                                            'font-semibold text-sm leading-snug line-clamp-1',
+                                            completed ? 'text-muted-foreground line-through' : 'text-foreground'
+                                          )}
+                                        >
+                                          {session.title}
+                                        </h4>
+                                        {session.duration_seconds > 0 && (
+                                          <p className="text-xs text-muted-foreground mt-0.5 flex items-center gap-1">
+                                            <Clock className="h-3 w-3" />
+                                            {formatSessionDuration(session.duration_seconds)}
+                                          </p>
                                         )}
+                                      </div>
+
+                                      {/* Right: date + status */}
+                                      <div className="flex items-center gap-3 shrink-0">
+                                        {session.weekday && (
+                                          <span className="hidden sm:block text-xs text-muted-foreground capitalize font-medium">
+                                            {session.weekday}
+                                          </span>
+                                        )}
+                                        {completed ? (
+                                          <Badge className="bg-emerald-500/15 text-emerald-500 border-emerald-500/25 h-6 text-[10px] px-2 font-semibold">
+                                            ✓ Completed
+                                          </Badge>
+                                        ) : isPlaying ? (
+                                          <Badge className="bg-primary/10 text-primary border-primary/20 h-6 text-[10px] px-2 font-semibold animate-pulse">
+                                            Playing...
+                                          </Badge>
+                                        ) : session.has_mcq ? (
+                                          <Badge variant="outline" className="h-6 text-[10px] px-2 bg-blue-500/5 text-blue-500 border-blue-500/20">
+                                            MCQ
+                                          </Badge>
+                                        ) : null}
                                       </div>
                                     </div>
                                   );
@@ -894,37 +708,101 @@ export default function Courses() {
                               </div>
                             )}
 
-                            {/* View Calendar link */}
-                            <div className="px-4 pb-3">
-                              <button className="w-full flex items-center justify-center gap-2 text-xs text-primary font-semibold py-2 rounded-lg hover:bg-primary/5 transition-colors">
-                                <ClipboardList className="h-3.5 w-3.5" />
-                                View Calendar
-                              </button>
-                            </div>
+                            {/* MCQ Practice section */}
+                            {sessions.some((s: any) => s.has_mcq) && (
+                              <div className="mx-4 my-3 flex items-center justify-between rounded-xl bg-muted/30 border border-border/50 px-4 py-3.5">
+                                <div className="flex items-center gap-3">
+                                  <div className="w-8 h-8 rounded-full bg-blue-500/15 flex items-center justify-center">
+                                    <HelpCircle className="h-4 w-4 text-blue-500" />
+                                  </div>
+                                  <div>
+                                    <p className="font-semibold text-sm">Practice Quiz</p>
+                                    <p className="text-xs text-muted-foreground">Multiple Choice Questions</p>
+                                  </div>
+                                </div>
+                                <Button
+                                  size="sm"
+                                  className="bg-primary hover:bg-primary/90 text-white font-bold rounded-lg h-9 px-4 text-xs shadow-md"
+                                  onClick={e => {
+                                    e.stopPropagation();
+                                    const mcqSession = sessions.find((s: any) => s.has_mcq && s.mcq_questions?.length > 0);
+                                    if (mcqSession) {
+                                      setActiveMcqSession({
+                                        title: mcqSession.title,
+                                        questions: mcqSession.mcq_questions,
+                                      });
+                                    } else {
+                                      toast({
+                                        title: 'Not Available',
+                                        description: 'No practice questions available yet.',
+                                        variant: 'destructive',
+                                      });
+                                    }
+                                  }}
+                                >
+                                  Practice MCQs
+                                </Button>
+                              </div>
+                            )}
+
+                            {/* Weekly Test Banner */}
+                            {week.weekly_test ? (
+                              <div
+                                className={cn(
+                                  'mx-4 my-3 flex items-center justify-between rounded-xl px-4 py-3.5 border',
+                                  locked
+                                    ? 'bg-muted/30 border-border/50 opacity-70'
+                                    : 'bg-gradient-to-r from-amber-500/10 to-orange-500/5 border-amber-500/20'
+                                )}
+                              >
+                                <div className="flex items-center gap-3">
+                                  <div
+                                    className={cn(
+                                      'w-8 h-8 rounded-full flex items-center justify-center',
+                                      locked ? 'bg-muted' : 'bg-amber-500/15'
+                                    )}
+                                  >
+                                    {locked ? (
+                                      <Lock className="h-4 w-4 text-muted-foreground" />
+                                    ) : (
+                                      <FlaskConical className="h-4 w-4 text-amber-600 dark:text-amber-400" />
+                                    )}
+                                  </div>
+                                  <div>
+                                    <p className="font-semibold text-sm">{week.weekly_test.title || 'Weekly Test'}</p>
+                                    <p className="text-xs text-muted-foreground">
+                                      {locked ? 'Unlocks after completing this week' : 'Scheduled for this week'}
+                                    </p>
+                                  </div>
+                                </div>
+                                <Button
+                                  size="sm"
+                                  disabled={locked || !sessions.every((s: any) => s.is_completed)}
+                                  className={cn(
+                                    'font-bold rounded-lg h-9 px-4 text-xs shadow-md',
+                                    locked || !sessions.every((s: any) => s.is_completed)
+                                      ? 'bg-muted text-muted-foreground cursor-not-allowed'
+                                      : 'bg-amber-500 hover:bg-amber-600 text-white'
+                                  )}
+                                >
+                                  {locked
+                                    ? 'Locked'
+                                    : !sessions.every((s: any) => s.is_completed)
+                                    ? 'Complete Videos First'
+                                    : 'Take Test'}
+                                </Button>
+                              </div>
+                            ) : (
+                              <div className="mx-4 my-3 flex items-center gap-3 rounded-xl bg-muted/20 border border-dashed border-border/50 px-4 py-3 text-muted-foreground">
+                                <Award className="h-4 w-4 opacity-40" />
+                                <p className="text-xs font-medium">No assessment available for this week yet.</p>
+                              </div>
+                            )}
                           </div>
                         )}
                       </div>
-
-                      {/* Progress summary card */}
-                      {totalSessions > 0 && (
-                        <div className="rounded-xl border border-border/60 bg-card shadow-sm p-4">
-                          <h3 className="font-bold text-sm mb-3">Overall Progress</h3>
-                          <div className="w-full h-2 rounded-full bg-muted overflow-hidden mb-2">
-                            <div
-                              className="h-full bg-gradient-to-r from-primary to-blue-400 rounded-full transition-all duration-500"
-                              style={{ width: `${(completedSessions / totalSessions) * 100}%` }}
-                            />
-                          </div>
-                          <div className="flex items-center justify-between text-xs text-muted-foreground">
-                            <span>{completedSessions} of {totalSessions} lessons done</span>
-                            <span className="font-bold text-primary">
-                              {Math.round((completedSessions / totalSessions) * 100)}%
-                            </span>
-                          </div>
-                        </div>
-                      )}
-                    </div>
-                  )}
+                    );
+                  })}
                 </div>
               </>
             )}

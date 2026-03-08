@@ -67,6 +67,7 @@ function AppRoutes() {
       <Route path="/chat" element={<ProtectedRoute><Chat /></ProtectedRoute>} />
       <Route path="/admin-courses" element={<ProtectedRoute><AdminCourses /></ProtectedRoute>} />
       <Route path="/courses" element={<ProtectedRoute><Courses /></ProtectedRoute>} />
+      <Route path="/courses/:courseId" element={<ProtectedRoute><Courses /></ProtectedRoute>} />
       <Route path="/webinars" element={<ProtectedRoute><StudentWebinars /></ProtectedRoute>} />
       <Route path="/schedule" element={<ProtectedRoute><Schedule /></ProtectedRoute>} />
       <Route path="/live-sessions" element={<ProtectedRoute><LiveSessions /></ProtectedRoute>} />
