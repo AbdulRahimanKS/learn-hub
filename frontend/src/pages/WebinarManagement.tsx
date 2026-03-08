@@ -55,7 +55,7 @@ import { webinarApi, Webinar } from '@/lib/webinar-api';
 import { batchApi } from '@/lib/batch-api';
 import { VideoPlayer } from '@/components/VideoPlayer';
 import { useToast } from '@/hooks/use-toast';
-import { format, isAfter, isBefore, addMinutes, addSeconds } from 'date-fns';
+import { format } from 'date-fns';
 import { cn } from '@/lib/utils';
 import { courseModuleApi } from '@/lib/course-module-api';
 import axios from 'axios';
