@@ -53,6 +53,7 @@ import {
   BookOpen,
   Loader2,
   X,
+  HelpCircle,
 } from 'lucide-react';
 import { courseModuleApi, CourseWeek } from '@/lib/course-module-api';
 import { useToast } from '@/hooks/use-toast';
@@ -60,6 +61,7 @@ import axios from 'axios';
 import getBlobDuration from 'get-blob-duration';
 import { ImageCropperModal } from '@/components/ImageCropperModal';
 import { WeeklyTestManager } from '@/components/WeeklyTestManager';
+import { SessionMcqManager } from '@/components/SessionMcqManager';
 
 export default function Content() {
   const { courseId } = useParams<{ courseId: string }>();
@@ -70,8 +72,14 @@ export default function Content() {
   const [isUploadOpen, setIsUploadOpen] = useState(false);
   const [isTestOpen, setIsTestOpen] = useState(false);
   const [isWeekOpen, setIsWeekOpen] = useState(false);
+  const [isMcqOpen, setIsMcqOpen] = useState(false);
+
   // Track which week's test panel is open
   const [testWeek, setTestWeek] = useState<CourseWeek | null>(null);
+  
+  // Track which session MCQ panel is open
+  const [mcqSession, setMcqSession] = useState<any>(null);
+  const [mcqApiUrl, setMcqApiUrl] = useState('');
 
   // Backend state
   const [weeks, setWeeks] = useState<CourseWeek[]>([]);
@@ -582,7 +590,17 @@ export default function Content() {
           <p className="text-sm text-muted-foreground mt-1 line-clamp-2">{video.description}</p>
         </div>
 
-        <div className="flex items-center justify-end mt-4">
+        <div className="flex items-center justify-between mt-4">
+          <div className="flex gap-1" title="Manage MCQs">
+            <Button variant="ghost" size="sm" className="h-8 px-2" onClick={() => {
+              setMcqSession(video);
+              setMcqApiUrl(`/api/courses/v1/courses/${courseId}/weeks/${activeTab}/sessions/${video.id}/mcq`);
+              setIsMcqOpen(true);
+            }}>
+              <HelpCircle className="h-4 w-4 mr-1 lg:mr-2" />
+              <span className="sr-only lg:not-sr-only">MCQs</span>
+            </Button>
+          </div>
           <div className="flex gap-1">
             <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => handleOpenEditVideo(video, activeTab)}>
               <Edit className="h-4 w-4" />
@@ -1303,6 +1321,14 @@ export default function Content() {
         onCropComplete={handleCroppedImage}
         aspectRatio={16/9}
         cropShape="rect"
+      />
+
+      <SessionMcqManager
+        open={isMcqOpen}
+        onClose={() => setIsMcqOpen(false)}
+        session={mcqSession}
+        apiBaseUrl={mcqApiUrl}
+        onSaved={fetchWeeks}
       />
     </DashboardLayout>
   );

@@ -758,7 +758,7 @@ class TestSubmission(models.Model):
 # Post-Session MCQ (In-Lesson Assessment)
 # ─────────────────────────────────────────────────────────────────────────────
 
-class PostSessionQuestion(models.Model):
+class CoursePostSessionQuestion(models.Model):
     course_session = models.ForeignKey(
         CourseClassSession, on_delete=models.CASCADE, related_name='mcq_questions',
         null=True, blank=True
@@ -772,22 +772,55 @@ class PostSessionQuestion(models.Model):
 
     class Meta:
         ordering = ['order', 'id']
-        verbose_name = _('Post-Session Question')
-        verbose_name_plural = _('Post-Session Questions')
+        verbose_name = _('Course Post-Session Question')
+        verbose_name_plural = _('Course Post-Session Questions')
 
     def __str__(self):
-        return f"MCQ Q{self.order} for Session {self.course_session_id}"
+        return f"Course MCQ Q{self.order} for Session {self.course_session_id}"
 
 
-class PostSessionChoice(models.Model):
+class CoursePostSessionChoice(models.Model):
     question = models.ForeignKey(
-        PostSessionQuestion, on_delete=models.CASCADE, related_name='choices'
+        CoursePostSessionQuestion, on_delete=models.CASCADE, related_name='choices'
     )
     text = models.CharField(max_length=255)
     is_correct = models.BooleanField(default=False)
 
     def __str__(self):
         return self.text
+
+
+class BatchPostSessionQuestion(models.Model):
+    batch_session = models.ForeignKey(
+        BatchClassSession, on_delete=models.CASCADE, related_name='mcq_questions',
+        null=True, blank=True
+    )
+    text = models.TextField(_('Question Text'))
+    is_fill_in_the_blank = models.BooleanField(
+        _('Fill in the Blank'), default=False,
+        help_text=_('If True, it is a text match. If False, it uses Choices.')
+    )
+    order = models.PositiveIntegerField(default=1)
+
+    class Meta:
+        ordering = ['order', 'id']
+        verbose_name = _('Batch Post-Session Question')
+        verbose_name_plural = _('Batch Post-Session Questions')
+
+    def __str__(self):
+        return f"Batch MCQ Q{self.order} for Session {self.batch_session_id}"
+
+
+class BatchPostSessionChoice(models.Model):
+    question = models.ForeignKey(
+        BatchPostSessionQuestion, on_delete=models.CASCADE, related_name='choices'
+    )
+    text = models.CharField(max_length=255)
+    is_correct = models.BooleanField(default=False)
+
+    def __str__(self):
+        return self.text
+
 
 
 # LiveSession

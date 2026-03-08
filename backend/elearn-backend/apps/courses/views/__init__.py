@@ -50,6 +50,13 @@ from .upload_views import (
     AbortMultipartUploadView,
 )
 
+from .session_mcq_views import (
+    CoursePostSessionQuestionListCreateView,
+    CoursePostSessionQuestionDetailView,
+    BatchPostSessionQuestionListCreateView,
+    BatchPostSessionQuestionDetailView,
+)
+
 __all__ = [
     'CourseListView',
     'CourseCreateView',
@@ -89,4 +96,9 @@ __all__ = [
     'InitMultipartUploadView',
     'CompleteMultipartUploadView',
     'AbortMultipartUploadView',
+    
+    'CoursePostSessionQuestionListCreateView',
+    'CoursePostSessionQuestionDetailView',
+    'BatchPostSessionQuestionListCreateView',
+    'BatchPostSessionQuestionDetailView',
 ]

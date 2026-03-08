@@ -43,11 +43,13 @@ import {
   CheckCircle,
   Loader2,
   Settings,
+  HelpCircle,
 } from 'lucide-react';
 import { batchApi, batchContentApi, BatchWeek } from '@/lib/batch-api';
 import { useToast } from '@/hooks/use-toast';
 import { format } from 'date-fns';
 import { WeeklyTestManager } from '@/components/WeeklyTestManager';
+import { SessionMcqManager } from '@/components/SessionMcqManager';
 
 export default function BatchContent() {
   const { batchId } = useParams<{ batchId: string }>();
@@ -94,6 +96,11 @@ export default function BatchContent() {
   // Test Modal (now replaced by WeeklyTestManager)
   const [isTestModalOpen, setIsTestModalOpen] = useState(false);
   const [testWeek, setTestWeek] = useState<BatchWeek | null>(null);
+
+  // Session MCQ Manager State
+  const [isMcqOpen, setIsMcqOpen] = useState(false);
+  const [mcqSession, setMcqSession] = useState<any>(null);
+  const [mcqApiUrl, setMcqApiUrl] = useState('');
 
   // Delete Alert
   const [deleteSessionId, setDeleteSessionId] = useState<number | null>(null);
@@ -441,7 +448,17 @@ export default function BatchContent() {
                                 <p className="text-sm text-muted-foreground mt-1 line-clamp-2">{session.description || 'No description'}</p>
                               </div>
 
-                              <div className="flex items-center justify-end mt-4">
+                              <div className="flex items-center justify-between mt-4">
+                                <div className="flex gap-1" title="Manage MCQs">
+                                  <Button variant="ghost" size="sm" className="h-8 px-2" onClick={() => {
+                                    setMcqSession(session);
+                                    setMcqApiUrl(`/api/courses/v1/batches/${batchId}/weeks/${activeTab}/sessions/${session.id}/mcq`);
+                                    setIsMcqOpen(true);
+                                  }}>
+                                    <HelpCircle className="h-4 w-4 mr-1 lg:mr-2" />
+                                    <span className="sr-only lg:not-sr-only">MCQs</span>
+                                  </Button>
+                                </div>
                                 <div className="flex gap-1">
                                   <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => handleOpenSessionModal(session)} disabled={!week.can_modify_content}>
                                     <Edit className="h-4 w-4" />
@@ -783,6 +800,15 @@ export default function BatchContent() {
           onSaved={() => fetchContent(parseInt(activeTab))}
         />
       )}
+
+      {/* Session MCQ Manager */}
+      <SessionMcqManager
+        open={isMcqOpen}
+        onClose={() => setIsMcqOpen(false)}
+        session={mcqSession}
+        apiBaseUrl={mcqApiUrl}
+        onSaved={() => fetchContent(parseInt(activeTab))}
+      />
 
       {/* Delete Confirmation */}
       <AlertDialog open={!!deleteSessionId} onOpenChange={() => setDeleteSessionId(null)}>

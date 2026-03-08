@@ -4,29 +4,30 @@ from apps.courses.models import (
     CourseWeeklyTest, CourseTestQuestion, CourseTestQuestionAttachment,
     BatchWeeklyTest, BatchTestQuestion, BatchTestQuestionAttachment,
     BatchWeek,
-    PostSessionQuestion, PostSessionChoice
+    CoursePostSessionQuestion, CoursePostSessionChoice,
+    BatchPostSessionQuestion, BatchPostSessionChoice
 )
 from utils.common import ServiceError
 from rest_framework import status
 
 
-class PostSessionChoiceSerializer(serializers.ModelSerializer):
+class CoursePostSessionChoiceSerializer(serializers.ModelSerializer):
     class Meta:
-        model = PostSessionChoice
+        model = CoursePostSessionChoice
         fields = ['id', 'question', 'text', 'is_correct']
         read_only_fields = ['question']
 
-class PostSessionQuestionSerializer(serializers.ModelSerializer):
-    choices = PostSessionChoiceSerializer(many=True, read_only=True)
+class CoursePostSessionQuestionSerializer(serializers.ModelSerializer):
+    choices = CoursePostSessionChoiceSerializer(many=True, read_only=True)
 
     class Meta:
-        model = PostSessionQuestion
+        model = CoursePostSessionQuestion
         fields = ['id', 'course_session', 'text', 'is_fill_in_the_blank', 'order', 'choices']
         read_only_fields = ['course_session']
 
 class CourseClassSessionSerializer(serializers.ModelSerializer):
     video_presigned_url = serializers.SerializerMethodField()
-    mcq_questions = PostSessionQuestionSerializer(many=True, read_only=True)
+    mcq_questions = CoursePostSessionQuestionSerializer(many=True, read_only=True)
 
     class Meta:
         model = CourseClassSession
@@ -63,15 +64,30 @@ class CourseClassSessionSerializer(serializers.ModelSerializer):
             return None
 
 
+class BatchPostSessionChoiceSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = BatchPostSessionChoice
+        fields = ['id', 'question', 'text', 'is_correct']
+        read_only_fields = ['question']
+
+class BatchPostSessionQuestionSerializer(serializers.ModelSerializer):
+    choices = BatchPostSessionChoiceSerializer(many=True, read_only=True)
+
+    class Meta:
+        model = BatchPostSessionQuestion
+        fields = ['id', 'batch_session', 'text', 'is_fill_in_the_blank', 'order', 'choices']
+        read_only_fields = ['batch_session']
+
 class BatchClassSessionSerializer(serializers.ModelSerializer):
     video_presigned_url = serializers.SerializerMethodField()
+    mcq_questions = BatchPostSessionQuestionSerializer(many=True, read_only=True)
 
     class Meta:
         model = BatchClassSession
         fields = [
             'id', 'batch_week', 'session_number', 'title', 'description', 'weekday',
             'video_file', 'video_presigned_url', 'thumbnail', 'duration_seconds',
-            'uploaded_by', 'updated_by', 'created_at', 'updated_at'
+            'mcq_questions', 'uploaded_by', 'updated_by', 'created_at', 'updated_at'
         ]
         read_only_fields = ['uploaded_by', 'updated_by', 'created_at', 'updated_at']
 

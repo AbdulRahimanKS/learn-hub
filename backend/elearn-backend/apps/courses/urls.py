@@ -38,6 +38,10 @@ from apps.courses.views import (
     InitMultipartUploadView,
     CompleteMultipartUploadView,
     AbortMultipartUploadView,
+    CoursePostSessionQuestionListCreateView,
+    CoursePostSessionQuestionDetailView,
+    BatchPostSessionQuestionListCreateView,
+    BatchPostSessionQuestionDetailView,
 )
 from apps.courses.views.test_submission_views import (
     BatchTestSubmissionListView,
@@ -64,6 +68,8 @@ urlpatterns = [
     path("courses/<int:course_id>/weeks/<int:week_id>/", CourseWeekDetailView.as_view(), name="course-week-detail"),
     path("courses/<int:course_id>/weeks/<int:week_id>/sessions/", ClassSessionListCreateView.as_view(), name="class-session-list-create"),
     path("courses/<int:course_id>/weeks/<int:week_id>/sessions/<int:session_id>/", ClassSessionDetailView.as_view(), name="class-session-detail"),
+    path("courses/<int:course_id>/weeks/<int:week_id>/sessions/<int:session_id>/mcq/", CoursePostSessionQuestionListCreateView.as_view(), name="course-session-mcq-list"),
+    path("courses/<int:course_id>/weeks/<int:week_id>/sessions/<int:session_id>/mcq/<int:mcq_id>/", CoursePostSessionQuestionDetailView.as_view(), name="course-session-mcq-detail"),
     path("courses/<int:course_id>/weeks/<int:week_id>/test/", WeeklyTestView.as_view(), name="weekly-test"),
     path("courses/<int:course_id>/weeks/<int:week_id>/test/questions/", WeeklyTestQuestionListCreateView.as_view(), name="weekly-test-question-list-create"),
     path("courses/<int:course_id>/weeks/<int:week_id>/test/questions/<int:question_id>/", WeeklyTestQuestionDetailView.as_view(), name="weekly-test-question-detail"),
@@ -86,6 +92,8 @@ urlpatterns = [
     path("batches/<int:batch_id>/weeks/<int:week_id>/", BatchWeekDetailView.as_view(), name="batch-week-detail"),
     path("batches/<int:batch_id>/weeks/<int:week_id>/sessions/", BatchClassSessionListCreateView.as_view(), name="batch-class-session-list-create"),
     path("batches/<int:batch_id>/weeks/<int:week_id>/sessions/<int:session_id>/", BatchClassSessionDetailView.as_view(), name="batch-class-session-detail"),
+    path("batches/<int:batch_id>/weeks/<int:week_id>/sessions/<int:session_id>/mcq/", BatchPostSessionQuestionListCreateView.as_view(), name="batch-session-mcq-list"),
+    path("batches/<int:batch_id>/weeks/<int:week_id>/sessions/<int:session_id>/mcq/<int:mcq_id>/", BatchPostSessionQuestionDetailView.as_view(), name="batch-session-mcq-detail"),
     path("batches/<int:batch_id>/weeks/<int:week_id>/test/", BatchWeeklyTestView.as_view(), name="batch-weekly-test"),
     path("batches/<int:batch_id>/weeks/<int:week_id>/test/manage/", BatchWeeklyTestManageView.as_view(), name="batch-weekly-test-manage"),
     path("batches/<int:batch_id>/weeks/<int:week_id>/test/questions/", BatchWeeklyTestQuestionListCreateView.as_view(), name="batch-test-question-list"),

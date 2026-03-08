@@ -7,6 +7,7 @@ from apps.courses.models import (
     Batch, BatchWeek, BatchClassSession, CourseClassSession, CourseWeek,
     CourseWeeklyTest, CourseTestQuestion,
     BatchWeeklyTest, BatchTestQuestion, BatchTestQuestionAttachment,
+    BatchPostSessionQuestion, BatchPostSessionChoice
 )
 from apps.courses.views.upload_views import get_s3_client
 
@@ -84,7 +85,7 @@ def push_content_to_batch(source_batch_id=None, source_course_id=None, target_ba
         for ss in source_sessions:
             # Check if session already exists in target batch week
             if not BatchClassSession.objects.filter(batch_week=bw, session_number=ss.session_number).exists():
-                BatchClassSession.objects.create(
+                batch_session = BatchClassSession.objects.create(
                     batch_week=bw,
                     session_number=ss.session_number,
                     title=ss.title,
@@ -94,6 +95,22 @@ def push_content_to_batch(source_batch_id=None, source_course_id=None, target_ba
                     duration_seconds=ss.duration_seconds,
                     uploaded_by=ss.uploaded_by
                 )
+                
+                # Clone MCQ questions from source session to target batch session
+                if hasattr(ss, 'mcq_questions'):
+                    for sq in ss.mcq_questions.all():
+                        bq = BatchPostSessionQuestion.objects.create(
+                            batch_session=batch_session,
+                            text=sq.text,
+                            is_fill_in_the_blank=sq.is_fill_in_the_blank,
+                            order=sq.order
+                        )
+                        for sc in sq.choices.all():
+                            BatchPostSessionChoice.objects.create(
+                                question=bq,
+                                text=sc.text,
+                                is_correct=sc.is_correct
+                            )
 
         # 3. Clone WeeklyTest → independent BatchWeeklyTest
         if hasattr(sw, 'weekly_test') and sw.weekly_test:

@@ -129,6 +129,38 @@ export const courseModuleApi = {
     return response.data;
   },
   
+  // --- SESSION MCQs (Course) ---
+  createSessionMcq: async (courseId: string | number, weekId: string | number, sessionId: string | number, data: Partial<PostSessionQuestion>) => {
+    const response = await apiClient.post<ApiResponse<PostSessionQuestion>>(`/api/courses/v1/courses/${courseId}/weeks/${weekId}/sessions/${sessionId}/mcq/`, data);
+    return response.data;
+  },
+  
+  updateSessionMcq: async (courseId: string | number, weekId: string | number, sessionId: string | number, mcqId: string | number, data: Partial<PostSessionQuestion>) => {
+    const response = await apiClient.patch<ApiResponse<PostSessionQuestion>>(`/api/courses/v1/courses/${courseId}/weeks/${weekId}/sessions/${sessionId}/mcq/${mcqId}/`, data);
+    return response.data;
+  },
+  
+  deleteSessionMcq: async (courseId: string | number, weekId: string | number, sessionId: string | number, mcqId: string | number) => {
+    const response = await apiClient.delete<ApiResponse<null>>(`/api/courses/v1/courses/${courseId}/weeks/${weekId}/sessions/${sessionId}/mcq/${mcqId}/`);
+    return response.data;
+  },
+
+  // --- SESSION MCQs (Batch) ---
+  createBatchSessionMcq: async (batchId: string | number, weekId: string | number, sessionId: string | number, data: Partial<PostSessionQuestion>) => {
+    const response = await apiClient.post<ApiResponse<PostSessionQuestion>>(`/api/courses/v1/batches/${batchId}/weeks/${weekId}/sessions/${sessionId}/mcq/`, data);
+    return response.data;
+  },
+  
+  updateBatchSessionMcq: async (batchId: string | number, weekId: string | number, sessionId: string | number, mcqId: string | number, data: Partial<PostSessionQuestion>) => {
+    const response = await apiClient.patch<ApiResponse<PostSessionQuestion>>(`/api/courses/v1/batches/${batchId}/weeks/${weekId}/sessions/${sessionId}/mcq/${mcqId}/`, data);
+    return response.data;
+  },
+  
+  deleteBatchSessionMcq: async (batchId: string | number, weekId: string | number, sessionId: string | number, mcqId: string | number) => {
+    const response = await apiClient.delete<ApiResponse<null>>(`/api/courses/v1/batches/${batchId}/weeks/${weekId}/sessions/${sessionId}/mcq/${mcqId}/`);
+    return response.data;
+  },
+
   // --- TESTS ---
   createTest: async (courseId: string | number, weekId: string | number, formData: FormData) => {
     const response = await apiClient.post<ApiResponse<WeeklyTest>>(`/api/courses/v1/courses/${courseId}/weeks/${weekId}/test/`, formData, {
