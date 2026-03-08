@@ -601,3 +601,54 @@ class CloneBatchContentView(APIView):
         except Exception as e:
             logger.error(f"Error cloning content: {str(e)}")
             raise ServiceError(detail=str(e), status_code=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+@extend_schema(tags=["Batches"])
+class BatchStudentEnrollmentUpdateView(APIView):
+    permission_classes = [IsSuperAdminAdminOrTeacher]
+
+    class InputSerializer(serializers.Serializer):
+        status = serializers.ChoiceField(choices=BatchEnrollment.Status.choices, required=False)
+        current_week_unlocked = serializers.IntegerField(required=False, min_value=1)
+
+    @extend_schema(
+        summary="Update a student's enrollment status and unlocked week",
+        request=InputSerializer,
+        responses={200: BatchEnrollmentSerializer},
+    )
+    def patch(self, request, pk, enrollment_id):
+        try:
+            batch = Batch.objects.get(pk=pk)
+            user = request.user
+            is_admin = getattr(user, 'user_type', None) and user.user_type.name in [UserTypeConstants.ADMIN, UserTypeConstants.SUPERADMIN]
+            is_assigned_teacher = (
+                getattr(user, 'user_type', None) and
+                user.user_type.name == UserTypeConstants.TEACHER and
+                (batch.teacher == user or batch.co_teachers.filter(pk=user.pk).exists())
+            )
+
+            if not (is_admin or is_assigned_teacher):
+                raise ServiceError(detail="You do not have permission to update enrollments in this batch.", status_code=status.HTTP_403_FORBIDDEN)
+
+            enrollment = BatchEnrollment.objects.filter(batch=batch, pk=enrollment_id).first()
+            if not enrollment:
+                raise ServiceError(detail="Enrollment not found.", status_code=status.HTTP_404_NOT_FOUND)
+
+            serializer = self.InputSerializer(data=request.data)
+            if not serializer.is_valid():
+                raise ServiceError(detail=handle_serializer_errors(serializer), status_code=status.HTTP_400_BAD_REQUEST)
+
+            data = serializer.validated_data
+            if 'status' in data:
+                enrollment.status = data['status']
+            if 'current_week_unlocked' in data:
+                enrollment.current_week_unlocked = data['current_week_unlocked']
+
+            enrollment.save()
+            return format_success_response(message="Enrollment updated successfully", data=BatchEnrollmentSerializer(enrollment).data)
+        except Batch.DoesNotExist:
+            raise ServiceError(detail="Batch not found.", status_code=status.HTTP_404_NOT_FOUND)
+        except ServiceError:
+            raise
+        except Exception as e:
+            logger.error(f"Error updating enrollment {enrollment_id}: {str(e)}")
+            raise ServiceError(detail=str(e), status_code=status.HTTP_500_INTERNAL_SERVER_ERROR)

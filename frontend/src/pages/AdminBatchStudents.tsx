@@ -35,12 +35,25 @@ import {
   Calendar as CalendarIcon,
   Trophy,
   Info,
+  Lock,
+  Unlock,
+  ChevronDown,
+  ChevronUp,
+  MoreHorizontal,
+  Settings2,
 } from 'lucide-react';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { batchApi, Batch, BatchUser } from '@/lib/batch-api';
 import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
 import { Progress } from '@/components/ui/progress';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 
 export default function AdminBatchStudents() {
   const { batchId } = useParams<{ batchId: string }>();
@@ -55,6 +68,7 @@ export default function AdminBatchStudents() {
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [studentSearch, setStudentSearch] = useState('');
   const [addingStudentId, setAddingStudentId] = useState<number | null>(null);
+  const [expandedStudentId, setExpandedStudentId] = useState<number | null>(null);
 
   // Pagination for enrolled students
   const [currentPage, setCurrentPage] = useState(1);
@@ -151,6 +165,21 @@ export default function AdminBatchStudents() {
       });
     } finally {
       setAddingStudentId(null);
+    }
+  };
+
+  const handleUpdateEnrollment = async (enrollmentId: number, data: { status?: string, current_week_unlocked?: number }) => {
+    if (!batchId) return;
+    try {
+      await batchApi.updateStudentEnrollment(parseInt(batchId), enrollmentId, data);
+      toast({ title: 'Success', description: 'Student enrollment updated', variant: 'success' });
+      fetchEnrolledStudents(currentPage);
+    } catch (err: any) {
+      toast({ 
+        title: 'Error', 
+        description: err.response?.data?.detail || 'Failed to update student enrollment', 
+        variant: 'destructive' 
+      });
     }
   };
 
@@ -367,79 +396,204 @@ export default function AdminBatchStudents() {
                 </Button>
               </div>
             ) : (
-              <div className="divide-y divide-border/50">
-                {enrolledStudents.map((enrollment) => (
-                  <div key={enrollment.id} className="p-6 transition-colors hover:bg-muted/30">
-                    <div className="flex flex-col gap-6">
-                      {/* Top Row: Name and Progress Bar */}
-                      <div className="flex items-start justify-between gap-4">
-                        <div className="flex items-center gap-4 flex-1">
-                          <div className="h-12 w-12 rounded-full bg-primary/10 flex items-center justify-center text-primary font-bold text-lg shrink-0">
-                            {enrollment.student_name.charAt(0)}
+              <div className="flex flex-col gap-4">
+                {enrolledStudents.map((enrollment) => {
+                  const isExpanded = expandedStudentId === enrollment.id;
+                  
+                  return (
+                  <div key={enrollment.id} className="rounded-xl border border-border/40 bg-card overflow-hidden transition-all duration-300 shadow-sm hover:shadow-md">
+                    {/* Collapsed Header / Standard Row */}
+                    <div 
+                      className="p-5 flex flex-col md:flex-row gap-6 md:items-center cursor-pointer hover:bg-muted/10 transition-colors"
+                      onClick={() => setExpandedStudentId(isExpanded ? null : enrollment.id)}
+                    >
+                      <div className="flex items-center gap-4 flex-1">
+                        <div className="h-12 w-12 rounded-full bg-primary/10 flex items-center justify-center text-primary font-bold text-lg shrink-0 border border-primary/20 shadow-inner">
+                          {enrollment.student_name.charAt(0).toUpperCase()}
+                        </div>
+                        <div className="min-w-0 flex-1">
+                          <div className="flex items-center gap-3">
+                            <h3 className="font-bold text-lg text-foreground truncate">{enrollment.student_name}</h3>
+                            <Badge variant="outline" className={cn(
+                              "text-[10px] h-5 py-0 px-2 uppercase tracking-wide font-bold",
+                              enrollment.status === 'active' ? "bg-success/10 text-success border-success/30" : 
+                              enrollment.status === 'completed' ? "bg-primary/10 text-primary border-primary/30" :
+                              enrollment.status === 'dropped' ? "bg-destructive/10 text-destructive border-destructive/30" :
+                              "bg-muted text-muted-foreground border-border"
+                            )}>
+                              {enrollment.status}
+                            </Badge>
                           </div>
-                          <div className="min-w-0 flex-1">
-                            <div className="flex items-center gap-2">
-                              <h3 className="font-bold text-lg text-foreground truncate">{enrollment.student_name}</h3>
-                              <Badge variant="outline" className={cn(
-                                "text-[10px] h-4 py-0",
-                                enrollment.status === 'active' ? "bg-success/5 text-success border-success/20" : 
-                                enrollment.status === 'completed' ? "bg-primary/5 text-primary border-primary/20" :
-                                enrollment.status === 'dropped' ? "bg-destructive/5 text-destructive border-destructive/20" :
-                                "bg-muted text-muted-foreground border-border"
-                              )}>
-                                {enrollment.status.toUpperCase()}
-                              </Badge>
-                            </div>
-                            <div className="flex items-center text-sm text-muted-foreground mt-0.5">
-                              <Mail className="h-3 w-3 mr-1.5 shrink-0" />
-                              <span className="truncate">{enrollment.student_email}</span>
-                            </div>
-                          </div>
-                          
-                          {/* Progress Line and Percentage */}
-                          <div className="flex flex-col items-end gap-1.5 w-[200px] shrink-0">
-                            <div className="flex items-center justify-end gap-2 text-primary">
-                              <span className="text-sm font-bold">{Math.round(enrollment.overall_progress)}%</span>
-                              <span className="text-[10px] uppercase font-medium tracking-wider text-muted-foreground">Overall</span>
-                            </div>
-                            <Progress value={enrollment.overall_progress} className="h-1.5 bg-muted" />
+                          <div className="flex items-center text-sm text-muted-foreground mt-1">
+                            <Mail className="h-3.5 w-3.5 mr-1.5 shrink-0 opacity-70" />
+                            <span className="truncate">{enrollment.student_email}</span>
                           </div>
                         </div>
                       </div>
 
-                      {/* Stats Grid */}
-                      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-                        <div className="bg-muted/40 rounded-lg p-3 border border-border/50">
-                          <p className="text-[10px] uppercase font-semibold text-muted-foreground mb-1">Weeks Completed</p>
-                          <p className="font-bold text-foreground">{enrollment.weeks_completed} / {enrollment.total_weeks}</p>
+                      {/* Unified Stats Area */}
+                      <div className="flex-1 grid grid-cols-2 md:grid-cols-3 gap-4 md:gap-8 mt-4 md:mt-0 items-end">
+                        <div className="flex flex-col gap-1 w-full relative group">
+                          <div className="flex justify-between items-baseline mb-0.5">
+                            <span className="text-xs text-muted-foreground font-medium group-hover:text-foreground transition-colors">Weeks</span>
+                            <span className="text-sm font-bold">{enrollment.weeks_completed} <span className="text-xs text-muted-foreground font-normal">/ {enrollment.total_weeks}</span></span>
+                          </div>
+                          <Progress value={enrollment.total_weeks ? (enrollment.weeks_completed / enrollment.total_weeks) * 100 : 0} className="h-1.5 bg-primary/10" />
                         </div>
-                        <div className="bg-muted/40 rounded-lg p-3 border border-border/50">
-                          <p className="text-[10px] uppercase font-semibold text-muted-foreground mb-1">Weekly Tests</p>
-                          <p className="font-bold text-foreground">
-                            {enrollment.weekly_tests_submitted} / {enrollment.total_weekly_tests} <span className="text-[10px] font-normal text-muted-foreground ml-1">submitted</span>
-                          </p>
+                        
+                        <div className="flex flex-col gap-1 w-full relative group">
+                          <div className="flex justify-between items-baseline mb-0.5">
+                            <span className="text-xs text-muted-foreground font-medium group-hover:text-foreground transition-colors">Tests</span>
+                            <span className="text-sm font-bold">{enrollment.weekly_tests_submitted} <span className="text-xs text-muted-foreground font-normal">/ {enrollment.total_weekly_tests}</span></span>
+                          </div>
+                          <Progress value={enrollment.total_weekly_tests ? (enrollment.weekly_tests_submitted / enrollment.total_weekly_tests) * 100 : 0} className="h-1.5 bg-success/20 [&>div]:bg-success" />
                         </div>
-                        <div className="bg-muted/40 rounded-lg p-3 border border-border/50">
-                          <p className="text-[10px] uppercase font-semibold text-muted-foreground mb-1">Class Quizzes</p>
-                          <p className="font-bold text-foreground">
-                            {enrollment.quizzes_done} / {enrollment.total_quizzes} <span className="text-[10px] font-normal text-muted-foreground ml-1">done</span>
-                          </p>
+
+                        <div className="flex flex-col gap-1 w-full relative group col-span-2 md:col-span-1">
+                          <div className="flex justify-between items-baseline mb-0.5">
+                            <span className="text-xs text-muted-foreground font-medium group-hover:text-foreground transition-colors">Overall</span>
+                            <span className="text-sm font-bold">{Math.round(enrollment.overall_progress || 0)}%</span>
+                          </div>
+                          <Progress value={enrollment.overall_progress || 0} className="h-1.5 bg-accent/20 [&>div]:bg-accent" />
                         </div>
-                        <div className="bg-success/5 rounded-lg p-3 border border-success/10">
-                          <p className="text-[10px] uppercase font-semibold text-success/70 mb-1">Marks</p>
-                          <p className="font-bold text-success flex items-center gap-1.5">
-                            {enrollment.marks_obtained} / {enrollment.total_marks}
-                            {enrollment.total_marks > 0 && (
-                              <span className="text-[10px] font-normal text-success/60">
-                                ({Math.round((enrollment.marks_obtained / enrollment.total_marks) * 100)}%)
-                              </span>
+                      </div>
+                      
+                      <div className="hidden md:flex flex-shrink-0 ml-4 items-center justify-center p-2 rounded-lg bg-muted/50 text-muted-foreground hover:bg-muted hover:text-foreground transition-colors mr-2 relative z-10" onClick={(e) => { e.stopPropagation(); }}>
+                        <Select
+                          value={enrollment.status}
+                          onValueChange={(val) => handleUpdateEnrollment(enrollment.id, { status: val })}
+                        >
+                          <SelectTrigger className={cn(
+                            "h-8 px-3 text-[11px] uppercase font-bold tracking-wider rounded border border-border/70",
+                            enrollment.status === 'active' ? "bg-success/5 text-success hover:bg-success/10" : 
+                            enrollment.status === 'completed' ? "bg-primary/5 text-primary hover:bg-primary/10" :
+                            enrollment.status === 'dropped' ? "bg-destructive/5 text-destructive hover:bg-destructive/10" :
+                            "bg-muted text-muted-foreground hover:bg-muted/80"
+                          )}>
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="active" className="text-xs font-semibold">ACTIVE</SelectItem>
+                            <SelectItem value="completed" className="text-xs font-semibold">COMPLETED</SelectItem>
+                            <SelectItem value="dropped" className="text-xs font-semibold">DROPPED</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+
+                      <div className="hidden md:flex flex-shrink-0 ml-2 items-center justify-center p-2 rounded-lg bg-muted/50 text-muted-foreground hover:bg-muted hover:text-foreground transition-colors">
+                        {isExpanded ? <ChevronUp className="h-5 w-5" /> : <ChevronDown className="h-5 w-5" />}
+                      </div>
+                    </div>
+
+                    {/* Expandable "Unlocked Content" Panel */}
+                    <div 
+                      className={cn(
+                        "transition-all duration-300 ease-in-out border-t border-border/40 bg-muted/10",
+                        isExpanded ? "max-h-[1000px] opacity-100 py-6 px-5 block" : "max-h-0 opacity-0 py-0 px-5 overflow-hidden hidden"
+                      )}
+                    >
+                      <div className="flex flex-col xl:flex-row gap-6">
+                        
+                        {/* Scrollable list of weeks representation */}
+                        <div className="flex-1">
+                          <h4 className="text-sm font-bold mb-4 uppercase tracking-wider text-muted-foreground">Unlocked Content Map</h4>
+                          <div className="bg-background rounded-xl border border-border/40 p-1 divide-y divide-border/30 max-h-60 overflow-y-auto">
+                            {Array.from({ length: enrollment.total_weeks || 0 }).map((_, i) => {
+                              const weekNo = i + 1;
+                              const isUnlocked = weekNo <= (enrollment.current_week_unlocked || 0);
+                              return (
+                                <div key={weekNo} className="py-2.5 px-4 flex items-center justify-between hover:bg-muted/20 transition-colors">
+                                  <div className="flex items-center gap-3">
+                                    <div className={cn(
+                                      "flex items-center justify-center h-7 w-7 rounded-md",
+                                      isUnlocked ? "bg-success/10 text-success" : "bg-muted text-muted-foreground"
+                                    )}>
+                                      {isUnlocked ? <Unlock className="h-3.5 w-3.5" /> : <Lock className="h-3.5 w-3.5" />}
+                                    </div>
+                                    <span className={cn(
+                                      "text-sm font-medium",
+                                      isUnlocked ? "text-foreground" : "text-muted-foreground"
+                                    )}>Week {weekNo}</span>
+                                  </div>
+                                  {isUnlocked && <Badge variant="secondary" className="bg-success/10 text-success text-[10px] font-medium border-none px-2 h-5">Access Granted</Badge>}
+                                </div>
+                              );
+                            })}
+                            {(!enrollment.total_weeks || enrollment.total_weeks === 0) && (
+                              <div className="p-4 text-sm text-center text-muted-foreground">No weeks configured for this course yet.</div>
                             )}
-                          </p>
+                          </div>
                         </div>
+
+                        {/* Right quick management panel */}
+                        <div className="w-full xl:w-[320px] flex flex-col gap-4">
+                          <div className="bg-background rounded-xl border border-border/40 p-5 shadow-sm">
+                            <h4 className="text-sm font-bold mb-4 uppercase tracking-wider text-foreground flex items-center gap-2">
+                              <Settings2 className="h-4 w-4 text-primary" /> Management
+                            </h4>
+                            
+                            <div className="space-y-4">
+                              <div>
+                                <label className="text-xs font-medium text-muted-foreground mb-1.5 block">Overall Status</label>
+                                <Select
+                                  value={enrollment.status}
+                                  onValueChange={(val) => handleUpdateEnrollment(enrollment.id, { status: val })}
+                                >
+                                  <SelectTrigger className="w-full">
+                                    <SelectValue />
+                                  </SelectTrigger>
+                                  <SelectContent>
+                                    <SelectItem value="active">Active</SelectItem>
+                                    <SelectItem value="completed">Completed</SelectItem>
+                                    <SelectItem value="dropped">Dropped</SelectItem>
+                                  </SelectContent>
+                                </Select>
+                              </div>
+
+                              <div>
+                                <label className="text-xs font-medium text-muted-foreground mb-1.5 block">Maximum Unlocked Week Number</label>
+                                <div className="flex gap-2">
+                                  <Input 
+                                    type="number" 
+                                    min={1} 
+                                    max={enrollment.total_weeks || 1}
+                                    defaultValue={enrollment.current_week_unlocked || 1}
+                                    className="w-20 font-mono text-center"
+                                    onBlur={(e) => {
+                                      const val = parseInt(e.target.value);
+                                      if (!isNaN(val) && val !== enrollment.current_week_unlocked) {
+                                        handleUpdateEnrollment(enrollment.id, { current_week_unlocked: val });
+                                      }
+                                    }}
+                                  />
+                                  <Button 
+                                    variant="secondary" 
+                                    className="flex-1 font-semibold"
+                                    onClick={() => {
+                                      const next = (enrollment.current_week_unlocked || 0) + 1;
+                                      if (next <= (enrollment.total_weeks || 1)) {
+                                        handleUpdateEnrollment(enrollment.id, { current_week_unlocked: next });
+                                      } else {
+                                        toast({ description: "All available weeks are already unlocked.", variant: "default" })
+                                      }
+                                    }}
+                                  >
+                                    + Unlock Next Week
+                                  </Button>
+                                </div>
+                                <p className="text-[10px] text-muted-foreground mt-2 leading-relaxed">
+                                  Sets the maximum week content accessible by this student. The system will automatically respect standard drip-feed time limitations until this value is met.
+                                </p>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+
                       </div>
                     </div>
                   </div>
-                ))}
+                  );
+                })}
               </div>
             )}
           </CardContent>

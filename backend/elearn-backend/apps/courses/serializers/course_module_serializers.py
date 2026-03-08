@@ -189,7 +189,13 @@ class BatchWeekSerializer(serializers.ModelSerializer):
         if not enrollment:
             return {'is_locked': True, 'reason': 'not_enrolled'}
 
-        # 1. Calendar Check
+        # 1. Manual Unlock Override
+        # If the teacher manually unlocked up to a certain week,
+        # it bypasses all calendar and test restrictions.
+        if hasattr(enrollment, 'current_week_unlocked') and obj.week_number <= enrollment.current_week_unlocked:
+            return {'is_locked': False, 'reason': None}
+
+        # 2. Calendar Check
         if not obj.is_unlocked:
             return {'is_locked': True, 'reason': 'date_locked', 'unlock_date': obj.unlock_date}
 

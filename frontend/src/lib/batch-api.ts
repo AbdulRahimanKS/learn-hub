@@ -178,6 +178,13 @@ export const batchApi = {
     return response.data;
   },
 
+  updateStudentEnrollment: async (batchId: number, enrollmentId: number, data: { status?: string; current_week_unlocked?: number }) => {
+    const response = await apiClient.patch<{ data: any; success: boolean; message: string }>(
+      `/api/courses/v1/batches/${batchId}/students/${enrollmentId}/`, data
+    );
+    return response.data;
+  },
+
   cloneContent: async (batchId: number, sourceCourseId?: number, sourceBatchId?: number) => {
     const response = await apiClient.post<{ success: boolean; message: string }>(
       `/api/courses/v1/batches/${batchId}/clone-content/`,

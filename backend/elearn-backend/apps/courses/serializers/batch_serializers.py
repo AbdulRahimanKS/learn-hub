@@ -102,26 +102,31 @@ class BatchEnrollmentSerializer(serializers.ModelSerializer):
     total_weeks = serializers.SerializerMethodField()
     weekly_tests_submitted = serializers.SerializerMethodField()
     total_weekly_tests = serializers.SerializerMethodField()
-    quizzes_done = serializers.SerializerMethodField()
-    total_quizzes = serializers.SerializerMethodField()
-    marks_obtained = serializers.SerializerMethodField()
-    total_marks = serializers.SerializerMethodField()
-
     class Meta:
         model = BatchEnrollment
         fields = [
             'id', 'batch', 'student', 'student_name', 'student_email',
-            'status', 'notes',
+            'status', 'notes', 'current_week_unlocked',
             'enrolled_at', 'created_at',
             'overall_progress', 'weeks_completed', 'total_weeks',
-            'weekly_tests_submitted', 'total_weekly_tests',
-            'quizzes_done', 'total_quizzes',
-            'marks_obtained', 'total_marks'
+            'weekly_tests_submitted', 'total_weekly_tests'
         ]
         read_only_fields = ['id', 'batch', 'enrolled_at', 'created_at', 'student_name', 'student_email']
 
     def get_overall_progress(self, obj):
-        return 15.0 # Mock
+        from apps.courses.models import BatchClassSession, StudentSessionView, BatchWeeklyTest, TestSubmission
+        total_sessions = BatchClassSession.objects.filter(batch_week__batch=obj.batch).count()
+        total_tests = BatchWeeklyTest.objects.filter(batch_week__batch=obj.batch).count()
+        total_items = total_sessions + total_tests
+        
+        if total_items == 0:
+            return 0
+            
+        completed_sessions = StudentSessionView.objects.filter(enrollment=obj, is_completed=True).count()
+        completed_tests = TestSubmission.objects.filter(enrollment=obj, is_passed=True, status='published').count()
+        completed_items = completed_sessions + completed_tests
+        
+        return min(100, round((completed_items / total_items) * 100))
 
     def get_weeks_completed(self, obj):
         return 2 # Mock
@@ -136,16 +141,3 @@ class BatchEnrollmentSerializer(serializers.ModelSerializer):
 
     def get_total_weekly_tests(self, obj):
         return 3 # Mock
-
-    def get_quizzes_done(self, obj):
-        return 0 # Mock
-
-    def get_total_quizzes(self, obj):
-        return 2 # Mock
-
-    def get_marks_obtained(self, obj):
-        return 0 # Mock
-
-    def get_total_marks(self, obj):
-        return 0 # Mock
-
