@@ -13,6 +13,8 @@ export interface Course {
   batch_id?: number | null;
   batch_name?: string | null;
   batch_status?: 'active' | 'completed' | 'dropped' | null;
+  learning_status?: 'start_learning' | 'continue_learning' | 'review';
+  progress_percent?: number;
   created_at: string;
   updated_at: string;
 }

@@ -354,7 +354,7 @@ export default function Courses() {
                     </div>
 
                     <div className="px-5 pb-5 pt-3">
-                      <div className="flex flex-col gap-2 text-sm text-muted-foreground bg-muted/40 p-3 rounded-lg border border-border/40">
+                      <div className="flex flex-col gap-2 text-sm text-muted-foreground bg-muted/40 p-3 rounded-lg border border-border/40 mb-4">
                         <div className="flex items-center justify-between font-medium">
                           <div className="flex items-center gap-1.5">
                             <BookOpen className="h-4 w-4 text-primary/70" />
@@ -366,6 +366,26 @@ export default function Courses() {
                           </div>
                         </div>
                       </div>
+
+                      <Button 
+                        variant={course.learning_status === 'review' ? 'outline' : 'default'} 
+                        className={cn(
+                          "w-full font-bold h-10 transition-all duration-300 relative overflow-hidden",
+                          course.learning_status !== 'review' && "shadow-md group-hover:shadow-lg group-hover:bg-primary/90"
+                        )}
+                      >
+
+                        <span className="relative z-10 flex items-center">
+                          {course.learning_status === 'review' 
+                            ? 'Review Course' 
+                            : course.learning_status === 'continue_learning' 
+                              ? `Continue Learning (${course.progress_percent || 0}%)` 
+                              : 'Start Learning'}
+                          {course.learning_status !== 'review' && (
+                            <Play className="h-4 w-4 ml-2 fill-current opacity-70 group-hover:translate-x-1 transition-transform" />
+                          )}
+                        </span>
+                      </Button>
                     </div>
                   </Card>
                 ))}

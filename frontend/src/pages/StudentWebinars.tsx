@@ -13,8 +13,16 @@ import {
   Loader2,
   ChevronLeft,
   CheckCircle2,
+  BookOpen
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { webinarApi, Webinar } from '@/lib/webinar-api';
 import { batchApi } from '@/lib/batch-api';
 import { useToast } from '@/hooks/use-toast';
@@ -32,12 +40,14 @@ export default function StudentWebinars() {
   const [webinars, setWebinars] = useState<Webinar[]>([]);
   const [batchId, setBatchId] = useState<number | null>(null);
   const [batchName, setBatchName] = useState('');
+  const [userBatches, setUserBatches] = useState<any[]>([]);
   const [playingVideoUrl, setPlayingVideoUrl] = useState<string | null>(null);
 
   const fetchStudentBatch = useCallback(async () => {
     try {
       const res = await batchApi.getBatches({ paginate: false });
       if (res.success && Array.isArray(res.data) && res.data.length > 0) {
+        setUserBatches(res.data);
         setBatchId(res.data[0].id);
         setBatchName(res.data[0].name);
       } else {
@@ -182,9 +192,48 @@ export default function StudentWebinars() {
           </Button>
           <div>
             <h1 className="font-display text-3xl font-bold text-foreground">
-              {batchName ? `${batchName} - Webinars` : 'Webinars'}
+              Webinars
             </h1>
-            <p className="mt-1 text-muted-foreground">Join live sessions and watch expert webinars exclusively for your batch</p>
+            <p className="mt-1 text-muted-foreground">Join live sessions and watch expert webinars for your courses</p>
+          </div>
+        </div>
+
+        {/* Batch Selection Header */}
+        <div className="flex flex-col sm:flex-row items-center justify-between gap-4 p-5 rounded-2xl bg-card border shadow-sm">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-xl bg-primary/10 text-primary flex items-center justify-center shrink-0">
+               <BookOpen className="w-5 h-5" />
+            </div>
+            <div>
+              <p className="text-sm font-medium text-muted-foreground">Select Course Batch</p>
+              <h3 className="font-bold text-foreground">{batchName || 'Select a batch'}</h3>
+            </div>
+          </div>
+          
+          <div className="flex-1 w-full sm:w-auto sm:max-w-[280px]">
+            <Select 
+              value={batchId?.toString()} 
+              onValueChange={(val) => {
+                const bId = Number(val);
+                setBatchId(bId);
+                const selectedBatch = userBatches.find(b => b.id === bId);
+                if (selectedBatch) {
+                  setBatchName(selectedBatch.name);
+                }
+              }}
+              disabled={userBatches.length === 0}
+            >
+              <SelectTrigger className="w-full h-11 bg-background rounded-xl hidden sm:flex">
+                <SelectValue placeholder="Select course batch" />
+              </SelectTrigger>
+              <SelectContent className="rounded-xl">
+                {userBatches.map(batch => (
+                  <SelectItem key={batch.id} value={batch.id.toString()} className="font-medium cursor-pointer">
+                    {batch.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
         </div>
 

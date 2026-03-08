@@ -26,6 +26,8 @@ class CourseListSerializer(serializers.ModelSerializer):
     batch_id = serializers.SerializerMethodField()
     batch_name = serializers.SerializerMethodField()
     batch_status = serializers.SerializerMethodField()
+    learning_status = serializers.SerializerMethodField()
+    progress_percent = serializers.SerializerMethodField()
 
     class Meta:
         model = Course
@@ -44,6 +46,8 @@ class CourseListSerializer(serializers.ModelSerializer):
             'batch_id',
             'batch_name',
             'batch_status',
+            'learning_status',
+            'progress_percent',
         ]
         read_only_fields = ['course_code', 'created_at', 'total_weeks']
 
@@ -70,6 +74,45 @@ class CourseListSerializer(serializers.ModelSerializer):
         enrollment = BatchEnrollment.objects.filter(batch__course=obj, student=user).first()
         return enrollment.status if enrollment else None
 
+    def get_learning_status(self, obj):
+        user = self.context['request'].user
+        if not user.is_authenticated:
+            return 'start_learning'
+        from apps.courses.models import BatchEnrollment, BatchClassSession, StudentSessionView
+        enrollment = BatchEnrollment.objects.filter(batch__course=obj, student=user).first()
+        if not enrollment:
+            return 'start_learning'
+        if enrollment.status == 'completed':
+            return 'review'
+        
+        completed_sessions = StudentSessionView.objects.filter(enrollment=enrollment, is_completed=True).count()
+        if completed_sessions > 0:
+            return 'continue_learning'
+        return 'start_learning'
+
+    def get_progress_percent(self, obj):
+        user = self.context['request'].user
+        if not user.is_authenticated:
+            return 0
+        from apps.courses.models import BatchEnrollment, BatchClassSession, StudentSessionView, BatchWeeklyTest, TestSubmission
+        enrollment = BatchEnrollment.objects.filter(batch__course=obj, student=user).first()
+        if not enrollment:
+            return 0
+            
+        total_sessions = BatchClassSession.objects.filter(batch_week__batch=enrollment.batch).count()
+        total_tests = BatchWeeklyTest.objects.filter(batch_week__batch=enrollment.batch).count()
+        total_items = total_sessions + total_tests
+        
+        if total_items == 0:
+            return 0
+            
+        completed_sessions = StudentSessionView.objects.filter(enrollment=enrollment, is_completed=True).count()
+        completed_tests = TestSubmission.objects.filter(enrollment=enrollment, is_passed=True, status='published').count()
+        completed_items = completed_sessions + completed_tests
+        
+        # Don't exceed 100 in odd test edge cases
+        return min(100, round((completed_items / total_items) * 100))
+
 
 class CourseDetailSerializer(serializers.ModelSerializer):
     """
@@ -83,6 +126,7 @@ class CourseDetailSerializer(serializers.ModelSerializer):
     batch_id = serializers.SerializerMethodField()
     batch_name = serializers.SerializerMethodField()
     batch_status = serializers.SerializerMethodField()
+    learning_status = serializers.SerializerMethodField()
 
     class Meta:
         model = Course
@@ -104,6 +148,8 @@ class CourseDetailSerializer(serializers.ModelSerializer):
             'batch_id',
             'batch_name',
             'batch_status',
+            'learning_status',
+            'progress_percent',
         ]
         read_only_fields = ['course_code', 'created_by', 'updated_by', 'created_at', 'updated_at', 'total_weeks']
 
@@ -128,6 +174,45 @@ class CourseDetailSerializer(serializers.ModelSerializer):
         from apps.courses.models import BatchEnrollment
         enrollment = BatchEnrollment.objects.filter(batch__course=obj, student=user).first()
         return enrollment.status if enrollment else None
+
+    def get_learning_status(self, obj):
+        user = self.context['request'].user
+        if not user.is_authenticated:
+            return 'start_learning'
+        from apps.courses.models import BatchEnrollment, BatchClassSession, StudentSessionView
+        enrollment = BatchEnrollment.objects.filter(batch__course=obj, student=user).first()
+        if not enrollment:
+            return 'start_learning'
+        if enrollment.status == 'completed':
+            return 'review'
+        
+        completed_sessions = StudentSessionView.objects.filter(enrollment=enrollment, is_completed=True).count()
+        if completed_sessions > 0:
+            return 'continue_learning'
+        return 'start_learning'
+
+    def get_progress_percent(self, obj):
+        user = self.context['request'].user
+        if not user.is_authenticated:
+            return 0
+        from apps.courses.models import BatchEnrollment, BatchClassSession, StudentSessionView, BatchWeeklyTest, TestSubmission
+        enrollment = BatchEnrollment.objects.filter(batch__course=obj, student=user).first()
+        if not enrollment:
+            return 0
+            
+        total_sessions = BatchClassSession.objects.filter(batch_week__batch=enrollment.batch).count()
+        total_tests = BatchWeeklyTest.objects.filter(batch_week__batch=enrollment.batch).count()
+        total_items = total_sessions + total_tests
+        
+        if total_items == 0:
+            return 0
+            
+        completed_sessions = StudentSessionView.objects.filter(enrollment=enrollment, is_completed=True).count()
+        completed_tests = TestSubmission.objects.filter(enrollment=enrollment, is_passed=True, status='published').count()
+        completed_items = completed_sessions + completed_tests
+        
+        # Don't exceed 100 in odd test edge cases
+        return min(100, round((completed_items / total_items) * 100))
 
 
 class CourseCreateUpdateSerializer(serializers.ModelSerializer):
