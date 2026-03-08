@@ -494,29 +494,7 @@ export default function Courses() {
                                           {session.weekday}
                                         </Badge>
                                       )}
-                                      {session.is_completed && !locked ? (
-                                        <Badge 
-                                          variant="secondary" 
-                                          className="bg-success/20 text-success border border-success/30 backdrop-blur-md font-bold text-[10px] h-5 px-2 shadow-sm cursor-pointer hover:bg-success/30"
-                                          onClick={(e) => {
-                                            e.stopPropagation();
-                                            toggleSessionCompletion(week.id, session.id, true);
-                                          }}
-                                        >
-                                          <span className="flex items-center gap-1"><CheckCircle2 className="w-2.5 h-2.5" /> COMPLETED</span>
-                                        </Badge>
-                                      ) : !locked && (
-                                        <Badge 
-                                          variant="outline" 
-                                          className="bg-background/90 text-muted-foreground border-border backdrop-blur-md font-bold text-[10px] h-5 px-2 shadow-sm cursor-pointer hover:bg-primary/10 hover:text-primary transition-colors"
-                                          onClick={(e) => {
-                                            e.stopPropagation();
-                                            toggleSessionCompletion(week.id, session.id, false);
-                                          }}
-                                        >
-                                          MARK COMPLETE
-                                        </Badge>
-                                      )}
+                                      {/* Completion Badge removed as video handles it automatically */}
                                     </div>
                                   </div>
                                 </div>
@@ -525,10 +503,18 @@ export default function Courses() {
                                     <h4 className={`font-semibold text-foreground line-clamp-1 text-base transition-colors ${isActive ? 'text-primary' : !locked ? 'group-hover:text-primary' : ''}`} title={session.title}>
                                       {session.title}
                                     </h4>
-                                    {session.has_mcq && !locked && (
-                                      <Badge variant="outline" className="text-[10px] h-4 px-1.5 bg-primary/5 text-primary border-primary/20">
-                                        MCQ
-                                      </Badge>
+                                    {!locked && (
+                                      <div className="flex items-center gap-1.5">
+                                        {session.is_completed ? (
+                                          <Badge className="text-[10px] h-4 px-1.5 bg-success/10 text-success border-success/20 hover:bg-success/10">
+                                            COMPLETED
+                                          </Badge>
+                                        ) : session.has_mcq ? (
+                                          <Badge variant="outline" className="text-[10px] h-4 px-1.5 bg-primary/5 text-primary border-primary/20">
+                                            MCQ
+                                          </Badge>
+                                        ) : null}
+                                      </div>
                                     )}
                                   </div>
                                   {session.description && (
@@ -537,12 +523,12 @@ export default function Courses() {
                                     </p>
                                   )}
                                   
-                                  {session.has_mcq && !locked && (
-                                    <div className="mt-3 pt-3 border-t border-border/40 flex gap-2">
+                                  {!locked && session.has_mcq && (
+                                    <div className="mt-3 pt-3 border-t border-border/40 flex items-center justify-between gap-3">
                                       <Button 
                                         variant="outline" 
                                         size="sm" 
-                                        className="h-8 text-xs flex-1 border-primary/20 hover:bg-primary/5 hover:text-primary"
+                                        className="h-8 text-xs flex-1 border-primary/20 hover:bg-primary/5 hover:text-primary font-semibold"
                                         onClick={(e) => {
                                           e.stopPropagation();
                                           if (session.mcq_questions && session.mcq_questions.length > 0) {
@@ -555,7 +541,7 @@ export default function Courses() {
                                           }
                                         }}
                                       >
-                                        <HelpCircle className="w-3 h-3 mr-1.5 opacity-70" />
+                                        <HelpCircle className="w-3.5 h-3.5 mr-1.5 opacity-70" />
                                         Practice MCQs
                                       </Button>
                                     </div>
