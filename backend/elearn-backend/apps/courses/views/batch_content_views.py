@@ -41,6 +41,40 @@ class BatchWeekListView(APIView):
         serializer = BatchWeekSerializer(weeks, many=True, context={'request': request})
         return format_success_response(message="Batch weeks retrieved successfully", data=serializer.data)
 
+    @extend_schema(summary="Create a new week for a specific batch", request=BatchWeekCreateUpdateSerializer)
+    def post(self, request, batch_id):
+        from apps.courses.models import Batch
+        from django.utils import timezone
+        from datetime import timedelta
+        try:
+            batch = Batch.objects.get(id=batch_id)
+        except Batch.DoesNotExist:
+            raise ServiceError(detail="Batch not found.", status_code=status.HTTP_404_NOT_FOUND)
+
+        serializer = BatchWeekCreateUpdateSerializer(data=request.data)
+        if not serializer.is_valid():
+            error_str = handle_serializer_errors(serializer)
+            raise ServiceError(detail=error_str, status_code=status.HTTP_400_BAD_REQUEST)
+
+        week_number = serializer.validated_data.get('week_number', 1)
+        unlock_date = None
+        if batch.start_date:
+            days_to_add = (week_number - 1) * 7
+            unlock_date = timezone.make_aware(
+                timezone.datetime.combine(batch.start_date + timedelta(days=days_to_add), timezone.datetime.min.time())
+            )
+
+        week = BatchWeek.objects.create(
+            batch=batch,
+            unlock_date=unlock_date,
+            **serializer.validated_data
+        )
+        return format_success_response(
+            message="Batch week created successfully",
+            data={'id': week.id},
+            status_code=status.HTTP_201_CREATED
+        )
+
 @extend_schema(tags=["Batch Content"])
 class BatchWeekDetailView(APIView):
     permission_classes = [IsAdminOrTeacher]
@@ -229,7 +263,7 @@ class BatchWeeklyTestManageView(APIView):
     def post(self, request, batch_id, week_id):
         week = self.get_week(batch_id, week_id)
         if hasattr(week, 'weekly_test'):
-            serializer = BatchWeeklyTestCreateUpdateSerializer(week.weekly_test, data=request.data)
+            serializer = BatchWeeklyTestCreateUpdateSerializer(week.weekly_test, data=request.data, partial=True)
         else:
             serializer = BatchWeeklyTestCreateUpdateSerializer(data=request.data)
             
@@ -239,12 +273,13 @@ class BatchWeeklyTestManageView(APIView):
             
         if hasattr(week, 'weekly_test'):
             serializer.save()
+            test_obj = week.weekly_test
             message = "Batch test updated successfully"
         else:
-            BatchWeeklyTest.objects.create(batch_week=week, created_by=request.user, **serializer.validated_data)
+            test_obj = BatchWeeklyTest.objects.create(batch_week=week, created_by=request.user, **serializer.validated_data)
             message = "Batch test created successfully"
             
-        return format_success_response(message=message)
+        return format_success_response(message=message, data={'id': test_obj.id})
 
     @extend_schema(summary="Delete batch weekly test")
     def delete(self, request, batch_id, week_id):

@@ -677,10 +677,10 @@ export default function Content() {
           </div>
         ) : (
           <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
-            <TabsList className="bg-background p-1 border border-border/50 rounded-lg w-fit justify-start overflow-x-auto overflow-y-hidden flex-nowrap scrollbar-hide">
+            <TabsList className="bg-background p-1 border border-border/50 rounded-lg max-w-full justify-start overflow-x-auto overflow-y-hidden flex-nowrap scrollbar-hide">
             {weeks.map(week => (
               <TabsTrigger key={week.id} value={week.id.toString()} className="whitespace-nowrap">
-                Week {week.week_number}: {week.title}
+                Week {week.week_number}
               </TabsTrigger>
             ))}
           </TabsList>

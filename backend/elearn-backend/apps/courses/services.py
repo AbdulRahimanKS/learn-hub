@@ -90,6 +90,7 @@ def push_content_to_batch(source_batch_id=None, source_course_id=None, target_ba
                     session_number=ss.session_number,
                     title=ss.title,
                     description=ss.description,
+                    weekday=ss.weekday,
                     video_file=ss.video_file,
                     thumbnail=ss.thumbnail,
                     duration_seconds=ss.duration_seconds,
@@ -115,31 +116,31 @@ def push_content_to_batch(source_batch_id=None, source_course_id=None, target_ba
         # 3. Clone WeeklyTest → independent BatchWeeklyTest
         if hasattr(sw, 'weekly_test') and sw.weekly_test:
             st = sw.weekly_test  # CourseWeeklyTest (or BatchWeeklyTest if cloning from batch)
-            tt, created = BatchWeeklyTest.objects.get_or_create(
+            tt, test_created = BatchWeeklyTest.objects.get_or_create(
                 batch_week=bw,
                 defaults={
                     'title': st.title,
                     'instructions': st.instructions,
                     'pass_percentage': st.pass_percentage,
+                    'answer_key': st.answer_key,  # carry the answer key file reference
                     'created_by': st.created_by
                 }
             )
 
             # Clone Questions + their supporting attachments into batch
-            for sq in st.questions.all():
-                bq, q_created = BatchTestQuestion.objects.get_or_create(
-                    test=tt,
-                    order=sq.order,
-                    defaults={
-                        'text': sq.text,
-                        'question_file': sq.question_file,
-                        'image': sq.image,
-                        'marks': sq.marks,
-                    }
-                )
+            # Only clone if the test was just created to avoid duplicates on re-push
+            if test_created:
+                for sq in st.questions.all():
+                    bq = BatchTestQuestion.objects.create(
+                        test=tt,
+                        text=sq.text,
+                        question_file=sq.question_file,
+                        image=sq.image,
+                        marks=sq.marks,
+                        order=sq.order,
+                    )
 
-                # Clone attachments only if the question was just created
-                if q_created:
+                    # Clone all attachments for this question
                     for attachment in sq.attachments.all():
                         BatchTestQuestionAttachment.objects.create(
                             question=bq,

@@ -13,6 +13,7 @@ import {
   DialogDescription,
   DialogHeader,
   DialogTitle,
+  DialogFooter,
 } from '@/components/ui/dialog';
 import {
   AlertDialog,
@@ -44,12 +45,26 @@ import {
   Loader2,
   Settings,
   HelpCircle,
+  X,
 } from 'lucide-react';
 import { batchApi, batchContentApi, BatchWeek } from '@/lib/batch-api';
 import { useToast } from '@/hooks/use-toast';
 import { format } from 'date-fns';
 import { WeeklyTestManager } from '@/components/WeeklyTestManager';
 import { SessionMcqManager } from '@/components/SessionMcqManager';
+
+
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
+import { courseModuleApi } from '@/lib/course-module-api';
+import axios from 'axios';
+import getBlobDuration from 'get-blob-duration';
+import { ImageCropperModal } from '@/components/ImageCropperModal';
 
 export default function BatchContent() {
   const { batchId } = useParams<{ batchId: string }>();
@@ -83,6 +98,53 @@ export default function BatchContent() {
   const [isSessionModalOpen, setIsSessionModalOpen] = useState(false);
   const [editingSession, setEditingSession] = useState<any>(null);
   const [isSavingSession, setIsSavingSession] = useState(false);
+
+  const [videoTitle, setVideoTitle] = useState('');
+  const [videoDesc, setVideoDesc] = useState('');
+  const [videoFile, setVideoFile] = useState<File | null>(null);
+  const [videoThumbnail, setVideoThumbnail] = useState<File | null>(null);
+  const [imagePreview, setImagePreview] = useState<string | null>(null);
+  const [cropperSrc, setCropperSrc] = useState<string | null>(null);
+  const [sessionNumber, setSessionNumber] = useState<number | ''>('');
+  const [weekday, setWeekday] = useState<string>('');
+  const [videoFormErrors, setVideoFormErrors] = useState<Record<string, string>>({});
+  
+  const [uploadProgress, setUploadProgress] = useState(-1);
+  const [isUploading, setIsUploading] = useState(false);
+  
+  const fileInputRef = React.useRef<HTMLInputElement>(null);
+  const thumbnailInputRef = React.useRef<HTMLInputElement>(null);
+  const editThumbnailInputRef = React.useRef<HTMLInputElement>(null);
+
+  const handleThumbnailSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && e.target.files.length > 0) {
+      const file = e.target.files[0];
+      if (file.size > 2 * 1024 * 1024) {
+        setVideoFormErrors(prev => ({ ...prev, thumbnail: 'Thumbnail image must be less than 2MB.' }));
+        if (thumbnailInputRef.current) thumbnailInputRef.current.value = '';
+        if (editThumbnailInputRef.current) editThumbnailInputRef.current.value = '';
+        return;
+      } else {
+        setVideoFormErrors(prev => {
+          const newErrs = { ...prev };
+          delete newErrs.thumbnail;
+          return newErrs;
+        });
+      }
+      const reader = new FileReader();
+      reader.addEventListener('load', () => setCropperSrc(reader.result?.toString() || null));
+      reader.readAsDataURL(file);
+      if (thumbnailInputRef.current) thumbnailInputRef.current.value = '';
+      if (editThumbnailInputRef.current) editThumbnailInputRef.current.value = '';
+    }
+  };
+
+  const handleCroppedImage = (file: File, url: string) => {
+    setVideoThumbnail(file);
+    setImagePreview(url);
+    setCropperSrc(null);
+  };
+
   const [sessionForm, setSessionForm] = useState({
     title: '',
     description: '',
@@ -105,6 +167,18 @@ export default function BatchContent() {
   // Delete Alert
   const [deleteSessionId, setDeleteSessionId] = useState<number | null>(null);
   const [isDeletingSession, setIsDeletingSession] = useState(false);
+
+  // Delete Week Alert
+  const [deleteWeekId, setDeleteWeekId] = useState<number | null>(null);
+  const [isDeletingWeek, setIsDeletingWeek] = useState(false);
+
+  // Add Week
+  const [isAddWeekOpen, setIsAddWeekOpen] = useState(false);
+  const [newWeekTitle, setNewWeekTitle] = useState('');
+  const [newWeekNumber, setNewWeekNumber] = useState<number | ''>(1);
+  const [newWeekTitleError, setNewWeekTitleError] = useState('');
+  const [newWeekNumberError, setNewWeekNumberError] = useState('');
+  const [isAddingWeek, setIsAddingWeek] = useState(false);
 
   const fetchBatchInfo = async () => {
     if (!batchId) return;
@@ -156,6 +230,16 @@ export default function BatchContent() {
   };
 
   useEffect(() => {
+    if (isAddWeekOpen) {
+      setNewWeekTitle('');
+      setNewWeekTitleError('');
+      setNewWeekNumberError('');
+      const nextWeekNumber = weeks.length > 0 ? Math.max(...weeks.map(w => w.week_number)) + 1 : 1;
+      setNewWeekNumber(nextWeekNumber);
+    }
+  }, [isAddWeekOpen, weeks]);
+
+  useEffect(() => {
     fetchBatchInfo();
     fetchWeeks();
   }, [batchId]);
@@ -181,7 +265,6 @@ export default function BatchContent() {
       await batchContentApi.updateWeek(parseInt(batchId), editWeek.id, {
         title: editTitle,
         description: editDesc,
-        unlock_date: editUnlockDate ? `${editUnlockDate}T00:00:00Z` : null,
       });
       toast({ title: 'Success', description: 'Week updated successfully', variant: 'success' });
       setIsEditOpen(false);
@@ -190,6 +273,60 @@ export default function BatchContent() {
       toast({ title: 'Error', description: 'Failed to update week', variant: 'destructive' });
     } finally {
       setIsSaving(false);
+    }
+  };
+
+  const handleDeleteWeek = async () => {
+    if (!batchId || !deleteWeekId) return;
+    setIsDeletingWeek(true);
+    try {
+      await batchContentApi.deleteWeek(parseInt(batchId), deleteWeekId);
+      toast({ title: 'Success', description: 'Week deleted successfully', variant: 'success' });
+      setDeleteWeekId(null);
+      // If we deleted the active tab, reset
+      if (activeTab === deleteWeekId.toString()) setActiveTab('');
+      await fetchWeeks();
+    } catch (err: any) {
+      const msg = err.response?.data?.detail || 'Failed to delete week';
+      toast({ title: 'Error', description: msg, variant: 'destructive' });
+    } finally {
+      setIsDeletingWeek(false);
+    }
+  };
+
+  const handleAddWeek = async () => {
+    let hasError = false;
+    if (!newWeekTitle.trim()) { setNewWeekTitleError('Title is required'); hasError = true; } else { setNewWeekTitleError(''); }
+    if (newWeekNumber === '' || newWeekNumber <= 0) {
+      setNewWeekNumberError('A valid week number is required'); hasError = true;
+    } else {
+      const existingNumbers = new Set(weeks.map(w => w.week_number));
+      const missingPrev = [];
+      for (let i = 1; i < Number(newWeekNumber); i++) {
+        if (!existingNumbers.has(i)) missingPrev.push(i);
+      }
+      if (missingPrev.length > 0) {
+        setNewWeekNumberError(`Week ${missingPrev.join(', ')} must be created first before adding Week ${newWeekNumber}`);
+        hasError = true;
+      } else { setNewWeekNumberError(''); }
+    }
+    if (hasError || !batchId) return;
+    setIsAddingWeek(true);
+    try {
+      await batchContentApi.createWeek(parseInt(batchId), {
+        week_number: Number(newWeekNumber),
+        title: newWeekTitle.trim(),
+        description: '',
+      });
+      toast({ title: 'Success', description: 'Week added successfully', variant: 'success' });
+      setIsAddWeekOpen(false);
+      setNewWeekTitle('');
+      await fetchWeeks();
+    } catch (err: any) {
+      const msg = err.response?.data?.detail || 'Failed to add week';
+      toast({ title: 'Error', description: msg, variant: 'destructive' });
+    } finally {
+      setIsAddingWeek(false);
     }
   };
 
@@ -211,60 +348,111 @@ export default function BatchContent() {
   const handleOpenSessionModal = (session?: any) => {
     if (session) {
       setEditingSession(session);
-      setSessionForm({
-        title: session.title,
-        description: session.description || '',
-        session_number: session.session_number,
-        weekday: session.weekday || '',
-        video_file: null,
-        thumbnail: null,
-      });
+      setVideoTitle(session.title);
+      setVideoDesc(session.description || '');
+      setSessionNumber(session.session_number);
+      setWeekday(session.weekday || '');
+      setVideoFile(null);
+      setVideoThumbnail(null);
+      setImagePreview(session.thumbnail || null);
     } else {
       setEditingSession(null);
-      setSessionForm({
-        title: '',
-        description: '',
-        session_number: 1,
-        weekday: '',
-        video_file: null,
-        thumbnail: null,
-      });
+      setVideoTitle('');
+      setVideoDesc('');
+      setSessionNumber(1);
+      setWeekday('');
+      setVideoFile(null);
+      setVideoThumbnail(null);
+      setImagePreview(null);
     }
-    setSessionErrors({});
+    setVideoFormErrors({});
     setIsSessionModalOpen(true);
   };
 
   const handleSaveSession = async () => {
-    if (!batchId || !activeTab) return;
-    
-    if (!sessionForm.weekday) {
-      toast({ title: 'Validation Error', description: 'Please select a weekday.', variant: 'destructive' });
-      return;
-    }
-    
+    const errors: Record<string, string> = {};
+    if (!videoTitle.trim()) errors.title = 'Title is required';
+    if (!batchId || !activeTab) errors.week = 'Please select a week/batch';
+    if (sessionNumber === '' || sessionNumber <= 0) errors.session_number = 'Session number must be a valid number greater than 0';
+    if (!weekday || weekday === 'none') errors.weekday = 'Weekday is required';
+    if (!editingSession && !videoFile) errors.video_file = 'You must select a video file to upload';
+
+    setVideoFormErrors(errors);
+    if (Object.keys(errors).length > 0) return;
+
     setIsSavingSession(true);
+    setUploadProgress(0);
+
     try {
+      let finalVideoKey = '';
+      let actualDurationSeconds = 0;
+
+      if (videoFile) {
+        try {
+          const durationS = await getBlobDuration(videoFile);
+          actualDurationSeconds = Math.round(durationS);
+        } catch (err) {
+          console.warn('Failed to parse video duration', err);
+        }
+
+        const initRes = await courseModuleApi.initMultipartUpload(videoFile.name, videoFile.type, videoFile.size);
+        if (!initRes.success) throw new Error(initRes.message);
+
+        const { upload_id, key, part_urls, chunk_size } = initRes.data;
+        const uploadedParts = [];
+
+        for (let i = 0; i < part_urls.length; i++) {
+          const start = i * chunk_size;
+          const end = Math.min(start + chunk_size, videoFile.size);
+          const chunk = videoFile.slice(start, end);
+
+          const uploadRes = await axios.put(part_urls[i], chunk, {
+            headers: { 'Content-Type': videoFile.type },
+            onUploadProgress: (progressEvent) => {
+              if (progressEvent.total) {
+                const chunkPct = progressEvent.loaded / progressEvent.total;
+                const overallPct = Math.round(((i + chunkPct) / part_urls.length) * 100);
+                setUploadProgress(overallPct);
+              }
+            }
+          });
+
+          const etag = uploadRes.headers['etag'] || uploadRes.headers['ETag'];
+          if (!etag) throw new Error("Storage server didn't return an ETag for the part.");
+          
+          uploadedParts.push({ ETag: etag, PartNumber: i + 1 });
+        }
+
+        const completeRes = await courseModuleApi.completeMultipartUpload(key, upload_id, uploadedParts);
+        if (!completeRes.success) throw new Error("Failed to finalize upload.");
+        
+        finalVideoKey = completeRes.data.video_key;
+      }
+
       const formData = new FormData();
-      formData.append('title', sessionForm.title);
-      formData.append('description', sessionForm.description);
-      formData.append('session_number', sessionForm.session_number.toString());
-      if (sessionForm.weekday) formData.append('weekday', sessionForm.weekday);
-      if (sessionForm.video_file) formData.append('video_file', sessionForm.video_file);
-      if (sessionForm.thumbnail) formData.append('thumbnail', sessionForm.thumbnail);
+      formData.append('title', videoTitle);
+      formData.append('description', videoDesc);
+      formData.append('session_number', sessionNumber.toString());
+      formData.append('weekday', weekday);
+      if (actualDurationSeconds > 0) formData.append('duration_seconds', actualDurationSeconds.toString()); 
+      if (finalVideoKey) formData.append('video_file', finalVideoKey);
+      if (videoThumbnail) formData.append('thumbnail', videoThumbnail);
+      else if (imagePreview === null) formData.append('remove_thumbnail', 'true');
 
       if (editingSession) {
-        await batchContentApi.updateSession(parseInt(batchId), parseInt(activeTab), editingSession.id, formData);
+        await batchContentApi.updateSession(parseInt(batchId as string), parseInt(activeTab), editingSession.id, formData);
       } else {
-        await batchContentApi.createSession(parseInt(batchId), parseInt(activeTab), formData);
+        await batchContentApi.createSession(parseInt(batchId as string), parseInt(activeTab), formData);
       }
       
       toast({ title: 'Success', description: editingSession ? 'Session updated' : 'Session created' });
       setIsSessionModalOpen(false);
       fetchContent(parseInt(activeTab));
-    } catch (err) {
-      toast({ title: 'Error', description: 'Failed to save session', variant: 'destructive' });
+    } catch (err: any) {
+      toast({ title: 'Error', description: err?.message || 'Failed to save session', variant: 'destructive' });
     } finally {
       setIsSavingSession(false);
+      setUploadProgress(-1);
     }
   };
 
@@ -304,7 +492,11 @@ export default function BatchContent() {
             </h1>
             <p className="mt-1 text-muted-foreground">Manage schedule and content for this specific batch</p>
           </div>
-          <div className="ml-auto">
+          <div className="ml-auto flex gap-2">
+            <Button variant="outline" onClick={() => setIsAddWeekOpen(true)}>
+              <Plus className="h-4 w-4 mr-2" />
+              Add Week
+            </Button>
             <Button variant="outline" onClick={() => setIsExtendOpen(true)}>
               <Clock className="h-4 w-4 mr-2" />
               Extend Program
@@ -318,9 +510,9 @@ export default function BatchContent() {
           </div>
         ) : (
           <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
-            <TabsList className="bg-background p-1 border border-border/50 rounded-lg w-fit justify-start overflow-x-auto overflow-y-hidden flex-nowrap scrollbar-hide">
+            <TabsList className="bg-background p-1 border border-border/50 rounded-lg max-w-full justify-start overflow-x-auto overflow-y-hidden flex-nowrap scrollbar-hide">
               {weeks.map(week => (
-                <TabsTrigger key={week.id} value={week.id.toString()} className="whitespace-nowrap px-6">
+                <TabsTrigger key={week.id} value={week.id.toString()} className="whitespace-nowrap">
                   Week {week.week_number}
                 </TabsTrigger>
               ))}
@@ -333,28 +525,38 @@ export default function BatchContent() {
               <div className="text-center py-20 bg-muted/20 border-2 border-dashed rounded-xl">
                 <Settings className="h-12 w-12 mx-auto mb-4 opacity-30" />
                 <h3 className="text-lg font-medium">No weeks initialized</h3>
-                <p className="text-muted-foreground mb-6">This batch doesn't have any weekly content yet. Check the Scheduled tab for upcoming events.</p>
-                <Button variant="gradient" onClick={() => navigate('/batches')}>
-                  Go to Batches
+                <p className="text-muted-foreground mb-6">This batch doesn't have any weekly content yet. Click "Add Week" to create the first week.</p>
+                <Button variant="outline" onClick={() => setIsAddWeekOpen(true)}>
+                  <Plus className="h-4 w-4 mr-2" />
+                  Add First Week
                 </Button>
               </div>
             ) : (
               weeks.map(week => (
                 <TabsContent key={week.id} value={week.id.toString()} className="space-y-6">
-                  <div className="flex flex-col md:flex-row gap-6">
-                    {/* Week info card */}
+
+                  {/* Week info card — with title, unlock date, status, edit/delete */}
+                  <div className="flex flex-col md:flex-row gap-4">
                     <Card className="flex-1 shadow-card">
                       <CardHeader className="flex flex-row items-center justify-between">
                         <div>
                           <CardTitle className="text-2xl font-bold">{week.title}</CardTitle>
                           <CardDescription>{week.description || 'No description provided.'}</CardDescription>
                         </div>
-                        <Button variant="outline" size="sm" onClick={() => handleOpenEdit(week)}>
-                          <Edit className="h-4 w-4 mr-2" />
-                          Edit Week
-                        </Button>
+                        <div className="flex gap-2">
+                          <Button variant="outline" size="sm" onClick={() => handleOpenTestManager(week)} disabled={week.is_unlocked}>
+                            <FileText className="h-4 w-4 mr-2" />
+                            {weeklyTest ? 'Edit Assessment' : 'Add Test'}
+                          </Button>
+                          <Button variant="outline" size="icon" onClick={() => handleOpenEdit(week)} disabled={week.is_unlocked}>
+                            <Edit className="h-4 w-4" />
+                          </Button>
+                          <Button variant="outline" size="icon" className="text-destructive border-destructive/40 hover:bg-destructive/10" onClick={() => setDeleteWeekId(week.id)} disabled={week.is_unlocked}>
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        </div>
                       </CardHeader>
-                      <CardContent className="space-y-4">
+                      <CardContent>
                         <div className="grid grid-cols-2 gap-4">
                           <div className="p-4 bg-muted/30 rounded-lg">
                             <p className="text-xs text-muted-foreground uppercase font-semibold mb-1">Unlock Date</p>
@@ -367,7 +569,7 @@ export default function BatchContent() {
                           </div>
                           <div className="p-4 bg-muted/30 rounded-lg">
                             <p className="text-xs text-muted-foreground uppercase font-semibold mb-1">Status</p>
-                            <Badge variant={week.is_unlocked ? "outline" : "secondary"}>
+                            <Badge variant={week.is_unlocked ? 'outline' : 'secondary'}>
                               {week.is_unlocked ? 'Unlocked' : 'Scheduled'}
                             </Badge>
                           </div>
@@ -376,27 +578,26 @@ export default function BatchContent() {
                     </Card>
                   </div>
 
-                  {/* Class Sessions Section */}
-                  <div className="pt-4 border-t">
-                    <div className="flex items-center justify-between mb-6">
-                      <div className="flex items-center gap-2">
-                        <Play className="h-5 w-5 text-primary" />
-                        <h3 className="text-xl font-bold">Class Sessions</h3>
-                      </div>
-                      <Button variant="outline" size="sm" onClick={() => handleOpenSessionModal()} disabled={!week.can_modify_content}>
-                        <Plus className="h-4 w-4 mr-2" />
-                        Add Session
-                      </Button>
+
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <Play className="h-5 w-5 text-primary" />
+                      <h3 className="text-lg font-semibold">Class Sessions</h3>
                     </div>
-                    
-                    {loadingContent ? (
-                      <div className="flex justify-center py-10"><Loader2 className="h-6 w-6 animate-spin" /></div>
-                    ) : sessions.length === 0 ? (
-                      <div className="text-center py-10 bg-muted/20 border border-dashed rounded-lg">
-                        <p className="text-muted-foreground">No sessions in this week yet.</p>
-                      </div>
-                    ) : (
-                      <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+                    <Button variant="outline" size="sm" onClick={() => handleOpenSessionModal()} disabled={week.is_unlocked}>
+                      <Plus className="h-4 w-4 mr-2" />
+                      Add Session
+                    </Button>
+                  </div>
+
+                {loadingContent ? (
+                  <div className="flex justify-center py-10"><Loader2 className="h-6 w-6 animate-spin" /></div>
+                ) : sessions.length === 0 ? (
+                  <div className="py-8 text-center text-muted-foreground bg-muted/20 border border-dashed border-foreground/20 rounded-lg">
+                    No videos uploaded for this week yet.
+                  </div>
+                ) : (
+                  <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
                         {[...sessions]
                           .sort((a, b) => {
                             const days: Record<string, number> = { monday: 1, tuesday: 2, wednesday: 3, thursday: 4, friday: 5, saturday: 6, sunday: 7 };
@@ -420,10 +621,11 @@ export default function BatchContent() {
                               <button 
                                 className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 p-4 rounded-full bg-primary text-primary-foreground opacity-0 group-hover:opacity-100 transition-opacity shadow-lg"
                                 onClick={() => {
-                                  if (session.video_url) {
-                                    setPlayingVideoUrl(session.video_url);
+                                  const url = session.video_presigned_url || session.video_url;
+                                  if (url) {
+                                    setPlayingVideoUrl(url);
                                   } else {
-                                    toast({ title: 'Video Unavailable', description: 'This video cannot be played directly at this time.', variant: 'destructive' });
+                                    toast({ title: 'Video Unavailable', description: 'This video is still processing or unavailable.', variant: 'destructive' });
                                   }
                                 }}
                               >
@@ -431,9 +633,12 @@ export default function BatchContent() {
                               </button>
                               
                               <div className="absolute bottom-3 left-3 right-3 flex items-end justify-between">
+                                {/* Duration — same as Course page: Clock + MM:SS on left */}
                                 <Badge variant="secondary" className="bg-foreground/80 text-background flex items-center">
                                   <Clock className="h-3 w-3 mr-1" />
-                                  S{session.session_number}
+                                  {session.duration_seconds > 0 ? (
+                                    `${Math.floor(session.duration_seconds / 60).toString().padStart(2, '0')}:${(session.duration_seconds % 60).toString().padStart(2, '0')}`
+                                  ) : 'Processing'}
                                 </Badge>
                                 {session.weekday && (
                                   <Badge variant="outline" className="bg-background/80 backdrop-blur-md shadow-sm border-primary/20 capitalize font-medium text-xs">
@@ -460,10 +665,10 @@ export default function BatchContent() {
                                   </Button>
                                 </div>
                                 <div className="flex gap-1">
-                                  <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => handleOpenSessionModal(session)} disabled={!week.can_modify_content}>
+                                  <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => handleOpenSessionModal(session)} disabled={week.is_unlocked}>
                                     <Edit className="h-4 w-4" />
                                   </Button>
-                                  <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => setDeleteSessionId(session.id)} disabled={!week.can_modify_content}>
+                                  <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => setDeleteSessionId(session.id)} disabled={week.is_unlocked}>
                                     <Trash2 className="h-4 w-4" />
                                   </Button>
                                 </div>
@@ -473,53 +678,53 @@ export default function BatchContent() {
                         ))}
                       </div>
                     )}
-                  </div>
 
-                  {/* Weekly Test Section */}
-                  <div className="pt-8 mt-4 border-t">
-                    <div className="flex items-center justify-between mb-6">
-                      <div className="flex items-center gap-2">
-                        <FileText className="h-5 w-5 text-primary" />
-                        <h3 className="text-xl font-bold">Weekly Test</h3>
-                      </div>
-                      <Button variant="outline" size="sm" onClick={() => handleOpenTestManager(week)} disabled={!week.can_modify_content}>
-                         {weeklyTest ? <Settings className="h-4 w-4 mr-2" /> : <Plus className="h-4 w-4 mr-2" />}
-                         {weeklyTest ? 'Manage Assessment' : 'Add Test'}
-                       </Button>
+                <div className="mt-8 pt-8 border-t border-foreground/10">
+                  <h3 className="text-lg font-semibold mb-4">Weekly Assessment</h3>
+                  {loadingContent ? (
+                    <div className="flex justify-center py-10"><Loader2 className="h-6 w-6 animate-spin" /></div>
+                  ) : weeklyTest ? (
+                    <Card className="shadow-sm border-primary/20 bg-primary/5">
+                      <CardHeader className="flex flex-row items-center justify-between pb-2">
+                        <div className="flex items-center gap-3">
+                          <div className="p-2 bg-primary/10 rounded-lg">
+                            <CheckCircle className="h-6 w-6 text-primary" />
+                          </div>
+                          <div>
+                            <CardTitle className="text-lg">{weeklyTest.title}</CardTitle>
+                            <CardDescription>
+                              {weeklyTest.questions?.length || 0} Question{(weeklyTest.questions?.length || 0) !== 1 ? 's' : ''}
+                              {' · '}{weeklyTest.pass_percentage ?? 70}% pass mark
+                            </CardDescription>
+                          </div>
+                        </div>
+                        <div className="flex gap-2">
+                          <Button variant="outline" size="sm" onClick={() => handleOpenTestManager(week)} disabled={week.is_unlocked}>
+                            <Edit className="h-3.5 w-3.5 mr-1.5" />
+                            Manage
+                          </Button>
+                        </div>
+                      </CardHeader>
+                      <CardContent>
+                        {weeklyTest.instructions && (
+                          <p className="text-sm text-foreground/70 mt-1 line-clamp-2">{weeklyTest.instructions}</p>
+                        )}
+                      </CardContent>
+                    </Card>
+                  ) : (
+                    <div className="border-2 border-dashed border-foreground/20 rounded-xl p-8 text-center bg-muted/20">
+                      <FileText className="h-10 w-10 text-muted-foreground mx-auto mb-3" />
+                      <h4 className="font-medium text-foreground mb-1">No Assessment Configured</h4>
+                      <p className="text-sm text-muted-foreground mb-4">Add a weekly test that students must complete.</p>
+                      <Button variant="outline" onClick={() => handleOpenTestManager(week)} disabled={week.is_unlocked}>
+                        <Plus className="h-4 w-4 mr-2" />
+                        Add Weekly Test
+                      </Button>
                     </div>
-                    
-                    {loadingContent ? (
-                      <div className="flex justify-center py-10"><Loader2 className="h-6 w-6 animate-spin" /></div>
-                    ) : !weeklyTest ? (
-                      <div className="text-center py-10 bg-muted/20 border border-dashed rounded-lg">
-                        <FileText className="h-10 w-10 text-muted-foreground/40 mx-auto mb-3" />
-                        <p className="text-sm text-muted-foreground mb-4">No test configured for this week.</p>
-                        <Button variant="outline" size="sm" onClick={() => handleOpenTestManager(week)} disabled={!week.can_modify_content}>
-                          <Plus className="h-4 w-4 mr-2" />Add Test
-                        </Button>
-                      </div>
-                    ) : (
-                      <Card className="bg-primary/5 border-primary/10 shadow-none">
-                        <CardHeader className="pb-2">
-                          <CardTitle className="text-lg flex items-center gap-2">
-                            {weeklyTest.title}
-                            <Badge variant="outline" className="text-[10px] ml-2">REQUIRED</Badge>
-                          </CardTitle>
-                          <CardDescription className="text-xs">
-                            Passing score: {weeklyTest.pass_percentage}% &middot; {weeklyTest.questions?.length || 0} question{(weeklyTest.questions?.length || 0) !== 1 ? 's' : ''}
-                          </CardDescription>
-                        </CardHeader>
-                        <CardContent className="flex gap-3 pt-2">
-                           <Button variant="outline" size="sm" className="bg-background" onClick={() => handleOpenTestManager(week)} disabled={!week.can_modify_content}>
-                              <Edit className="h-4 w-4 mr-1.5" />
-                              Manage Assessment
-                           </Button>
-                        </CardContent>
-                      </Card>
-                    )}
-                  </div>
-                </TabsContent>
-              ))
+                  )}
+                </div>
+              </TabsContent>
+            ))
             )}
 
             {/* Scheduled Webinars Tab - always visible */}
@@ -630,7 +835,7 @@ export default function BatchContent() {
         <DialogContent onOpenAutoFocus={(e) => e.preventDefault()}>
           <DialogHeader>
             <DialogTitle>Edit Batch Week</DialogTitle>
-            <DialogDescription>Modify title and schedule for this batch.</DialogDescription>
+            <DialogDescription>Modify title and description for this batch week.</DialogDescription>
           </DialogHeader>
           <div className="space-y-4 py-4">
             <div className="space-y-2">
@@ -641,16 +846,61 @@ export default function BatchContent() {
               <Label>Description</Label>
               <Textarea value={editDesc} onChange={e => setEditDesc(e.target.value)} />
             </div>
-            <div className="space-y-2">
-              <Label>Unlock Date</Label>
-              <Input type="date" value={editUnlockDate} onChange={e => setEditUnlockDate(e.target.value)} />
-            </div>
           </div>
           <div className="flex justify-end gap-3 pt-4 border-t">
             <Button variant="ghost" onClick={() => setIsEditOpen(false)}>Cancel</Button>
             <Button variant="gradient" onClick={handleSaveWeek} disabled={isSaving}>
               {isSaving ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
               Save Changes
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Add Week Dialog — same layout as Course content */}
+      <Dialog open={isAddWeekOpen} onOpenChange={(open) => { if (!open) { setIsAddWeekOpen(false); setNewWeekTitle(''); setNewWeekTitleError(''); setNewWeekNumberError(''); } }}>
+        <DialogContent className="sm:max-w-md" onOpenAutoFocus={(e) => e.preventDefault()}>
+          <DialogHeader>
+            <DialogTitle>Add New Week</DialogTitle>
+            <DialogDescription>Add a new content week to this batch. The unlock date is auto-calculated from the batch start date.</DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label htmlFor="newBatchWeekNumber">Week Number <span className="text-destructive">*</span></Label>
+              <Input
+                id="newBatchWeekNumber"
+                type="number"
+                min="1"
+                placeholder="e.g. 1"
+                value={newWeekNumber}
+                onChange={(e) => {
+                  setNewWeekNumber(e.target.value === '' ? '' : parseInt(e.target.value, 10));
+                  if (newWeekNumberError) setNewWeekNumberError('');
+                }}
+                className={newWeekNumberError ? 'border-destructive focus-visible:ring-destructive' : ''}
+              />
+              {newWeekNumberError && <p className="text-sm text-destructive mt-1">{newWeekNumberError}</p>}
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="newBatchWeekTitle">Week Title <span className="text-destructive">*</span></Label>
+              <Input
+                id="newBatchWeekTitle"
+                placeholder="e.g. Loops & Statements"
+                value={newWeekTitle}
+                onChange={(e) => {
+                  setNewWeekTitle(e.target.value);
+                  if (newWeekTitleError) setNewWeekTitleError('');
+                }}
+                className={newWeekTitleError ? 'border-destructive focus-visible:ring-destructive' : ''}
+              />
+              {newWeekTitleError && <p className="text-sm text-destructive mt-1">{newWeekTitleError}</p>}
+            </div>
+          </div>
+          <div className="flex justify-end gap-3">
+            <Button variant="outline" onClick={() => setIsAddWeekOpen(false)}>Cancel</Button>
+            <Button variant="gradient" onClick={handleAddWeek} disabled={isAddingWeek}>
+              {isAddingWeek ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
+              Create Week
             </Button>
           </div>
         </DialogContent>
@@ -687,107 +937,222 @@ export default function BatchContent() {
         </DialogContent>
       </Dialog>
       {/* Session Modal */}
-      <Dialog open={isSessionModalOpen} onOpenChange={setIsSessionModalOpen}>
-        <DialogContent className="sm:max-w-2xl max-h-[90vh] overflow-y-auto" onOpenAutoFocus={(e) => e.preventDefault()}>
+      <Dialog open={isSessionModalOpen} onOpenChange={(v) => { if (!v) setIsSessionModalOpen(false) }}>
+        <DialogContent className="sm:max-w-2xl" onOpenAutoFocus={(e) => e.preventDefault()}>
           <DialogHeader>
-            <DialogTitle>{editingSession ? 'Edit Session' : 'Add New Session'}</DialogTitle>
-            <DialogDescription>Create a session specific to this batch week.</DialogDescription>
+            <DialogTitle>{editingSession ? 'Edit Class Session' : 'Add Class Session'}</DialogTitle>
+            <DialogDescription>
+              {editingSession ? 'Update details, upload a new video, or change the thumbnail.' : 'Upload a new video session to this week. Videos are uploaded directly to Object Storage.'}
+            </DialogDescription>
           </DialogHeader>
-          <div className="space-y-4 py-4">
-            <div className="space-y-2">
-              <Label>Video Title <span className="text-destructive">*</span></Label>
-              <Input 
-                placeholder="Enter video title"
-                value={sessionForm.title} 
-                onChange={e => setSessionForm({...sessionForm, title: e.target.value})}
-              />
-            </div>
-            
-            <div className="space-y-2">
-              <Label>Description <span className="text-muted-foreground font-normal text-xs ml-2">(Optional)</span></Label>
-              <Textarea 
-                value={sessionForm.description} 
-                onChange={e => setSessionForm({...sessionForm, description: e.target.value})}
-                placeholder="What will students learn in this session?"
-                className="resize-none"
-                rows={2}
-              />
-            </div>
-            
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label>Session Number <span className="text-destructive">*</span></Label>
-                <Input 
-                  type="number" 
-                  min="1"
-                  value={sessionForm.session_number} 
-                  onChange={e => setSessionForm({...sessionForm, session_number: parseInt(e.target.value)})}
+          <div className="grid gap-6 py-4">
+            <div className="grid grid-cols-2 gap-4">
+              <div className="relative">
+                <Label htmlFor="session_number">Session Number</Label>
+                <Input
+                  id="session_number"
+                  type="number"
+                  value={sessionNumber}
+                  onChange={(e) => {
+                    const val = e.target.value ? parseInt(e.target.value) : '';
+                    setSessionNumber(val as any);
+                    if (videoFormErrors.session_number) setVideoFormErrors((p) => ({ ...p, session_number: '' }));
+                  }}
+                  className={videoFormErrors.session_number ? "border-destructive mt-1" : "mt-1"}
                 />
+                {videoFormErrors.session_number && <p className="text-xs text-destructive mt-1 absolute -bottom-5 left-0">{videoFormErrors.session_number}</p>}
               </div>
 
-              <div className="space-y-2">
-                <Label>Weekday Tag <span className="text-destructive">*</span></Label>
-                <select 
-                  className="flex h-10 w-full items-center justify-between rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
-                  value={sessionForm.weekday}
-                  onChange={e => setSessionForm({...sessionForm, weekday: e.target.value})}
+              <div className="relative">
+                  <Label htmlFor="weekday" className="text-sm font-medium">Class Day</Label>
+                  <Select value={weekday} onValueChange={(val) => {
+                      setWeekday(val);
+                      if (videoFormErrors.weekday) setVideoFormErrors(p => ({ ...p, weekday: '' }));
+                  }}>
+                      <SelectTrigger className={`mt-1 ${videoFormErrors.weekday ? "border-destructive" : ""}`}>
+                          <SelectValue placeholder="Select a day" />
+                      </SelectTrigger>
+                      <SelectContent>
+                          {['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'].map(day => (
+                              <SelectItem key={day} value={day} className="capitalize">{day}</SelectItem>
+                          ))}
+                      </SelectContent>
+                  </Select>
+                  {videoFormErrors.weekday && <p className="text-xs text-destructive mt-1 absolute -bottom-5 left-0">{videoFormErrors.weekday}</p>}
+              </div>
+            </div>
+
+            <div className="grid gap-2 relative">
+              <Label htmlFor="title">Session Title</Label>
+              <Input
+                id="title"
+                value={videoTitle}
+                onChange={(e) => {
+                  setVideoTitle(e.target.value);
+                  if (videoFormErrors.title) setVideoFormErrors((p) => ({ ...p, title: '' }));
+                }}
+                className={videoFormErrors.title ? "border-destructive" : ""}
+                placeholder="e.g. Introduction to Variables"
+              />
+              {videoFormErrors.title && <p className="text-xs text-destructive absolute -bottom-5 left-0">{videoFormErrors.title}</p>}
+            </div>
+
+            <div className="grid gap-2">
+              <Label htmlFor="description">Session Description (Optional)</Label>
+              <Textarea
+                id="description"
+                value={videoDesc}
+                onChange={(e) => setVideoDesc(e.target.value)}
+                placeholder="Add notes, context, or homework references..."
+                className="resize-none"
+                rows={3}
+              />
+            </div>
+
+            <div className="grid grid-cols-2 gap-6">
+              <div className="grid gap-2">
+                <Label>Video File</Label>
+                <div 
+                  className={`border-2 border-dashed rounded-lg p-4 text-center cursor-pointer transition-colors ${videoFormErrors.video_file ? 'border-destructive/50 bg-destructive/5' : 'hover:bg-muted/50'} ${videoFile || (editingSession && editingSession.video_file) ? 'bg-primary/5 border-primary/20' : ''}`}
+                  onClick={() => fileInputRef.current?.click()}
                 >
-                  <option value="" disabled>Select a weekday</option>
-                  <option value="monday">Monday</option>
-                  <option value="tuesday">Tuesday</option>
-                  <option value="wednesday">Wednesday</option>
-                  <option value="thursday">Thursday</option>
-                  <option value="friday">Friday</option>
-                  <option value="saturday">Saturday</option>
-                  <option value="sunday">Sunday</option>
-                </select>
+                  <input
+                    type="file"
+                    ref={fileInputRef}
+                    className="hidden"
+                    accept="video/*"
+                    onChange={(e) => {
+                      if (e.target.files && e.target.files.length > 0) {
+                        setVideoFile(e.target.files[0]);
+                        if (videoFormErrors.video_file) setVideoFormErrors((p) => ({ ...p, video_file: '' }));
+                      }
+                    }}
+                  />
+                  <div className="flex flex-col items-center justify-center space-y-2">
+                    {videoFile ? (
+                      <>
+                        <div className="p-2 bg-primary/10 rounded-full">
+                          <CheckCircle className="h-6 w-6 text-primary" />
+                        </div>
+                        <div className="text-sm font-medium text-primary line-clamp-1 px-4">{videoFile.name}</div>
+                        <div className="text-xs text-muted-foreground">
+                          {(videoFile.size / (1024 * 1024)).toFixed(2)} MB
+                        </div>
+                      </>
+                    ) : editingSession && editingSession.video_file ? (
+                      <>
+                        <div className="p-2 bg-primary/10 rounded-full">
+                          <CheckCircle className="h-6 w-6 text-primary" />
+                        </div>
+                        <div className="text-sm font-medium text-primary">Video Uploaded</div>
+                        <div className="text-xs text-muted-foreground mt-1 px-2">Click to replace existing video file</div>
+                      </>
+                    ) : (
+                      <>
+                        <div className="p-2 bg-muted rounded-full">
+                          <Upload className="h-6 w-6 text-muted-foreground" />
+                        </div>
+                        <div className="text-sm font-medium">Click to upload video</div>
+                        <div className="text-xs text-muted-foreground">MP4, WebM (Max 5GB)</div>
+                      </>
+                    )}
+                  </div>
+                </div>
+                {videoFormErrors.video_file && <p className="text-xs text-destructive">{videoFormErrors.video_file}</p>}
+              </div>
+
+              <div className="grid gap-2">
+                <Label>Custom Thumbnail</Label>
+                <div 
+                  className={`border-2 border-dashed rounded-lg text-center cursor-pointer transition-colors h-[126px] relative overflow-hidden group ${videoFormErrors.thumbnail ? 'border-destructive/50' : 'hover:bg-muted/50'}`}
+                  onClick={() => thumbnailInputRef.current?.click()}
+                >
+                  <input
+                    type="file"
+                    ref={thumbnailInputRef}
+                    className="hidden"
+                    accept="image/*"
+                    onChange={handleThumbnailSelect}
+                  />
+                  
+                  {imagePreview ? (
+                    <>
+                      <img src={imagePreview} alt="Thumbnail preview" className="w-full h-full object-cover" />
+                      <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity flex flex-col items-center justify-center text-white gap-2">
+                        <Upload className="h-6 w-6" />
+                        <span className="text-xs font-medium">Replace Thumbnail</span>
+                      </div>
+                      <Button 
+                        type="button" 
+                        variant="destructive" 
+                        size="icon" 
+                        className="absolute top-1 right-1 h-6 w-6 rounded-full opacity-0 group-hover:opacity-100 transition-opacity z-10"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setImagePreview(null);
+                          setVideoThumbnail(null);
+                          if (thumbnailInputRef.current) thumbnailInputRef.current.value = '';
+                        }}
+                      >
+                        <X className="h-3 w-3" />
+                      </Button>
+                    </>
+                  ) : (
+                    <div className="flex flex-col items-center justify-center space-y-2 h-full">
+                      <div className="p-2 bg-muted rounded-full">
+                        <ImageIcon className="h-6 w-6 text-muted-foreground" />
+                      </div>
+                      <div className="text-sm font-medium px-2">Click to add thumbnail</div>
+                      <div className="text-xs text-muted-foreground">16:9 ratio recommended</div>
+                    </div>
+                  )}
+                </div>
+                {videoFormErrors.thumbnail && <p className="text-xs text-destructive">{videoFormErrors.thumbnail}</p>}
               </div>
             </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-2">
-              <div className="space-y-2">
-                <Label>Video File <span className="text-destructive">*</span> <span className="text-muted-foreground font-normal text-xs ml-1">(MP4 only)</span></Label>
-                <div className={`border rounded-md p-1 ${sessionErrors.video_file ? 'border-destructive' : 'border-input'}`}>
-                   <Input 
-                     type="file" 
-                     className="border-0 shadow-none bg-transparent"
-                     onChange={e => {
-                       const file = e.target.files?.[0];
-                       if (file && file.type !== 'video/mp4') {
-                         setSessionErrors(prev => ({...prev, video_file: "Only MP4 videos are allowed"}));
-                         e.target.value = '';
-                         return;
-                       }
-                       setSessionErrors(prev => ({...prev, video_file: ""}));
-                       setSessionForm({...sessionForm, video_file: file || null});
-                     }} 
-                     accept="video/mp4" 
-                   />
+            {/* Upload Progress Bar */}
+            {uploadProgress >= 0 && (
+              <div className="space-y-2 mt-2">
+                <div className="flex items-center justify-between text-xs">
+                  <span className="font-medium text-foreground">
+                    Uploading {uploadProgress === 100 ? 'and Processing...' : 'Video...'}
+                  </span>
+                  <span className="font-bold text-primary">{Math.min(uploadProgress, 100)}%</span>
                 </div>
-                {sessionErrors.video_file && <p className="text-[10px] text-destructive mt-1 font-medium">{sessionErrors.video_file}</p>}
-              </div>
-              <div className="space-y-2">
-                <Label>Thumbnail <span className="text-muted-foreground font-normal text-xs ml-2">(Optional)</span></Label>
-                <div className="border border-input rounded-md p-1">
-                   <Input 
-                     type="file" 
-                     className="border-0 shadow-none bg-transparent"
-                     onChange={e => setSessionForm({...sessionForm, thumbnail: e.target.files?.[0] || null})} 
-                     accept="image/*" 
-                   />
+                <div className="h-2 bg-muted overflow-hidden rounded-full">
+                  <div 
+                    className="h-full bg-primary transition-all duration-300 ease-out" 
+                    style={{ width: `${Math.min(uploadProgress, 100)}%` }}
+                  />
                 </div>
               </div>
-            </div>
+            )}
           </div>
-          <div className="flex justify-end gap-3 pt-4 border-t">
-            <Button variant="ghost" onClick={() => setIsSessionModalOpen(false)}>Cancel</Button>
-            <Button variant="gradient" onClick={handleSaveSession} disabled={isSavingSession || !sessionForm.title}>
-              {isSavingSession && <Loader2 className="h-4 w-4 animate-spin mr-2" />}
-              {editingSession ? 'Save Changes' : 'Create Session'}
+          <DialogFooter>
+            <Button variant="ghost" onClick={() => setIsSessionModalOpen(false)} disabled={isSavingSession}>
+              Cancel
             </Button>
-          </div>
+            <Button variant="gradient" onClick={handleSaveSession} disabled={isSavingSession}>
+              {isSavingSession ? (
+                <>
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  {uploadProgress >= 0 ? 'Uploading...' : 'Saving...'}
+                </>
+              ) : (
+                editingSession ? 'Update Session' : 'Save Session'
+              )}
+            </Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
+      <ImageCropperModal
+        isOpen={!!cropperSrc}
+        onClose={() => setCropperSrc(null)}
+        imageSrc={cropperSrc || ''}
+        onCropComplete={handleCroppedImage}
+        aspectRatio={16 / 9}
+      />
 
       {/* Weekly Test Manager (Batch) */}
       {testWeek && batchId && (
@@ -796,7 +1161,7 @@ export default function BatchContent() {
           onClose={() => { setIsTestModalOpen(false); setTestWeek(null); }}
           existingTest={weeklyTest ?? null}
           weekLabel={`Week ${testWeek.week_number}: ${testWeek.title}`}
-          testApiBase={`/api/courses/v1/batches/${batchId}/weeks/${testWeek.id}/test`}
+          testApiBase={`/api/courses/v1/batches/${batchId}/weeks/${testWeek.id}/test/manage`}
           onSaved={() => fetchContent(parseInt(activeTab))}
         />
       )}
@@ -810,7 +1175,7 @@ export default function BatchContent() {
         onSaved={() => fetchContent(parseInt(activeTab))}
       />
 
-      {/* Delete Confirmation */}
+      {/* Delete Session Confirmation */}
       <AlertDialog open={!!deleteSessionId} onOpenChange={() => setDeleteSessionId(null)}>
         <AlertDialogContent>
           <AlertDialogHeader>
@@ -828,6 +1193,29 @@ export default function BatchContent() {
             >
               {isDeletingSession ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Trash2 className="h-4 w-4 mr-2" />}
               Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Delete Week Confirmation */}
+      <AlertDialog open={!!deleteWeekId} onOpenChange={() => setDeleteWeekId(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete this week?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This will permanently delete this week along with ALL its sessions and tests. This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={isDeletingWeek}>Cancel</AlertDialogCancel>
+            <AlertDialogAction 
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              onClick={handleDeleteWeek}
+              disabled={isDeletingWeek}
+            >
+              {isDeletingWeek ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Trash2 className="h-4 w-4 mr-2" />}
+              Delete Week
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

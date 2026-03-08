@@ -199,10 +199,25 @@ export const batchContentApi = {
     return response.data;
   },
 
+  createWeek: async (batchId: number, data: { week_number: number; title: string; description?: string }) => {
+    const response = await apiClient.post<{ success: boolean; message: string }>(
+      `/api/courses/v1/batches/${batchId}/weeks/`,
+      data
+    );
+    return response.data;
+  },
+
   updateWeek: async (batchId: number, weekId: number, data: Partial<BatchWeek>) => {
     const response = await apiClient.patch<{ success: boolean }>(
       `/api/courses/v1/batches/${batchId}/weeks/${weekId}/`,
       data
+    );
+    return response.data;
+  },
+
+  deleteWeek: async (batchId: number, weekId: number) => {
+    const response = await apiClient.delete<{ success: boolean; message: string }>(
+      `/api/courses/v1/batches/${batchId}/weeks/${weekId}/`
     );
     return response.data;
   },

@@ -358,7 +358,8 @@ class BatchWeek(models.Model):
     def is_unlocked(self):
         if not self.unlock_date:
             return True
-        return timezone.now() >= self.unlock_date
+        from utils.common import get_current_local_date
+        return get_current_local_date() >= self.unlock_date.date()
 
     def can_modify_content(self):
         """Content cannot be deleted or re-added if it has already been unlocked."""
