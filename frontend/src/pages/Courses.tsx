@@ -27,6 +27,7 @@ import {
   FlaskConical,
   Monitor,
   Video as VideoIcon,
+  Calendar,
 } from 'lucide-react';
 import { courseApi, Course } from '@/lib/course-api';
 import { CourseWeek, ClassSession, courseModuleApi } from '@/lib/course-module-api';
@@ -202,16 +203,6 @@ export default function Courses() {
   };
 
   const toggleWeekExpand = (weekId: number) => {
-    const week = weeks.find(w => w.id === weekId);
-    if (!week) return;
-    const lockInfo = getWeekLockInfo(week);
-    if (lockInfo.is_locked) {
-      let msg = 'Complete previous weeks first.';
-      if (lockInfo.reason === 'date_locked') msg = `This week unlocks on ${new Date((lockInfo as any).unlock_date!).toLocaleDateString()}.`;
-      if (lockInfo.reason === 'previous_test_not_passed') msg = "Pass the previous week's assessment first.";
-      toast({ title: 'Week Locked', description: msg, variant: 'destructive' });
-      return;
-    }
     setActiveWeekId(weekId);
     setExpandedWeeks(prev => {
       const next = new Set(prev);
@@ -290,8 +281,10 @@ export default function Courses() {
   });
 
   const formatSessionDuration = (seconds: number) => {
+    if (!seconds || seconds <= 0) return '0:00';
     const m = Math.floor(seconds / 60);
-    return `${m} min`;
+    const s = seconds % 60;
+    return `${m}:${s.toString().padStart(2, '0')}`;
   };
 
   const formatWebinarDate = (dt: string) => {
@@ -549,7 +542,7 @@ export default function Courses() {
                         <button
                           className={cn(
                             'w-full text-left px-5 py-4 flex items-center gap-3 transition-colors',
-                            locked ? 'opacity-60 cursor-not-allowed' : 'hover:bg-muted/30',
+                            locked ? 'opacity-90' : 'hover:bg-muted/30',
                             isExpanded ? 'bg-muted/20' : ''
                           )}
                           onClick={() => toggleWeekExpand(week.id)}
@@ -575,13 +568,18 @@ export default function Courses() {
                                   <span className="text-muted-foreground font-medium ml-1">– {week.title}</span>
                                 )}
                               </h3>
+                              {locked && (
+                                <Badge variant="outline" className="bg-amber-500/10 text-amber-600 border-amber-500/20 text-[10px] h-5 px-2">
+                                  <Lock className="w-2.5 h-2.5 mr-1" /> Locked
+                                </Badge>
+                              )}
                               {allDone && (
                                 <Badge className="bg-emerald-500/15 text-emerald-500 border-emerald-500/25 text-[10px] h-5 px-2">
                                   ✓ Completed
                                 </Badge>
                               )}
                             </div>
-                            {sessions.length > 0 && (
+                            {sessions.length > 0 && !locked && (
                               <div className="flex items-center gap-3 mt-1">
                                 <div className="flex-1 h-1 rounded-full bg-border overflow-hidden max-w-[120px]">
                                   <div
@@ -596,6 +594,15 @@ export default function Courses() {
                                   {completedCount} / {sessions.length} LESSONS COMPLETE
                                 </span>
                               </div>
+                            )}
+                            {locked && (
+                              <p className="text-[10px] text-muted-foreground font-medium uppercase tracking-wider mt-0.5">
+                                {lockInfo.reason === 'date_locked' 
+                                  ? `Unlocks ${new Date((lockInfo as any).unlock_date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}`
+                                  : lockInfo.reason === 'previous_test_not_passed'
+                                  ? 'Pass previous assessment to unlock'
+                                  : 'Locked'}
+                              </p>
                             )}
                           </div>
                           {isExpanded ? (
@@ -644,22 +651,22 @@ export default function Courses() {
                                       {/* Play Button */}
                                       <div
                                         className={cn(
-                                          'shrink-0 w-9 h-9 rounded-full flex items-center justify-center border-2 transition-all duration-200',
+                                          'shrink-0 w-10 h-10 rounded-xl flex items-center justify-center border-2 transition-all duration-200',
                                           locked
-                                            ? 'border-muted-foreground/30 bg-muted text-muted-foreground'
+                                            ? 'border-muted-foreground/30 bg-muted text-muted-foreground opacity-50'
                                             : isPlaying
                                             ? 'border-primary bg-primary text-white shadow-md shadow-primary/30'
                                             : completed
                                             ? 'border-emerald-500/30 bg-emerald-500/10 text-emerald-500'
-                                            : 'border-primary/30 bg-primary/5 text-primary group-hover:bg-primary/10 group-hover:border-primary/50'
+                                            : 'border-primary/20 bg-primary/5 text-primary group-hover:bg-primary/10 group-hover:border-primary/40'
                                         )}
                                       >
                                         {locked ? (
-                                          <Lock className="h-3.5 w-3.5" />
+                                          <Lock className="h-4 w-4" />
                                         ) : isPlaying ? (
                                           <div className="w-2.5 h-2.5 rounded-full bg-white animate-pulse" />
                                         ) : (
-                                          <Play className="h-3.5 w-3.5 fill-current ml-0.5" />
+                                          <Play className="h-4 w-4 fill-current ml-0.5" />
                                         )}
                                       </div>
 
@@ -667,40 +674,59 @@ export default function Courses() {
                                       <div className="flex-1 min-w-0">
                                         <h4
                                           className={cn(
-                                            'font-semibold text-sm leading-snug line-clamp-1',
-                                            completed ? 'text-muted-foreground line-through' : 'text-foreground'
+                                            'font-bold text-sm leading-snug line-clamp-1',
+                                            completed ? 'text-muted-foreground' : 'text-foreground'
                                           )}
                                         >
                                           {session.title}
                                         </h4>
                                         {session.duration_seconds > 0 && (
-                                          <p className="text-xs text-muted-foreground mt-0.5 flex items-center gap-1">
-                                            <Clock className="h-3 w-3" />
-                                            {formatSessionDuration(session.duration_seconds)}
+                                          <p className="text-xs text-muted-foreground mt-0.5 flex items-center gap-3">
+                                            <span className="flex items-center gap-1.5 capitalize">
+                                              <Calendar className="h-3 w-3 text-primary/60" />
+                                              {session.weekday || 'Session'}
+                                            </span>
+                                            <span className="flex items-center gap-1.5">
+                                              <Clock className="h-3 w-3 text-primary/60" />
+                                              {formatSessionDuration(session.duration_seconds)}
+                                            </span>
+                                            {completed && <CheckCircle2 className="h-3 w-3 text-emerald-500" />}
                                           </p>
                                         )}
                                       </div>
 
-                                      {/* Right: date + status */}
-                                      <div className="flex items-center gap-3 shrink-0">
-                                        {session.weekday && (
-                                          <span className="hidden sm:block text-xs text-muted-foreground capitalize font-medium">
-                                            {session.weekday}
-                                          </span>
+                                      {/* Right: MCQ Button */}
+                                      <div className="flex items-center gap-4 shrink-0 px-2">
+                                        {session.has_mcq && (
+                                          <Button
+                                            size="sm"
+                                            variant="secondary"
+                                            disabled={locked}
+                                            className={cn(
+                                              "h-8 px-4 text-xs font-bold rounded-full transition-all border",
+                                              locked 
+                                                ? "bg-muted text-muted-foreground opacity-50"
+                                                : "bg-[#283593] hover:bg-[#1a237e] text-white border-transparent shadow-sm"
+                                            )}
+                                            onClick={(e) => {
+                                              e.stopPropagation();
+                                              if (session.mcq_questions?.length > 0) {
+                                                setActiveMcqSession({
+                                                  title: session.title,
+                                                  questions: session.mcq_questions,
+                                                });
+                                              } else {
+                                                toast({
+                                                  title: 'Not Available',
+                                                  description: 'No practice questions available for this session yet.',
+                                                  variant: 'destructive',
+                                                });
+                                              }
+                                            }}
+                                          >
+                                            Practice MCQs
+                                          </Button>
                                         )}
-                                        {completed ? (
-                                          <Badge className="bg-emerald-500/15 text-emerald-500 border-emerald-500/25 h-6 text-[10px] px-2 font-semibold">
-                                            ✓ Completed
-                                          </Badge>
-                                        ) : isPlaying ? (
-                                          <Badge className="bg-primary/10 text-primary border-primary/20 h-6 text-[10px] px-2 font-semibold animate-pulse">
-                                            Playing...
-                                          </Badge>
-                                        ) : session.has_mcq ? (
-                                          <Badge variant="outline" className="h-6 text-[10px] px-2 bg-blue-500/5 text-blue-500 border-blue-500/20">
-                                            MCQ
-                                          </Badge>
-                                        ) : null}
                                       </div>
                                     </div>
                                   );
@@ -708,96 +734,65 @@ export default function Courses() {
                               </div>
                             )}
 
-                            {/* MCQ Practice section */}
-                            {sessions.some((s: any) => s.has_mcq) && (
-                              <div className="mx-4 my-3 flex items-center justify-between rounded-xl bg-muted/30 border border-border/50 px-4 py-3.5">
-                                <div className="flex items-center gap-3">
-                                  <div className="w-8 h-8 rounded-full bg-blue-500/15 flex items-center justify-center">
-                                    <HelpCircle className="h-4 w-4 text-blue-500" />
-                                  </div>
-                                  <div>
-                                    <p className="font-semibold text-sm">Practice Quiz</p>
-                                    <p className="text-xs text-muted-foreground">Multiple Choice Questions</p>
-                                  </div>
-                                </div>
-                                <Button
-                                  size="sm"
-                                  className="bg-primary hover:bg-primary/90 text-white font-bold rounded-lg h-9 px-4 text-xs shadow-md"
-                                  onClick={e => {
-                                    e.stopPropagation();
-                                    const mcqSession = sessions.find((s: any) => s.has_mcq && s.mcq_questions?.length > 0);
-                                    if (mcqSession) {
-                                      setActiveMcqSession({
-                                        title: mcqSession.title,
-                                        questions: mcqSession.mcq_questions,
-                                      });
-                                    } else {
-                                      toast({
-                                        title: 'Not Available',
-                                        description: 'No practice questions available yet.',
-                                        variant: 'destructive',
-                                      });
-                                    }
-                                  }}
-                                >
-                                  Practice MCQs
-                                </Button>
-                              </div>
-                            )}
-
                             {/* Weekly Test Banner */}
-                            {week.weekly_test ? (
-                              <div
-                                className={cn(
-                                  'mx-4 my-3 flex items-center justify-between rounded-xl px-4 py-3.5 border',
-                                  locked
-                                    ? 'bg-muted/30 border-border/50 opacity-70'
-                                    : 'bg-gradient-to-r from-amber-500/10 to-orange-500/5 border-amber-500/20'
-                                )}
-                              >
-                                <div className="flex items-center gap-3">
-                                  <div
-                                    className={cn(
-                                      'w-8 h-8 rounded-full flex items-center justify-center',
-                                      locked ? 'bg-muted' : 'bg-amber-500/15'
-                                    )}
-                                  >
-                                    {locked ? (
-                                      <Lock className="h-4 w-4 text-muted-foreground" />
-                                    ) : (
-                                      <FlaskConical className="h-4 w-4 text-amber-600 dark:text-amber-400" />
-                                    )}
-                                  </div>
-                                  <div>
-                                    <p className="font-semibold text-sm">{week.weekly_test.title || 'Weekly Test'}</p>
-                                    <p className="text-xs text-muted-foreground">
-                                      {locked ? 'Unlocks after completing this week' : 'Scheduled for this week'}
-                                    </p>
-                                  </div>
-                                </div>
-                                <Button
-                                  size="sm"
-                                  disabled={locked || !sessions.every((s: any) => s.is_completed)}
+                            <div className="p-4 pt-1">
+                              {week.weekly_test ? (
+                                <div
                                   className={cn(
-                                    'font-bold rounded-lg h-9 px-4 text-xs shadow-md',
-                                    locked || !sessions.every((s: any) => s.is_completed)
-                                      ? 'bg-muted text-muted-foreground cursor-not-allowed'
-                                      : 'bg-amber-500 hover:bg-amber-600 text-white'
+                                    'flex items-center justify-between rounded-xl px-5 py-4 border transition-all',
+                                    locked
+                                      ? 'bg-muted/30 border-border/50 opacity-70'
+                                      : 'bg-primary/5 border-primary/20 hover:bg-primary/10'
                                   )}
                                 >
-                                  {locked
-                                    ? 'Locked'
-                                    : !sessions.every((s: any) => s.is_completed)
-                                    ? 'Complete Videos First'
-                                    : 'Take Test'}
-                                </Button>
-                              </div>
-                            ) : (
-                              <div className="mx-4 my-3 flex items-center gap-3 rounded-xl bg-muted/20 border border-dashed border-border/50 px-4 py-3 text-muted-foreground">
-                                <Award className="h-4 w-4 opacity-40" />
-                                <p className="text-xs font-medium">No assessment available for this week yet.</p>
-                              </div>
-                            )}
+                                  <div className="flex items-center gap-4">
+                                    <div
+                                      className={cn(
+                                        'w-10 h-10 rounded-xl flex items-center justify-center shadow-sm',
+                                        locked ? 'bg-muted' : 'bg-primary/20 text-primary'
+                                      )}
+                                    >
+                                      {locked ? (
+                                        <Lock className="h-5 w-5 text-muted-foreground" />
+                                      ) : (
+                                        <FlaskConical className="h-5 w-5" />
+                                      )}
+                                    </div>
+                                    <div>
+                                      <p className="font-bold text-sm text-foreground">{week.weekly_test.title || 'Weekly Assessment'}</p>
+                                      <p className="text-xs text-muted-foreground mt-0.5">
+                                        {locked 
+                                          ? lockInfo.reason === 'date_locked'
+                                            ? `Unlocks on ${new Date((lockInfo as any).unlock_date).toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric' })}`
+                                            : 'Pass previous assessment to unlock'
+                                          : 'Test your understanding of this week\'s lessons'}
+                                      </p>
+                                    </div>
+                                  </div>
+                                  <Button
+                                    size="sm"
+                                    disabled={locked || !sessions.every((s: any) => s.is_completed)}
+                                    className={cn(
+                                      'font-bold rounded-full h-9 px-6 text-xs transition-all',
+                                      locked || !sessions.every((s: any) => s.is_completed)
+                                        ? 'bg-muted text-muted-foreground cursor-not-allowed border'
+                                        : 'bg-primary hover:bg-primary/90 text-white shadow-md'
+                                    )}
+                                  >
+                                    {locked
+                                      ? 'Locked'
+                                      : !sessions.every((s: any) => s.is_completed)
+                                      ? 'Complete Lessons'
+                                      : 'Take Test'}
+                                  </Button>
+                                </div>
+                              ) : (
+                                <div className="flex items-center gap-3 rounded-xl bg-muted/20 border border-dashed border-border/50 px-5 py-4 text-muted-foreground">
+                                  <Award className="h-4 w-4 opacity-40" />
+                                  <p className="text-xs font-medium italic">No assessment scheduled for this week.</p>
+                                </div>
+                              )}
+                            </div>
                           </div>
                         )}
                       </div>

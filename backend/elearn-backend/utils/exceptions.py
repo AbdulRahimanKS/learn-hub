@@ -29,15 +29,11 @@ def custom_exception_handler(exc, context):
                 f"ERROR TYPE: 'ServiceError'"
             )
         )
-        if request.path.startswith("api/mobile/v1/"):
-            response = Response(
-                {"error": f"{exc}"}, status=exc.status_code
-            )
-        else:
-            response = Response(
-                {"message": f"{exc}"}, status=exc.status_code
-            )
-        return response
+        response_data = {"message": str(exc), "detail": str(exc)}
+        if request and request.path.startswith("api/mobile/v1/"):
+            response_data["error"] = str(exc)
+        
+        return Response(response_data, status=exc.status_code)
 
     # Map expired/invalid token errors to 440 (Login Time-out)
     def extract_code_and_message(obj):
@@ -107,13 +103,10 @@ def custom_exception_handler(exc, context):
                 f"ERROR TYPE: 'UnhandledError'"
             )
         )
-        if request.path.startswith("api/mobile/v1/"):
-            response = Response(
-                {"error": f"{exc}"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR
-            )
-        else:
-            response = Response(
-                {"message": f"{exc}"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR
-            )
+        response_data = {"message": str(exc), "detail": str(exc)}
+        if request and request.path.startswith("api/mobile/v1/"):
+            response_data["error"] = str(exc)
+        
+        response = Response(response_data, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
     return response
