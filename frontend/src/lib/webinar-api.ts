@@ -7,7 +7,7 @@ export interface Webinar {
   session_type: 'webinar' | 'special_session';
   description: string;
   unlock_at: string;
-  duration_mins: number;
+  duration_secs: number;
   video_file: string | null;
   video_presigned_url: string | null;
   created_by: number | null;
@@ -21,14 +21,33 @@ export interface WebinarFormData {
   session_type: 'webinar' | 'special_session';
   description?: string;
   unlock_at: string;
-  duration_mins: number;
+  duration_secs: number;
   video_file?: File | null;
 }
 
+export interface PaginatedWebinarResponse {
+  success: boolean;
+  message: string;
+  data: Webinar[];
+  current_page: number;
+  total_pages: number;
+  total_items: number;
+  page_size: number;
+  next: string | null;
+  previous: string | null;
+}
+
+export interface WebinarListParams {
+  tab?: 'scheduled' | 'passed';
+  page?: number;
+  page_size?: number;
+}
+
 export const webinarApi = {
-  getWebinars: async (batchId: number) => {
-    const response = await apiClient.get<{ data: Webinar[]; success: boolean; message: string }>(
-      `/api/courses/v1/batches/${batchId}/webinars/`
+  getWebinars: async (batchId: number, params?: WebinarListParams): Promise<PaginatedWebinarResponse> => {
+    const response = await apiClient.get<PaginatedWebinarResponse>(
+      `/api/courses/v1/batches/${batchId}/webinars/`,
+      { params }
     );
     return response.data;
   },

@@ -907,10 +907,15 @@ class ScheduledWebinar(models.Model):
 
     description   = models.TextField(blank=True)
     unlock_at  = models.DateTimeField(_('Unlock At'))
-    duration_mins = models.PositiveSmallIntegerField(
-        _('Duration (mins)'), default=60
+    duration_secs = models.PositiveIntegerField(
+        _('Duration (secs)'), default=3600
     )
-    video_file = models.FileField(upload_to='webinars/videos', blank=True, null=True)
+    video_file = models.CharField(
+        _('Video Object Key'),
+        max_length=1024,
+        null=True, blank=True,
+        help_text=_('Cloudflare R2 object key for the video')
+    )
 
     created_by    = models.ForeignKey(
         'users.User', on_delete=models.SET_NULL, null=True, blank=True,

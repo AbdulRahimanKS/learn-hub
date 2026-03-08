@@ -10,10 +10,10 @@ class ScheduledWebinarSerializer(serializers.ModelSerializer):
         model = ScheduledWebinar
         fields = [
             'id', 'batch', 'title', 'session_type', 'description', 
-            'unlock_at', 'duration_mins', 'video_file', 'video_presigned_url',
+            'unlock_at', 'duration_secs', 'video_file', 'video_presigned_url',
             'created_by', 'created_by_name', 'created_at', 'updated_at'
         ]
-        read_only_fields = ['created_by', 'created_at', 'updated_at']
+        read_only_fields = ['created_by', 'created_at', 'updated_at', 'batch']
 
     def get_video_presigned_url(self, obj):
         if not obj.video_file:
@@ -32,7 +32,7 @@ class ScheduledWebinarSerializer(serializers.ModelSerializer):
                 ClientMethod='get_object',
                 Params={
                     'Bucket': settings.AWS_STORAGE_BUCKET_NAME,
-                    'Key': obj.video_file.name
+                    'Key': obj.video_file
                 },
                 ExpiresIn=14400  # 4 hours
             )

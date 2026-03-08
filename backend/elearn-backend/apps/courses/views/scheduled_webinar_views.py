@@ -1,4 +1,7 @@
 import logging
+from datetime import timedelta
+from django.utils import timezone
+from django.db.models import ExpressionWrapper, DurationField, F, DateTimeField
 from rest_framework import status
 from rest_framework.views import APIView
 from rest_framework.parsers import MultiPartParser, FormParser, JSONParser
@@ -9,6 +12,7 @@ from apps.courses.models import ScheduledWebinar, Batch
 from apps.courses.serializers.scheduled_webinar_serializers import ScheduledWebinarSerializer
 from utils.permissions import IsAdminOrTeacher, IsAuthenticated
 from utils.common import format_success_response, handle_serializer_errors, ServiceError
+from utils.pagination import CustomPageNumberPagination
 
 logger = logging.getLogger(__name__)
 
@@ -19,12 +23,39 @@ class ScheduledWebinarListCreateView(APIView):
 
     @extend_schema(
         summary="List webinars for a specific batch",
+        parameters=[
+            OpenApiParameter("tab", OpenApiTypes.STR, description="Filter: 'scheduled' (upcoming) or 'passed' (past). Default: all."),
+            OpenApiParameter("page", OpenApiTypes.INT, description="Page number"),
+            OpenApiParameter("page_size", OpenApiTypes.INT, description="Results per page (default 6, max 100)"),
+        ],
         responses={200: ScheduledWebinarSerializer(many=True)}
     )
     def get(self, request, batch_id):
-        webinars = ScheduledWebinar.objects.filter(batch_id=batch_id).order_by('unlock_at')
-        serializer = ScheduledWebinarSerializer(webinars, many=True, context={'request': request})
-        return format_success_response(message="Webinars retrieved successfully", data=serializer.data)
+        now = timezone.now()
+        qs = ScheduledWebinar.objects.filter(batch_id=batch_id).order_by('unlock_at')
+
+        tab = request.query_params.get('tab', '').strip().lower()
+        if tab == 'scheduled':
+            # Upcoming: end_time (unlock_at + duration_secs) is in the future
+            webinar_ids_passed = [
+                w.id for w in qs
+                if w.unlock_at + timedelta(seconds=w.duration_secs) < now
+            ]
+            qs = qs.exclude(id__in=webinar_ids_passed)
+        elif tab == 'passed':
+            # Past: end_time is before now
+            webinar_ids_passed = [
+                w.id for w in qs
+                if w.unlock_at + timedelta(seconds=w.duration_secs) < now
+            ]
+            qs = qs.filter(id__in=webinar_ids_passed).order_by('-unlock_at')
+
+        paginator = CustomPageNumberPagination()
+        paginator.page_size = 6
+        page = paginator.paginate_queryset(qs, request)
+        serializer = ScheduledWebinarSerializer(page, many=True, context={'request': request})
+        return paginator.get_paginated_response(serializer.data, message="Webinars retrieved successfully")
+
 
     @extend_schema(
         summary="Create a new webinar for a batch",
