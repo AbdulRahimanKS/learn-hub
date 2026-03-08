@@ -193,19 +193,24 @@ class BatchWeekSerializer(serializers.ModelSerializer):
         if not obj.is_unlocked:
             return {'is_locked': True, 'reason': 'date_locked', 'unlock_date': obj.unlock_date}
 
-        # 2. Previous Week Assessment Check
+        # 2. Previous Week Assessment Check (All preceding weeks)
         if obj.week_number > 1:
-            prev_week = obj.batch.batch_weeks.filter(week_number=obj.week_number - 1).first()
-            if prev_week and hasattr(prev_week, 'weekly_test'):
-                # Check if student passed previous week's test
-                submission = TestSubmission.objects.filter(
+            # Check all preceding weeks that have a test
+            prev_weeks_with_tests = obj.batch.batch_weeks.filter(
+                week_number__lt=obj.week_number,
+                weekly_test__isnull=False
+            ).order_by('week_number')
+            
+            for prev_week in prev_weeks_with_tests:
+                # Check if student passed this specific week's test
+                passed = TestSubmission.objects.filter(
                     enrollment=enrollment,
                     batch_weekly_test=prev_week.weekly_test,
                     status='published',
                     is_passed=True
-                ).first()
+                ).exists()
                 
-                if not submission:
+                if not passed:
                     return {'is_locked': True, 'reason': 'previous_test_not_passed'}
 
         return {'is_locked': False, 'reason': None}

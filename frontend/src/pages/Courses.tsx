@@ -25,14 +25,14 @@ import {
   ClipboardList,
   LayoutGrid,
   FlaskConical,
-  Monitor,
   Video as VideoIcon,
   Calendar,
+  Monitor,
+  X,
 } from 'lucide-react';
 import { courseApi, Course } from '@/lib/course-api';
-import { CourseWeek, ClassSession, courseModuleApi } from '@/lib/course-module-api';
+import { courseModuleApi, CourseWeek, ClassSession } from '@/lib/course-module-api';
 import { batchContentApi } from '@/lib/batch-api';
-import { webinarApi, Webinar } from '@/lib/webinar-api';
 import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
 import { SessionMcqPractice } from '@/components/SessionMcqPractice';
@@ -49,11 +49,6 @@ export default function Courses() {
   const [loadingWeeks, setLoadingWeeks] = useState(false);
   const [activeWeekId, setActiveWeekId] = useState<number | null>(null);
   const [expandedWeeks, setExpandedWeeks] = useState<Set<number>>(new Set());
-
-  // Upcoming webinars
-  const [upcomingWebinars, setUpcomingWebinars] = useState<Webinar[]>([]);
-  const [loadingWebinars, setLoadingWebinars] = useState(false);
-  const [upcomingExpanded, setUpcomingExpanded] = useState(true);
 
   // State for active video playback
   const [activeVideoUrl, setActiveVideoUrl] = useState<string | null>(null);
@@ -110,20 +105,6 @@ export default function Courses() {
     }
   };
 
-  const fetchUpcomingWebinars = async (batchId: number) => {
-    setLoadingWebinars(true);
-    try {
-      const res = await webinarApi.getWebinars(batchId, { tab: 'scheduled', page_size: 5 });
-      if (res.success) {
-        setUpcomingWebinars(res.data);
-      }
-    } catch (err) {
-      // Silently fail
-    } finally {
-      setLoadingWebinars(false);
-    }
-  };
-
   const handleSelectCourse = (course: Course) => {
     navigate(`/courses/${course.id}`);
   };
@@ -133,13 +114,11 @@ export default function Courses() {
     setLoadingWeeks(true);
     setActiveVideoUrl(null);
     setExpandedWeeks(new Set());
-    setUpcomingWebinars([]);
 
     try {
       let res;
       if (course.batch_id) {
         res = await batchContentApi.getWeeks(course.batch_id);
-        fetchUpcomingWebinars(course.batch_id);
       } else {
         res = await courseModuleApi.getWeeks(course.id.toString());
       }
@@ -255,10 +234,7 @@ export default function Courses() {
             return w;
           })
         );
-        toast({
-          title: res.data.is_completed ? 'Session Completed' : 'Session Marked Incomplete',
-          description: res.data.is_completed ? 'Great job! Keep going.' : 'Status updated.',
-        });
+        // Success feedback is implicitly handled by UI updates (checkmark/progress bar)
       }
     } catch (err) {
       toast({ title: 'Error', description: 'Failed to update session progress', variant: 'destructive' });
@@ -272,7 +248,6 @@ export default function Courses() {
     0
   );
 
-  // Current "in progress" week
   const inProgressWeek = weeks.find(w => {
     const lockInfo = getWeekLockInfo(w);
     if (lockInfo.is_locked) return false;
@@ -280,33 +255,17 @@ export default function Courses() {
     return sessions.some((s: any) => !s.is_completed) || sessions.length === 0;
   });
 
+  const firstWeekLockInfo = weeks.length > 0 ? getWeekLockInfo(weeks[0]) : null;
+  const isBatchNotStarted = firstWeekLockInfo?.is_locked && firstWeekLockInfo?.reason === 'date_locked';
+  const batchUnlockDate = isBatchNotStarted ? (firstWeekLockInfo as any).unlock_date : null;
+  
+  const isUpToDate = totalSessions > 0 && completedSessions === totalSessions;
+
   const formatSessionDuration = (seconds: number) => {
     if (!seconds || seconds <= 0) return '0:00';
     const m = Math.floor(seconds / 60);
     const s = seconds % 60;
     return `${m}:${s.toString().padStart(2, '0')}`;
-  };
-
-  const formatWebinarDate = (dt: string) => {
-    const d = new Date(dt);
-    return d.toLocaleString('en-US', {
-      weekday: 'short',
-      month: 'short',
-      day: 'numeric',
-      hour: 'numeric',
-      minute: '2-digit',
-      hour12: true,
-    });
-  };
-
-  const isWebinarUnlocked = (webinar: Webinar) => {
-    return new Date(webinar.unlock_at) <= new Date();
-  };
-
-  const getDaysUntilUnlock = (dt: string) => {
-    const diff = new Date(dt).getTime() - Date.now();
-    const days = Math.ceil(diff / (1000 * 60 * 60 * 24));
-    return days;
   };
 
   // ===================== Render =====================
@@ -503,10 +462,30 @@ export default function Courses() {
                   
                   <Button
                     onClick={handleStartLearning}
-                    className="w-full mt-5 bg-white text-[#1a237e] hover:bg-white/90 font-black h-11 rounded-xl shadow-lg transition-transform hover:scale-[1.02]"
+                    disabled={isBatchNotStarted}
+                    className={cn(
+                      "w-full mt-5 font-black h-11 rounded-xl shadow-lg transition-all",
+                      isBatchNotStarted
+                        ? "bg-white/20 text-white/50 cursor-not-allowed border border-white/10"
+                        : "bg-white text-[#1a237e] hover:bg-white/90 hover:scale-[1.02]"
+                    )}
                   >
-                    <Play className="w-4 h-4 mr-2 fill-[#1a237e]" />
-                    {completedSessions === 0 ? 'Start Learning' : 'Continue Journey'}
+                    {isBatchNotStarted ? (
+                      <>
+                        <Calendar className="w-4 h-4 mr-2" />
+                        Starts {new Date(batchUnlockDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+                      </>
+                    ) : isUpToDate ? (
+                      <>
+                        <CheckCircle2 className="w-4 h-4 mr-2 text-emerald-500" />
+                        Review Lessons
+                      </>
+                    ) : (
+                      <>
+                        <Play className="w-4 h-4 mr-2 fill-[#1a237e]" />
+                        {completedSessions === 0 ? 'Start Learning' : 'Continue Journey'}
+                      </>
+                    )}
                   </Button>
                 </div>
               </div>
@@ -531,7 +510,20 @@ export default function Courses() {
                     const lockInfo = getWeekLockInfo(week);
                     const locked = lockInfo.is_locked;
                     const isExpanded = expandedWeeks.has(week.id);
-                    const sessions: ClassSession[] = week.class_sessions || [];
+                    const baseSessions: ClassSession[] = week.class_sessions || [];
+                    const weekdayOrder = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'];
+                    const sessions = [...baseSessions].sort((a, b) => {
+                      const dayA = a.weekday?.toLowerCase() || '';
+                      const dayB = b.weekday?.toLowerCase() || '';
+                      const indexA = weekdayOrder.indexOf(dayA);
+                      const indexB = weekdayOrder.indexOf(dayB);
+                      
+                      if (indexA !== indexB) {
+                        return (indexA === -1 ? 99 : indexA) - (indexB === -1 ? 99 : indexB);
+                      }
+                      return (a.session_number || 0) - (b.session_number || 0);
+                    });
+                    
                     const completedCount = sessions.filter((s: any) => s.is_completed).length;
                     const allDone = sessions.length > 0 && completedCount === sessions.length;
                     const progressPct = sessions.length > 0 ? (completedCount / sessions.length) * 100 : 0;
@@ -805,15 +797,21 @@ export default function Courses() {
             {/* MCQ Practice Dialog */}
             <Dialog open={!!activeMcqSession} onOpenChange={open => { if (!open) setActiveMcqSession(null); }}>
               {activeMcqSession && (
-                <DialogContent className="max-w-3xl w-[95vw] p-0 overflow-hidden sm:rounded-2xl border-none shadow-2xl">
-                  <div className="bg-gradient-to-r from-primary to-primary/80 p-6 text-primary-foreground">
-                    <h2 className="text-xl font-bold flex items-center gap-2">
-                      <HelpCircle className="w-5 h-5" />
-                      {activeMcqSession.title}
-                    </h2>
-                    <p className="text-primary-foreground/80 text-sm mt-1">Practice Questionnaire</p>
+                <DialogContent className="max-w-2xl w-[95vw] p-0 overflow-hidden sm:rounded-2xl border-none shadow-2xl bg-[#0a0f1d] text-white">
+                  <div className="bg-gradient-to-br from-[#1e3a8a] via-[#1e40af] to-[#1e3a8a] p-6 text-white relative">
+                    <div className="flex items-center gap-3">
+                      <div className="h-9 w-9 rounded-full border-2 border-white/20 flex items-center justify-center">
+                        <Video className="w-4 h-4" />
+                      </div>
+                      <div>
+                        <h2 className="text-xl font-bold tracking-tight">
+                          {activeMcqSession.title}
+                        </h2>
+                        <p className="text-white/60 text-xs font-medium">Practice Quiz</p>
+                      </div>
+                    </div>
                   </div>
-                  <div className="p-2 sm:p-6 bg-background">
+                  <div className="px-5 pb-5 pt-2 bg-transparent">
                     <SessionMcqPractice
                       sessionTitle={activeMcqSession.title}
                       questions={activeMcqSession.questions || []}

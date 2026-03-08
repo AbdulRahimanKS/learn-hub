@@ -1,9 +1,9 @@
 import { useState } from 'react';
-import { CheckCircle2, XCircle, ChevronRight, RotateCcw } from 'lucide-react';
+import { CheckCircle2, XCircle, ChevronRight, RotateCcw, Video, HelpCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Label } from '@/components/ui/label';
+import { Input } from '@/components/ui/input';
 import { cn } from '@/lib/utils';
 
 interface Question {
@@ -26,6 +26,7 @@ interface SessionMcqPracticeProps {
 export function SessionMcqPractice({ sessionTitle, questions, onClose }: SessionMcqPracticeProps) {
   const [currentIdx, setCurrentIdx] = useState(0);
   const [selectedChoiceId, setSelectedChoiceId] = useState<number | null>(null);
+  const [fillInBlankAnswer, setFillInBlankAnswer] = useState("");
   const [showFeedback, setShowFeedback] = useState(false);
   const [score, setScore] = useState(0);
   const [isFinished, setIsFinished] = useState(false);
@@ -36,6 +37,7 @@ export function SessionMcqPractice({ sessionTitle, questions, onClose }: Session
     if (currentIdx < questions.length - 1) {
       setCurrentIdx(currentIdx + 1);
       setSelectedChoiceId(null);
+      setFillInBlankAnswer("");
       setShowFeedback(false);
     } else {
       setIsFinished(true);
@@ -43,11 +45,18 @@ export function SessionMcqPractice({ sessionTitle, questions, onClose }: Session
   };
 
   const handleSubmit = () => {
-    if (selectedChoiceId === null) return;
-    
-    const choice = currentQuestion.choices.find(c => c.id === selectedChoiceId);
-    if (choice?.is_correct) {
-      setScore(prev => prev + 1);
+    if (currentQuestion.is_fill_in_the_blank) {
+      if (!fillInBlankAnswer.trim()) return;
+      const correctChoice = currentQuestion.choices.find(c => c.is_correct);
+      if (correctChoice && fillInBlankAnswer.trim().toLowerCase() === correctChoice.text.trim().toLowerCase()) {
+        setScore(prev => prev + 1);
+      }
+    } else {
+      if (selectedChoiceId === null) return;
+      const choice = currentQuestion.choices.find(c => c.id === selectedChoiceId);
+      if (choice?.is_correct) {
+        setScore(prev => prev + 1);
+      }
     }
     setShowFeedback(true);
   };
@@ -55,6 +64,7 @@ export function SessionMcqPractice({ sessionTitle, questions, onClose }: Session
   const handleReset = () => {
     setCurrentIdx(0);
     setSelectedChoiceId(null);
+    setFillInBlankAnswer("");
     setShowFeedback(false);
     setScore(0);
     setIsFinished(false);
@@ -62,128 +72,220 @@ export function SessionMcqPractice({ sessionTitle, questions, onClose }: Session
 
   if (isFinished) {
     return (
-      <Card className="w-full max-w-md mx-auto overflow-hidden border-none shadow-none">
-        <CardHeader className="text-center pb-2">
-          <CardTitle className="text-2xl font-bold">Practice Complete!</CardTitle>
-        </CardHeader>
-        <CardContent className="text-center py-6">
-          <div className="mb-4 flex justify-center">
+      <div className="w-full max-w-md mx-auto text-center py-8 px-6">
+        <div className="mb-4 flex justify-center">
+          <div className={cn(
+            "p-4 rounded-full",
+            score === questions.length ? "bg-emerald-500/20 text-emerald-500" : "bg-blue-500/20 text-blue-500"
+          )}>
             {score === questions.length ? (
-              <div className="bg-green-100 text-green-600 p-4 rounded-full">
-                <CheckCircle2 className="w-12 h-12" />
-              </div>
+              <CheckCircle2 className="w-12 h-12" />
             ) : (
-              <div className="bg-blue-100 text-blue-600 p-4 rounded-full">
-                <Award className="w-12 h-12" />
-              </div>
+              <Award className="w-12 h-12" />
             )}
           </div>
-          <p className="text-4xl font-black mb-2">{score} / {questions.length}</p>
-          <p className="text-muted-foreground">
-            {score === questions.length 
-              ? "Perfect! You've mastered this session." 
-              : "Good effort! Review the session to improve your score."}
-          </p>
-        </CardContent>
-        <CardFooter className="flex gap-2">
-          <Button variant="outline" className="flex-1" onClick={handleReset}>
-            <RotateCcw className="w-4 h-4 mr-2" /> Try Again
+        </div>
+        <h2 className="text-2xl font-bold mb-1 text-white">Practice Complete!</h2>
+        <p className="text-4xl font-black mb-4 text-primary">{score} / {questions.length}</p>
+        <p className="text-white/60 text-sm mb-8 leading-relaxed">
+          {score === questions.length 
+            ? "Excellent! You've successfully completed the practice with a perfect score." 
+            : "Great effort! Keep practicing to master all concepts from this session."}
+        </p>
+        <div className="flex gap-4">
+          <Button variant="outline" size="sm" className="flex-1 bg-transparent border-white/10 hover:bg-white/5 text-white h-10" onClick={handleReset}>
+            <RotateCcw className="w-3.5 h-3.5 mr-2" /> Try Again
           </Button>
-          <Button className="flex-1" onClick={onClose}>
-            Finish
+          <Button size="sm" className="flex-1 bg-primary hover:bg-primary/90 text-white h-10" onClick={onClose}>
+            Close
           </Button>
-        </CardFooter>
-      </Card>
+        </div>
+      </div>
     );
   }
 
+  const alphabet = ['A', 'B', 'C', 'D', 'E', 'F'];
+
   return (
-    <Card className="w-full max-w-2xl mx-auto border-none shadow-none">
-      <CardHeader className="pb-4">
-        <div className="flex justify-between items-center mb-2">
-          <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+    <div className="w-full space-y-6 pt-2">
+      {/* Question Header */}
+      <div className="space-y-3">
+        <div className="flex justify-between items-center text-white/40">
+          <span className="text-xs font-medium tracking-wide">
             Question {currentIdx + 1} of {questions.length}
           </span>
-          <span className="text-xs font-bold bg-primary/10 text-primary px-2 py-0.5 rounded">
-             Practice Mode
-          </span>
+          <div className="flex gap-1 h-0.5">
+            {questions.map((_, i) => (
+              <div 
+                key={i} 
+                className={cn(
+                  "w-6 rounded-full transition-all duration-300",
+                  i === currentIdx ? "bg-primary h-1 mt-[-1px] w-8" : 
+                  i < currentIdx ? "bg-primary/40" : "bg-white/10"
+                )}
+              />
+            ))}
+          </div>
         </div>
-        <CardTitle className="text-lg font-bold leading-tight">
-          {currentQuestion.text}
-        </CardTitle>
-      </CardHeader>
+        <h3 className="text-lg md:text-xl font-bold text-white leading-relaxed">
+          {currentQuestion.is_fill_in_the_blank 
+            ? currentQuestion.text.split('[blank]').map((part, i, arr) => (
+                <span key={i} className="inline">
+                  {part}
+                  {i < arr.length - 1 && (
+                    <span className={cn(
+                      "inline-block border-b-2 min-w-[30px] px-1 transition-colors mx-1",
+                      showFeedback 
+                        ? (currentQuestion.choices.find(c => c.is_correct)?.text.toLowerCase() === fillInBlankAnswer.toLowerCase() 
+                            ? "border-emerald-500 text-emerald-400" 
+                            : "border-red-500 text-red-400")
+                        : "border-white/40 text-primary"
+                    )}>
+                      {fillInBlankAnswer || "\u00A0\u00A0\u00A0\u00A0"}
+                    </span>
+                  )}
+                </span>
+              ))
+            : currentQuestion.text}
+        </h3>
+      </div>
       
-      <CardContent className="pb-6">
-        <RadioGroup 
-          value={selectedChoiceId?.toString()} 
-          onValueChange={(val) => !showFeedback && setSelectedChoiceId(parseInt(val))}
-          className="gap-3"
-        >
-          {currentQuestion.choices.map((choice) => {
-            const isSelected = selectedChoiceId === choice.id;
-            const isCorrect = choice.is_correct;
-            
-            let statusClass = "border-border hover:border-primary/50";
-            if (showFeedback) {
-              if (isCorrect) statusClass = "border-green-500 bg-green-50/50 ring-1 ring-green-500";
-              else if (isSelected) statusClass = "border-red-500 bg-red-50/50 ring-1 ring-red-500";
-              else statusClass = "opacity-60 border-border";
-            } else if (isSelected) {
-              statusClass = "border-primary bg-primary/5 ring-1 ring-primary";
-            }
-
-            return (
-              <div key={choice.id}>
-                <Label
-                  htmlFor={choice.id.toString()}
-                  className={cn(
-                    "flex items-center justify-between p-4 rounded-xl border-2 transition-all cursor-pointer",
-                    statusClass,
-                    !showFeedback && "hover:translate-x-1"
-                  )}
-                >
-                  <div className="flex items-center gap-3">
-                    <RadioGroupItem value={choice.id.toString()} id={choice.id.toString()} className="sr-only" />
-                    <span className="text-sm font-medium">{choice.text}</span>
-                  </div>
-                  {showFeedback && (
-                    <>
-                      {isCorrect && <CheckCircle2 className="w-5 h-5 text-green-600 shrink-0" />}
-                      {isSelected && !isCorrect && <XCircle className="w-5 h-5 text-red-600 shrink-0" />}
-                    </>
-                  )}
-                </Label>
+      {/* Content Area */}
+      <div className="min-h-[240px]">
+        {currentQuestion.is_fill_in_the_blank ? (
+          <div className="space-y-5 animate-in fade-in slide-in-from-bottom-4">
+            <div className="space-y-2">
+              <Label className="text-white/50 text-xs font-medium ml-1">Type your answer below</Label>
+              <Input
+                autoFocus
+                value={fillInBlankAnswer}
+                onChange={(e) => !showFeedback && setFillInBlankAnswer(e.target.value)}
+                placeholder="Write the answer here..."
+                className={cn(
+                  "h-12 text-base bg-white/5 border-white/10 text-white focus:border-primary/50 focus:ring-primary/20 rounded-xl",
+                  showFeedback && (
+                    currentQuestion.choices.find(c => c.is_correct)?.text.toLowerCase() === fillInBlankAnswer.toLowerCase()
+                      ? "border-emerald-500/50 bg-emerald-500/10" 
+                      : "border-red-500/50 bg-red-500/10"
+                  )
+                )}
+              />
+            </div>
+            {showFeedback && (
+              <div className={cn(
+                "p-3 rounded-xl flex items-start gap-3",
+                currentQuestion.choices.find(c => c.is_correct)?.text.toLowerCase() === fillInBlankAnswer.toLowerCase()
+                  ? "bg-emerald-500/10 text-emerald-400 border border-emerald-500/20"
+                  : "bg-red-500/10 text-red-400 border border-red-500/20"
+              )}>
+                {currentQuestion.choices.find(c => c.is_correct)?.text.toLowerCase() === fillInBlankAnswer.toLowerCase() ? (
+                  <CheckCircle2 className="w-4 h-4 shrink-0 mt-0.5" />
+                ) : (
+                  <HelpCircle className="w-4 h-4 shrink-0 mt-0.5" />
+                )}
+                <div>
+                  <p className="font-bold text-sm">
+                    {currentQuestion.choices.find(c => c.is_correct)?.text.toLowerCase() === fillInBlankAnswer.toLowerCase() 
+                      ? "Correct!" 
+                      : "The correct answer is:"}
+                  </p>
+                  <p className="text-base font-medium mt-0.5">
+                    {currentQuestion.choices.find(c => c.is_correct)?.text}
+                  </p>
+                </div>
               </div>
-            );
-          })}
-        </RadioGroup>
-      </CardContent>
+            )}
+          </div>
+        ) : (
+          <RadioGroup 
+            value={selectedChoiceId?.toString()} 
+            onValueChange={(val) => !showFeedback && setSelectedChoiceId(parseInt(val))}
+            className="grid gap-3"
+          >
+            {currentQuestion.choices.map((choice, index) => {
+              const isSelected = selectedChoiceId === choice.id;
+              const isCorrect = choice.is_correct;
+              
+              let statusClass = "border-white/10 bg-white/5 hover:bg-white/[0.08] hover:border-white/20";
+              if (showFeedback) {
+                if (isCorrect) statusClass = "border-emerald-500/50 bg-emerald-500/10 ring-1 ring-emerald-500/20";
+                else if (isSelected) statusClass = "border-red-500/50 bg-red-500/10 ring-1 ring-red-500/20";
+                else statusClass = "opacity-40 border-white/5";
+              } else if (isSelected) {
+                statusClass = "border-primary bg-primary/10 ring-1 ring-primary/30";
+              }
 
-      <CardFooter className="pt-2 flex justify-between items-center border-t border-border/40">
-        <div className="text-sm font-medium text-muted-foreground">
-          {showFeedback && (
-            <span className={cn(
-              "flex items-center gap-1.5",
-              currentQuestion.choices.find(c => c.id === selectedChoiceId)?.is_correct ? "text-green-600" : "text-red-600"
-            )}>
-              {currentQuestion.choices.find(c => c.id === selectedChoiceId)?.is_correct 
-                ? "Correct! Well done." 
-                : "Not quite. See the correct answer above."}
-            </span>
-          )}
-        </div>
+              return (
+                <div key={choice.id} className="animate-in fade-in duration-300" style={{ animationDelay: `${index * 50}ms` }}>
+                  <Label
+                    htmlFor={choice.id.toString()}
+                    className={cn(
+                      "flex items-center gap-3 p-3.5 rounded-xl border-2 transition-all cursor-pointer",
+                      statusClass
+                    )}
+                  >
+                    <div className="relative flex items-center justify-center h-5 w-5 shrink-0">
+                      <RadioGroupItem value={choice.id.toString()} id={choice.id.toString()} className="sr-only" />
+                      <div className={cn(
+                        "h-4 w-4 rounded-full border-2 transition-all flex items-center justify-center",
+                        isSelected ? "border-primary" : "border-white/20"
+                      )}>
+                        {isSelected && <div className="h-2 w-2 rounded-full bg-primary" />}
+                      </div>
+                    </div>
+                    
+                    <div className={cn(
+                      "flex items-center justify-center h-7 w-7 rounded-lg font-bold text-xs shrink-0",
+                      isSelected ? "bg-primary text-white" : "bg-white/10 text-white/60"
+                    )}>
+                      {alphabet[index]}
+                    </div>
+
+                    <span className="text-base font-medium text-white/90">{choice.text}</span>
+                    
+                    {showFeedback && (
+                      <div className="ml-auto">
+                        {isCorrect && <CheckCircle2 className="w-5 h-5 text-emerald-500" />}
+                        {isSelected && !isCorrect && <XCircle className="w-5 h-5 text-red-500" />}
+                      </div>
+                    )}
+                  </Label>
+                </div>
+              );
+            })}
+          </RadioGroup>
+        )}
+      </div>
+
+      {/* Footer Actions */}
+      <div className="pt-4 flex justify-between items-center border-t border-white/10">
+        <Button 
+          variant="ghost" 
+          onClick={handleNext}
+          className="text-white/30 hover:text-white hover:bg-white/5 rounded-xl px-4 h-10 text-xs"
+        >
+          {showFeedback ? "Continue" : "Skip"}
+        </Button>
+
         {!showFeedback ? (
-          <Button onClick={handleSubmit} disabled={selectedChoiceId === null} className="px-8">
+          <Button 
+            onClick={handleSubmit} 
+            disabled={currentQuestion.is_fill_in_the_blank ? !fillInBlankAnswer.trim() : selectedChoiceId === null} 
+            className="px-8 h-10 rounded-xl bg-primary hover:bg-primary/90 text-white font-bold text-sm shadow-lg shadow-primary/20 transition-all hover:scale-[1.02] active:scale-[0.98]"
+          >
             Check Answer
           </Button>
         ) : (
-          <Button onClick={handleNext} className="px-8">
+          <Button 
+            onClick={handleNext} 
+            className="px-8 h-10 rounded-xl bg-primary hover:bg-primary/90 text-white font-bold text-sm shadow-lg shadow-primary/20 transition-all hover:scale-[1.02]"
+          >
             {currentIdx < questions.length - 1 ? "Next Question" : "Finish Practice"}
-            <ChevronRight className="w-4 h-4 ml-2" />
+            <ChevronRight className="w-4 h-4 ml-1" />
           </Button>
         )}
-      </CardFooter>
-    </Card>
+      </div>
+    </div>
   );
 }
 
@@ -202,3 +304,4 @@ const Award = ({ className }: { className?: string }) => (
     <circle cx="12" cy="8" r="6" />
   </svg>
 );
+
