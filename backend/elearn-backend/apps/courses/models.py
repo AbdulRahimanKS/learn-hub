@@ -186,6 +186,7 @@ class BatchEnrollment(models.Model):
     class Status(models.TextChoices):
         ACTIVE    = 'active',    _('Active')
         COMPLETED = 'completed', _('Completed')
+        DROPPED   = 'dropped',   _('Dropped')
 
     batch   = models.ForeignKey(Batch, on_delete=models.CASCADE, related_name='enrollments')
     student = models.ForeignKey(
@@ -361,6 +362,7 @@ class BatchWeek(models.Model):
         from utils.common import get_current_local_date
         return get_current_local_date() >= self.unlock_date.date()
 
+    @property
     def can_modify_content(self):
         """Content cannot be deleted or re-added if it has already been unlocked."""
         return not self.is_unlocked
@@ -692,7 +694,9 @@ class TestSubmission(models.Model):
     class Status(models.TextChoices):
         PENDING         = 'pending',         _('Pending')
         EVALUATING      = 'evaluating',      _('Evaluating via AI')
+        PENDING_REVIEW  = 'pending_review',  _('Pending Review')
         PUBLISHED       = 'published',       _('Published')
+        RETURNED        = 'returned',        _('Returned')
 
     batch_weekly_test = models.ForeignKey(
         BatchWeeklyTest,

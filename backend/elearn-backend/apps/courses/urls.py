@@ -42,6 +42,7 @@ from apps.courses.views import (
     CoursePostSessionQuestionDetailView,
     BatchPostSessionQuestionListCreateView,
     BatchPostSessionQuestionDetailView,
+    BatchClassSessionCompletionView,
 )
 from apps.courses.views.test_submission_views import (
     BatchTestSubmissionListView,
@@ -92,6 +93,7 @@ urlpatterns = [
     path("batches/<int:batch_id>/weeks/<int:week_id>/", BatchWeekDetailView.as_view(), name="batch-week-detail"),
     path("batches/<int:batch_id>/weeks/<int:week_id>/sessions/", BatchClassSessionListCreateView.as_view(), name="batch-class-session-list-create"),
     path("batches/<int:batch_id>/weeks/<int:week_id>/sessions/<int:session_id>/", BatchClassSessionDetailView.as_view(), name="batch-class-session-detail"),
+    path("batches/<int:batch_id>/weeks/<int:week_id>/sessions/<int:session_id>/complete/", BatchClassSessionCompletionView.as_view(), name="batch-session-complete"),
     path("batches/<int:batch_id>/weeks/<int:week_id>/sessions/<int:session_id>/mcq/", BatchPostSessionQuestionListCreateView.as_view(), name="batch-session-mcq-list"),
     path("batches/<int:batch_id>/weeks/<int:week_id>/sessions/<int:session_id>/mcq/<int:mcq_id>/", BatchPostSessionQuestionDetailView.as_view(), name="batch-session-mcq-detail"),
     path("batches/<int:batch_id>/weeks/<int:week_id>/test/", BatchWeeklyTestView.as_view(), name="batch-weekly-test"),

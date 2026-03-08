@@ -13,6 +13,8 @@ export interface ClassSession {
   duration_seconds: number;
   weekday?: string | null;
   mcq_questions?: PostSessionQuestion[];
+  is_completed?: boolean;
+  has_mcq?: boolean;
   uploaded_by?: number;
   created_at?: string;
   updated_at?: string;
@@ -75,6 +77,11 @@ export interface CourseWeek {
   is_published: boolean;
   class_sessions: ClassSession[];
   weekly_test: WeeklyTest | null;
+  student_lock_status?: {
+    is_locked: boolean;
+    reason: 'authentication_required' | 'not_enrolled' | 'date_locked' | 'previous_test_not_passed' | null;
+    unlock_date?: string;
+  };
   created_by?: number;
   updated_by?: number;
   created_at?: string;

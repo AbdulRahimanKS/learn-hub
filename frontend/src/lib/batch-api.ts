@@ -66,6 +66,11 @@ export interface BatchWeek {
   description: string;
   unlock_date: string | null;
   is_extended: boolean;
+  student_lock_status?: {
+    is_locked: boolean;
+    reason: 'authentication_required' | 'not_enrolled' | 'date_locked' | 'previous_test_not_passed' | null;
+    unlock_date?: string;
+  };
   is_unlocked: boolean;
   is_published: boolean;
   can_modify_content: boolean;
@@ -151,9 +156,10 @@ export const batchApi = {
     return response.data;
   },
 
-  getAvailableStudents: async (search?: string) => {
-    const response = await apiClient.get<{ data: BatchUser[]; success: boolean; message: string }>(
-      '/api/courses/v1/batches/available-students/', { params: { search } }
+  getAvailableStudents: async (params?: { search?: string; page?: number; page_size?: number; paginate?: boolean }) => {
+    const response = await apiClient.get<PaginatedUserResponse | { data: BatchUser[]; success: boolean; message: string }>(
+      '/api/courses/v1/batches/available-students/',
+      { params: { ...params, paginate: params?.paginate ?? true } }
     );
     return response.data;
   },
@@ -302,6 +308,14 @@ export const batchContentApi = {
   deleteTestQuestion: async (batchId: number, weekId: number, questionId: number) => {
     const response = await apiClient.delete<{ success: boolean; message: string }>(
       `/api/courses/v1/batches/${batchId}/weeks/${weekId}/test/questions/${questionId}/`
+    );
+    return response.data;
+  },
+  
+  completeSession: async (batchId: number, weekId: number, sessionId: number, isCompleted: boolean = true) => {
+    const response = await apiClient.post<{ data: { is_completed: boolean }; success: boolean }>(
+      `/api/courses/v1/batches/${batchId}/weeks/${weekId}/sessions/${sessionId}/complete/`,
+      { is_completed: isCompleted }
     );
     return response.data;
   },

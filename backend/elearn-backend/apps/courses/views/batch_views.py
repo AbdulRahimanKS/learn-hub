@@ -471,6 +471,9 @@ class AvailableStudentListView(APIView):
         summary="List students available for batch enrollment (not in any active batch)",
         parameters=[
             OpenApiParameter("search", OpenApiTypes.STR, description="Search by name or email"),
+            OpenApiParameter("paginate", OpenApiTypes.BOOL, description="Set to false to return all results without pagination (default: true)"),
+            OpenApiParameter("page", OpenApiTypes.INT, description="Page number (when paginated)"),
+            OpenApiParameter("page_size", OpenApiTypes.INT, description="Results per page, default 10, max 100 (when paginated)"),
         ],
         responses={200: UserManagementSerializer(many=True)},
     )
@@ -483,7 +486,7 @@ class AvailableStudentListView(APIView):
         qs = User.objects.filter(
             user_type__name=UserTypeConstants.STUDENT,
             is_deleted=False
-        ).exclude(id__in=enrolled_student_ids)
+        ).exclude(id__in=enrolled_student_ids).order_by('fullname')
 
         search = request.query_params.get('search', '').strip()
         if search:
@@ -491,6 +494,13 @@ class AvailableStudentListView(APIView):
                 Q(fullname__icontains=search) |
                 Q(email__icontains=search)
             )
+
+        paginate_param = request.query_params.get('paginate', 'true').lower() == 'true'
+        if paginate_param:
+            paginator = CustomPageNumberPagination()
+            paginated_qs = paginator.paginate_queryset(qs, request)
+            serializer = UserManagementSerializer(paginated_qs, many=True, context={'request': request})
+            return paginator.get_paginated_response(serializer.data, message="Available students retrieved successfully")
 
         serializer = UserManagementSerializer(qs, many=True, context={'request': request})
         return format_success_response(

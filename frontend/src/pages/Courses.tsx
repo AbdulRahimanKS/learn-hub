@@ -16,13 +16,16 @@ import {
   Loader2,
   ChevronLeft,
   Lock,
-  CheckCircle2
+  CheckCircle2,
+  HelpCircle,
+  Users
 } from 'lucide-react';
 import { courseApi, Course } from '@/lib/course-api';
-import { courseModuleApi, CourseWeek, ClassSession } from '@/lib/course-module-api';
+import { CourseWeek, ClassSession, courseModuleApi } from '@/lib/course-module-api';
 import { batchContentApi } from '@/lib/batch-api';
 import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
+import { SessionMcqPractice } from '@/components/SessionMcqPractice';
 
 export default function Courses() {
   const { toast } = useToast();
@@ -37,7 +40,10 @@ export default function Courses() {
   // State for active video playback
   const [activeVideoUrl, setActiveVideoUrl] = useState<string | null>(null);
 
-  // Track simple "viewed" state - ideally this comes from backend later
+  // State for MCQ practice
+  const [activeMcqSession, setActiveMcqSession] = useState<{title: string, questions: any[]} | null>(null);
+
+  // State for locally tracking viewed sessions in this component session
   const [viewedSessions, setViewedSessions] = useState<string[]>([]);
 
   useEffect(() => {
@@ -108,24 +114,74 @@ export default function Courses() {
     }
   };
 
-  // Determine if a week is locked based on previous weeks.
-  // We assume Week N is locked until the first session of Week N-1 is played.
-  // (In reality, backend should return a "locked" flag)
-  const isWeekLocked = (weekIndex: number) => {
-     if (weekIndex === 0) return false;
-     
-     const prevWeek = weeks[weekIndex - 1];
-     if (!prevWeek || !prevWeek.class_sessions || prevWeek.class_sessions.length === 0) {
-        return false; // Free if previous has no content
-     }
-     
-     // Check if user has viewed AT LEAST ONE session from the previous week
-     const prevWeekFirstSessionId = prevWeek.class_sessions[0].id.toString();
-     if (!viewedSessions.includes(prevWeekFirstSessionId)) {
-       return true; 
-     }
+  // Determine if a week is locked based on student_lock_status from backend
+  const getWeekLockInfo = (week: CourseWeek) => {
+    // If it's a regular course week (not batch), it's never locked for now
+    if (!selectedCourse?.batch_id || !week.student_lock_status) {
+      return { is_locked: false, reason: null };
+    }
+    return week.student_lock_status;
+  };
 
-     return false;
+  const handleStartLearning = () => {
+    if (weeks.length === 0) return;
+
+    // Find first unlocked week
+    for (let i = 0; i < weeks.length; i++) {
+      const lockInfo = getWeekLockInfo(weeks[i]);
+      if (!lockInfo.is_locked) {
+        // Find first incomplete session in this week
+        const sessions = weeks[i].class_sessions || [];
+        const incompleteSession = sessions.find(s => !s.is_completed);
+        
+        if (incompleteSession) {
+          setActiveTab(weeks[i].id.toString());
+          handlePlaySession(incompleteSession);
+          return;
+        }
+        
+        // If all sessions in this week are complete, check if there's a next unlocked week
+        continue;
+      } else {
+        // Week is locked, we can't go further
+        break;
+      }
+    }
+
+    // If all unlocked sessions are complete, just open the first week
+    setActiveTab(weeks[0].id.toString());
+  };
+
+  const toggleSessionCompletion = async (weekId: number, sessionId: number, currentlyCompleted: boolean) => {
+    if (!selectedCourse?.batch_id) return;
+    
+    try {
+      const res = await batchContentApi.completeSession(selectedCourse.batch_id, weekId, sessionId, !currentlyCompleted);
+      if (res.success) {
+        // Update local state
+        setWeeks(prevWeeks => prevWeeks.map(w => {
+          if (w.id === weekId) {
+            return {
+              ...w,
+              class_sessions: w.class_sessions?.map(s => {
+                if (s.id === sessionId) {
+                  return { ...s, is_completed: res.data.is_completed };
+                }
+                return s;
+              })
+            };
+          }
+          return w;
+        }));
+        
+        toast({ 
+          title: res.data.is_completed ? 'Session Completed' : 'Session Marked Incomplete',
+          description: res.data.is_completed ? 'Great job! Keep going.' : 'Status updated.',
+        });
+      }
+    } catch (err) {
+      toast({ title: 'Error', description: 'Failed to update session progress', variant: 'destructive' });
+    }
   };
 
   return (
@@ -164,29 +220,39 @@ export default function Courses() {
                       )}
                       <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent opacity-60" />
                       
-                      <div className="absolute top-3 left-3 flex gap-2">
-                        <Badge variant="secondary" className="bg-background/95 backdrop-blur font-semibold border-none text-foreground border border-black/10">
-                          {course.course_code}
-                        </Badge>
-                      </div>
+                      {course.batch_status && (
+                        <div className="absolute top-3 left-3 flex gap-2">
+                          <Badge variant="outline" className={cn(
+                            "backdrop-blur-md font-bold border-none text-[10px] uppercase tracking-wider px-2 h-5 flex items-center shadow-lg",
+                            course.batch_status === 'active' ? "bg-success/90 text-white" : 
+                            course.batch_status === 'completed' ? "bg-primary/90 text-white" :
+                            "bg-destructive/90 text-white"
+                          )}>
+                            {course.batch_status}
+                          </Badge>
+                        </div>
+                      )}
                     </div>
 
-                    <CardHeader className="flex-1 pb-3">
-                      <CardTitle className="text-xl line-clamp-1 leading-tight" title={course.title}>
+                    <CardHeader className="flex-1 pb-2 pt-4 px-5">
+                      {course.batch_name ? (
+                        <div className="flex items-center gap-1.5 text-primary mb-1">
+                          <Users className="w-3.5 h-3.5" />
+                          <span className="text-[11px] font-bold uppercase tracking-tight">{course.batch_name}</span>
+                        </div>
+                      ) : (
+                        <div className="h-4" />
+                      )}
+                      <CardTitle className="text-lg line-clamp-1 font-bold leading-tight" title={course.title}>
                         {course.title}
                       </CardTitle>
-                      {course.batch_name && (
-                         <div className="text-xs text-muted-foreground mt-1 flex items-center gap-1.5 font-medium bg-muted/60 p-1 rounded px-2 w-fit">
-                            <Clock className="w-3 h-3 text-primary" /> Batch: {course.batch_name}
-                         </div>
-                      )}
                       {course.description && (
-                        <CardDescription className="mt-2 line-clamp-2" title={course.description}>
+                        <CardDescription className="mt-1.5 line-clamp-2 text-xs leading-relaxed" title={course.description}>
                           {course.description}
                         </CardDescription>
                       )}
                     </CardHeader>
-                    <CardContent className="space-y-4 pt-0">
+                    <CardContent className="space-y-4 pt-0 px-5 pb-5">
                       <div className="flex gap-2 flex-wrap mb-2 max-h-16 overflow-hidden">
                         {course.tags.slice(0, 8).map((tag, idx) => (
                           <Badge key={idx} variant="secondary" className="text-xs capitalize">
@@ -206,7 +272,7 @@ export default function Courses() {
                           </div>
                           <div className="flex items-center gap-1.5">
                             <span className="text-foreground/80">{course.total_weeks || 0}</span> 
-                            <span className="text-muted-foreground font-normal">Modules</span>
+                            <span className="text-muted-foreground font-normal">Weeks</span>
                           </div>
                         </div>
                       </div>
@@ -248,9 +314,6 @@ export default function Courses() {
               <CardContent className="p-6 md:p-8">
                 <div className="flex flex-col gap-6 md:flex-row md:items-center md:justify-between">
                   <div className="flex-1">
-                    <Badge className="bg-primary-foreground/20 text-primary-foreground mb-4 text-xs tracking-wider uppercase backdrop-blur-sm border-none shadow-sm">
-                      {selectedCourse.course_code}
-                    </Badge>
                     <h2 className="text-3xl md:text-4xl font-extrabold tracking-tight">{selectedCourse.title}</h2>
                     {selectedCourse.batch_name && (
                        <p className="inline-block px-3 py-1 font-medium bg-black/20 rounded-md text-primary-foreground/90 mt-2 text-sm border border-white/10 backdrop-blur-sm">
@@ -263,7 +326,7 @@ export default function Courses() {
                     <div className="flex flex-wrap items-center gap-4 mt-6">
                       <div className="flex items-center gap-2 bg-black/10 px-4 py-2 rounded-full border border-white/10 shadow-sm backdrop-blur-md">
                         <BookOpen className="h-4 w-4" />
-                        <span className="text-sm font-medium">{weeks.length} Module{weeks.length !== 1 ? 's' : ''}</span>
+                        <span className="text-sm font-medium">{weeks.length} Week{weeks.length !== 1 ? 's' : ''}</span>
                       </div>
                       <div className="flex items-center gap-2 bg-black/10 px-4 py-2 rounded-full border border-white/10 shadow-sm backdrop-blur-md">
                         <Video className="h-4 w-4" />
@@ -272,6 +335,15 @@ export default function Courses() {
                         </span>
                       </div>
                     </div>
+                  </div>
+                  <div className="shrink-0 flex flex-col gap-3">
+                    <Button 
+                      onClick={handleStartLearning}
+                      className="bg-primary-foreground text-primary hover:bg-primary-foreground/90 font-bold px-8 h-12 rounded-full shadow-lg shadow-black/20"
+                    >
+                      <Play className="w-5 h-5 mr-2 fill-primary" />
+                      {weeks.some(w => w.class_sessions?.some(s => s.is_completed)) ? 'Continue Learning' : 'Start Learning'}
+                    </Button>
                   </div>
                 </div>
               </CardContent>
@@ -290,37 +362,49 @@ export default function Courses() {
             ) : (
               <Tabs value={activeTab} onValueChange={(val) => {
                  // Do not allow viewing tab if locked
-                 const wIdx = weeks.findIndex(w => w.id.toString() === val);
-                 if (isWeekLocked(wIdx)) {
-                    toast({ title: 'Module Locked', description: 'Complete previous modules first.', variant: 'destructive' });
+                 const week = weeks.find(w => w.id.toString() === val);
+                 if (week && getWeekLockInfo(week).is_locked) {
+                    const lockInfo = getWeekLockInfo(week);
+                    let msg = 'Complete previous weeks first.';
+                    if (lockInfo.reason === 'date_locked') msg = `This week unlocks on ${new Date(lockInfo.unlock_date!).toLocaleDateString()}.`;
+                    if (lockInfo.reason === 'previous_test_not_passed') msg = 'Pass the previous week\'s assessment first.';
+                    
+                    toast({ title: 'Week Locked', description: msg, variant: 'destructive' });
                     return;
                  }
                  setActiveTab(val);
-              }}>
-                <TabsList className="bg-background h-auto p-1 border border-border/50 rounded-lg w-fit flex-nowrap justify-start overflow-x-auto overflow-y-hidden scrollbar-hide">
-                  {weeks.map((week, idx) => {
-                    const locked = isWeekLocked(idx);
+              }} className="w-full overflow-hidden">
+                <TabsList className="flex w-full bg-transparent h-auto p-0 flex-nowrap justify-start overflow-x-auto overflow-y-hidden scrollbar-hide gap-3 pb-2">
+                  {weeks.map((week) => {
+                    const lockInfo = getWeekLockInfo(week);
+                    const locked = lockInfo.is_locked;
                     return (
                         <TabsTrigger
                           key={week.id}
                           value={week.id.toString()}
                           disabled={locked}
                           className={cn(
-                            "px-4 py-2 shrink-0 rounded-md transition-all data-[state=active]:bg-muted data-[state=active]:text-foreground data-[state=active]:shadow-sm",
-                            locked && "opacity-50 cursor-not-allowed text-muted-foreground"
+                            "px-6 py-2.5 shrink-0 rounded-full transition-all border border-border/50 text-sm font-medium",
+                            "data-[state=active]:bg-primary data-[state=active]:text-white data-[state=active]:border-primary data-[state=active]:shadow-lg shadow-primary/20",
+                            "bg-muted/30 text-muted-foreground hover:bg-muted/50",
+                            locked && "opacity-50 cursor-not-allowed grayscale"
                           )}
                         >
                           <div className="flex items-center gap-2">
                             {locked ? <Lock className="h-3 w-3" /> : null}
-                            <span>Module {week.week_number}</span>
+                            <span>Week {week.week_number}</span>
+                            {week.class_sessions?.every(s => s.is_completed) && week.class_sessions.length > 0 && (
+                              <CheckCircle2 className={cn("h-3.5 w-3.5", activeTab === week.id.toString() ? "text-white" : "text-green-500")} />
+                            )}
                           </div>
                         </TabsTrigger>
                     );
                   })}
                 </TabsList>
 
-                {weeks.map((week, idx) => {
-                  const locked = isWeekLocked(idx);
+                {weeks.map((week) => {
+                  const lockInfo = getWeekLockInfo(week);
+                  const locked = lockInfo.is_locked;
                   return (
                   <TabsContent key={week.id} value={week.id.toString()} className="mt-6 animate-in fade-in slide-in-from-bottom-2 duration-300">
                     <Card className="shadow-card mb-8 border-none ring-1 ring-border/50">
@@ -379,27 +463,75 @@ export default function Courses() {
                                   </div>
 
                                   <div className="absolute bottom-3 left-3 right-3 flex justify-between items-end z-20">
-                                    <Badge variant="secondary" className={`text-foreground backdrop-blur-md border border-white/10 font-medium h-6 shadow-sm ${isViewed && !locked ? 'bg-green-500/20 text-green-100 border-green-500/30' : 'bg-background/80'}`}>
-                                      {isViewed && !locked ? (
-                                         <span className="flex items-center gap-1"><CheckCircle2 className="w-3 h-3 text-green-400" /> Completed</span>
-                                      ) : (
-                                         <span>Session {session.session_number}</span>
-                                      )}
-                                    </Badge>
+                                    {/* Duration on the left */}
                                     {(session.duration_seconds || session.duration_seconds === 0) && (
-                                       <div className="flex items-center gap-1.5 text-xs text-white bg-black/50 px-2 py-1.5 rounded backdrop-blur-sm shadow-sm ring-1 ring-white/20">
+                                       <div className="flex items-center gap-1 text-[10px] font-bold text-white bg-black/60 px-2 py-1 rounded backdrop-blur-md border border-white/10 shadow-lg">
                                          <Clock className="h-3 w-3" />
-                                         <span className="font-medium tracking-wide">{Math.floor(session.duration_seconds / 60)}:{(session.duration_seconds % 60).toString().padStart(2, '0')}</span>
+                                         <span>{Math.floor(session.duration_seconds / 60)}:{(session.duration_seconds % 60).toString().padStart(2, '0')}</span>
                                        </div>
                                     )}
+
+                                    {/* Labels on the right */}
+                                    <div className="flex flex-col items-end gap-1.5">
+                                      {session.weekday && (
+                                        <Badge variant="outline" className="bg-background/90 backdrop-blur-md shadow-sm border-primary/20 capitalize font-bold text-[10px] h-5 px-2">
+                                          {session.weekday}
+                                        </Badge>
+                                      )}
+                                      {session.is_completed && !locked && (
+                                        <Badge 
+                                          variant="secondary" 
+                                          className="bg-success/20 text-success border border-success/30 backdrop-blur-md font-bold text-[10px] h-5 px-2 shadow-sm"
+                                          onClick={(e) => {
+                                            e.stopPropagation();
+                                            toggleSessionCompletion(week.id, session.id, true);
+                                          }}
+                                        >
+                                          <span className="flex items-center gap-1 cursor-pointer"><CheckCircle2 className="w-2.5 h-2.5" /> COMPLETED</span>
+                                        </Badge>
+                                      )}
+                                    </div>
                                   </div>
                                 </div>
                                 <div className={`p-4 flex-1 flex flex-col bg-card relative z-20 ${isActive ? 'bg-primary/5' : ''}`}>
-                                  <h4 className={`font-semibold text-foreground line-clamp-1 mb-1.5 text-base transition-colors ${isActive ? 'text-primary' : !locked ? 'group-hover:text-primary' : ''}`} title={session.title}>{session.title}</h4>
+                                  <div className="flex justify-between items-start mb-1.5">
+                                    <h4 className={`font-semibold text-foreground line-clamp-1 text-base transition-colors ${isActive ? 'text-primary' : !locked ? 'group-hover:text-primary' : ''}`} title={session.title}>
+                                      {session.title}
+                                    </h4>
+                                    {session.has_mcq && !locked && (
+                                      <Badge variant="outline" className="text-[10px] h-4 px-1.5 bg-primary/5 text-primary border-primary/20">
+                                        MCQ
+                                      </Badge>
+                                    )}
+                                  </div>
                                   {session.description && (
                                     <p className="text-sm text-muted-foreground line-clamp-2 mt-auto leading-relaxed" title={session.description}>
                                       {session.description}
                                     </p>
+                                  )}
+                                  
+                                  {session.has_mcq && !locked && (
+                                    <div className="mt-3 pt-3 border-t border-border/40 flex gap-2">
+                                      <Button 
+                                        variant="outline" 
+                                        size="sm" 
+                                        className="h-8 text-xs flex-1 border-primary/20 hover:bg-primary/5 hover:text-primary"
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          if (session.mcq_questions && session.mcq_questions.length > 0) {
+                                            setActiveMcqSession({
+                                              title: session.title,
+                                              questions: session.mcq_questions
+                                            });
+                                          } else {
+                                            toast({ title: 'Not Available', description: 'No practice questions for this session yet.', variant: 'destructive' });
+                                          }
+                                        }}
+                                      >
+                                        <HelpCircle className="w-3 h-3 mr-1.5 opacity-70" />
+                                        Practice MCQs
+                                      </Button>
+                                    </div>
                                   )}
                                 </div>
                               </div>
@@ -423,7 +555,7 @@ export default function Courses() {
                                 <h3 className="font-bold text-xl text-foreground tracking-tight">{week.weekly_test.title}</h3>
                               </div>
                               <p className="text-muted-foreground mt-3 max-w-2xl leading-relaxed">
-                                {week.weekly_test.instructions || 'Ready to test your knowledge? Complete the assessment for this week to track your progress.'}
+                                {locked ? 'This assessment will unlock once you complete all sessions for this week.' : week.weekly_test.instructions || 'Ready to test your knowledge? Complete the assessment for this week to track your progress.'}
                               </p>
                               {!locked && (
                                 <div className="flex gap-3 mt-4">
@@ -439,10 +571,10 @@ export default function Courses() {
                             <Button 
                                variant={locked ? "outline" : "gradient"} 
                                size="lg" 
-                               disabled={locked}
-                               className={`shrink-0 ${!locked ? 'shadow-lg shadow-primary/25 hover:shadow-xl hover:shadow-primary/40 hover:-translate-y-0.5' : ''} transition-all text-sm font-semibold h-12 px-8`}
+                               disabled={locked || !week.class_sessions?.every(s => s.is_completed)}
+                               className={`shrink-0 ${!locked && week.class_sessions?.every(s => s.is_completed) ? 'shadow-lg shadow-primary/25 hover:shadow-xl hover:shadow-primary/40 hover:-translate-y-0.5' : ''} transition-all text-sm font-semibold h-12 px-8`}
                             >
-                              {locked ? 'Locked' : 'Take Assessment'}
+                              {locked ? 'Locked' : !week.class_sessions?.every(s => s.is_completed) ? 'Complete Videos First' : 'Take Assessment'}
                             </Button>
                           </div>
                         </CardContent>
@@ -451,7 +583,7 @@ export default function Courses() {
                        <Card className="shadow-sm border-dashed border-border/80 bg-transparent text-muted-foreground">
                          <CardContent className="p-6 flex items-center justify-center gap-3">
                            <Award className="h-5 w-5 opacity-40 text-primary" />
-                           <p className="text-sm font-medium">No assessment available for this module yet.</p>
+                           <p className="text-sm font-medium">No assessment available for this week yet.</p>
                          </CardContent>
                        </Card>
                     )}
@@ -459,6 +591,33 @@ export default function Courses() {
                 )})}
               </Tabs>
             )}
+
+            {/* MCQ Practice Dialog */}
+            <Dialog 
+              open={!!activeMcqSession} 
+              onOpenChange={(open) => {
+                if (!open) setActiveMcqSession(null);
+              }}
+            >
+              {activeMcqSession && (
+                <DialogContent className="max-w-3xl w-[95vw] p-0 overflow-hidden sm:rounded-2xl border-none shadow-2xl">
+                  <div className="bg-gradient-to-r from-primary to-primary/80 p-6 text-primary-foreground">
+                    <h2 className="text-xl font-bold flex items-center gap-2">
+                       <HelpCircle className="w-5 h-5" />
+                       {activeMcqSession.title}
+                    </h2>
+                    <p className="text-primary-foreground/80 text-sm mt-1">Practice Questionnaire</p>
+                  </div>
+                  <div className="p-2 sm:p-6 bg-background">
+                    <SessionMcqPractice 
+                      sessionTitle={activeMcqSession.title}
+                      questions={activeMcqSession.questions || []}
+                      onClose={() => setActiveMcqSession(null)}
+                    />
+                  </div>
+                </DialogContent>
+              )}
+            </Dialog>
           </>
         )}
       </div>

@@ -1,4 +1,5 @@
 import logging
+from django.db import IntegrityError
 from rest_framework import status
 from rest_framework.views import APIView
 from rest_framework.parsers import MultiPartParser, FormParser, JSONParser
@@ -6,7 +7,7 @@ from drf_spectacular.utils import extend_schema
 
 from apps.courses.models import (
     Batch, BatchWeek, BatchClassSession, BatchWeeklyTest, BatchTestQuestion,
-    BatchTestQuestionAttachment
+    BatchTestQuestionAttachment, BatchEnrollment, StudentSessionView
 )
 from apps.courses.serializers.course_module_serializers import (
     BatchWeekSerializer,
@@ -411,3 +412,37 @@ class BatchWeeklyTestQuestionAttachmentDetailView(APIView):
         attachment = self.get_object(batch_id, week_id, question_id, attachment_id)
         attachment.delete()
         return format_success_response(message="Attachment deleted successfully")
+@extend_schema(tags=["Batch Content"])
+class BatchClassSessionCompletionView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    @extend_schema(summary="Mark a batch session as completed")
+    def post(self, request, batch_id, week_id, session_id):
+        try:
+            session = BatchClassSession.objects.get(
+                id=session_id, 
+                batch_week_id=week_id, 
+                batch_week__batch_id=batch_id
+            )
+        except BatchClassSession.DoesNotExist:
+            raise ServiceError(detail="Batch session not found.", status_code=status.HTTP_404_NOT_FOUND)
+
+        enrollment = BatchEnrollment.objects.filter(student=request.user, batch_id=batch_id).first()
+        if not enrollment:
+            raise ServiceError(detail="You are not enrolled in this batch.", status_code=status.HTTP_403_FORBIDDEN)
+
+        view, created = StudentSessionView.objects.get_or_create(
+            enrollment=enrollment,
+            batch_session=session
+        )
+        
+        is_completed = request.data.get('is_completed', True)
+        view.is_completed = is_completed
+        if is_completed:
+            view.watched_percent = 100.0
+        view.save()
+
+        return format_success_response(
+            message=f"Session marked as {'completed' if is_completed else 'incomplete'}",
+            data={'is_completed': view.is_completed}
+        )

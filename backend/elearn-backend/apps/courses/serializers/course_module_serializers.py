@@ -81,15 +81,33 @@ class BatchPostSessionQuestionSerializer(serializers.ModelSerializer):
 class BatchClassSessionSerializer(serializers.ModelSerializer):
     video_presigned_url = serializers.SerializerMethodField()
     mcq_questions = BatchPostSessionQuestionSerializer(many=True, read_only=True)
+    is_completed = serializers.SerializerMethodField()
+    has_mcq = serializers.SerializerMethodField()
 
     class Meta:
         model = BatchClassSession
         fields = [
             'id', 'batch_week', 'session_number', 'title', 'description', 'weekday',
             'video_file', 'video_presigned_url', 'thumbnail', 'duration_seconds',
-            'mcq_questions', 'uploaded_by', 'updated_by', 'created_at', 'updated_at'
+            'mcq_questions', 'is_completed', 'has_mcq', 'uploaded_by', 'updated_by', 'created_at', 'updated_at'
         ]
         read_only_fields = ['uploaded_by', 'updated_by', 'created_at', 'updated_at']
+
+    def get_is_completed(self, obj):
+        request = self.context.get('request')
+        if not request or not request.user.is_authenticated:
+            return False
+        
+        from apps.courses.models import BatchEnrollment, StudentSessionView
+        enrollment = BatchEnrollment.objects.filter(student=request.user, batch=obj.batch_week.batch).first()
+        if not enrollment:
+            return False
+            
+        view = StudentSessionView.objects.filter(enrollment=enrollment, batch_session=obj).first()
+        return view.is_completed if view else False
+
+    def get_has_mcq(self, obj):
+        return obj.mcq_questions.exists()
 
     def get_video_presigned_url(self, obj):
         if not obj.video_file:
@@ -140,19 +158,57 @@ class BatchWeekSerializer(serializers.ModelSerializer):
     class_sessions = BatchClassSessionSerializer(many=True, read_only=True)
     weekly_test = serializers.SerializerMethodField()
     is_unlocked = serializers.ReadOnlyField()
+    student_lock_status = serializers.SerializerMethodField()
 
     class Meta:
         model = BatchWeek
         fields = [
             'id', 'batch', 'week_number', 'title', 'description', 
-            'unlock_date', 'is_extended', 'is_unlocked', 'is_published', 
-            'class_sessions', 'weekly_test', 'created_at', 'updated_at'
+            'unlock_date', 'is_extended', 'is_unlocked', 'student_lock_status', 'is_published', 
+            'can_modify_content', 'class_sessions', 'weekly_test', 'created_at', 'updated_at'
         ]
 
     def get_weekly_test(self, obj):
         if hasattr(obj, 'weekly_test') and obj.weekly_test:
             return BatchWeeklyTestSerializer(obj.weekly_test, context=self.context).data
         return None
+
+    def get_student_lock_status(self, obj):
+        request = self.context.get('request')
+        if not request or not request.user.is_authenticated:
+            return {'is_locked': True, 'reason': 'authentication_required'}
+            
+        from apps.users.models import User
+        from apps.courses.models import BatchEnrollment, TestSubmission
+        
+        # Admin or Teacher can see everything
+        if request.user.user_type.name in ('ADMIN', 'TEACHER'):
+            return {'is_locked': False, 'reason': None}
+
+        enrollment = BatchEnrollment.objects.filter(student=request.user, batch=obj.batch).first()
+        if not enrollment:
+            return {'is_locked': True, 'reason': 'not_enrolled'}
+
+        # 1. Calendar Check
+        if not obj.is_unlocked:
+            return {'is_locked': True, 'reason': 'date_locked', 'unlock_date': obj.unlock_date}
+
+        # 2. Previous Week Assessment Check
+        if obj.week_number > 1:
+            prev_week = obj.batch.batch_weeks.filter(week_number=obj.week_number - 1).first()
+            if prev_week and hasattr(prev_week, 'weekly_test'):
+                # Check if student passed previous week's test
+                submission = TestSubmission.objects.filter(
+                    enrollment=enrollment,
+                    batch_weekly_test=prev_week.weekly_test,
+                    status='published',
+                    is_passed=True
+                ).first()
+                
+                if not submission:
+                    return {'is_locked': True, 'reason': 'previous_test_not_passed'}
+
+        return {'is_locked': False, 'reason': None}
 
 
 class BatchWeekCreateUpdateSerializer(serializers.ModelSerializer):

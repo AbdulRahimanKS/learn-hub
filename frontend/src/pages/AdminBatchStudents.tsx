@@ -61,6 +61,11 @@ export default function AdminBatchStudents() {
   const [totalPages, setTotalPages] = useState(1);
   const pageSize = 5;
 
+  // Pagination for available students
+  const [availableCurrentPage, setAvailableCurrentPage] = useState(1);
+  const [totalAvailablePages, setTotalAvailablePages] = useState(1);
+  const availablePageSize = 5;
+
   const fetchBatchDetails = useCallback(async () => {
     if (!batchId) return;
     try {
@@ -92,17 +97,29 @@ export default function AdminBatchStudents() {
     }
   }, [batchId, toast]);
 
-  const fetchAvailableStudents = useCallback(async (search?: string) => {
+  const fetchAvailableStudents = useCallback(async (search?: string, page: number = 1) => {
     try {
       setAvailableLoading(true);
-      const res = await batchApi.getAvailableStudents(search);
-      setAvailableStudents(res.data || []);
+      const res = await batchApi.getAvailableStudents({
+        search,
+        page,
+        page_size: availablePageSize,
+      });
+      if ('current_page' in res) {
+        setAvailableStudents(res.data || []);
+        setAvailableCurrentPage(res.current_page);
+        setTotalAvailablePages(res.total_pages);
+      } else {
+        setAvailableStudents(res.data || []);
+        setTotalAvailablePages(1);
+        setAvailableCurrentPage(1);
+      }
     } catch (err) {
       toast({ title: 'Error', description: 'Failed to fetch available students', variant: 'destructive' });
     } finally {
       setAvailableLoading(false);
     }
-  }, [toast]);
+  }, [availablePageSize, toast]);
 
   useEffect(() => {
     fetchBatchDetails();
@@ -114,9 +131,9 @@ export default function AdminBatchStudents() {
 
   useEffect(() => {
     if (isAddModalOpen) {
-      fetchAvailableStudents();
+      fetchAvailableStudents(studentSearch, availableCurrentPage);
     }
-  }, [isAddModalOpen, fetchAvailableStudents]);
+  }, [isAddModalOpen, fetchAvailableStudents, availableCurrentPage]);
 
   const handleAddStudent = async (studentId: number) => {
     if (!batchId) return;
@@ -125,7 +142,7 @@ export default function AdminBatchStudents() {
       await batchApi.addStudent(parseInt(batchId), studentId);
       toast({ title: 'Success', description: 'Student added to batch successfully', variant: 'success' });
       fetchEnrolledStudents(currentPage);
-      fetchAvailableStudents(studentSearch);
+      fetchAvailableStudents(studentSearch, availableCurrentPage);
     } catch (err: any) {
       toast({ 
         title: 'Error', 
@@ -189,8 +206,8 @@ export default function AdminBatchStudents() {
                 </div>
               </div>
 
-              <div className="flex-1 overflow-hidden flex flex-col gap-4 pt-4">
-                <div className="relative">
+              <div className="flex-1 overflow-hidden flex flex-col gap-4 pt-4 px-1">
+                <div className="relative mx-1">
                   <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                   <Input
                     placeholder="Search students by name or email..."
@@ -198,11 +215,11 @@ export default function AdminBatchStudents() {
                     value={studentSearch}
                     onChange={(e) => {
                       setStudentSearch(e.target.value);
-                      fetchAvailableStudents(e.target.value);
+                      fetchAvailableStudents(e.target.value, 1);
                     }}
                   />
                 </div>
-                <div className="flex-1 overflow-y-auto border rounded-xl">
+                 <div className="flex-1 overflow-y-auto border rounded-xl m-1">
                   {availableLoading ? (
                     <div className="flex items-center justify-center py-12">
                       <Loader2 className="h-6 w-6 animate-spin text-primary" />
@@ -212,6 +229,7 @@ export default function AdminBatchStudents() {
                       <p>{studentSearch ? 'No matching students found.' : 'No available students found.'}</p>
                     </div>
                   ) : (
+                    <>
                     <Table>
                       <TableHeader>
                         <TableRow>
@@ -245,6 +263,35 @@ export default function AdminBatchStudents() {
                         ))}
                       </TableBody>
                     </Table>
+                    
+                    {totalAvailablePages > 1 && (
+                      <div className="flex items-center justify-between px-4 py-3 border-t bg-muted/20">
+                        <div className="flex items-center gap-1">
+                          <Button
+                            variant="outline"
+                            size="icon"
+                            className="h-7 w-7"
+                            disabled={availableCurrentPage === 1 || availableLoading}
+                            onClick={() => setAvailableCurrentPage(p => p - 1)}
+                          >
+                            <ChevronLeft className="h-3 w-3" />
+                          </Button>
+                          <span className="text-[10px] text-muted-foreground px-2">
+                            Page {availableCurrentPage} of {totalAvailablePages}
+                          </span>
+                          <Button
+                            variant="outline"
+                            size="icon"
+                            className="h-7 w-7"
+                            disabled={availableCurrentPage === totalAvailablePages || availableLoading}
+                            onClick={() => setAvailableCurrentPage(p => p + 1)}
+                          >
+                            <ChevronRight className="h-3 w-3" />
+                          </Button>
+                        </div>
+                      </div>
+                    )}
+                    </>
                   )}
                 </div>
               </div>
@@ -335,7 +382,10 @@ export default function AdminBatchStudents() {
                               <h3 className="font-bold text-lg text-foreground truncate">{enrollment.student_name}</h3>
                               <Badge variant="outline" className={cn(
                                 "text-[10px] h-4 py-0",
-                                enrollment.status === 'active' ? "bg-success/5 text-success border-success/20" : "bg-muted text-muted-foreground border-border"
+                                enrollment.status === 'active' ? "bg-success/5 text-success border-success/20" : 
+                                enrollment.status === 'completed' ? "bg-primary/5 text-primary border-primary/20" :
+                                enrollment.status === 'dropped' ? "bg-destructive/5 text-destructive border-destructive/20" :
+                                "bg-muted text-muted-foreground border-border"
                               )}>
                                 {enrollment.status.toUpperCase()}
                               </Badge>

@@ -24,6 +24,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
+import { cn } from '@/lib/utils';
 import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
@@ -553,20 +554,27 @@ export default function Content() {
           </div>
         )}
         
-        <div className="absolute bottom-3 left-3 right-3 flex items-end justify-between">
-          <Badge variant="secondary" className="bg-foreground/80 text-background flex items-center">
-            <Clock className="h-3 w-3 mr-1" />
-            {video.duration_seconds > 0 ? (
-              `${Math.floor(video.duration_seconds / 60).toString().padStart(2, '0')}:${(video.duration_seconds % 60).toString().padStart(2, '0')}`
-            ) : (
-              'Processing'
+        <div className="absolute bottom-3 left-3 right-3 flex justify-between items-end">
+          {/* Duration on the left */}
+          <div className="flex items-center gap-1 text-[10px] font-bold text-white bg-black/60 px-2 py-1 rounded backdrop-blur-md border border-white/10 shadow-lg">
+            <Clock className="h-3 w-3" />
+            <span>
+              {video.duration_seconds > 0 ? (
+                `${Math.floor(video.duration_seconds / 60).toString().padStart(2, '0')}:${(video.duration_seconds % 60).toString().padStart(2, '0')}`
+              ) : (
+                'Processing'
+              )}
+            </span>
+          </div>
+
+          {/* Labels on the right */}
+          <div className="flex flex-col items-end gap-1.5">
+            {video.weekday && (
+              <Badge variant="outline" className="bg-background/90 backdrop-blur-md shadow-sm border-primary/20 capitalize font-bold text-[10px] h-5 px-2">
+                {video.weekday}
+              </Badge>
             )}
-          </Badge>
-          {video.weekday && (
-            <Badge variant="outline" className="bg-background/80 backdrop-blur-md shadow-sm border-primary/20 capitalize font-medium text-xs">
-              {video.weekday}
-            </Badge>
-          )}
+          </div>
         </div>
 
         <button 
@@ -676,10 +684,18 @@ export default function Content() {
             </Button>
           </div>
         ) : (
-          <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
-            <TabsList className="bg-background p-1 border border-border/50 rounded-lg max-w-full justify-start overflow-x-auto overflow-y-hidden flex-nowrap scrollbar-hide">
+          <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6 w-full overflow-hidden">
+            <TabsList className="flex w-full bg-transparent h-auto p-0 flex-nowrap justify-start overflow-x-auto overflow-y-hidden scrollbar-hide gap-3 pb-2">
             {weeks.map(week => (
-              <TabsTrigger key={week.id} value={week.id.toString()} className="whitespace-nowrap">
+              <TabsTrigger 
+                key={week.id} 
+                value={week.id.toString()} 
+                className={cn(
+                  "px-6 py-2.5 shrink-0 rounded-full transition-all border border-border/50 text-sm font-medium",
+                  "data-[state=active]:bg-primary data-[state=active]:text-white data-[state=active]:border-primary data-[state=active]:shadow-lg shadow-primary/20",
+                  "bg-muted/30 text-muted-foreground hover:bg-muted/50"
+                )}
+              >
                 Week {week.week_number}
               </TabsTrigger>
             ))}

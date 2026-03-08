@@ -12,6 +12,7 @@ export interface Course {
   total_weeks?: number;
   batch_id?: number | null;
   batch_name?: string | null;
+  batch_status?: 'active' | 'completed' | 'dropped' | null;
   created_at: string;
   updated_at: string;
 }

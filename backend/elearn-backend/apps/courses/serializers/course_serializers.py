@@ -25,6 +25,7 @@ class CourseListSerializer(serializers.ModelSerializer):
     total_weeks = serializers.IntegerField(read_only=True)
     batch_id = serializers.SerializerMethodField()
     batch_name = serializers.SerializerMethodField()
+    batch_status = serializers.SerializerMethodField()
 
     class Meta:
         model = Course
@@ -42,6 +43,7 @@ class CourseListSerializer(serializers.ModelSerializer):
             'total_weeks',
             'batch_id',
             'batch_name',
+            'batch_status',
         ]
         read_only_fields = ['course_code', 'created_at', 'total_weeks']
 
@@ -60,6 +62,14 @@ class CourseListSerializer(serializers.ModelSerializer):
         batch = obj.batches.filter(enrollments__student=user).first()
         return batch.name if batch else None
 
+    def get_batch_status(self, obj):
+        user = self.context['request'].user
+        if not user.is_authenticated:
+            return None
+        from apps.courses.models import BatchEnrollment
+        enrollment = BatchEnrollment.objects.filter(batch__course=obj, student=user).first()
+        return enrollment.status if enrollment else None
+
 
 class CourseDetailSerializer(serializers.ModelSerializer):
     """
@@ -72,6 +82,7 @@ class CourseDetailSerializer(serializers.ModelSerializer):
     total_weeks = serializers.IntegerField(read_only=True)
     batch_id = serializers.SerializerMethodField()
     batch_name = serializers.SerializerMethodField()
+    batch_status = serializers.SerializerMethodField()
 
     class Meta:
         model = Course
@@ -92,6 +103,7 @@ class CourseDetailSerializer(serializers.ModelSerializer):
             'total_weeks',
             'batch_id',
             'batch_name',
+            'batch_status',
         ]
         read_only_fields = ['course_code', 'created_by', 'updated_by', 'created_at', 'updated_at', 'total_weeks']
 
@@ -108,6 +120,14 @@ class CourseDetailSerializer(serializers.ModelSerializer):
             return None
         batch = obj.batches.filter(enrollments__student=user).first()
         return batch.name if batch else None
+
+    def get_batch_status(self, obj):
+        user = self.context['request'].user
+        if not user.is_authenticated:
+            return None
+        from apps.courses.models import BatchEnrollment
+        enrollment = BatchEnrollment.objects.filter(batch__course=obj, student=user).first()
+        return enrollment.status if enrollment else None
 
 
 class CourseCreateUpdateSerializer(serializers.ModelSerializer):
