@@ -428,49 +428,43 @@ export default function Courses() {
             </Dialog>
 
             {/* ===== HEADER BANNER WITH OVERALL PROGRESS ===== */}
-            <div className="rounded-2xl overflow-hidden bg-gradient-to-br from-[#1a237e] via-[#283593] to-[#3949ab] text-white p-6 md:p-8 relative shadow-lg">
+            <div className="rounded-2xl overflow-hidden bg-gradient-to-br from-[#1a237e] via-[#283593] to-[#3949ab] text-white p-5 md:p-8 relative shadow-lg">
               {/* Decorative gradients */}
               <div className="absolute inset-0 overflow-hidden pointer-events-none">
                 <div className="absolute top-0 right-0 w-64 h-64 bg-white/5 rounded-full blur-3xl" />
                 <div className="absolute bottom-0 left-0 w-32 h-32 bg-primary/20 rounded-full blur-2xl" />
               </div>
 
-              <div className="relative flex flex-col lg:flex-row lg:items-center gap-8">
+              <div className="relative flex flex-col lg:flex-row lg:items-center gap-6 md:gap-8">
                 {/* Left: Course info */}
                 <div className="flex-1 min-w-0">
-                  <h1 className="text-2xl md:text-3xl font-bold tracking-tight leading-snug">
+                  <h1 className="text-xl md:text-2xl lg:text-3xl font-bold tracking-tight leading-snug">
                     {selectedCourse.title}
                   </h1>
                   
                   {selectedCourse.batch_name && (
-                    <p className="mt-2 text-white/80 text-sm font-medium flex items-center gap-2">
-                       <Users className="w-4 h-4" />
-                       Enrolled in: {selectedCourse.batch_name}
+                    <p className="mt-2 text-white/80 text-xs md:text-sm font-medium flex items-center gap-2">
+                       <Users className="w-3.5 h-3.5 md:w-4 md:h-4" />
+                       <span className="truncate">Batch: {selectedCourse.batch_name}</span>
                     </p>
                   )}
 
-                  <div className="flex flex-wrap items-center gap-5 mt-5">
-                    <div className="flex items-center gap-2 bg-white/10 backdrop-blur-md px-4 py-2 rounded-full border border-white/10 text-sm font-medium shadow-sm">
-                      <LayoutGrid className="h-4 w-4" />
+                  <div className="flex flex-wrap items-center gap-3 md:gap-5 mt-4 md:mt-5">
+                    <div className="flex items-center gap-1.5 md:gap-2 bg-white/10 backdrop-blur-md px-3 md:px-4 py-1.5 md:py-2 rounded-full border border-white/10 text-xs md:text-sm font-medium shadow-sm">
+                      <LayoutGrid className="h-3.5 w-3.5 md:h-4 md:h-4" />
                       <span>{weeks.length} Week{weeks.length !== 1 ? 's' : ''}</span>
                     </div>
-                    <div className="flex items-center gap-2 bg-white/10 backdrop-blur-md px-4 py-2 rounded-full border border-white/10 text-sm font-medium shadow-sm">
-                      <Video className="h-4 w-4" />
+                    <div className="flex items-center gap-1.5 md:gap-2 bg-white/10 backdrop-blur-md px-3 md:px-4 py-1.5 md:py-2 rounded-full border border-white/10 text-xs md:text-sm font-medium shadow-sm">
+                      <Video className="h-3.5 w-3.5 md:h-4 md:h-4" />
                       <span>{totalSessions} Session{totalSessions !== 1 ? 's' : ''}</span>
                     </div>
                   </div>
-
-                  {selectedCourse.description && (
-                    <p className="mt-5 text-white/70 text-sm leading-relaxed line-clamp-2 max-w-2xl">
-                      {selectedCourse.description}
-                    </p>
-                  )}
                 </div>
 
-                <div className="lg:w-80 shrink-0 bg-white/10 backdrop-blur-md border border-white/20 rounded-2xl p-6 shadow-xl">
+                <div className="w-full lg:w-80 shrink-0 bg-white/10 backdrop-blur-md border border-white/20 rounded-2xl p-5 md:p-6 shadow-xl">
                   <div className="flex items-center justify-between mb-2">
-                    <span className="text-xs font-black uppercase tracking-[0.2em] text-white/50">Overall Progress</span>
-                    <span className="text-xl font-black text-white">{totalSessions > 0 ? Math.round((completedSessions / totalSessions) * 100) : 0}%</span>
+                    <span className="text-[10px] font-black uppercase tracking-[0.2em] text-white/50">Overall Progress</span>
+                    <span className="text-lg md:text-xl font-black text-white">{totalSessions > 0 ? Math.round((completedSessions / totalSessions) * 100) : 0}%</span>
                   </div>
                   <div className="h-2 w-full bg-white/10 rounded-full overflow-hidden border border-white/5">
                     <div 
@@ -481,36 +475,36 @@ export default function Courses() {
                   <div className="flex items-center gap-4 mt-3">
                     <div className="flex items-center gap-1.5">
                       <div className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
-                      <span className="text-[10px] font-bold text-white/50 uppercase tracking-wider">{completedSessions} DONE</span>
+                      <span className="text-[9px] md:text-[10px] font-bold text-white/50 uppercase tracking-wider">{completedSessions} DONE</span>
                     </div>
                     <div className="flex items-center gap-1.5">
                       <div className="w-1.5 h-1.5 rounded-full bg-white/20" />
-                      <span className="text-[10px] font-bold text-white/50 uppercase tracking-wider">{totalSessions - completedSessions} REMAINING</span>
+                      <span className="text-[9px] md:text-[10px] font-bold text-white/50 uppercase tracking-wider">{totalSessions - completedSessions} LEFT</span>
                     </div>
                   </div>
                   <Button
                     onClick={handleStartLearning}
                     disabled={isBatchNotStarted}
                     className={cn(
-                      "w-full mt-5 font-black h-11 rounded-xl shadow-lg transition-all",
+                      "w-full mt-4 md:mt-5 font-black h-10 md:h-11 rounded-xl shadow-lg transition-all text-xs md:text-sm",
                       isBatchNotStarted
                         ? "bg-white/20 text-white/50 cursor-not-allowed border border-white/10"
-                        : "bg-white text-[#1a237e] hover:bg-white/90 hover:scale-[1.02]"
+                        : "bg-white text-[#1a237e] hover:bg-white/90"
                     )}
                   >
                     {isBatchNotStarted ? (
                       <>
-                        <Calendar className="w-4 h-4 mr-2" />
+                        <Calendar className="w-3.5 h-3.5 mr-2" />
                         Starts {new Date(batchUnlockDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
                       </>
                     ) : isUpToDate ? (
                       <>
-                        <CheckCircle2 className="w-4 h-4 mr-2 text-emerald-500" />
+                        <CheckCircle2 className="w-3.5 h-3.5 mr-2 text-emerald-500" />
                         Review Lessons
                       </>
                     ) : (
                       <>
-                        <Play className="w-4 h-4 mr-2 fill-[#1a237e]" />
+                        <Play className="w-3.5 h-3.5 mr-2 fill-[#1a237e]" />
                         {completedSessions === 0 ? 'Start Learning' : 'Continue Journey'}
                       </>
                     )}
@@ -662,7 +656,7 @@ export default function Courses() {
                                     <div
                                       key={session.id}
                                       className={cn(
-                                        'flex items-center gap-4 px-5 py-3.5 transition-all group',
+                                        'flex flex-col sm:flex-row items-center gap-3 sm:gap-4 px-4 sm:px-5 py-3.5 transition-all group',
                                         locked
                                           ? 'opacity-60 cursor-not-allowed'
                                           : completed
@@ -671,30 +665,42 @@ export default function Courses() {
                                       )}
                                       onClick={() => !locked && handlePlaySession(week.id, session)}
                                     >
-                                      {/* Play Button */}
-                                      <div
-                                        className={cn(
-                                          'shrink-0 w-10 h-10 rounded-xl flex items-center justify-center border-2 transition-all duration-200',
-                                          locked
-                                            ? 'border-muted-foreground/30 bg-muted text-muted-foreground opacity-50'
-                                            : isPlaying
-                                            ? 'border-primary bg-primary text-white shadow-md shadow-primary/30'
-                                            : completed
-                                            ? 'border-emerald-500/30 bg-emerald-500/10 text-emerald-500'
-                                            : 'border-primary/20 bg-primary/5 text-primary group-hover:bg-primary/10 group-hover:border-primary/40'
-                                        )}
-                                      >
-                                        {locked ? (
-                                          <Lock className="h-4 w-4" />
-                                        ) : isPlaying ? (
-                                          <div className="w-2.5 h-2.5 rounded-full bg-white animate-pulse" />
-                                        ) : (
-                                          <Play className="h-4 w-4 fill-current ml-0.5" />
-                                        )}
+                                      {/* Play Button and Title Row for Mobile */}
+                                      <div className="flex items-center w-full sm:w-auto gap-4">
+                                        <div
+                                          className={cn(
+                                            'shrink-0 w-10 h-10 rounded-xl flex items-center justify-center border-2 transition-all duration-200',
+                                            locked
+                                              ? 'border-muted-foreground/30 bg-muted text-muted-foreground opacity-50'
+                                              : isPlaying
+                                              ? 'border-primary bg-primary text-white shadow-md shadow-primary/30'
+                                              : completed
+                                              ? 'border-emerald-500/30 bg-emerald-500/10 text-emerald-500'
+                                              : 'border-primary/20 bg-primary/5 text-primary group-hover:bg-primary/10 group-hover:border-primary/40'
+                                          )}
+                                        >
+                                          {locked ? (
+                                            <Lock className="h-4 w-4" />
+                                          ) : isPlaying ? (
+                                            <div className="w-2.5 h-2.5 rounded-full bg-white animate-pulse" />
+                                          ) : (
+                                            <Play className="h-4 w-4 fill-current ml-0.5" />
+                                          )}
+                                        </div>
+
+                                        <div className="flex-1 min-w-0 sm:hidden">
+                                           <h4 className={cn('font-bold text-sm leading-snug truncate', completed ? 'text-muted-foreground' : 'text-foreground')}>
+                                              {session.title}
+                                           </h4>
+                                           <div className="flex items-center gap-2 mt-1">
+                                             <span className="text-[9px] font-black uppercase text-primary/70">{session.weekday || 'Session'}</span>
+                                             {completed && <span className="text-[8px] bg-emerald-500/20 text-emerald-400 px-1 rounded font-black uppercase">Watched</span>}
+                                           </div>
+                                        </div>
                                       </div>
 
-                                      {/* Info */}
-                                      <div className="flex-1 min-w-0">
+                                      {/* Info - Desktop Content */}
+                                      <div className="hidden sm:block flex-1 min-w-0">
                                         <h4
                                           className={cn(
                                             'font-bold text-sm leading-snug line-clamp-1',
@@ -705,11 +711,11 @@ export default function Courses() {
                                         </h4>
                                         {session.duration_seconds > 0 && (
                                           <p className="text-xs text-muted-foreground mt-0.5 flex items-center gap-3">
-                                            <span className="flex items-center gap-1.5 capitalize">
+                                            <span className="flex items-center gap-1.5 capitalize text-[10px]">
                                               <Calendar className="h-3 w-3 text-primary/60" />
                                               {session.weekday || 'Session'}
                                             </span>
-                                            <span className="flex items-center gap-1.5">
+                                            <span className="flex items-center gap-1.5 text-[10px]">
                                               <Clock className="h-3 w-3 text-primary/60" />
                                               {formatSessionDuration(session.duration_seconds)}
                                             </span>
@@ -723,14 +729,14 @@ export default function Courses() {
                                       </div>
 
                                       {/* Right: MCQ Button */}
-                                      <div className="flex items-center gap-4 shrink-0 px-2">
+                                      <div className="flex items-center justify-end w-full sm:w-auto shrink-0 py-1 sm:py-0 sm:px-2">
                                         {session.has_mcq && (
                                           <Button
                                             size="sm"
                                             variant="secondary"
                                             disabled={locked || !completed}
                                             className={cn(
-                                              "h-8 px-4 text-xs font-bold rounded-full transition-all border",
+                                              "h-8 sm:h-9 px-6 sm:px-4 text-[10px] w-full sm:w-auto font-black uppercase tracking-widest rounded-full transition-all border",
                                               (locked || !completed)
                                                 ? "bg-muted text-muted-foreground opacity-50 cursor-not-allowed"
                                                 : "bg-[#283593] hover:bg-[#1a237e] text-white border-transparent shadow-sm"
@@ -742,16 +748,9 @@ export default function Courses() {
                                                   title: session.title,
                                                   questions: session.mcq_questions,
                                                 });
-                                              } else {
-                                                toast({
-                                                  title: 'Not Available',
-                                                  description: 'No practice questions available for this session yet.',
-                                                  variant: 'destructive',
-                                                });
                                               }
                                             }}
                                           >
-                                            {!completed && !locked && <Lock className="w-3 h-3 mr-1.5" />}
                                             {completed ? 'Practice MCQs' : 'Watch Video First'}
                                           </Button>
                                         )}

@@ -493,62 +493,54 @@ export default function Content() {
   const VideoCard = ({ video }: { video: any }) => (
     <Card className="shadow-card overflow-hidden group hover:shadow-md transition-all duration-300 bg-card border border-border/50">
       <div className="flex flex-col sm:flex-row items-center p-4 gap-4">
-        {/* Left: Icon/Play */}
-        <div className="flex shrink-0">
-          <div 
-            className="h-12 w-12 rounded-xl flex items-center justify-center bg-primary/10 text-primary hover:bg-primary hover:text-primary-foreground cursor-pointer transition-colors"
-            onClick={() => {
-              if (video.video_presigned_url) {
-                setPlayingVideoUrl(video.video_presigned_url);
-              } else if (video.video_url) {
-                 window.open(video.video_url, '_blank');
-              } else {
-                toast({ title: 'Video Unavailable', description: 'This video cannot be played directly at this time.', variant: 'destructive' });
-              }
-            }}
-          >
-            <Play className="h-6 w-6 fill-current ml-1" />
+        {/* Left: Icon/Play & Info Block */}
+        <div className="flex items-center w-full sm:w-auto gap-4">
+          <div className="flex shrink-0">
+            <div 
+              className="h-12 w-12 rounded-xl flex items-center justify-center bg-primary/10 text-primary hover:bg-primary hover:text-white cursor-pointer transition-colors"
+              onClick={() => {
+                if (video.video_presigned_url) {
+                  setPlayingVideoUrl(video.video_presigned_url);
+                } else if (video.video_url) {
+                  window.open(video.video_url, '_blank');
+                }
+              }}
+            >
+              <Play className="h-6 w-6 fill-current ml-1" />
+            </div>
+          </div>
+
+          {/* Mobile Title Column */}
+          <div className="flex-1 min-w-0 sm:hidden">
+            <h3 className="font-bold text-foreground truncate text-base">{video.title}</h3>
+            <p className="text-[10px] text-muted-foreground uppercase font-bold tracking-tighter">{video.weekday || 'Session'}</p>
           </div>
         </div>
 
-        {/* Middle: Content */}
-        <div className="flex-1 min-w-0 text-center sm:text-left">
+        {/* Middle: Desktop Content */}
+        <div className="hidden sm:block flex-1 min-w-0">
           <div className="flex flex-col sm:flex-row sm:items-center gap-2 mb-1">
             <h3 className="font-display font-bold text-foreground truncate text-lg">{video.title}</h3>
             {video.weekday && (
-              <Badge variant="outline" className="w-fit mx-auto sm:mx-0 bg-background/90 shadow-sm border-primary/30 capitalize font-bold text-[10px] h-5 px-2">
+              <Badge variant="outline" className="w-fit bg-background/90 shadow-sm border-primary/30 capitalize font-bold text-[10px] h-5 px-2">
                 {video.weekday}
               </Badge>
             )}
           </div>
-          
           {video.description && (
-            <p className="text-sm text-muted-foreground line-clamp-1 mb-2">
+            <p className="text-sm text-muted-foreground line-clamp-1">
               {video.description}
             </p>
           )}
-          
-          <div className="flex flex-wrap items-center justify-center sm:justify-start gap-4 text-xs font-medium text-muted-foreground">
-            <div className="flex items-center gap-1.5">
-              <Clock className="h-3.5 w-3.5" />
-              <span>
-                {video.duration_seconds > 0 ? (
-                  `${Math.floor(video.duration_seconds / 60).toString().padStart(2, '0')}:${(video.duration_seconds % 60).toString().padStart(2, '0')}`
-                ) : (
-                  'Processing'
-                )}
-              </span>
-            </div>
-          </div>
         </div>
 
         {/* Right: Actions */}
-        <div className="flex items-center gap-3 shrink-0 ml-auto w-full sm:w-auto justify-center sm:justify-end border-t sm:border-t-0 pt-4 sm:pt-0">
+        <div className="flex items-center gap-2 shrink-0 w-full sm:w-auto justify-between sm:justify-end border-t sm:border-t-0 pt-3 sm:pt-0">
           <div className="flex items-center gap-1">
             <Button 
                variant="ghost" 
                size="sm" 
-               className="h-9 px-3 gap-2 text-muted-foreground hover:text-foreground" 
+               className="h-9 w-9 sm:w-auto sm:px-3 gap-2 text-muted-foreground hover:text-foreground" 
                onClick={() => {
                 setMcqSession(video);
                 setMcqApiUrl(`/api/courses/v1/courses/${courseId}/weeks/${activeTab}/sessions/${video.id}/mcq`);
@@ -556,7 +548,7 @@ export default function Content() {
               }}
             >
               <HelpCircle className="h-4 w-4" />
-              <span className="text-xs font-bold">MCQs</span>
+              <span className="text-xs font-bold hidden md:inline">MCQs</span>
             </Button>
             <Button variant="ghost" size="icon" className="h-9 w-9 text-muted-foreground hover:text-foreground" onClick={() => handleOpenEditVideo(video, activeTab)}>
               <Edit className="h-4 w-4" />
@@ -571,15 +563,12 @@ export default function Content() {
             size="sm" 
             className="gap-2 px-6 h-9 rounded-lg shadow-sm font-bold"
             onClick={() => {
-              if (video.video_presigned_url) {
-                setPlayingVideoUrl(video.video_presigned_url);
-              } else if (video.video_url) {
-                 window.open(video.video_url, '_blank');
-              }
+              const url = video.video_presigned_url || video.video_url;
+              if (url) setPlayingVideoUrl(url);
             }}
           >
             <Play className="h-3.5 w-3.5 fill-current" />
-            Watch
+            <span className="sm:inline">Watch</span>
           </Button>
         </div>
       </div>
@@ -590,8 +579,8 @@ export default function Content() {
     <DashboardLayout>
       <div className="flex flex-col lg:flex-row gap-8 items-start">
         
-        {/* ── CURRICULUM SIDEBAR (Template Level) ───────────────────── */}
-        <aside className="w-full lg:w-80 shrink-0 sticky top-6">
+        {/* ── CURRICULUM NAVIGATION ───────────────────── */}
+        <aside className="w-full lg:w-80 shrink-0 lg:sticky lg:top-[5.5rem] z-20 bg-background/95 backdrop-blur-md lg:bg-transparent px-4 py-2 lg:px-0 lg:py-0 border-b lg:border-none lg:max-h-[calc(100vh-8rem)] lg:overflow-y-auto lg:scrollbar-none">
           <div className="flex flex-col gap-4">
             <div className="flex items-center justify-between px-2">
               <div className="flex items-center gap-3">
@@ -599,13 +588,13 @@ export default function Content() {
                   variant="outline" 
                   size="icon" 
                   onClick={() => navigate('/admin-courses')}
-                  className="rounded-full h-9 w-9"
+                  className="rounded-full h-8 w-8 sm:h-9 sm:w-9"
                 >
-                  <ChevronLeft className="h-5 w-5" />
+                  <ChevronLeft className="h-4 w-4 sm:h-5 sm:w-5" />
                 </Button>
                 <div>
-                  <h1 className="font-display text-xl font-bold text-foreground">Course Content</h1>
-                  <p className="text-[10px] text-muted-foreground uppercase tracking-widest font-black">Template Editor</p>
+                  <h1 className="font-display text-lg sm:text-xl font-bold text-foreground">Course Content</h1>
+                  <p className="text-[9px] sm:text-[10px] text-muted-foreground uppercase tracking-widest font-black">Template Editor</p>
                 </div>
               </div>
               <Button 
@@ -618,7 +607,29 @@ export default function Content() {
               </Button>
             </div>
 
-            <Card className="border-border/50 shadow-card overflow-hidden bg-card/50 backdrop-blur-sm">
+            {/* Mobile: Horizontal scroll of week pills */}
+            <div className="flex lg:hidden overflow-x-auto pb-2 gap-2 scrollbar-none px-2 no-scrollbar">
+              {weeks.map(week => {
+                const isActive = activeTab === week.id.toString();
+                return (
+                  <button
+                    key={week.id}
+                    onClick={() => setActiveTab(week.id.toString())}
+                    className={cn(
+                      "flex-shrink-0 px-4 py-2 rounded-full text-xs font-bold transition-all border",
+                      isActive 
+                        ? "bg-primary text-white border-primary shadow-md" 
+                        : "bg-muted text-muted-foreground border-border/50"
+                    )}
+                  >
+                    Week {week.week_number}
+                  </button>
+                );
+              })}
+            </div>
+
+            {/* Desktop: Vertical list card */}
+            <Card className="hidden lg:block border-border/50 shadow-card overflow-hidden bg-card/50 backdrop-blur-sm">
               <div className="p-2 space-y-1">
                 {isLoading ? (
                   <div className="py-12 flex justify-center"><Loader2 className="h-6 w-6 animate-spin text-primary/40" /></div>
@@ -671,39 +682,39 @@ export default function Content() {
               return (
                 <div className="space-y-6 animate-in fade-in slide-in-from-bottom-2 duration-500">
                   {/* Phase 1: Header Banner */}
-                  <div className="relative rounded-3xl overflow-hidden bg-gradient-to-br from-[#1a237e] via-[#283593] to-[#3949ab] p-8 text-white shadow-lg">
-                    <div className="absolute top-0 right-0 p-8 pointer-events-none opacity-10">
+                  <div className="relative rounded-xl md:rounded-3xl overflow-hidden bg-gradient-to-br from-[#1a237e] via-[#283593] to-[#3949ab] p-6 text-white shadow-lg">
+                    <div className="absolute top-0 right-0 p-8 pointer-events-none opacity-10 hidden md:block">
                        <BookOpen className="h-32 w-32 rotate-12" />
                     </div>
                     
                     <div className="relative z-10">
-                      <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
+                      <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6">
                         <div className="space-y-2">
                           <div className="flex items-center gap-3">
                             <Badge className="bg-white/10 text-white backdrop-blur-md border-none font-black text-[10px] h-6 px-3">
                               CURRICULUM BASE
                             </Badge>
                           </div>
-                          <h2 className="text-4xl font-display font-black tracking-tight">Week {week.week_number}: {week.title}</h2>
-                          <p className="text-white/60 max-w-xl text-sm leading-relaxed">
+                          <h2 className="text-2xl md:text-3xl lg:text-4xl font-display font-black tracking-tight leading-tight">Week {week.week_number}: {week.title}</h2>
+                          <p className="text-white/60 max-w-xl text-xs md:text-sm leading-relaxed">
                             {week.description || 'This module template will be inherited by all batches associated with this course.'}
                           </p>
                         </div>
 
-                        <div className="flex flex-wrap gap-2">
+                        <div className="flex flex-col sm:flex-row md:flex-wrap gap-2 w-full lg:w-auto">
                           <Button 
                             variant="secondary" 
-                            className="bg-white text-slate-900 hover:bg-white/90 font-bold shadow-md rounded-xl"
+                            className="bg-white text-slate-900 hover:bg-white/90 font-bold shadow-md rounded-xl h-10 px-4"
                             onClick={() => handleOpenTestManager(week)}
                           >
-                            <FileText className="h-4 w-4 mr-2" />
+                            <FileText className="h-4 w-4 mr-2 hidden sm:inline" />
                             {week.weekly_test ? 'Edit Test' : 'Setup Base Test'}
                           </Button>
-                          <div className="flex gap-1">
+                          <div className="flex gap-1 w-full sm:w-auto">
                             <Button 
                               variant="secondary" 
                               size="icon" 
-                              className="bg-white/10 text-white hover:bg-white/20 backdrop-blur-md rounded-xl"
+                              className="bg-white/10 text-white hover:bg-white/20 backdrop-blur-md rounded-xl h-10 w-10 flex-1 sm:flex-none"
                               onClick={() => handleOpenEditWeek(week)}
                             >
                               <Edit className="h-4 w-4" />
@@ -711,7 +722,7 @@ export default function Content() {
                             <Button 
                               variant="secondary" 
                               size="icon" 
-                              className="bg-white/10 text-primary hover:bg-primary/20 backdrop-blur-md rounded-xl"
+                              className="bg-white/10 text-primary hover:bg-primary/20 backdrop-blur-md rounded-xl h-10 w-10 flex-1 sm:flex-none"
                               onClick={() => setDeleteWeekId(week.id)}
                             >
                               <Trash2 className="h-4 w-4" />
@@ -719,8 +730,6 @@ export default function Content() {
                           </div>
                         </div>
                       </div>
-
-
                     </div>
                   </div>
 

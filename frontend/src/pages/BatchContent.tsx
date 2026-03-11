@@ -440,8 +440,8 @@ export default function BatchContent() {
     <DashboardLayout>
       <div className="flex flex-col lg:flex-row gap-8 items-start">
         
-        {/* ── CURRICULUM SIDEBAR ─────────────────────────────────────── */}
-        <aside className="w-full lg:w-80 shrink-0 sticky top-6">
+        {/* ── BATCH CURRICULUM NAVIGATION ───────────────────── */}
+        <aside className="w-full lg:w-80 shrink-0 lg:sticky lg:top-[5.5rem] z-20 bg-background/95 backdrop-blur-md lg:bg-transparent px-4 py-2 lg:mx-0 lg:px-0 lg:py-0 border-b lg:border-none lg:max-h-[calc(100vh-8rem)] lg:overflow-y-auto lg:scrollbar-none">
           <div className="flex flex-col gap-4">
             <div className="flex items-center justify-between px-2">
               <div className="flex items-center gap-3">
@@ -449,44 +449,69 @@ export default function BatchContent() {
                   variant="outline" 
                   size="icon" 
                   onClick={() => navigate('/batches')}
-                  className="rounded-full h-9 w-9"
+                  className="rounded-full h-8 w-8 sm:h-9 sm:w-9"
                 >
-                  <ChevronLeft className="h-5 w-5" />
+                  <ChevronLeft className="h-4 w-4 sm:h-5 sm:w-5" />
                 </Button>
                 <div>
-                  <h1 className="font-display text-xl font-bold text-foreground truncate max-w-[150px]">
-                    {batchName || 'Batch Content'}
-                  </h1>
-                  <p className="text-[10px] text-muted-foreground uppercase tracking-widest font-bold">Curriculum</p>
+                  <h1 className="font-display text-lg sm:text-xl font-bold text-foreground">Batch Content</h1>
+                  <p className="text-[9px] sm:text-[10px] text-muted-foreground uppercase tracking-widest font-black truncate max-w-[120px] sm:max-w-none">
+                    {batchName || 'Loading...'}
+                  </p>
                 </div>
               </div>
-              <Button 
-                variant="outline" 
-                size="icon" 
-                className="h-8 w-8 rounded-full border-primary/30 hover:bg-primary/10 hover:text-primary"
-                onClick={() => setIsAddWeekOpen(true)}
-              >
-                <Plus className="h-4 w-4" />
-              </Button>
+              <div className="flex gap-1.5 sm:gap-2">
+                <Button 
+                  variant="outline" 
+                  size="icon" 
+                  className="h-8 w-8 rounded-full border-primary/30 hover:bg-primary/10 hover:text-primary transition-colors"
+                  onClick={() => setIsExtendOpen(true)}
+                  title="Extend Program Timeline"
+                >
+                  <Clock className="h-4 w-4" />
+                </Button>
+                <Button 
+                  variant="outline" 
+                  size="icon" 
+                  className="h-8 w-8 rounded-full border-primary/30 hover:bg-primary/10 hover:text-primary transition-colors"
+                  onClick={() => setIsAddWeekOpen(true)}
+                  title="Add New Week"
+                >
+                  <Plus className="h-4 w-4" />
+                </Button>
+              </div>
             </div>
-            {weeks.length > 0 && (
-              <Button 
-                variant="outline" 
-                className="w-full justify-start text-xs font-bold text-primary bg-primary/5 hover:bg-primary/10 border-primary/10 transition-all rounded-xl h-11 px-4 shadow-sm"
-                onClick={() => setIsExtendOpen(true)}
-              >
-                <Clock className="h-4 w-4 mr-3" />
-                Extend Program Timeline
-              </Button>
-            )}
 
-            <Card className="border-border/50 shadow-card overflow-hidden bg-card/50 backdrop-blur-sm">
+            {/* Mobile: Horizontal scroll of week pills */}
+            <div className="flex lg:hidden overflow-x-auto pb-2 gap-2 scrollbar-none px-2 no-scrollbar">
+              {weeks.map(week => {
+                const isActive = activeTab === week.id.toString();
+                return (
+                  <button
+                    key={week.id}
+                    onClick={() => setActiveTab(week.id.toString())}
+                    className={cn(
+                      "flex-shrink-0 px-4 py-2 rounded-full text-xs font-bold transition-all border flex items-center gap-2",
+                      isActive 
+                        ? "bg-primary text-white border-primary shadow-md" 
+                        : "bg-muted text-muted-foreground border-border/50"
+                    )}
+                  >
+                    {!week.is_unlocked && <LockIcon className="h-3 w-3" />}
+                    Week {week.week_number}
+                  </button>
+                );
+              })}
+            </div>
+
+            {/* Desktop: Vertical list card */}
+            <Card className="hidden lg:block border-border/50 shadow-card overflow-hidden bg-card/50 backdrop-blur-sm">
               <div className="p-2 space-y-1">
 
                 {loading ? (
                   <div className="py-12 flex justify-center"><Loader2 className="h-6 w-6 animate-spin text-primary/40" /></div>
                 ) : weeks.length === 0 ? (
-                  <div className="p-4 text-center text-xs text-muted-foreground">No weeks added yet.</div>
+                  <div className="p-4 text-center text-xs text-muted-foreground">No weeks found.</div>
                 ) : (
                   weeks.map(week => {
                     const isActive = activeTab === week.id.toString();
@@ -502,25 +527,24 @@ export default function BatchContent() {
                         )}
                       >
                         <div className={cn(
-                          "h-10 w-10 rounded-xl flex items-center justify-center font-bold text-sm shrink-0 transition-colors",
+                          "h-10 w-10 rounded-xl flex items-center justify-center font-extrabold text-sm shrink-0 transition-colors relative",
                           isActive ? "bg-white/20" : "bg-muted text-foreground"
                         )}>
                           {week.week_number}
+                          {!week.is_unlocked && (
+                            <div className="absolute -top-1 -right-1 bg-background border border-border shadow-sm rounded-full p-0.5" title="Locked">
+                               <LockIcon className="h-2 w-2 text-muted-foreground" />
+                            </div>
+                          )}
                         </div>
                         <div className="flex-1 min-w-0">
                           <p className={cn("text-sm font-bold truncate", isActive ? "text-white" : "text-foreground")}>
                             {week.title}
                           </p>
-                          <div className="flex items-center gap-2 mt-0.5">
-                            {week.is_unlocked ? (
-                               <Badge className="bg-emerald-500/20 text-emerald-500 border-none text-[8px] h-3.5 px-1.5 font-bold uppercase">Unlocked</Badge>
-                            ) : (
-                               <div className="flex items-center gap-1 text-[10px] font-medium opacity-70">
-                                 <Calendar className="h-3 w-3" />
-                                 {week.unlock_date ? format(new Date(week.unlock_date), 'MMM dd') : 'Not scheduled'}
-                               </div>
-                            )}
-                          </div>
+                          <p className={cn("text-[10px] flex items-center gap-1 mt-0.5", isActive ? "text-white/70" : "text-muted-foreground")}>
+                            <VideoIcon className="h-2.5 w-2.5" />
+                            {week.class_sessions?.length || 0} Sessions
+                          </p>
                         </div>
                         {isActive && <div className="h-1.5 w-1.5 rounded-full bg-white animate-pulse shadow-card" />}
                       </button>
@@ -540,14 +564,14 @@ export default function BatchContent() {
               const week = weeks.find(w => w.id.toString() === activeTab)!;
               return (
                 <div className="space-y-6">
-                  {/* Phase 1: Header Banner */}
-                  <div className="relative rounded-3xl overflow-hidden bg-gradient-to-br from-[#1a237e] via-[#283593] to-[#3949ab] p-8 text-white shadow-lg">
-                    <div className="absolute top-0 right-0 p-8 pointer-events-none opacity-10">
+                   {/* Phase 1: Header Banner */}
+                  <div className="relative rounded-xl md:rounded-3xl overflow-hidden bg-gradient-to-br from-[#1a237e] via-[#283593] to-[#3949ab] p-6 text-white shadow-lg">
+                    <div className="absolute top-0 right-0 p-8 pointer-events-none opacity-10 hidden md:block">
                        <Settings className="h-32 w-32 rotate-12" />
                     </div>
                     
                     <div className="relative z-10">
-                      <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
+                      <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6">
                         <div className="space-y-2">
                           <div className="flex items-center gap-3">
                             <Badge className="bg-white/20 text-white backdrop-blur-md border-none font-black text-[10px] h-6 px-3">
@@ -555,31 +579,31 @@ export default function BatchContent() {
                             </Badge>
                             {week.is_unlocked && (
                               <Badge className="bg-emerald-400 text-emerald-950 font-black text-[10px] h-6 px-3">
-                                LIVE / UNLOCKED
+                                LIVE
                               </Badge>
                             )}
                           </div>
-                          <h2 className="text-4xl font-display font-black tracking-tight">{week.title}</h2>
-                          <p className="text-white/70 max-w-xl text-sm leading-relaxed">
-                            {week.description || 'Manage the learning materials and assessments for this modular stage.'}
+                          <h2 className="text-2xl md:text-3xl lg:text-4xl font-display font-black tracking-tight leading-tight">{week.title}</h2>
+                          <p className="text-white/70 max-w-xl text-xs md:text-sm leading-relaxed">
+                            {week.description || 'Manage materials and assessments for this stage.'}
                           </p>
                         </div>
 
-                        <div className="flex flex-wrap gap-2">
+                        <div className="flex flex-col sm:flex-row md:flex-wrap gap-2 w-full lg:w-auto">
                           <Button 
                             variant="secondary" 
-                            className="bg-white text-primary hover:bg-white/90 font-bold shadow-md rounded-xl"
+                            className="bg-white text-primary hover:bg-white/90 font-bold shadow-md rounded-xl h-10 px-4"
                             onClick={() => handleOpenTestManager(week)}
                             disabled={week.is_unlocked}
                           >
-                            <FileText className="h-4 w-4 mr-2" />
-                            {weeklyTest ? 'Manage Test' : 'Setup Assessment'}
+                            <FileText className="h-4 w-4 mr-2 hidden sm:inline" />
+                            {weeklyTest ? 'Manage Test' : 'Setup Test'}
                           </Button>
-                          <div className="flex gap-1">
+                          <div className="flex gap-1 w-full sm:w-auto">
                             <Button 
                               variant="secondary" 
                               size="icon" 
-                              className="bg-white/10 text-white hover:bg-white/20 backdrop-blur-md rounded-xl"
+                              className="bg-white/10 text-white hover:bg-white/20 backdrop-blur-md rounded-xl h-10 w-10 flex-1 sm:flex-none"
                               onClick={() => handleOpenEdit(week)}
                               disabled={week.is_unlocked}
                             >
@@ -588,7 +612,7 @@ export default function BatchContent() {
                             <Button 
                               variant="secondary" 
                               size="icon" 
-                              className="bg-white/10 text-destructive hover:bg-destructive/20 backdrop-blur-md rounded-xl"
+                              className="bg-white/10 text-destructive hover:bg-destructive/20 backdrop-blur-md rounded-xl h-10 w-10 flex-1 sm:flex-none"
                               onClick={() => setDeleteWeekId(week.id)}
                               disabled={week.is_unlocked}
                             >
@@ -598,26 +622,26 @@ export default function BatchContent() {
                         </div>
                       </div>
 
-                      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mt-8 pt-8 border-t border-white/10 text-xs">
+                      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mt-8 pt-8 border-t border-white/10 text-[10px] md:text-xs">
                          <div className="flex flex-col gap-1">
                            <span className="text-white/50 uppercase tracking-widest font-black">Release Date</span>
-                           <span className="font-bold flex items-center gap-2">
-                             <Calendar className="h-3.5 w-3.5 opacity-60" />
-                             {week.unlock_date ? format(new Date(week.unlock_date), 'PPPP') : 'Manual Unlock'}
+                           <span className="font-bold flex items-center gap-1.5 truncate">
+                             <Calendar className="h-3 w-3 opacity-60" />
+                             {week.unlock_date ? format(new Date(week.unlock_date), 'MMM dd, yyyy') : 'Manual'}
                            </span>
                          </div>
                          <div className="flex flex-col gap-1">
-                           <span className="text-white/50 uppercase tracking-widest font-black">Video Lessons</span>
-                           <span className="font-bold flex items-center gap-2">
-                             <Play className="h-3.5 w-3.5 opacity-60" />
+                           <span className="text-white/50 uppercase tracking-widest font-black">Videos</span>
+                           <span className="font-bold flex items-center gap-1.5">
+                             <Play className="h-3 w-3 opacity-60" />
                              {sessions.length} sessions
                            </span>
                          </div>
                          <div className="flex flex-col gap-1">
-                           <span className="text-white/50 uppercase tracking-widest font-black">Student Access</span>
-                           <span className="font-bold flex items-center gap-2">
-                             {week.is_unlocked ? <UnlockIcon className="h-3.5 w-3.5 text-emerald-300" /> : <LockIcon className="h-3.5 w-3.5 text-amber-300" />}
-                             {week.is_unlocked ? 'Currently Accessible' : 'Restricted (Scheduled)'}
+                           <span className="text-white/50 uppercase tracking-widest font-black">Access</span>
+                           <span className="font-bold flex items-center gap-1.5">
+                             {week.is_unlocked ? <UnlockIcon className="h-3 w-3 text-emerald-300" /> : <LockIcon className="h-3 w-3 text-amber-300" />}
+                             <span className="truncate">{week.is_unlocked ? 'Accessible' : 'Restricted'}</span>
                            </span>
                          </div>
                       </div>
@@ -674,31 +698,43 @@ export default function BatchContent() {
                               return (a.session_number || 0) - (b.session_number || 0);
                             })
                             .map((session) => (
-                              <Card key={session.id} className="group overflow-hidden bg-card transition-all hover:shadow-md hover:border-primary/30 rounded-2xl border-border/50 shadow-card">
+                               <Card key={session.id} className="group overflow-hidden bg-card transition-all hover:shadow-md hover:border-primary/30 rounded-2xl border-border/50 shadow-card">
                                 <div className="flex flex-col sm:flex-row items-center p-4 gap-4">
-                                  {/* Left: Indicator */}
-                                  <div className="shrink-0">
-                                    <div 
-                                      className="h-14 w-14 rounded-2xl flex items-center justify-center bg-primary/5 text-primary hover:bg-primary hover:text-white cursor-pointer transition-all duration-300"
-                                      onClick={() => {
-                                        const url = session.video_presigned_url || session.video_url;
-                                        if (url) setPlayingVideoUrl(url);
-                                      }}
-                                    >
-                                      <Play className="h-6 w-6 fill-current ml-1" />
+                                  {/* Left Section: Icon and Title for Mobile */}
+                                  <div className="flex items-center w-full sm:w-auto gap-4">
+                                    <div className="shrink-0">
+                                      <div 
+                                        className="h-14 w-14 rounded-2xl flex items-center justify-center bg-primary/5 text-primary hover:bg-primary hover:text-white cursor-pointer transition-all duration-300 shadow-sm"
+                                        onClick={() => {
+                                          const url = session.video_presigned_url || session.video_url;
+                                          if (url) setPlayingVideoUrl(url);
+                                        }}
+                                      >
+                                        <Play className="h-6 w-6 fill-current ml-1" />
+                                      </div>
                                     </div>
-                                  </div>
-
-                                  <div className="flex-1 min-w-0">
-                                    <div className="flex flex-col sm:flex-row sm:items-center gap-3 mb-1.5">
-                                      <h4 className="font-bold text-lg text-foreground truncate">{session.title}</h4>
-                                      <div className="flex gap-2">
+                                    <div className="flex-1 min-w-0 sm:hidden">
+                                      <h4 className="font-bold text-base text-foreground truncate">{session.title}</h4>
+                                      <div className="flex items-center gap-2 mt-1">
                                         {session.weekday && (
-                                          <Badge variant="outline" className="bg-muted/50 border-none capitalize font-bold text-[9px] h-5">
+                                          <Badge variant="outline" className="bg-muted/50 border-none capitalize font-bold text-[8px] h-4 px-1.5">
                                             {session.weekday}
                                           </Badge>
                                         )}
+                                        <span className="text-[10px] text-muted-foreground font-bold">{session.duration_seconds > 0 ? `${Math.floor(session.duration_seconds / 60)}m` : '...'}</span>
                                       </div>
+                                    </div>
+                                  </div>
+
+                                  {/* Middle Content: Desktop only */}
+                                  <div className="hidden sm:block flex-1 min-w-0">
+                                    <div className="flex flex-col sm:flex-row sm:items-center gap-3 mb-1.5">
+                                      <h4 className="font-bold text-lg text-foreground truncate">{session.title}</h4>
+                                      {session.weekday && (
+                                        <Badge variant="outline" className="bg-muted/50 border-none capitalize font-bold text-[9px] h-5">
+                                          {session.weekday}
+                                        </Badge>
+                                      )}
                                     </div>
                                     <div className="flex items-center gap-4 text-[10px] font-bold text-muted-foreground tracking-tight">
                                       <span className="flex items-center gap-1">
@@ -711,11 +747,12 @@ export default function BatchContent() {
                                     </div>
                                   </div>
 
-                                  <div className="flex items-center gap-2 border-l pl-4 border-border/50">
+                                  {/* Right Actions */}
+                                  <div className="flex items-center gap-2 w-full sm:w-auto justify-between sm:justify-end border-t sm:border-t-0 pt-3 sm:pt-0 sm:border-l sm:pl-4 border-border/50">
                                     <Button 
                                       variant="ghost" 
                                       size="sm" 
-                                      className="h-9 px-4 gap-2 text-muted-foreground hover:text-primary transition-colors" 
+                                      className="h-9 w-9 sm:w-auto sm:px-4 gap-2 text-muted-foreground hover:text-primary transition-colors" 
                                       onClick={() => {
                                         setMcqSession(session);
                                         setMcqApiUrl(`/api/courses/v1/batches/${batchId}/weeks/${activeTab}/sessions/${session.id}/mcq`);
@@ -723,7 +760,7 @@ export default function BatchContent() {
                                       }}
                                     >
                                       <HelpCircle className="h-4 w-4" />
-                                      <span className="text-[10px] font-black uppercase">MCQs</span>
+                                      <span className="text-[10px] font-black uppercase hidden md:inline">MCQs</span>
                                     </Button>
                                     <div className="flex opacity-50 group-hover:opacity-100 transition-opacity">
                                       <Button variant="ghost" size="icon" className="h-9 w-9" onClick={() => handleOpenSessionModal(session)} disabled={week.is_unlocked}>
@@ -760,7 +797,7 @@ export default function BatchContent() {
                                 <h4 className="text-xl font-display font-black text-foreground mb-1 truncate">{weeklyTest.title}</h4>
                                 <div className="flex items-center justify-center sm:justify-start gap-5 text-xs font-bold text-muted-foreground tracking-tight">
                                   <span className="flex items-center gap-1.5"><HelpCircle className="h-4 w-4 opacity-70" /> {weeklyTest.questions?.length || 0} Questions</span>
-                                  <span className="flex items-center gap-1.5 text-primary"><Award className="h-4 w-4" /> {weeklyTest.pass_percentage ?? 70}% Passing Grade</span>
+                                  <span className="flex items-center gap-1.5 text-primary"><Award className="h-4 w-4" /> {weeklyTest.pass_percentage ?? 70}% Mastery Level</span>
                                 </div>
                              </div>
                              <Button 
