@@ -540,8 +540,8 @@ class BatchStudentListView(APIView):
             search = request.query_params.get('search')
             if search:
                 enrollments = enrollments.filter(
-                    models.Q(student__fullname__icontains=search) |
-                    models.Q(student__email__icontains=search)
+                    Q(student__fullname__icontains=search) |
+                    Q(student__email__icontains=search)
                 )
 
             status_filter = request.query_params.get('status')

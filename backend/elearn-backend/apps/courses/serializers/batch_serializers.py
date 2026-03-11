@@ -139,7 +139,7 @@ class BatchEnrollmentSerializer(serializers.ModelSerializer):
         return list(obj.manual_unlocks.values_list('batch_week__week_number', flat=True))
 
     def get_weeks_access_status(self, obj):
-        from apps.courses.models import BatchWeek, TestSubmission, StudentSessionView
+        from apps.courses.models import BatchWeek, TestSubmission, StudentSessionView, BatchClassSession
         weeks = BatchWeek.objects.filter(batch=obj.batch).order_by('week_number')
         manual_unlocked_ids = set(obj.manual_unlocks.values_list('batch_week_id', flat=True))
         
@@ -151,16 +151,27 @@ class BatchEnrollmentSerializer(serializers.ModelSerializer):
             if week.is_unlocked:
                 is_system_unlocked = True
                 if week.week_number > 1:
-                    prev_weeks = obj.batch.batch_weeks.filter(
-                        week_number__lt=week.week_number,
-                        weekly_test__isnull=False
-                    )
+                    prev_weeks = obj.batch.batch_weeks.filter(week_number__lt=week.week_number).order_by('week_number')
                     for pw in prev_weeks:
-                        if not TestSubmission.objects.filter(
-                            enrollment=obj, batch_weekly_test=pw.weekly_test, status='published', is_passed=True
-                        ).exists():
-                            is_system_unlocked = False
-                            break
+                        # A. Check Sessions
+                        total_sessions = BatchClassSession.objects.filter(batch_week=pw).count()
+                        if total_sessions > 0:
+                            completed_sessions = StudentSessionView.objects.filter(
+                                enrollment=obj, 
+                                batch_session__batch_week=pw, 
+                                is_completed=True
+                            ).count()
+                            if completed_sessions < total_sessions:
+                                is_system_unlocked = False
+                                break
+                        
+                        # B. Check Test
+                        if hasattr(pw, 'weekly_test') and pw.weekly_test:
+                            if not TestSubmission.objects.filter(
+                                enrollment=obj, batch_weekly_test=pw.weekly_test, status='published', is_passed=True
+                            ).exists():
+                                is_system_unlocked = False
+                                break
             
             is_revokable = is_manually_unlocked
             if is_revokable:

@@ -199,25 +199,39 @@ class BatchWeekSerializer(serializers.ModelSerializer):
         if not obj.is_unlocked:
             return {'is_locked': True, 'reason': 'date_locked', 'unlock_date': obj.unlock_date}
 
-        # 2. Previous Week Assessment Check (All preceding weeks)
+        # 2. Previous Week Completion Check (All preceding weeks)
         if obj.week_number > 1:
-            # Check all preceding weeks that have a test
-            prev_weeks_with_tests = obj.batch.batch_weeks.filter(
-                week_number__lt=obj.week_number,
-                weekly_test__isnull=False
+            # Check all preceding weeks
+            prev_weeks = obj.batch.batch_weeks.filter(
+                week_number__lt=obj.week_number
             ).order_by('week_number')
             
-            for prev_week in prev_weeks_with_tests:
-                # Check if student passed this specific week's test
-                passed = TestSubmission.objects.filter(
-                    enrollment=enrollment,
-                    batch_weekly_test=prev_week.weekly_test,
-                    status='published',
-                    is_passed=True
-                ).exists()
-                
-                if not passed:
-                    return {'is_locked': True, 'reason': 'previous_test_not_passed'}
+            from apps.courses.models import BatchClassSession, StudentSessionView
+            
+            for pw in prev_weeks:
+                # A. Check Video Sessions
+                total_sessions = BatchClassSession.objects.filter(batch_week=pw).count()
+                if total_sessions > 0:
+                    completed_sessions = StudentSessionView.objects.filter(
+                        enrollment=enrollment,
+                        batch_session__batch_week=pw,
+                        is_completed=True
+                    ).count()
+                    
+                    if completed_sessions < total_sessions:
+                        return {'is_locked': True, 'reason': 'previous_sessions_not_completed'}
+
+                # B. Check Assessment (if exists)
+                if hasattr(pw, 'weekly_test') and pw.weekly_test:
+                    passed = TestSubmission.objects.filter(
+                        enrollment=enrollment,
+                        batch_weekly_test=pw.weekly_test,
+                        status='published',
+                        is_passed=True
+                    ).exists()
+                    
+                    if not passed:
+                        return {'is_locked': True, 'reason': 'previous_test_not_passed'}
 
         return {'is_locked': False, 'reason': None}
 
