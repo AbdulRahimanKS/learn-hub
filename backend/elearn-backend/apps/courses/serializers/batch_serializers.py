@@ -14,19 +14,38 @@ class BatchListSerializer(serializers.ModelSerializer):
     teacher_name = serializers.CharField(source='teacher.fullname', read_only=True)
     enrolled_count = serializers.IntegerField(read_only=True)
     is_full = serializers.BooleanField(read_only=True)
+    is_full = serializers.BooleanField(read_only=True)
     progress_percent = serializers.FloatField(read_only=True)
     weeks_count = serializers.SerializerMethodField()
+    unread_count = serializers.SerializerMethodField()
 
     class Meta:
         model = Batch
         fields = [
             'id', 'batch_code', 'name', 'description', 'course',
             'teacher', 'teacher_name', 'max_students', 'enrolled_count', 'is_full',
-            'start_date', 'status', 'progress_percent', 'weeks_count', 'created_at', 'updated_at'
+            'start_date', 'status', 'progress_percent', 'weeks_count', 'unread_count', 'created_at', 'updated_at'
         ]
 
     def get_weeks_count(self, obj):
         return obj.batch_weeks.count()
+
+    def get_unread_count(self, obj):
+        request = self.context.get('request')
+        if not request or not request.user.is_authenticated:
+            return 0
+            
+        user = request.user
+        
+        # Get the latest read receipt for this user in this batch
+        last_receipt = obj.read_receipts.filter(user=user).first()
+        
+        # Count messages sent by others after the last read receipt
+        qs = obj.chat_messages.exclude(sender=user)
+        if last_receipt:
+            qs = qs.filter(sent_at__gt=last_receipt.last_read_at)
+            
+        return qs.count()
 
 
 class BatchCreateUpdateSerializer(serializers.ModelSerializer):

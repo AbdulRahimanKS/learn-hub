@@ -936,20 +936,6 @@ class ScheduledWebinar(models.Model):
 
 # BatchChatMessage
 class BatchChatMessage(models.Model):
-    """
-    A message in the batch group chat.
-    Attachments support: ppt, pptx, pdf, doc, docx, ipynb, jpg, jpeg.
-    Used during both async study and live sessions.
-    """
-
-    ALLOWED_ATTACHMENT_EXTENSIONS = [
-        '.ppt', '.pptx',
-        '.pdf',
-        '.doc', '.docx',
-        '.ipynb',
-        '.jpg', '.jpeg',
-    ]
-
     batch     = models.ForeignKey(
         Batch, on_delete=models.CASCADE, related_name='chat_messages'
     )
@@ -966,14 +952,22 @@ class BatchChatMessage(models.Model):
 
     message    = models.TextField(_('Message'), blank=True)
 
-    # File attachment (ppt, pdf, doc, ipynb, jpg, jpeg)
     attachment      = models.FileField(
         upload_to='chat_attachments/', null=True, blank=True,
         help_text=_('Allowed: ppt, pptx, pdf, doc, docx, ipynb, jpg, jpeg')
     )
     attachment_name = models.CharField(max_length=255, blank=True)
 
-    is_deleted  = models.BooleanField(default=False)
+    reply_to = models.ForeignKey(
+        "self",
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL
+    )
+
+    is_edited = models.BooleanField(default=False)
+    edited_at = models.DateTimeField(null=True, blank=True)
+
     sent_at     = models.DateTimeField(auto_now_add=True)
 
     class Meta:
@@ -985,4 +979,23 @@ class BatchChatMessage(models.Model):
         sender_name = self.sender.fullname if self.sender else 'Unknown'
         preview = (self.message[:40] + '…') if len(self.message) > 40 else self.message
         return f"{sender_name} → {self.batch.name}: {preview}"
+
+
+
+class BatchChatReadReceipt(models.Model):
+    batch = models.ForeignKey(
+        Batch, on_delete=models.CASCADE, related_name='read_receipts'
+    )
+    user = models.ForeignKey(
+        'users.User', on_delete=models.CASCADE, related_name='chat_read_receipts'
+    )
+    last_read_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name        = _('Batch Chat Read Receipt')
+        verbose_name_plural = _('Batch Chat Read Receipts')
+        unique_together     = ('batch', 'user')
+
+    def __str__(self):
+        return f"{self.user.fullname} read {self.batch.name} at {self.last_read_at}"
 

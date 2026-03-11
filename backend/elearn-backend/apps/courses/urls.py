@@ -47,6 +47,11 @@ from apps.courses.views import (
     ScheduledWebinarListCreateView,
     ScheduledWebinarDetailView,
 )
+from apps.courses.views.chat_views import (
+    ChatBatchListView,
+    BatchChatMessageListCreateView,
+    ChatMarkReadView,
+)
 from apps.courses.views.test_submission_views import (
     BatchTestSubmissionListView,
     TestSubmissionDetailView,
@@ -116,4 +121,9 @@ urlpatterns = [
     # Webinars
     path("batches/<int:batch_id>/webinars/", ScheduledWebinarListCreateView.as_view(), name="batch-webinar-list-create"),
     path("batches/<int:batch_id>/webinars/<int:webinar_id>/", ScheduledWebinarDetailView.as_view(), name="batch-webinar-detail"),
+
+    # Chat
+    path("chat/batches/", ChatBatchListView.as_view(), name="chat-batch-list"),
+    path("chat/batches/<int:batch_id>/messages/", BatchChatMessageListCreateView.as_view(), name="chat-messages"),
+    path("chat/batches/<int:batch_id>/mark-read/", ChatMarkReadView.as_view(), name="chat-mark-read"),
 ]
