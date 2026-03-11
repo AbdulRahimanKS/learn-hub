@@ -728,11 +728,11 @@ export default function Courses() {
                                           <Button
                                             size="sm"
                                             variant="secondary"
-                                            disabled={locked}
+                                            disabled={locked || !completed}
                                             className={cn(
                                               "h-8 px-4 text-xs font-bold rounded-full transition-all border",
-                                              locked 
-                                                ? "bg-muted text-muted-foreground opacity-50"
+                                              (locked || !completed)
+                                                ? "bg-muted text-muted-foreground opacity-50 cursor-not-allowed"
                                                 : "bg-[#283593] hover:bg-[#1a237e] text-white border-transparent shadow-sm"
                                             )}
                                             onClick={(e) => {
@@ -751,7 +751,8 @@ export default function Courses() {
                                               }
                                             }}
                                           >
-                                            Practice MCQs
+                                            {!completed && !locked && <Lock className="w-3 h-3 mr-1.5" />}
+                                            {completed ? 'Practice MCQs' : 'Watch Video First'}
                                           </Button>
                                         )}
                                       </div>
