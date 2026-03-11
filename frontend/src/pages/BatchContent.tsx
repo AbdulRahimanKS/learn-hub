@@ -38,7 +38,8 @@ import {
   Search,
   Edit,
   Trash2,
-  Lock,
+  Lock as LockIcon,
+  Unlock as UnlockIcon,
   ChevronLeft,
   FileText,
   Image as ImageIcon,
@@ -47,6 +48,10 @@ import {
   Settings,
   HelpCircle,
   X,
+  Video as VideoIcon,
+  ClipboardList,
+  Award,
+  LayoutGrid,
 } from 'lucide-react';
 import { batchApi, batchContentApi, BatchWeek } from '@/lib/batch-api';
 import { useToast } from '@/hooks/use-toast';
@@ -433,283 +438,382 @@ export default function BatchContent() {
 
   return (
     <DashboardLayout>
-      <div className="space-y-6">
-        {/* Header */}
-        <div className="flex items-center gap-4">
-          <Button variant="outline" size="icon" onClick={() => navigate('/batches')}>
-            <ChevronLeft className="h-4 w-4" />
-          </Button>
-          <div>
-            <h1 className="font-display text-3xl font-bold text-foreground">
-              {batchName || 'Batch Content'}
-            </h1>
-            <p className="mt-1 text-muted-foreground">Manage schedule and content for this specific batch</p>
-          </div>
-          <div className="ml-auto flex gap-2">
-            <Button variant="outline" onClick={() => setIsAddWeekOpen(true)}>
-              <Plus className="h-4 w-4 mr-2" />
-              Add Week
-            </Button>
-            <Button variant="outline" onClick={() => setIsExtendOpen(true)}>
-              <Clock className="h-4 w-4 mr-2" />
-              Extend Program
-            </Button>
-          </div>
-        </div>
-
-        {loading ? (
-          <div className="flex items-center justify-center py-20">
-            <Loader2 className="h-8 w-8 animate-spin text-primary" />
-          </div>
-        ) : (
-          <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6 w-full overflow-hidden">
-            <TabsList className="flex w-full bg-transparent h-auto p-0 flex-nowrap justify-start overflow-x-auto overflow-y-hidden scrollbar-hide gap-3 pb-2">
-              {weeks.map(week => (
-                <TabsTrigger 
-                  key={week.id} 
-                  value={week.id.toString()} 
-                  className={cn(
-                    "px-6 py-2.5 shrink-0 rounded-full transition-all border border-border/50 text-sm font-medium",
-                    "data-[state=active]:bg-primary data-[state=active]:text-white data-[state=active]:border-primary data-[state=active]:shadow-lg shadow-primary/20",
-                    "bg-muted/30 text-muted-foreground hover:bg-muted/50"
-                  )}
+      <div className="flex flex-col lg:flex-row gap-8 items-start">
+        
+        {/* ── CURRICULUM SIDEBAR ─────────────────────────────────────── */}
+        <aside className="w-full lg:w-80 shrink-0 sticky top-6">
+          <div className="flex flex-col gap-4">
+            <div className="flex items-center justify-between px-2">
+              <div className="flex items-center gap-3">
+                <Button 
+                  variant="outline" 
+                  size="icon" 
+                  onClick={() => navigate('/batches')}
+                  className="rounded-full h-9 w-9"
                 >
-                  Week {week.week_number}
-                </TabsTrigger>
-              ))}
-            </TabsList>
-
-            {weeks.length === 0 ? (
-              <div className="text-center py-20 bg-muted/20 border-2 border-dashed rounded-xl">
-                <Settings className="h-12 w-12 mx-auto mb-4 opacity-30" />
-                <h3 className="text-lg font-medium">No weeks initialized</h3>
-                <p className="text-muted-foreground mb-6">This batch doesn't have any weekly content yet. Click "Add Week" to create the first week.</p>
-                <Button variant="outline" onClick={() => setIsAddWeekOpen(true)}>
-                  <Plus className="h-4 w-4 mr-2" />
-                  Add First Week
+                  <ChevronLeft className="h-5 w-5" />
                 </Button>
+                <div>
+                  <h1 className="font-display text-xl font-bold text-foreground truncate max-w-[150px]">
+                    {batchName || 'Batch Content'}
+                  </h1>
+                  <p className="text-[10px] text-muted-foreground uppercase tracking-widest font-bold">Curriculum</p>
+                </div>
               </div>
-            ) : (
-              weeks.map(week => (
-                <TabsContent key={week.id} value={week.id.toString()} className="space-y-6">
+              <Button 
+                variant="outline" 
+                size="icon" 
+                className="h-8 w-8 rounded-full border-primary/30 hover:bg-primary/10 hover:text-primary"
+                onClick={() => setIsAddWeekOpen(true)}
+              >
+                <Plus className="h-4 w-4" />
+              </Button>
+            </div>
+            {weeks.length > 0 && (
+              <Button 
+                variant="outline" 
+                className="w-full justify-start text-xs font-bold text-primary bg-primary/5 hover:bg-primary/10 border-primary/10 transition-all rounded-xl h-11 px-4 shadow-sm"
+                onClick={() => setIsExtendOpen(true)}
+              >
+                <Clock className="h-4 w-4 mr-3" />
+                Extend Program Timeline
+              </Button>
+            )}
 
-                  {/* Week info card — with title, unlock date, status, edit/delete */}
-                  <div className="flex flex-col md:flex-row gap-4">
-                    <Card className="flex-1 shadow-card">
-                      <CardHeader className="flex flex-row items-center justify-between">
-                        <div>
-                          <CardTitle className="text-2xl font-bold">{week.title}</CardTitle>
-                          <CardDescription>{week.description || 'No description provided.'}</CardDescription>
-                        </div>
-                        <div className="flex gap-2">
-                          <Button variant="outline" size="sm" onClick={() => handleOpenTestManager(week)} disabled={week.is_unlocked}>
-                            <FileText className="h-4 w-4 mr-2" />
-                            {weeklyTest ? 'Edit Assessment' : 'Add Test'}
-                          </Button>
-                          <Button variant="outline" size="icon" onClick={() => handleOpenEdit(week)} disabled={week.is_unlocked}>
-                            <Edit className="h-4 w-4" />
-                          </Button>
-                          <Button variant="outline" size="icon" className="text-destructive border-destructive/40 hover:bg-destructive/10" onClick={() => setDeleteWeekId(week.id)} disabled={week.is_unlocked}>
-                            <Trash2 className="h-4 w-4" />
-                          </Button>
-                        </div>
-                      </CardHeader>
-                      <CardContent>
-                        <div className="grid grid-cols-2 gap-4">
-                          <div className="p-4 bg-muted/30 rounded-lg">
-                            <p className="text-xs text-muted-foreground uppercase font-semibold mb-1">Unlock Date</p>
-                            <div className="flex items-center gap-2">
-                              <Calendar className="h-4 w-4 text-primary" />
-                              <span className="font-medium">
-                                {week.unlock_date ? format(new Date(week.unlock_date), 'PPP') : 'Not Set'}
-                              </span>
-                            </div>
-                          </div>
-                          <div className="p-4 bg-muted/30 rounded-lg">
-                            <p className="text-xs text-muted-foreground uppercase font-semibold mb-1">Status</p>
-                            <Badge variant={week.is_unlocked ? 'outline' : 'secondary'}>
-                              {week.is_unlocked ? 'Unlocked' : 'Scheduled'}
-                            </Badge>
-                          </div>
-                        </div>
-                      </CardContent>
-                    </Card>
-                  </div>
+            <Card className="border-border/50 shadow-card overflow-hidden bg-card/50 backdrop-blur-sm">
+              <div className="p-2 space-y-1">
 
-
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                      <Play className="h-5 w-5 text-primary" />
-                      <h3 className="text-lg font-semibold">Class Sessions</h3>
-                    </div>
-                    <Button variant="outline" size="sm" onClick={() => handleOpenSessionModal()} disabled={week.is_unlocked}>
-                      <Plus className="h-4 w-4 mr-2" />
-                      Add Session
-                    </Button>
-                  </div>
-
-                {loadingContent ? (
-                  <div className="flex justify-center py-10"><Loader2 className="h-6 w-6 animate-spin" /></div>
-                ) : sessions.length === 0 ? (
-                  <div className="py-8 text-center text-muted-foreground bg-muted/20 border border-dashed border-foreground/20 rounded-lg">
-                    No videos uploaded for this week yet.
-                  </div>
+                {loading ? (
+                  <div className="py-12 flex justify-center"><Loader2 className="h-6 w-6 animate-spin text-primary/40" /></div>
+                ) : weeks.length === 0 ? (
+                  <div className="p-4 text-center text-xs text-muted-foreground">No weeks added yet.</div>
                 ) : (
-                  <div className="flex flex-col gap-4">
-                        {[...sessions]
-                          .sort((a, b) => {
-                            const days: Record<string, number> = { monday: 1, tuesday: 2, wednesday: 3, thursday: 4, friday: 5, saturday: 6, sunday: 7 };
-                            const dayA = days[a.weekday?.toLowerCase()] || 8;
-                            const dayB = days[b.weekday?.toLowerCase()] || 8;
-                            if (dayA !== dayB) return dayA - dayB;
-                            return (a.session_number || 0) - (b.session_number || 0);
-                          })
-                          .map((session) => (
-                          <Card key={session.id} className="shadow-card overflow-hidden group hover:shadow-md transition-all duration-300 bg-card border border-border/50">
-                            <div className="flex flex-col sm:flex-row items-center p-4 gap-4">
-                              {/* Left: Icon/Play */}
-                              <div className="flex shrink-0">
-                                <div 
-                                  className="h-12 w-12 rounded-xl flex items-center justify-center bg-primary/10 text-primary hover:bg-primary hover:text-primary-foreground cursor-pointer transition-colors"
-                                  onClick={() => {
-                                    const url = session.video_presigned_url || session.video_url;
-                                    if (url) {
-                                      setPlayingVideoUrl(url);
-                                    } else {
-                                      toast({ title: 'Video Unavailable', description: 'This video is still processing or unavailable.', variant: 'destructive' });
-                                    }
-                                  }}
-                                >
-                                  <Play className="h-6 w-6 fill-current ml-1" />
-                                </div>
-                              </div>
+                  weeks.map(week => {
+                    const isActive = activeTab === week.id.toString();
+                    return (
+                      <button
+                        key={week.id}
+                        onClick={() => setActiveTab(week.id.toString())}
+                        className={cn(
+                          "w-full text-left px-4 py-4 rounded-xl transition-all flex items-center gap-3 group",
+                          isActive 
+                            ? "bg-primary text-white shadow-lg shadow-primary/20" 
+                            : "hover:bg-muted/80 text-muted-foreground"
+                        )}
+                      >
+                        <div className={cn(
+                          "h-10 w-10 rounded-xl flex items-center justify-center font-bold text-sm shrink-0 transition-colors",
+                          isActive ? "bg-white/20" : "bg-muted text-foreground"
+                        )}>
+                          {week.week_number}
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className={cn("text-sm font-bold truncate", isActive ? "text-white" : "text-foreground")}>
+                            {week.title}
+                          </p>
+                          <div className="flex items-center gap-2 mt-0.5">
+                            {week.is_unlocked ? (
+                               <Badge className="bg-emerald-500/20 text-emerald-500 border-none text-[8px] h-3.5 px-1.5 font-bold uppercase">Unlocked</Badge>
+                            ) : (
+                               <div className="flex items-center gap-1 text-[10px] font-medium opacity-70">
+                                 <Calendar className="h-3 w-3" />
+                                 {week.unlock_date ? format(new Date(week.unlock_date), 'MMM dd') : 'Not scheduled'}
+                               </div>
+                            )}
+                          </div>
+                        </div>
+                        {isActive && <div className="h-1.5 w-1.5 rounded-full bg-white animate-pulse shadow-card" />}
+                      </button>
+                    );
+                  })
+                )}
+              </div>
 
-                              {/* Middle: Content */}
-                              <div className="flex-1 min-w-0 text-center sm:text-left">
-                                <div className="flex flex-col sm:flex-row sm:items-center gap-2 mb-1">
-                                  <h3 className="font-bold text-foreground truncate text-lg">{session.title}</h3>
-                                  {session.weekday && (
-                                    <Badge variant="outline" className="w-fit mx-auto sm:mx-0 bg-background/90 shadow-sm border-primary/20 capitalize font-bold text-[10px] h-5 px-2">
-                                      {session.weekday}
-                                    </Badge>
-                                  )}
-                                  <Badge variant="secondary" className="w-fit mx-auto sm:mx-0 text-[10px] h-5 px-2 font-bold">
-                                    SESSION {session.session_number}
-                                  </Badge>
-                                </div>
-                                
-                                {session.description && (
-                                  <p className="text-sm text-muted-foreground line-clamp-1 mb-2">
-                                    {session.description}
-                                  </p>
-                                )}
-                                
-                                <div className="flex flex-wrap items-center justify-center sm:justify-start gap-4 text-xs font-medium text-muted-foreground">
-                                  <div className="flex items-center gap-1.5">
-                                    <Clock className="h-3.5 w-3.5" />
-                                    <span>
-                                      {session.duration_seconds > 0 ? (
-                                        `${Math.floor(session.duration_seconds / 60).toString().padStart(2, '0')}:${(session.duration_seconds % 60).toString().padStart(2, '0')}`
-                                      ) : 'Processing'}
-                                    </span>
+            </Card>
+          </div>
+        </aside>
+
+        {/* ── MAIN CONTENT AREA ─────────────────────────────────────── */}
+        <main className="flex-1 min-w-0 space-y-6">
+          {activeTab && weeks.find(w => w.id.toString() === activeTab) ? (
+            (() => {
+              const week = weeks.find(w => w.id.toString() === activeTab)!;
+              return (
+                <div className="space-y-6">
+                  {/* Phase 1: Header Banner */}
+                  <div className="relative rounded-3xl overflow-hidden bg-gradient-to-br from-[#1a237e] via-[#283593] to-[#3949ab] p-8 text-white shadow-lg">
+                    <div className="absolute top-0 right-0 p-8 pointer-events-none opacity-10">
+                       <Settings className="h-32 w-32 rotate-12" />
+                    </div>
+                    
+                    <div className="relative z-10">
+                      <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
+                        <div className="space-y-2">
+                          <div className="flex items-center gap-3">
+                            <Badge className="bg-white/20 text-white backdrop-blur-md border-none font-black text-[10px] h-6 px-3">
+                              WEEK {week.week_number}
+                            </Badge>
+                            {week.is_unlocked && (
+                              <Badge className="bg-emerald-400 text-emerald-950 font-black text-[10px] h-6 px-3">
+                                LIVE / UNLOCKED
+                              </Badge>
+                            )}
+                          </div>
+                          <h2 className="text-4xl font-display font-black tracking-tight">{week.title}</h2>
+                          <p className="text-white/70 max-w-xl text-sm leading-relaxed">
+                            {week.description || 'Manage the learning materials and assessments for this modular stage.'}
+                          </p>
+                        </div>
+
+                        <div className="flex flex-wrap gap-2">
+                          <Button 
+                            variant="secondary" 
+                            className="bg-white text-primary hover:bg-white/90 font-bold shadow-md rounded-xl"
+                            onClick={() => handleOpenTestManager(week)}
+                            disabled={week.is_unlocked}
+                          >
+                            <FileText className="h-4 w-4 mr-2" />
+                            {weeklyTest ? 'Manage Test' : 'Setup Assessment'}
+                          </Button>
+                          <div className="flex gap-1">
+                            <Button 
+                              variant="secondary" 
+                              size="icon" 
+                              className="bg-white/10 text-white hover:bg-white/20 backdrop-blur-md rounded-xl"
+                              onClick={() => handleOpenEdit(week)}
+                              disabled={week.is_unlocked}
+                            >
+                              <Edit className="h-4 w-4" />
+                            </Button>
+                            <Button 
+                              variant="secondary" 
+                              size="icon" 
+                              className="bg-white/10 text-destructive hover:bg-destructive/20 backdrop-blur-md rounded-xl"
+                              onClick={() => setDeleteWeekId(week.id)}
+                              disabled={week.is_unlocked}
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mt-8 pt-8 border-t border-white/10 text-xs">
+                         <div className="flex flex-col gap-1">
+                           <span className="text-white/50 uppercase tracking-widest font-black">Release Date</span>
+                           <span className="font-bold flex items-center gap-2">
+                             <Calendar className="h-3.5 w-3.5 opacity-60" />
+                             {week.unlock_date ? format(new Date(week.unlock_date), 'PPPP') : 'Manual Unlock'}
+                           </span>
+                         </div>
+                         <div className="flex flex-col gap-1">
+                           <span className="text-white/50 uppercase tracking-widest font-black">Video Lessons</span>
+                           <span className="font-bold flex items-center gap-2">
+                             <Play className="h-3.5 w-3.5 opacity-60" />
+                             {sessions.length} sessions
+                           </span>
+                         </div>
+                         <div className="flex flex-col gap-1">
+                           <span className="text-white/50 uppercase tracking-widest font-black">Student Access</span>
+                           <span className="font-bold flex items-center gap-2">
+                             {week.is_unlocked ? <UnlockIcon className="h-3.5 w-3.5 text-emerald-300" /> : <LockIcon className="h-3.5 w-3.5 text-amber-300" />}
+                             {week.is_unlocked ? 'Currently Accessible' : 'Restricted (Scheduled)'}
+                           </span>
+                         </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Phase 2: Content Sections */}
+                  <div className="grid grid-cols-1 gap-8">
+                    {/* VIDEO SESSIONS */}
+                    <div className="space-y-4">
+                      <div className="flex items-center justify-between px-2">
+                        <div className="flex items-center gap-3">
+                          <div className="h-10 w-10 rounded-2xl bg-primary/10 text-primary flex items-center justify-center border border-primary/30">
+                            <VideoIcon className="h-5 w-5" />
+                          </div>
+                          <h3 className="text-xl font-display font-black text-foreground">Lecture Sessions</h3>
+                        </div>
+                        <Button 
+                          variant="gradient" 
+                          size="sm" 
+                          className="rounded-xl px-6"
+                          disabled={week.is_unlocked}
+                          onClick={() => handleOpenSessionModal()}
+                        >
+                          <Plus className="h-4 w-4 mr-2" />
+                          Upload New Video
+                        </Button>
+                      </div>
+
+                      {loadingContent ? (
+                        <div className="flex flex-col items-center justify-center py-20 gap-4">
+                           <Loader2 className="h-10 w-10 animate-spin text-primary/30" />
+                           <p className="text-xs font-bold text-muted-foreground uppercase tracking-wider">Syncing Sessions...</p>
+                        </div>
+                      ) : sessions.length === 0 ? (
+                        <div className="py-16 text-center bg-primary/[0.02] border-2 border-dashed border-primary/30 rounded-3xl">
+                          <VideoIcon className="h-12 w-12 mx-auto mb-4 text-muted-foreground/30" />
+                          <h4 className="text-lg font-display font-bold text-foreground">No sessions yet</h4>
+                          <p className="text-sm text-muted-foreground max-w-xs mx-auto mb-6">
+                            Start adding video sessions to this week. You can reorder them by weekday and session number.
+                          </p>
+                          <Button variant="outline" className="rounded-xl" onClick={() => handleOpenSessionModal()}>
+                             <Plus className="h-4 w-4 mr-2" /> Add First Session
+                          </Button>
+                        </div>
+                      ) : (
+                        <div className="grid grid-cols-1 gap-3">
+                          {[...sessions]
+                            .sort((a, b) => {
+                              const days: Record<string, number> = { monday: 1, tuesday: 2, wednesday: 3, thursday: 4, friday: 5, saturday: 6, sunday: 7 };
+                              const dayA = days[a.weekday?.toLowerCase()] || 8;
+                              const dayB = days[b.weekday?.toLowerCase()] || 8;
+                              if (dayA !== dayB) return dayA - dayB;
+                              return (a.session_number || 0) - (b.session_number || 0);
+                            })
+                            .map((session) => (
+                              <Card key={session.id} className="group overflow-hidden bg-card transition-all hover:shadow-md hover:border-primary/30 rounded-2xl border-border/50 shadow-card">
+                                <div className="flex flex-col sm:flex-row items-center p-4 gap-4">
+                                  {/* Left: Indicator */}
+                                  <div className="shrink-0">
+                                    <div 
+                                      className="h-14 w-14 rounded-2xl flex items-center justify-center bg-primary/5 text-primary hover:bg-primary hover:text-white cursor-pointer transition-all duration-300"
+                                      onClick={() => {
+                                        const url = session.video_presigned_url || session.video_url;
+                                        if (url) setPlayingVideoUrl(url);
+                                      }}
+                                    >
+                                      <Play className="h-6 w-6 fill-current ml-1" />
+                                    </div>
+                                  </div>
+
+                                  <div className="flex-1 min-w-0">
+                                    <div className="flex flex-col sm:flex-row sm:items-center gap-3 mb-1.5">
+                                      <h4 className="font-bold text-lg text-foreground truncate">{session.title}</h4>
+                                      <div className="flex gap-2">
+                                        {session.weekday && (
+                                          <Badge variant="outline" className="bg-muted/50 border-none capitalize font-bold text-[9px] h-5">
+                                            {session.weekday}
+                                          </Badge>
+                                        )}
+                                      </div>
+                                    </div>
+                                    <div className="flex items-center gap-4 text-[10px] font-bold text-muted-foreground tracking-tight">
+                                      <span className="flex items-center gap-1">
+                                        <Clock className="h-3 w-3" />
+                                        {session.duration_seconds > 0 ? (
+                                          `${Math.floor(session.duration_seconds / 60).toString().padStart(2, '0')}:${(session.duration_seconds % 60).toString().padStart(2, '0')}`
+                                        ) : 'Processing'}
+                                      </span>
+                                      {session.description && <span className="line-clamp-1 opacity-70">/ {session.description}</span>}
+                                    </div>
+                                  </div>
+
+                                  <div className="flex items-center gap-2 border-l pl-4 border-border/50">
+                                    <Button 
+                                      variant="ghost" 
+                                      size="sm" 
+                                      className="h-9 px-4 gap-2 text-muted-foreground hover:text-primary transition-colors" 
+                                      onClick={() => {
+                                        setMcqSession(session);
+                                        setMcqApiUrl(`/api/courses/v1/batches/${batchId}/weeks/${activeTab}/sessions/${session.id}/mcq`);
+                                        setIsMcqOpen(true);
+                                      }}
+                                    >
+                                      <HelpCircle className="h-4 w-4" />
+                                      <span className="text-[10px] font-black uppercase">MCQs</span>
+                                    </Button>
+                                    <div className="flex opacity-50 group-hover:opacity-100 transition-opacity">
+                                      <Button variant="ghost" size="icon" className="h-9 w-9" onClick={() => handleOpenSessionModal(session)} disabled={week.is_unlocked}>
+                                        <Edit className="h-4 w-4" />
+                                      </Button>
+                                      <Button variant="ghost" size="icon" className="h-9 w-9 text-destructive hover:bg-destructive/10" onClick={() => setDeleteSessionId(session.id)} disabled={week.is_unlocked}>
+                                        <Trash2 className="h-4 w-4" />
+                                      </Button>
+                                    </div>
                                   </div>
                                 </div>
-                              </div>
-
-                              {/* Right: Actions */}
-                              <div className="flex items-center gap-3 shrink-0 ml-auto w-full sm:w-auto justify-center sm:justify-end border-t sm:border-t-0 pt-4 sm:pt-0">
-                                <div className="flex items-center gap-1">
-                                  <Button 
-                                    variant="ghost" 
-                                    size="sm" 
-                                    className="h-9 px-3 gap-2 text-muted-foreground hover:text-foreground" 
-                                    onClick={() => {
-                                      setMcqSession(session);
-                                      setMcqApiUrl(`/api/courses/v1/batches/${batchId}/weeks/${activeTab}/sessions/${session.id}/mcq`);
-                                      setIsMcqOpen(true);
-                                    }}
-                                  >
-                                    <HelpCircle className="h-4 w-4" />
-                                    <span className="text-xs font-bold">MCQs</span>
-                                  </Button>
-                                  <Button variant="ghost" size="icon" className="h-9 w-9 text-muted-foreground hover:text-foreground" onClick={() => handleOpenSessionModal(session)} disabled={week.is_unlocked}>
-                                    <Edit className="h-4 w-4" />
-                                  </Button>
-                                  <Button variant="ghost" size="icon" className="h-9 w-9 text-muted-foreground hover:text-destructive hover:bg-destructive/10" onClick={() => setDeleteSessionId(session.id)} disabled={week.is_unlocked}>
-                                    <Trash2 className="h-4 w-4" />
-                                  </Button>
-                                </div>
-                                
-                                <Button 
-                                  variant="gradient" 
-                                  size="sm" 
-                                  className="gap-2 px-6 h-9 rounded-lg shadow-sm font-bold"
-                                  onClick={() => {
-                                    const url = session.video_presigned_url || session.video_url;
-                                    if (url) {
-                                      setPlayingVideoUrl(url);
-                                    }
-                                  }}
-                                >
-                                  <Play className="h-3.5 w-3.5 fill-current" />
-                                  Watch
-                                </Button>
-                              </div>
-                            </div>
-                          </Card>
-                        ))}
-                      </div>
-                    )}
-
-                <div className="mt-8 pt-8 border-t border-foreground/10">
-                  <h3 className="text-lg font-semibold mb-4">Weekly Assessment</h3>
-                  {loadingContent ? (
-                    <div className="flex justify-center py-10"><Loader2 className="h-6 w-6 animate-spin" /></div>
-                  ) : weeklyTest ? (
-                    <Card className="shadow-card overflow-hidden group hover:shadow-md transition-all duration-300 bg-card border border-border/50">
-                      <CardHeader className="flex flex-row items-center justify-between pb-2">
-                        <div className="flex items-center gap-3">
-                          <div className="p-2 bg-primary/10 rounded-lg">
-                            <CheckCircle className="h-6 w-6 text-primary" />
-                          </div>
-                          <div>
-                            <CardTitle className="text-lg">{weeklyTest.title}</CardTitle>
-                            <CardDescription>
-                              {weeklyTest.questions?.length || 0} Question{(weeklyTest.questions?.length || 0) !== 1 ? 's' : ''}
-                              {' · '}{weeklyTest.pass_percentage ?? 70}% pass mark
-                            </CardDescription>
-                          </div>
+                              </Card>
+                            ))}
                         </div>
-                        <div className="flex gap-2">
-                          <Button variant="outline" size="sm" onClick={() => handleOpenTestManager(week)} disabled={week.is_unlocked}>
-                            <Edit className="h-3.5 w-3.5 mr-1.5" />
-                            Manage
+                      )}
+                    </div>
+
+                    {/* WEEKLY ASSESSMENT SECTION */}
+                    <div className="space-y-4 pt-6">
+                      <div className="flex items-center gap-3 px-2">
+                        <div className="h-10 w-10 rounded-2xl bg-primary/10 text-primary flex items-center justify-center border border-primary/30">
+                          <CheckCircle className="h-5 w-5" />
+                        </div>
+                        <h3 className="text-xl font-display font-black text-foreground">Weekly Graduation Assessment</h3>
+                      </div>
+
+                      {weeklyTest ? (
+                        <Card className="w-full rounded-2xl border-border/50 shadow-card overflow-hidden bg-card hover:shadow-lg transition-all border-l-4 border-l-primary/40">
+                           <div className="flex flex-col sm:flex-row items-center p-6 gap-6">
+                             <div className="h-14 w-14 rounded-2xl bg-primary/10 flex items-center justify-center text-primary shrink-0 shadow-sm">
+                                <ClipboardList className="h-7 w-7" />
+                             </div>
+                             <div className="flex-1 text-center sm:text-left min-w-0">
+                                <h4 className="text-xl font-display font-black text-foreground mb-1 truncate">{weeklyTest.title}</h4>
+                                <div className="flex items-center justify-center sm:justify-start gap-5 text-xs font-bold text-muted-foreground tracking-tight">
+                                  <span className="flex items-center gap-1.5"><HelpCircle className="h-4 w-4 opacity-70" /> {weeklyTest.questions?.length || 0} Questions</span>
+                                  <span className="flex items-center gap-1.5 text-primary"><Award className="h-4 w-4" /> {weeklyTest.pass_percentage ?? 70}% Passing Grade</span>
+                                </div>
+                             </div>
+                             <Button 
+                                variant="outline" 
+                                className="rounded-xl px-8 h-11 font-black uppercase text-xs tracking-widest border-primary/30 text-primary hover:bg-primary/5 shadow-sm"
+                                onClick={() => handleOpenTestManager(week)}
+                                disabled={week.is_unlocked}
+                              >
+                                Manage Logic
+                             </Button>
+                           </div>
+                        </Card>
+                      ) : (
+                        <div className="border-2 border-dashed border-primary/30 rounded-3xl p-12 text-center bg-primary/[0.02]">
+                          <FileText className="h-12 w-12 text-indigo-300 mx-auto mb-4" />
+                          <h4 className="text-lg font-display font-bold text-foreground">Assessment Required</h4>
+                          <p className="text-sm text-muted-foreground mb-8 max-w-sm mx-auto">
+                            Add a validation test for this week. Students cannot move forward or "Graduate" without passing this assessment.
+                          </p>
+                          <Button 
+                            variant="outline" 
+                            className="rounded-xl border-primary/30 text-primary"
+                            onClick={() => handleOpenTestManager(week)}
+                            disabled={week.is_unlocked}
+                          >
+                            <Plus className="h-4 w-4 mr-2" /> Initialize Weekly Test
                           </Button>
                         </div>
-                      </CardHeader>
-                      <CardContent>
-                        {weeklyTest.instructions && (
-                          <p className="text-sm text-foreground/70 mt-1 line-clamp-2">{weeklyTest.instructions}</p>
-                        )}
-                      </CardContent>
-                    </Card>
-                  ) : (
-                    <div className="border-2 border-dashed border-foreground/20 rounded-xl p-8 text-center bg-muted/20">
-                      <FileText className="h-10 w-10 text-muted-foreground mx-auto mb-3" />
-                      <h4 className="font-medium text-foreground mb-1">No Assessment Configured</h4>
-                      <p className="text-sm text-muted-foreground mb-4">Add a weekly test that students must complete.</p>
-                      <Button variant="outline" onClick={() => handleOpenTestManager(week)} disabled={week.is_unlocked}>
-                        <Plus className="h-4 w-4 mr-2" />
-                        Add Weekly Test
-                      </Button>
+                      )}
                     </div>
-                  )}
+                  </div>
                 </div>
-              </TabsContent>
-            ))
-            )}
-          </Tabs>
-        )}
+              );
+            })()
+          ) : (
+            <div className="h-full min-h-[400px] flex flex-col items-center justify-center text-center p-12 border-2 border-dashed border-border rounded-[2.5rem] bg-card/30">
+               <div className="h-20 w-20 rounded-3xl bg-primary/10 text-primary flex items-center justify-center mb-6">
+                 <LayoutGrid className="h-10 w-10 opacity-40" />
+               </div>
+               <h3 className="text-2xl font-display font-bold text-foreground mb-2">Workspace Empty</h3>
+               <p className="text-sm text-muted-foreground max-w-sm leading-relaxed mb-8 italic">
+                 {weeks.length === 0 
+                   ? "You haven't defined any curriculum weeks yet. Start by defining 'Week 1'." 
+                   : "Select a week from the sidebar to begin managing its content and assessments."}
+               </p>
+               {weeks.length === 0 && (
+                 <Button variant="gradient" className="rounded-xl h-11 px-8 font-bold gap-2" onClick={() => setIsAddWeekOpen(true)}>
+                   <Plus className="h-4 w-4" /> Add Your First Week
+                 </Button>
+               )}
+            </div>
+          )}
+        </main>
       </div>
 
       {/* Edit Week Dialog */}
@@ -824,7 +928,7 @@ export default function BatchContent() {
           <DialogHeader>
             <DialogTitle>{editingSession ? 'Edit Class Session' : 'Add Class Session'}</DialogTitle>
             <DialogDescription>
-              {editingSession ? 'Update details, upload a new video, or change the thumbnail.' : 'Upload a new video session to this week. Videos are uploaded directly to Object Storage.'}
+              {editingSession ? 'Update details or upload a new video file.' : 'Upload a new video session to this week. Videos are uploaded directly to Object Storage.'}
             </DialogDescription>
           </DialogHeader>
           <div className="grid gap-6 py-4">
@@ -894,7 +998,7 @@ export default function BatchContent() {
             <div className="grid gap-2">
                 <Label>Video File</Label>
                 <div 
-                  className={`border-2 border-dashed rounded-lg p-4 text-center cursor-pointer transition-colors ${videoFormErrors.video_file ? 'border-destructive/50 bg-destructive/5' : 'hover:bg-muted/50'} ${videoFile || (editingSession && editingSession.video_file) ? 'bg-primary/5 border-primary/20' : ''}`}
+                  className={`border-2 border-dashed rounded-lg p-4 text-center cursor-pointer transition-colors ${videoFormErrors.video_file ? 'border-destructive/50 bg-destructive/5' : 'hover:bg-muted/50'} ${videoFile || (editingSession && editingSession.video_file) ? 'bg-primary/5 border-primary/30' : ''}`}
                   onClick={() => fileInputRef.current?.click()}
                 >
                   <input

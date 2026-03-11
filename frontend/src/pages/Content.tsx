@@ -45,8 +45,8 @@ import {
   Filter,
   Edit,
   Trash2,
-  Lock,
-  Unlock,
+  Lock as LockIcon,
+  Unlock as UnlockIcon,
   ChevronLeft,
   FileText,
   Image as ImageIcon,
@@ -55,6 +55,10 @@ import {
   Loader2,
   X,
   HelpCircle,
+  Video as VideoIcon,
+  ClipboardList,
+  Award,
+  LayoutGrid,
 } from 'lucide-react';
 import { courseModuleApi, CourseWeek } from '@/lib/course-module-api';
 import { useToast } from '@/hooks/use-toast';
@@ -510,15 +514,12 @@ export default function Content() {
         {/* Middle: Content */}
         <div className="flex-1 min-w-0 text-center sm:text-left">
           <div className="flex flex-col sm:flex-row sm:items-center gap-2 mb-1">
-            <h3 className="font-bold text-foreground truncate text-lg">{video.title}</h3>
+            <h3 className="font-display font-bold text-foreground truncate text-lg">{video.title}</h3>
             {video.weekday && (
-              <Badge variant="outline" className="w-fit mx-auto sm:mx-0 bg-background/90 shadow-sm border-primary/20 capitalize font-bold text-[10px] h-5 px-2">
+              <Badge variant="outline" className="w-fit mx-auto sm:mx-0 bg-background/90 shadow-sm border-primary/30 capitalize font-bold text-[10px] h-5 px-2">
                 {video.weekday}
               </Badge>
             )}
-            <Badge variant="secondary" className="w-fit mx-auto sm:mx-0 text-[10px] h-5 px-2 font-bold">
-              SESSION {video.session_number}
-            </Badge>
           </div>
           
           {video.description && (
@@ -587,174 +588,253 @@ export default function Content() {
 
   return (
     <DashboardLayout>
-      <div className="space-y-6">
-        {/* Breadcrumb + Back */}
-        <div className="flex items-center gap-2 text-sm text-muted-foreground mb-1">
-          <button
-            onClick={() => navigate('/admin-courses')}
-            className="hover:text-foreground transition-colors"
-          >
-            Courses
-          </button>
-          <ChevronLeft className="h-3 w-3 rotate-180" />
-          <span className="text-foreground font-medium">Course Content</span>
-        </div>
-
-        {/* Header */}
-        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-          <div className="flex items-center gap-4">
-            <Button variant="outline" size="icon" onClick={() => navigate('/admin-courses')}>
-              <ChevronLeft className="h-4 w-4" />
-            </Button>
-            <div>
-              <h1 className="font-display text-3xl font-bold text-foreground">Course Content</h1>
-              <p className="mt-1 text-muted-foreground">Manage your weekly video content and assessments</p>
-            </div>
-          </div>
-
-          <div className="flex items-center gap-3">
-            <Button variant="outline" onClick={() => setIsWeekOpen(true)}>
-              <Plus className="h-4 w-4 mr-2" />
-              Add Week
-            </Button>
-            <Button variant="gradient" onClick={handleOpenAddVideo}>
-              <Upload className="h-4 w-4 mr-2" />
-              Upload Video
-            </Button>
-          </div>
-        </div>
-
-
-
-        {/* ── Tabbed View ───────────────── */}
-        {isLoading ? (
-          <div className="flex justify-center items-center py-32 bg-muted/10 rounded-2xl border-2 border-dashed border-border/50">
-            <div className="flex flex-col items-center gap-4">
-              <Loader2 className="h-10 w-10 animate-spin text-primary/60" />
-              <p className="text-muted-foreground font-medium animate-pulse">Loading course content...</p>
-            </div>
-          </div>
-        ) : weeks.length === 0 ? (
-          <div className="text-center py-24 bg-muted/20 border-2 border-dashed border-border rounded-xl">
-            <BookOpen className="h-16 w-16 mx-auto mb-6 text-muted-foreground/30" />
-            <h3 className="text-2xl font-bold text-foreground mb-2">No Weeks Initialized</h3>
-            <p className="text-muted-foreground mb-8 max-w-sm mx-auto">
-              This course doesn't have any weekly content yet. Start by defining the first week to begin uploading videos and assessments.
-            </p>
-            <Button variant="gradient" onClick={() => setIsWeekOpen(true)}>
-              <Plus className="h-5 w-5 mr-2" />
-              Add First Week
-            </Button>
-          </div>
-        ) : (
-          <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6 w-full overflow-hidden">
-            <TabsList className="flex w-full bg-transparent h-auto p-0 flex-nowrap justify-start overflow-x-auto overflow-y-hidden scrollbar-hide gap-3 pb-2">
-            {weeks.map(week => (
-              <TabsTrigger 
-                key={week.id} 
-                value={week.id.toString()} 
-                className={cn(
-                  "px-6 py-2.5 shrink-0 rounded-full transition-all border border-border/50 text-sm font-medium",
-                  "data-[state=active]:bg-primary data-[state=active]:text-white data-[state=active]:border-primary data-[state=active]:shadow-lg shadow-primary/20",
-                  "bg-muted/30 text-muted-foreground hover:bg-muted/50"
-                )}
-              >
-                Week {week.week_number}
-              </TabsTrigger>
-            ))}
-          </TabsList>
-
-          {weeks.map(week => (
-            <TabsContent key={week.id} value={week.id.toString()} className="space-y-6">
-              
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 py-2 border-b">
+      <div className="flex flex-col lg:flex-row gap-8 items-start">
+        
+        {/* ── CURRICULUM SIDEBAR (Template Level) ───────────────────── */}
+        <aside className="w-full lg:w-80 shrink-0 sticky top-6">
+          <div className="flex flex-col gap-4">
+            <div className="flex items-center justify-between px-2">
+              <div className="flex items-center gap-3">
+                <Button 
+                  variant="outline" 
+                  size="icon" 
+                  onClick={() => navigate('/admin-courses')}
+                  className="rounded-full h-9 w-9"
+                >
+                  <ChevronLeft className="h-5 w-5" />
+                </Button>
                 <div>
-                  <h2 className="text-xl font-bold text-foreground">Week {week.week_number}: {week.title}</h2>
-                  <p className="text-muted-foreground text-sm">{week.description}</p>
-                </div>
-                <div className="flex gap-2">
-                  <Button variant="outline" size="sm" onClick={() => handleOpenTestManager(week)}>
-                    <FileText className="h-4 w-4 mr-2" />
-                    {week.weekly_test ? 'Edit Assessment' : 'Add Weekly Test'}
-                  </Button>
-                  <Button variant="outline" size="icon" onClick={() => handleOpenEditWeek(week)}>
-                    <Edit className="h-4 w-4" />
-                  </Button>
-                  <Button variant="outline" size="icon" className="text-primary" onClick={() => setDeleteWeekId(week.id)}>
-                    <Trash2 className="h-4 w-4" />
-                  </Button>
+                  <h1 className="font-display text-xl font-bold text-foreground">Course Content</h1>
+                  <p className="text-[10px] text-muted-foreground uppercase tracking-widest font-black">Template Editor</p>
                 </div>
               </div>
+              <Button 
+                variant="outline" 
+                size="icon" 
+                className="h-8 w-8 rounded-full border-primary/30 hover:bg-primary/10 hover:text-primary transition-colors"
+                onClick={() => setIsWeekOpen(true)}
+              >
+                <Plus className="h-4 w-4" />
+              </Button>
+            </div>
 
-              {/* Videos List */}
-              {week.class_sessions.length > 0 ? (
-                <div className="flex flex-col gap-4">
-                  {[...week.class_sessions]
-                    .sort((a, b) => {
-                      const days: Record<string, number> = { monday: 1, tuesday: 2, wednesday: 3, thursday: 4, friday: 5, saturday: 6, sunday: 7 };
-                      const dayA = days[a.weekday?.toLowerCase()] || 8;
-                      const dayB = days[b.weekday?.toLowerCase()] || 8;
-                      if (dayA !== dayB) return dayA - dayB;
-                      return (a.session_number || 0) - (b.session_number || 0);
-                    })
-                    .map((video) => (
-                    <VideoCard key={video.id} video={video} />
-                  ))}
-                </div>
-              ) : (
-                <div className="py-8 text-center text-muted-foreground bg-muted/20 border border-dashed border-foreground/20 rounded-lg">
-                  No videos uploaded for this week yet.
-                </div>
-              )}
-
-              {/* Weekly Assessment Display Card */}
-              <div className="mt-8 pt-8 border-t border-foreground/10">
-                <h3 className="text-lg font-semibold mb-4">Weekly Assessment</h3>
-                {week.weekly_test ? (
-                  <Card className="shadow-card overflow-hidden group hover:shadow-md transition-all duration-300 bg-card border border-border/50">
-                    <CardHeader className="flex flex-row items-center justify-between pb-2">
-                      <div className="flex items-center gap-3">
-                        <div className="p-2 bg-primary/10 rounded-lg">
-                          <CheckCircle className="h-6 w-6 text-primary" />
+            <Card className="border-border/50 shadow-card overflow-hidden bg-card/50 backdrop-blur-sm">
+              <div className="p-2 space-y-1">
+                {isLoading ? (
+                  <div className="py-12 flex justify-center"><Loader2 className="h-6 w-6 animate-spin text-primary/40" /></div>
+                ) : weeks.length === 0 ? (
+                  <div className="p-4 text-center text-xs text-muted-foreground">No weeks initialized yet.</div>
+                ) : (
+                  weeks.map(week => {
+                    const isActive = activeTab === week.id.toString();
+                    return (
+                      <button
+                        key={week.id}
+                        onClick={() => setActiveTab(week.id.toString())}
+                        className={cn(
+                          "w-full text-left px-4 py-4 rounded-xl transition-all flex items-center gap-3 group",
+                          isActive 
+                            ? "bg-primary text-white shadow-lg shadow-primary/20" 
+                            : "hover:bg-muted/80 text-muted-foreground"
+                        )}
+                      >
+                        <div className={cn(
+                          "h-10 w-10 rounded-xl flex items-center justify-center font-bold text-sm shrink-0 transition-colors",
+                          isActive ? "bg-white/20" : "bg-muted text-foreground"
+                        )}>
+                          {week.week_number}
                         </div>
-                        <div>
-                          <CardTitle className="text-lg">{week.weekly_test.title}</CardTitle>
-                          <CardDescription>
-                            {week.weekly_test.questions?.length || 0} Question{(week.weekly_test.questions?.length || 0) !== 1 ? 's' : ''}
-                            {' · '}{week.weekly_test.pass_percentage ?? 70}% pass mark
-                          </CardDescription>
+                        <div className="flex-1 min-w-0">
+                          <p className={cn("text-sm font-bold truncate", isActive ? "text-white" : "text-foreground")}>
+                            {week.title}
+                          </p>
+                          <p className="text-[10px] opacity-70 flex items-center gap-1 mt-0.5">
+                            <VideoIcon className="h-2.5 w-2.5" />
+                            {week.class_sessions?.length || 0} Sessions
+                          </p>
+                        </div>
+                        {isActive && <div className="h-1.5 w-1.5 rounded-full bg-white animate-pulse" />}
+                      </button>
+                    );
+                  })
+                )}
+              </div>
+            </Card>
+          </div>
+        </aside>
+
+        {/* ── MAIN CONTENT AREA (Template Level) ───────────────────── */}
+        <main className="flex-1 min-w-0 space-y-6">
+          {activeTab && weeks.find(w => w.id.toString() === activeTab) ? (
+            (() => {
+              const week = weeks.find(w => w.id.toString() === activeTab)!;
+              return (
+                <div className="space-y-6 animate-in fade-in slide-in-from-bottom-2 duration-500">
+                  {/* Phase 1: Header Banner */}
+                  <div className="relative rounded-3xl overflow-hidden bg-gradient-to-br from-[#1a237e] via-[#283593] to-[#3949ab] p-8 text-white shadow-lg">
+                    <div className="absolute top-0 right-0 p-8 pointer-events-none opacity-10">
+                       <BookOpen className="h-32 w-32 rotate-12" />
+                    </div>
+                    
+                    <div className="relative z-10">
+                      <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
+                        <div className="space-y-2">
+                          <div className="flex items-center gap-3">
+                            <Badge className="bg-white/10 text-white backdrop-blur-md border-none font-black text-[10px] h-6 px-3">
+                              CURRICULUM BASE
+                            </Badge>
+                          </div>
+                          <h2 className="text-4xl font-display font-black tracking-tight">Week {week.week_number}: {week.title}</h2>
+                          <p className="text-white/60 max-w-xl text-sm leading-relaxed">
+                            {week.description || 'This module template will be inherited by all batches associated with this course.'}
+                          </p>
+                        </div>
+
+                        <div className="flex flex-wrap gap-2">
+                          <Button 
+                            variant="secondary" 
+                            className="bg-white text-slate-900 hover:bg-white/90 font-bold shadow-md rounded-xl"
+                            onClick={() => handleOpenTestManager(week)}
+                          >
+                            <FileText className="h-4 w-4 mr-2" />
+                            {week.weekly_test ? 'Edit Test' : 'Setup Base Test'}
+                          </Button>
+                          <div className="flex gap-1">
+                            <Button 
+                              variant="secondary" 
+                              size="icon" 
+                              className="bg-white/10 text-white hover:bg-white/20 backdrop-blur-md rounded-xl"
+                              onClick={() => handleOpenEditWeek(week)}
+                            >
+                              <Edit className="h-4 w-4" />
+                            </Button>
+                            <Button 
+                              variant="secondary" 
+                              size="icon" 
+                              className="bg-white/10 text-primary hover:bg-primary/20 backdrop-blur-md rounded-xl"
+                              onClick={() => setDeleteWeekId(week.id)}
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
+                          </div>
                         </div>
                       </div>
-                      <div className="flex gap-2">
-                        <Button variant="outline" size="sm" onClick={() => handleOpenTestManager(week)}>
-                          <Edit className="h-3.5 w-3.5 mr-1.5" />
-                          Manage
+
+
+                    </div>
+                  </div>
+
+                  {/* Phase 2: Content List */}
+                  <div className="space-y-4">
+                    <div className="flex items-center justify-between px-2">
+                      <div className="flex items-center gap-3">
+                         <div className="h-10 w-10 rounded-2xl bg-primary/10 text-primary flex items-center justify-center border border-primary/30">
+                            <VideoIcon className="h-5 w-5" />
+                         </div>
+                         <h3 className="text-xl font-display font-black text-foreground">Lecture Templates</h3>
+                      </div>
+                      <Button variant="gradient" className="rounded-xl px-6" onClick={handleOpenAddVideo}>
+                        <Upload className="h-4 w-4 mr-2" />
+                        Upload Template Video
+                      </Button>
+                    </div>
+
+                    {week.class_sessions.length > 0 ? (
+                      <div className="grid grid-cols-1 gap-3">
+                        {[...week.class_sessions]
+                          .sort((a, b) => {
+                            const days: Record<string, number> = { monday: 1, tuesday: 2, wednesday: 3, thursday: 4, friday: 5, saturday: 6, sunday: 7 };
+                            const dayA = days[a.weekday?.toLowerCase()] || 8;
+                            const dayB = days[b.weekday?.toLowerCase()] || 8;
+                            if (dayA !== dayB) return dayA - dayB;
+                            return (a.session_number || 0) - (b.session_number || 0);
+                          })
+                          .map((video) => (
+                            <VideoCard key={video.id} video={video} />
+                          ))}
+                      </div>
+                    ) : (
+                      <div className="py-20 text-center bg-primary/[0.02] border-2 border-dashed border-primary/30 rounded-[2rem]">
+                        <VideoIcon className="h-12 w-12 mx-auto mb-4 text-muted-foreground/30" />
+                        <h4 className="text-lg font-display font-bold text-foreground">No templates added</h4>
+                        <p className="text-sm text-muted-foreground max-w-xs mx-auto mb-6">
+                          Define standard videos for this course. They will be copied to all new batches automatically.
+                        </p>
+                        <Button variant="outline" className="rounded-xl" onClick={handleOpenAddVideo}>
+                           <Plus className="h-4 w-4 mr-2" /> Add First Video
                         </Button>
                       </div>
-                    </CardHeader>
-                    <CardContent>
-                      {week.weekly_test.instructions && (
-                        <p className="text-sm text-foreground/70 mt-1 line-clamp-2">{week.weekly_test.instructions}</p>
-                      )}
-                    </CardContent>
-                  </Card>
-                ) : (
-                  <div className="border-2 border-dashed border-foreground/20 rounded-xl p-8 text-center bg-muted/20">
-                    <FileText className="h-10 w-10 text-muted-foreground mx-auto mb-3" />
-                    <h4 className="font-medium text-foreground mb-1">No Assessment Configured</h4>
-                    <p className="text-sm text-muted-foreground mb-4">Add a weekly test that students must complete.</p>
-                    <Button variant="outline" onClick={() => handleOpenTestManager(week)}>
-                      <Plus className="h-4 w-4 mr-2" />
-                      Add Weekly Test
-                    </Button>
-                  </div>
-                )}
-              </div>
-            </TabsContent>
-          ))}
+                    )}
 
-          </Tabs>
-        )}
+                    {/* Weekly Assessment Milestone */}
+                    <div className="mt-12 space-y-4">
+                      <div className="flex items-center gap-3 px-2 pt-8 border-t border-border/50">
+                        <div className="h-10 w-10 rounded-2xl bg-primary/10 text-primary flex items-center justify-center border border-primary/30">
+                          <CheckCircle className="h-5 w-5" />
+                        </div>
+                        <h3 className="text-xl font-display font-black text-foreground">Module Test Blueprint</h3>
+                      </div>
+
+                      {week.weekly_test ? (
+                        <Card className="w-full rounded-2xl border-border/50 shadow-card border-l-4 border-l-primary/40 overflow-hidden bg-card transition-all hover:shadow-md">
+                          <div className="flex flex-col sm:flex-row items-center p-6 gap-6">
+                             <div className="h-14 w-14 rounded-xl bg-primary/10 flex items-center justify-center text-primary shrink-0">
+                                <ClipboardList className="h-7 w-7" />
+                             </div>
+                             <div className="flex-1 text-center sm:text-left min-w-0">
+                                <h4 className="text-xl font-black font-display font-bold text-foreground truncate">{week.weekly_test.title}</h4>
+                                <div className="flex items-center justify-center sm:justify-start gap-5 text-xs font-bold text-muted-foreground uppercase tracking-tight">
+                                   <span className="flex items-center gap-1.5"><HelpCircle className="h-3 w-3" /> {week.weekly_test.questions?.length || 0} Questions</span>
+                                   <span className="flex items-center gap-1.5 text-primary"><Award className="h-3 w-3" /> {week.weekly_test.pass_percentage ?? 70}% Mastery Level</span>
+                                </div>
+                             </div>
+                             <Button 
+                               variant="outline" size="sm" 
+                               className="rounded-xl px-8 h-11 font-black uppercase text-xs tracking-widest border-primary/30 text-primary hover:bg-primary/5"
+                               onClick={() => handleOpenTestManager(week)}
+                             >
+                               Manage Blueprint
+                             </Button>
+                          </div>
+                        </Card>
+                      ) : (
+                        <div className="border-2 border-dashed border-indigo-500/10 rounded-[2rem] p-12 text-center bg-primary/[0.02]">
+                          <FileText className="h-12 w-12 text-primary/40 mx-auto mb-4 opacity-50" />
+                          <h4 className="text-lg font-display font-bold">No Test Configured</h4>
+                          <p className="text-sm text-muted-foreground mb-6">Create a template assessment that will be given to students at the end of this module.</p>
+                          <Button 
+                            variant="outline" 
+                            className="rounded-xl border-primary/30 text-primary"
+                            onClick={() => handleOpenTestManager(week)}
+                          >
+                            <Plus className="h-4 w-4 mr-2" /> Create Test Blueprint
+                          </Button>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              );
+            })()
+          ) : (
+            <div className="h-full min-h-[400px] flex flex-col items-center justify-center text-center p-12 border-2 border-dashed border-border rounded-[2.5rem] bg-card/30">
+               <div className="h-20 w-20 rounded-3xl bg-primary/10 text-primary flex items-center justify-center mb-6">
+                 <LayoutGrid className="h-10 w-10 opacity-40" />
+               </div>
+               <h3 className="text-2xl font-display font-bold text-foreground mb-2">Workspace Empty</h3>
+               <p className="text-sm text-muted-foreground max-w-sm leading-relaxed mb-8 italic">
+                 {weeks.length === 0 
+                   ? "You haven't defined any curriculum weeks yet. Start by defining 'Week 1'." 
+                   : "Select a week module from the sidebar to edit its lecture set and base assessment."}
+               </p>
+               {weeks.length === 0 && (
+                 <Button variant="gradient" className="rounded-xl h-11 px-8 font-bold gap-2" onClick={() => setIsWeekOpen(true)}>
+                   <Plus className="h-4 w-4" /> Initialize First Week
+                 </Button>
+               )}
+            </div>
+          )}
+        </main>
       </div>
 
       {/* Upload Video Modal */}
