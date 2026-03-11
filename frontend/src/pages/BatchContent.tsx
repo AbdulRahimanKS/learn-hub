@@ -65,7 +65,6 @@ import {
 import { courseModuleApi } from '@/lib/course-module-api';
 import axios from 'axios';
 import getBlobDuration from 'get-blob-duration';
-import { ImageCropperModal } from '@/components/ImageCropperModal';
 
 export default function BatchContent() {
   const { batchId } = useParams<{ batchId: string }>();
@@ -103,9 +102,6 @@ export default function BatchContent() {
   const [videoTitle, setVideoTitle] = useState('');
   const [videoDesc, setVideoDesc] = useState('');
   const [videoFile, setVideoFile] = useState<File | null>(null);
-  const [videoThumbnail, setVideoThumbnail] = useState<File | null>(null);
-  const [imagePreview, setImagePreview] = useState<string | null>(null);
-  const [cropperSrc, setCropperSrc] = useState<string | null>(null);
   const [sessionNumber, setSessionNumber] = useState<number | ''>('');
   const [weekday, setWeekday] = useState<string>('');
   const [videoFormErrors, setVideoFormErrors] = useState<Record<string, string>>({});
@@ -114,46 +110,10 @@ export default function BatchContent() {
   const [isUploading, setIsUploading] = useState(false);
   
   const fileInputRef = React.useRef<HTMLInputElement>(null);
-  const thumbnailInputRef = React.useRef<HTMLInputElement>(null);
-  const editThumbnailInputRef = React.useRef<HTMLInputElement>(null);
 
-  const handleThumbnailSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (e.target.files && e.target.files.length > 0) {
-      const file = e.target.files[0];
-      if (file.size > 2 * 1024 * 1024) {
-        setVideoFormErrors(prev => ({ ...prev, thumbnail: 'Thumbnail image must be less than 2MB.' }));
-        if (thumbnailInputRef.current) thumbnailInputRef.current.value = '';
-        if (editThumbnailInputRef.current) editThumbnailInputRef.current.value = '';
-        return;
-      } else {
-        setVideoFormErrors(prev => {
-          const newErrs = { ...prev };
-          delete newErrs.thumbnail;
-          return newErrs;
-        });
-      }
-      const reader = new FileReader();
-      reader.addEventListener('load', () => setCropperSrc(reader.result?.toString() || null));
-      reader.readAsDataURL(file);
-      if (thumbnailInputRef.current) thumbnailInputRef.current.value = '';
-      if (editThumbnailInputRef.current) editThumbnailInputRef.current.value = '';
-    }
-  };
 
-  const handleCroppedImage = (file: File, url: string) => {
-    setVideoThumbnail(file);
-    setImagePreview(url);
-    setCropperSrc(null);
-  };
 
-  const [sessionForm, setSessionForm] = useState({
-    title: '',
-    description: '',
-    session_number: 1,
-    weekday: '',
-    video_file: null as File | null,
-    thumbnail: null as File | null,
-  });
+
   const [sessionErrors, setSessionErrors] = useState<Record<string, string>>({});
 
   // Test Modal (now replaced by WeeklyTestManager)
@@ -352,8 +312,6 @@ export default function BatchContent() {
       setSessionNumber(session.session_number);
       setWeekday(session.weekday || '');
       setVideoFile(null);
-      setVideoThumbnail(null);
-      setImagePreview(session.thumbnail || null);
     } else {
       setEditingSession(null);
       setVideoTitle('');
@@ -361,8 +319,6 @@ export default function BatchContent() {
       setSessionNumber(1);
       setWeekday('');
       setVideoFile(null);
-      setVideoThumbnail(null);
-      setImagePreview(null);
     }
     setVideoFormErrors({});
     setIsSessionModalOpen(true);
@@ -435,8 +391,6 @@ export default function BatchContent() {
       formData.append('weekday', weekday);
       if (actualDurationSeconds > 0) formData.append('duration_seconds', actualDurationSeconds.toString()); 
       if (finalVideoKey) formData.append('video_file', finalVideoKey);
-      if (videoThumbnail) formData.append('thumbnail', videoThumbnail);
-      else if (imagePreview === null) formData.append('remove_thumbnail', 'true');
 
       if (editingSession) {
         await batchContentApi.updateSession(parseInt(batchId as string), parseInt(activeTab), editingSession.id, formData);
@@ -601,7 +555,7 @@ export default function BatchContent() {
                     No videos uploaded for this week yet.
                   </div>
                 ) : (
-                  <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+                  <div className="flex flex-col gap-4">
                         {[...sessions]
                           .sort((a, b) => {
                             const days: Record<string, number> = { monday: 1, tuesday: 2, wednesday: 3, thursday: 4, friday: 5, saturday: 6, sunday: 7 };
@@ -611,79 +565,97 @@ export default function BatchContent() {
                             return (a.session_number || 0) - (b.session_number || 0);
                           })
                           .map((session) => (
-                          <Card key={session.id} className="shadow-card overflow-hidden group hover:shadow-lg transition-all duration-300 flex flex-col h-full">
-                            <div className="relative aspect-video">
-                              {session.thumbnail ? (
-                                <img src={session.thumbnail} alt={session.title} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" />
-                              ) : (
-                                <div className="w-full h-full bg-muted flex items-center justify-center group-hover:scale-105 transition-transform duration-300">
-                                  <ImageIcon className="h-12 w-12 text-muted-foreground/50" />
+                          <Card key={session.id} className="shadow-card overflow-hidden group hover:shadow-md transition-all duration-300 bg-card border border-border/50">
+                            <div className="flex flex-col sm:flex-row items-center p-4 gap-4">
+                              {/* Left: Icon/Play */}
+                              <div className="flex shrink-0">
+                                <div 
+                                  className="h-12 w-12 rounded-xl flex items-center justify-center bg-primary/10 text-primary hover:bg-primary hover:text-primary-foreground cursor-pointer transition-colors"
+                                  onClick={() => {
+                                    const url = session.video_presigned_url || session.video_url;
+                                    if (url) {
+                                      setPlayingVideoUrl(url);
+                                    } else {
+                                      toast({ title: 'Video Unavailable', description: 'This video is still processing or unavailable.', variant: 'destructive' });
+                                    }
+                                  }}
+                                >
+                                  <Play className="h-6 w-6 fill-current ml-1" />
                                 </div>
-                              )}
-                              <div className="absolute inset-0 bg-gradient-to-t from-foreground/80 via-transparent to-transparent" />
-                              
-                              <button 
-                                className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 p-4 rounded-full bg-primary text-primary-foreground opacity-0 group-hover:opacity-100 transition-opacity shadow-lg"
-                                onClick={() => {
-                                  const url = session.video_presigned_url || session.video_url;
-                                  if (url) {
-                                    setPlayingVideoUrl(url);
-                                  } else {
-                                    toast({ title: 'Video Unavailable', description: 'This video is still processing or unavailable.', variant: 'destructive' });
-                                  }
-                                }}
-                              >
-                                <Play className="h-6 w-6 fill-current ml-1" />
-                              </button>
-                              
-                              <div className="absolute bottom-3 left-3 right-3 flex justify-between items-end">
-                                {/* Duration on the left */}
-                                <div className="flex items-center gap-1 text-[10px] font-bold text-white bg-black/60 px-2 py-1 rounded backdrop-blur-md border border-white/10 shadow-lg">
-                                  <Clock className="h-3 w-3" />
-                                  <span>
-                                    {session.duration_seconds > 0 ? (
-                                      `${Math.floor(session.duration_seconds / 60).toString().padStart(2, '0')}:${(session.duration_seconds % 60).toString().padStart(2, '0')}`
-                                    ) : 'Processing'}
-                                  </span>
-                                </div>
+                              </div>
 
-                                {/* Labels on the right */}
-                                <div className="flex flex-col items-end gap-1.5">
+                              {/* Middle: Content */}
+                              <div className="flex-1 min-w-0 text-center sm:text-left">
+                                <div className="flex flex-col sm:flex-row sm:items-center gap-2 mb-1">
+                                  <h3 className="font-bold text-foreground truncate text-lg">{session.title}</h3>
                                   {session.weekday && (
-                                    <Badge variant="outline" className="bg-background/90 backdrop-blur-md shadow-sm border-primary/20 capitalize font-bold text-[10px] h-5 px-2">
+                                    <Badge variant="outline" className="w-fit mx-auto sm:mx-0 bg-background/90 shadow-sm border-primary/20 capitalize font-bold text-[10px] h-5 px-2">
                                       {session.weekday}
                                     </Badge>
                                   )}
+                                  <Badge variant="secondary" className="w-fit mx-auto sm:mx-0 text-[10px] h-5 px-2 font-bold">
+                                    SESSION {session.session_number}
+                                  </Badge>
                                 </div>
-                              </div>
-                            </div>
-                            <CardContent className="p-4 flex flex-col justify-between flex-1">
-                              <div>
-                                <h3 className="font-semibold text-foreground line-clamp-1">{session.title}</h3>
-                                <p className="text-sm text-muted-foreground mt-1 line-clamp-2">{session.description || 'No description'}</p>
+                                
+                                {session.description && (
+                                  <p className="text-sm text-muted-foreground line-clamp-1 mb-2">
+                                    {session.description}
+                                  </p>
+                                )}
+                                
+                                <div className="flex flex-wrap items-center justify-center sm:justify-start gap-4 text-xs font-medium text-muted-foreground">
+                                  <div className="flex items-center gap-1.5">
+                                    <Clock className="h-3.5 w-3.5" />
+                                    <span>
+                                      {session.duration_seconds > 0 ? (
+                                        `${Math.floor(session.duration_seconds / 60).toString().padStart(2, '0')}:${(session.duration_seconds % 60).toString().padStart(2, '0')}`
+                                      ) : 'Processing'}
+                                    </span>
+                                  </div>
+                                </div>
                               </div>
 
-                              <div className="flex items-center justify-between mt-4">
-                                <div className="flex gap-1" title="Manage MCQs">
-                                  <Button variant="ghost" size="sm" className="h-8 px-2" onClick={() => {
-                                    setMcqSession(session);
-                                    setMcqApiUrl(`/api/courses/v1/batches/${batchId}/weeks/${activeTab}/sessions/${session.id}/mcq`);
-                                    setIsMcqOpen(true);
-                                  }}>
-                                    <HelpCircle className="h-4 w-4 mr-1 lg:mr-2" />
-                                    <span className="sr-only lg:not-sr-only">MCQs</span>
+                              {/* Right: Actions */}
+                              <div className="flex items-center gap-3 shrink-0 ml-auto w-full sm:w-auto justify-center sm:justify-end border-t sm:border-t-0 pt-4 sm:pt-0">
+                                <div className="flex items-center gap-1">
+                                  <Button 
+                                    variant="ghost" 
+                                    size="sm" 
+                                    className="h-9 px-3 gap-2 text-muted-foreground hover:text-foreground" 
+                                    onClick={() => {
+                                      setMcqSession(session);
+                                      setMcqApiUrl(`/api/courses/v1/batches/${batchId}/weeks/${activeTab}/sessions/${session.id}/mcq`);
+                                      setIsMcqOpen(true);
+                                    }}
+                                  >
+                                    <HelpCircle className="h-4 w-4" />
+                                    <span className="text-xs font-bold">MCQs</span>
                                   </Button>
-                                </div>
-                                <div className="flex gap-1">
-                                  <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => handleOpenSessionModal(session)} disabled={week.is_unlocked}>
+                                  <Button variant="ghost" size="icon" className="h-9 w-9 text-muted-foreground hover:text-foreground" onClick={() => handleOpenSessionModal(session)} disabled={week.is_unlocked}>
                                     <Edit className="h-4 w-4" />
                                   </Button>
-                                  <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => setDeleteSessionId(session.id)} disabled={week.is_unlocked}>
+                                  <Button variant="ghost" size="icon" className="h-9 w-9 text-muted-foreground hover:text-destructive hover:bg-destructive/10" onClick={() => setDeleteSessionId(session.id)} disabled={week.is_unlocked}>
                                     <Trash2 className="h-4 w-4" />
                                   </Button>
                                 </div>
+                                
+                                <Button 
+                                  variant="gradient" 
+                                  size="sm" 
+                                  className="gap-2 px-6 h-9 rounded-lg shadow-sm font-bold"
+                                  onClick={() => {
+                                    const url = session.video_presigned_url || session.video_url;
+                                    if (url) {
+                                      setPlayingVideoUrl(url);
+                                    }
+                                  }}
+                                >
+                                  <Play className="h-3.5 w-3.5 fill-current" />
+                                  Watch
+                                </Button>
                               </div>
-                            </CardContent>
+                            </div>
                           </Card>
                         ))}
                       </div>
@@ -694,7 +666,7 @@ export default function BatchContent() {
                   {loadingContent ? (
                     <div className="flex justify-center py-10"><Loader2 className="h-6 w-6 animate-spin" /></div>
                   ) : weeklyTest ? (
-                    <Card className="shadow-sm border-primary/20 bg-primary/5">
+                    <Card className="shadow-card overflow-hidden group hover:shadow-md transition-all duration-300 bg-card border border-border/50">
                       <CardHeader className="flex flex-row items-center justify-between pb-2">
                         <div className="flex items-center gap-3">
                           <div className="p-2 bg-primary/10 rounded-lg">
@@ -919,8 +891,7 @@ export default function BatchContent() {
               />
             </div>
 
-            <div className="grid grid-cols-2 gap-6">
-              <div className="grid gap-2">
+            <div className="grid gap-2">
                 <Label>Video File</Label>
                 <div 
                   className={`border-2 border-dashed rounded-lg p-4 text-center cursor-pointer transition-colors ${videoFormErrors.video_file ? 'border-destructive/50 bg-destructive/5' : 'hover:bg-muted/50'} ${videoFile || (editingSession && editingSession.video_file) ? 'bg-primary/5 border-primary/20' : ''}`}
@@ -969,56 +940,6 @@ export default function BatchContent() {
                   </div>
                 </div>
                 {videoFormErrors.video_file && <p className="text-xs text-destructive">{videoFormErrors.video_file}</p>}
-              </div>
-
-              <div className="grid gap-2">
-                <Label>Custom Thumbnail</Label>
-                <div 
-                  className={`border-2 border-dashed rounded-lg text-center cursor-pointer transition-colors h-[126px] relative overflow-hidden group ${videoFormErrors.thumbnail ? 'border-destructive/50' : 'hover:bg-muted/50'}`}
-                  onClick={() => thumbnailInputRef.current?.click()}
-                >
-                  <input
-                    type="file"
-                    ref={thumbnailInputRef}
-                    className="hidden"
-                    accept="image/*"
-                    onChange={handleThumbnailSelect}
-                  />
-                  
-                  {imagePreview ? (
-                    <>
-                      <img src={imagePreview} alt="Thumbnail preview" className="w-full h-full object-cover" />
-                      <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity flex flex-col items-center justify-center text-white gap-2">
-                        <Upload className="h-6 w-6" />
-                        <span className="text-xs font-medium">Replace Thumbnail</span>
-                      </div>
-                      <Button 
-                        type="button" 
-                        variant="destructive" 
-                        size="icon" 
-                        className="absolute top-1 right-1 h-6 w-6 rounded-full opacity-0 group-hover:opacity-100 transition-opacity z-10"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          setImagePreview(null);
-                          setVideoThumbnail(null);
-                          if (thumbnailInputRef.current) thumbnailInputRef.current.value = '';
-                        }}
-                      >
-                        <X className="h-3 w-3" />
-                      </Button>
-                    </>
-                  ) : (
-                    <div className="flex flex-col items-center justify-center space-y-2 h-full">
-                      <div className="p-2 bg-muted rounded-full">
-                        <ImageIcon className="h-6 w-6 text-muted-foreground" />
-                      </div>
-                      <div className="text-sm font-medium px-2">Click to add thumbnail</div>
-                      <div className="text-xs text-muted-foreground">16:9 ratio recommended</div>
-                    </div>
-                  )}
-                </div>
-                {videoFormErrors.thumbnail && <p className="text-xs text-destructive">{videoFormErrors.thumbnail}</p>}
-              </div>
             </div>
 
             {/* Upload Progress Bar */}
@@ -1056,13 +977,7 @@ export default function BatchContent() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
-      <ImageCropperModal
-        isOpen={!!cropperSrc}
-        onClose={() => setCropperSrc(null)}
-        imageSrc={cropperSrc || ''}
-        onCropComplete={handleCroppedImage}
-        aspectRatio={16 / 9}
-      />
+
 
       {/* Weekly Test Manager (Batch) */}
       {testWeek && batchId && (

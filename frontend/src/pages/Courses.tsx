@@ -770,7 +770,7 @@ export default function Courses() {
                                     'flex items-center justify-between rounded-xl px-5 py-4 border transition-all',
                                     locked
                                       ? 'bg-muted/30 border-border/50 opacity-70'
-                                      : 'bg-primary/5 border-primary/20 hover:bg-primary/10'
+                                      : 'bg-card border-border/50 hover:bg-muted/30'
                                   )}
                                 >
                                   <div className="flex items-center gap-4">

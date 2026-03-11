@@ -60,7 +60,6 @@ import { courseModuleApi, CourseWeek } from '@/lib/course-module-api';
 import { useToast } from '@/hooks/use-toast';
 import axios from 'axios';
 import getBlobDuration from 'get-blob-duration';
-import { ImageCropperModal } from '@/components/ImageCropperModal';
 import { WeeklyTestManager } from '@/components/WeeklyTestManager';
 import { SessionMcqManager } from '@/components/SessionMcqManager';
 
@@ -110,9 +109,6 @@ export default function Content() {
   const [videoTitle, setVideoTitle] = useState('');
   const [videoDesc, setVideoDesc] = useState('');
   const [videoFile, setVideoFile] = useState<File | null>(null);
-  const [videoThumbnail, setVideoThumbnail] = useState<File | null>(null);
-  const [imagePreview, setImagePreview] = useState<string | null>(null);
-  const [cropperSrc, setCropperSrc] = useState<string | null>(null);
   const [sessionNumber, setSessionNumber] = useState<number | ''>('');
   const [weekday, setWeekday] = useState<string>('');
   
@@ -127,40 +123,8 @@ export default function Content() {
   const [isUploading, setIsUploading] = useState(false);
 
   const fileInputRef = React.useRef<HTMLInputElement>(null);
-  const thumbnailInputRef = React.useRef<HTMLInputElement>(null);
-  const editThumbnailInputRef = React.useRef<HTMLInputElement>(null);
 
-  const handleThumbnailSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (e.target.files && e.target.files.length > 0) {
-      const file = e.target.files[0];
-      
-      if (file.size > 2 * 1024 * 1024) {
-        setVideoFormErrors(prev => ({ ...prev, thumbnail: 'Thumbnail image must be less than 2MB.' }));
-        if (thumbnailInputRef.current) thumbnailInputRef.current.value = '';
-        if (editThumbnailInputRef.current) editThumbnailInputRef.current.value = '';
-        return;
-      } else {
-        setVideoFormErrors(prev => {
-          const newErrs = { ...prev };
-          delete newErrs.thumbnail;
-          return newErrs;
-        });
-      }
 
-      const reader = new FileReader();
-      reader.addEventListener('load', () => setCropperSrc(reader.result?.toString() || null));
-      reader.readAsDataURL(file);
-      // Reset input value so same file can be selected again if cropped differently
-      if (thumbnailInputRef.current) thumbnailInputRef.current.value = '';
-      if (editThumbnailInputRef.current) editThumbnailInputRef.current.value = '';
-    }
-  };
-
-  const handleCroppedImage = (file: File, url: string) => {
-    setVideoThumbnail(file);
-    setImagePreview(url);
-    setCropperSrc(null);
-  };
 
   const fetchWeeks = async () => {
     if (!courseId) return;
@@ -200,7 +164,6 @@ export default function Content() {
       setVideoTitle('');
       setVideoDesc('');
       setVideoFile(null);
-      setVideoThumbnail(null);
       setSessionNumber(1);
     }
   }, [isUploadOpen]);
@@ -350,8 +313,6 @@ export default function Content() {
     setSessionNumber(1);
     setWeekday('');
     setVideoFile(null);
-    setVideoThumbnail(null);
-    setImagePreview(null);
     setUploadWeekId(activeTab);
     setVideoFormErrors({});
     setIsUploadOpen(true);
@@ -439,7 +400,6 @@ export default function Content() {
         // Just store the key text in the CharField
         formData.append('video_file', finalVideoKey);
       }
-      if (videoThumbnail) formData.append('thumbnail', videoThumbnail);
 
       const res = await courseModuleApi.createSession(courseId, uploadWeekId, formData);
       if (res.success) {
@@ -448,8 +408,6 @@ export default function Content() {
         setVideoTitle('');
         setVideoDesc('');
         setVideoFile(null);
-        setVideoThumbnail(null);
-        setImagePreview(null);
         fetchWeeks();
       }
     } catch (error: any) {
@@ -467,8 +425,7 @@ export default function Content() {
     setVideoDesc(video.description || '');
     setSessionNumber(video.session_number);
     setWeekday(video.weekday || '');
-    setVideoThumbnail(null); // Clear previous file selection
-    setImagePreview(video.thumbnail);
+    setWeekday(video.weekday || '');
     setIsEditVideoOpen(true);
   };
 
@@ -490,11 +447,8 @@ export default function Content() {
       formData.append('weekday', weekday);
     }
 
-    if (videoThumbnail) {
-      formData.append('thumbnail', videoThumbnail);
-    } else if (!imagePreview) {
-      // If there is no new file and no preview, it means the user deleted the existing thumbnail
-      formData.append('remove_thumbnail', 'true');
+    if (weekday && weekday !== 'none') {
+      formData.append('weekday', weekday);
     }
 
     try {
@@ -533,92 +487,101 @@ export default function Content() {
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const VideoCard = ({ video }: { video: any }) => (
-    <Card className="shadow-card overflow-hidden group hover:shadow-lg transition-all duration-300 flex flex-col h-full">
-      <div className="relative aspect-video">
-        {video.thumbnail ? (
-          <img
-            src={video.thumbnail}
-            alt={video.title}
-            className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
-          />
-        ) : (
-          <div className="w-full h-full bg-muted flex items-center justify-center group-hover:scale-105 transition-transform duration-300">
-            <ImageIcon className="h-12 w-12 text-muted-foreground/50" />
+    <Card className="shadow-card overflow-hidden group hover:shadow-md transition-all duration-300 bg-card border border-border/50">
+      <div className="flex flex-col sm:flex-row items-center p-4 gap-4">
+        {/* Left: Icon/Play */}
+        <div className="flex shrink-0">
+          <div 
+            className="h-12 w-12 rounded-xl flex items-center justify-center bg-primary/10 text-primary hover:bg-primary hover:text-primary-foreground cursor-pointer transition-colors"
+            onClick={() => {
+              if (video.video_presigned_url) {
+                setPlayingVideoUrl(video.video_presigned_url);
+              } else if (video.video_url) {
+                 window.open(video.video_url, '_blank');
+              } else {
+                toast({ title: 'Video Unavailable', description: 'This video cannot be played directly at this time.', variant: 'destructive' });
+              }
+            }}
+          >
+            <Play className="h-6 w-6 fill-current ml-1" />
           </div>
-        )}
-        <div className="absolute inset-0 bg-gradient-to-t from-foreground/80 via-transparent to-transparent" />
-        
-        {video.isLocked && (
-          <div className="absolute inset-0 bg-foreground/60 flex items-center justify-center backdrop-blur-sm">
-            <Lock className="h-8 w-8 text-primary-foreground" />
-          </div>
-        )}
-        
-        <div className="absolute bottom-3 left-3 right-3 flex justify-between items-end">
-          {/* Duration on the left */}
-          <div className="flex items-center gap-1 text-[10px] font-bold text-white bg-black/60 px-2 py-1 rounded backdrop-blur-md border border-white/10 shadow-lg">
-            <Clock className="h-3 w-3" />
-            <span>
-              {video.duration_seconds > 0 ? (
-                `${Math.floor(video.duration_seconds / 60).toString().padStart(2, '0')}:${(video.duration_seconds % 60).toString().padStart(2, '0')}`
-              ) : (
-                'Processing'
-              )}
-            </span>
-          </div>
+        </div>
 
-          {/* Labels on the right */}
-          <div className="flex flex-col items-end gap-1.5">
+        {/* Middle: Content */}
+        <div className="flex-1 min-w-0 text-center sm:text-left">
+          <div className="flex flex-col sm:flex-row sm:items-center gap-2 mb-1">
+            <h3 className="font-bold text-foreground truncate text-lg">{video.title}</h3>
             {video.weekday && (
-              <Badge variant="outline" className="bg-background/90 backdrop-blur-md shadow-sm border-primary/20 capitalize font-bold text-[10px] h-5 px-2">
+              <Badge variant="outline" className="w-fit mx-auto sm:mx-0 bg-background/90 shadow-sm border-primary/20 capitalize font-bold text-[10px] h-5 px-2">
                 {video.weekday}
               </Badge>
             )}
+            <Badge variant="secondary" className="w-fit mx-auto sm:mx-0 text-[10px] h-5 px-2 font-bold">
+              SESSION {video.session_number}
+            </Badge>
+          </div>
+          
+          {video.description && (
+            <p className="text-sm text-muted-foreground line-clamp-1 mb-2">
+              {video.description}
+            </p>
+          )}
+          
+          <div className="flex flex-wrap items-center justify-center sm:justify-start gap-4 text-xs font-medium text-muted-foreground">
+            <div className="flex items-center gap-1.5">
+              <Clock className="h-3.5 w-3.5" />
+              <span>
+                {video.duration_seconds > 0 ? (
+                  `${Math.floor(video.duration_seconds / 60).toString().padStart(2, '0')}:${(video.duration_seconds % 60).toString().padStart(2, '0')}`
+                ) : (
+                  'Processing'
+                )}
+              </span>
+            </div>
           </div>
         </div>
 
-        <button 
-          className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 p-4 rounded-full bg-primary text-primary-foreground opacity-0 group-hover:opacity-100 transition-opacity shadow-lg"
-          onClick={() => {
-            if (video.video_presigned_url) {
-              setPlayingVideoUrl(video.video_presigned_url);
-            } else if (video.video_url) {
-               window.open(video.video_url, '_blank');
-            } else {
-              toast({ title: 'Video Unavailable', description: 'This video cannot be played directly at this time.', variant: 'destructive' });
-            }
-          }}
-        >
-          <Play className="h-6 w-6 fill-current ml-1" />
-        </button>
-      </div>
-      <CardContent className="p-4 flex flex-col justify-between flex-1">
-        <div>
-          <h3 className="font-semibold text-foreground line-clamp-1">{video.title}</h3>
-          <p className="text-sm text-muted-foreground mt-1 line-clamp-2">{video.description}</p>
-        </div>
-
-        <div className="flex items-center justify-between mt-4">
-          <div className="flex gap-1" title="Manage MCQs">
-            <Button variant="ghost" size="sm" className="h-8 px-2" onClick={() => {
-              setMcqSession(video);
-              setMcqApiUrl(`/api/courses/v1/courses/${courseId}/weeks/${activeTab}/sessions/${video.id}/mcq`);
-              setIsMcqOpen(true);
-            }}>
-              <HelpCircle className="h-4 w-4 mr-1 lg:mr-2" />
-              <span className="sr-only lg:not-sr-only">MCQs</span>
+        {/* Right: Actions */}
+        <div className="flex items-center gap-3 shrink-0 ml-auto w-full sm:w-auto justify-center sm:justify-end border-t sm:border-t-0 pt-4 sm:pt-0">
+          <div className="flex items-center gap-1">
+            <Button 
+               variant="ghost" 
+               size="sm" 
+               className="h-9 px-3 gap-2 text-muted-foreground hover:text-foreground" 
+               onClick={() => {
+                setMcqSession(video);
+                setMcqApiUrl(`/api/courses/v1/courses/${courseId}/weeks/${activeTab}/sessions/${video.id}/mcq`);
+                setIsMcqOpen(true);
+              }}
+            >
+              <HelpCircle className="h-4 w-4" />
+              <span className="text-xs font-bold">MCQs</span>
             </Button>
-          </div>
-          <div className="flex gap-1">
-            <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => handleOpenEditVideo(video, activeTab)}>
+            <Button variant="ghost" size="icon" className="h-9 w-9 text-muted-foreground hover:text-foreground" onClick={() => handleOpenEditVideo(video, activeTab)}>
               <Edit className="h-4 w-4" />
             </Button>
-            <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => setDeleteVideoId(video.id)}>
+            <Button variant="ghost" size="icon" className="h-9 w-9 text-muted-foreground hover:text-destructive hover:bg-destructive/10" onClick={() => setDeleteVideoId(video.id)}>
               <Trash2 className="h-4 w-4" />
             </Button>
           </div>
+          
+          <Button 
+            variant="gradient" 
+            size="sm" 
+            className="gap-2 px-6 h-9 rounded-lg shadow-sm font-bold"
+            onClick={() => {
+              if (video.video_presigned_url) {
+                setPlayingVideoUrl(video.video_presigned_url);
+              } else if (video.video_url) {
+                 window.open(video.video_url, '_blank');
+              }
+            }}
+          >
+            <Play className="h-3.5 w-3.5 fill-current" />
+            Watch
+          </Button>
         </div>
-      </CardContent>
+      </div>
     </Card>
   );
 
@@ -723,9 +686,9 @@ export default function Content() {
                 </div>
               </div>
 
-              {/* Videos Grid */}
+              {/* Videos List */}
               {week.class_sessions.length > 0 ? (
-                <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+                <div className="flex flex-col gap-4">
                   {[...week.class_sessions]
                     .sort((a, b) => {
                       const days: Record<string, number> = { monday: 1, tuesday: 2, wednesday: 3, thursday: 4, friday: 5, saturday: 6, sunday: 7 };
@@ -748,7 +711,7 @@ export default function Content() {
               <div className="mt-8 pt-8 border-t border-foreground/10">
                 <h3 className="text-lg font-semibold mb-4">Weekly Assessment</h3>
                 {week.weekly_test ? (
-                  <Card className="shadow-sm border-primary/20 bg-primary/5">
+                  <Card className="shadow-card overflow-hidden group hover:shadow-md transition-all duration-300 bg-card border border-border/50">
                     <CardHeader className="flex flex-row items-center justify-between pb-2">
                       <div className="flex items-center gap-3">
                         <div className="p-2 bg-primary/10 rounded-lg">
@@ -898,61 +861,6 @@ export default function Content() {
                 </select>
                 {videoFormErrors.weekday && <p className="text-xs text-destructive">{videoFormErrors.weekday}</p>}
               </div>
-            </div>
-
-            <div className="space-y-2">
-              <Label>Thumbnail Image (Optional)</Label>
-              <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4">
-                {imagePreview ? (
-                  <div className="relative w-32 aspect-video rounded-md overflow-hidden bg-muted flex items-center justify-center group flex-shrink-0 border border-border">
-                    <img src={imagePreview} alt="Thumbnail preview" className="w-full h-full object-cover" />
-                    <div className="absolute inset-0 bg-black/60 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
-                       <Button 
-                         type="button" 
-                         variant="ghost" 
-                         size="icon" 
-                         disabled={isUploading}
-                         className="h-8 w-8 text-white hover:bg-white/20"
-                         onClick={() => {
-                           setVideoThumbnail(null);
-                           setImagePreview(null);
-                         }}
-                       >
-                         <Trash2 className="h-4 w-4" />
-                       </Button>
-                    </div>
-                  </div>
-                ) : (
-                  <div className="w-32 aspect-video rounded-md bg-muted flex items-center justify-center flex-shrink-0 border border-dashed border-border text-muted-foreground">
-                    <ImageIcon className="h-8 w-8 opacity-50" />
-                  </div>
-                )}
-                
-                <div className="flex-1 space-y-2">
-                     <div className="flex gap-2">
-                       <Button 
-                         type="button" 
-                         variant="outline" 
-                         disabled={isUploading}
-                         onClick={() => thumbnailInputRef.current?.click()}
-                       >
-                         <Upload className="h-4 w-4 mr-2" />
-                         {imagePreview ? 'Change Thumbnail' : 'Upload Thumbnail'}
-                       </Button>
-                     </div>
-                   <p className={`text-xs ${videoFormErrors.thumbnail ? 'text-destructive font-medium' : 'text-muted-foreground'}`}>
-                    {videoFormErrors.thumbnail || 'Recommended aspect ratio: 16:9. JPG, PNG or WebP (max 2MB).'}
-                   </p>
-                </div>
-              </div>
-              <input 
-                type="file" 
-                accept="image/*"
-                ref={thumbnailInputRef}
-                className="hidden"
-                disabled={isUploading}
-                onChange={handleThumbnailSelect}
-              />
             </div>
 
             <div className="space-y-2">
@@ -1240,58 +1148,6 @@ export default function Content() {
                 {videoFormErrors.weekday && <p className="text-xs text-destructive">{videoFormErrors.weekday}</p>}
               </div>
             </div>
-
-            <div className="space-y-2">
-              <Label>Thumbnail Image (Optional)</Label>
-              <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4">
-                {imagePreview ? (
-                  <div className="relative w-32 aspect-video rounded-md overflow-hidden bg-muted flex items-center justify-center group flex-shrink-0 border border-border">
-                    <img src={imagePreview} alt="Thumbnail preview" className="w-full h-full object-cover" />
-                    <div className="absolute inset-0 bg-black/60 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
-                       <Button 
-                         type="button" 
-                         variant="ghost" 
-                         size="icon" 
-                         className="h-8 w-8 text-white hover:bg-white/20"
-                         onClick={() => {
-                           setVideoThumbnail(null);
-                           setImagePreview(null);
-                         }}
-                       >
-                         <Trash2 className="h-4 w-4" />
-                       </Button>
-                    </div>
-                  </div>
-                ) : (
-                  <div className="w-32 aspect-video rounded-md bg-muted flex items-center justify-center flex-shrink-0 border border-dashed border-border text-muted-foreground">
-                    <ImageIcon className="h-8 w-8 opacity-50" />
-                  </div>
-                )}
-                
-                <div className="flex-1 space-y-2">
-                    <div className="flex gap-2">
-                     <Button 
-                       type="button" 
-                       variant="outline" 
-                       onClick={() => editThumbnailInputRef.current?.click()}
-                     >
-                       <Upload className="h-4 w-4 mr-2" />
-                       {imagePreview ? 'Change Thumbnail' : 'Upload Thumbnail'}
-                     </Button>
-                   </div>
-                   <p className={`text-xs ${videoFormErrors.thumbnail ? 'text-destructive font-medium' : 'text-muted-foreground'}`}>
-                    {videoFormErrors.thumbnail || 'Recommended aspect ratio: 16:9. JPG, PNG or WebP (max 2MB).'}
-                   </p>
-                </div>
-              </div>
-              <input 
-                type="file" 
-                accept="image/*"
-                ref={editThumbnailInputRef}
-                className="hidden"
-                onChange={handleThumbnailSelect}
-              />
-            </div>
           </div>
           <div className="flex justify-end gap-3">
             <Button variant="outline" onClick={() => setIsEditVideoOpen(false)}>Cancel</Button>
@@ -1329,15 +1185,7 @@ export default function Content() {
         </DialogContent>
       </Dialog>
 
-      {/* Cropper Modal */}
-      <ImageCropperModal
-        isOpen={!!cropperSrc}
-        onClose={() => setCropperSrc(null)}
-        imageSrc={cropperSrc || ''}
-        onCropComplete={handleCroppedImage}
-        aspectRatio={16/9}
-        cropShape="rect"
-      />
+
 
       <SessionMcqManager
         open={isMcqOpen}
