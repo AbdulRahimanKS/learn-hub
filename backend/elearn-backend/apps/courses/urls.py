@@ -58,6 +58,10 @@ from apps.courses.views.test_submission_views import (
     TriggerAIEvaluationView,
     SimulateAIEvaluationCompleteView,
 )
+from apps.courses.views.live_session_views import (
+    LiveSessionListCreateView,
+    LiveSessionDetailView,
+)
 
 urlpatterns = [
     # Video Uploads
@@ -121,6 +125,10 @@ urlpatterns = [
     # Webinars
     path("batches/<int:batch_id>/webinars/", ScheduledWebinarListCreateView.as_view(), name="batch-webinar-list-create"),
     path("batches/<int:batch_id>/webinars/<int:webinar_id>/", ScheduledWebinarDetailView.as_view(), name="batch-webinar-detail"),
+
+    # Live Sessions
+    path("batches/<int:batch_id>/live-sessions/", LiveSessionListCreateView.as_view(), name="batch-live-session-list-create"),
+    path("batches/<int:batch_id>/live-sessions/<int:session_id>/", LiveSessionDetailView.as_view(), name="batch-live-session-detail"),
 
     # Chat
     path("chat/batches/", ChatBatchListView.as_view(), name="chat-batch-list"),

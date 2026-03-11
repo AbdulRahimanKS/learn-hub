@@ -830,27 +830,12 @@ class BatchPostSessionChoice(models.Model):
 
 # LiveSession
 class LiveSession(models.Model):
-    """
-    A LIVE interactive class session within a WeeklyModule.
-    Supports screen-sharing and whiteboard (handled at the WS/WebRTC layer).
-    A recording URL can be attached after the session ends.
-    """
 
-    class Status(models.TextChoices):
-        SCHEDULED   = 'scheduled',   _('Scheduled')
-        LIVE        = 'live',        _('Ongoing / Live')
-        ENDED       = 'ended',       _('Ended')
-        CANCELLED   = 'cancelled',   _('Cancelled')
-        RESCHEDULED = 'rescheduled', _('Rescheduled')
-
-    course_week = models.ForeignKey(
-        CourseWeek, on_delete=models.CASCADE, related_name='live_sessions',
+    batch = models.ForeignKey(
+        Batch, on_delete=models.CASCADE, related_name='live_sessions',
         null=True, blank=True
     )
-    batch_week = models.ForeignKey(
-        BatchWeek, on_delete=models.CASCADE, related_name='live_sessions',
-        null=True, blank=True
-    )
+
     title          = models.CharField(_('Title'), max_length=255)
     description    = models.TextField(blank=True)
     scheduled_at   = models.DateTimeField(_('Scheduled Start'))
@@ -858,20 +843,12 @@ class LiveSession(models.Model):
         _('Planned Duration (mins)'), default=60
     )
 
-    # Features
-    enable_screen_share = models.BooleanField(_('Screen Sharing Enabled'), default=True)
-    enable_whiteboard   = models.BooleanField(_('Whiteboard Enabled'), default=True)
-
-    # After session ends
-    actual_start    = models.DateTimeField(null=True, blank=True)
-    actual_end      = models.DateTimeField(null=True, blank=True)
-    recording_url   = models.URLField(_('Recording URL'), blank=True, null=True)
-    session_notes   = models.TextField(_('Session Notes / Summary'), blank=True)
-
-    status          = models.CharField(
-        _('Status'), max_length=20,
-        choices=Status.choices, default=Status.SCHEDULED
+    meeting_room = models.CharField(
+        max_length=255,
+        blank=True,
+        help_text="Jitsi room name (auto-generated if empty)"
     )
+
     hosted_by       = models.ForeignKey(
         'users.User', on_delete=models.SET_NULL, null=True, blank=True,
         related_name='hosted_live_sessions'
@@ -884,8 +861,20 @@ class LiveSession(models.Model):
         verbose_name_plural = _('Live Sessions')
         ordering            = ['scheduled_at']
 
+    def save(self, *args, **kwargs):
+        if not self.meeting_room:
+            import uuid
+            batch_id = self.batch.id if self.batch else 'nobatch'
+            unique_id = uuid.uuid4().hex[:8]
+            self.meeting_room = f"batch-{batch_id}-{unique_id}"
+        super().save(*args, **kwargs)
+
     def __str__(self):
         return f"LIVE: {self.title} @ {self.scheduled_at:%Y-%m-%d %H:%M}"
+
+    @property
+    def end_time(self):
+        return self.scheduled_at + timezone.timedelta(minutes=self.duration_mins)
 
 
 

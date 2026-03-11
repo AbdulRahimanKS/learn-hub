@@ -64,6 +64,11 @@ from .scheduled_webinar_views import (
     ScheduledWebinarDetailView,
 )
 
+from .live_session_views import (
+    LiveSessionListCreateView,
+    LiveSessionDetailView,
+)
+
 __all__ = [
     'CourseListView',
     'CourseCreateView',
@@ -113,4 +118,7 @@ __all__ = [
 
     'ScheduledWebinarListCreateView',
     'ScheduledWebinarDetailView',
+
+    'LiveSessionListCreateView',
+    'LiveSessionDetailView',
 ]

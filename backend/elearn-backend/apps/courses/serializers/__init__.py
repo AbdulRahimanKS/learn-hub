@@ -29,6 +29,7 @@ from .course_module_serializers import (
     WeeklyTestCreateUpdateSerializer,
     WeeklyTestQuestionSerializer,
 )
+from .live_session_serializers import LiveSessionSerializer
 
 __all__ = [
     'TagSerializer',
@@ -50,6 +51,8 @@ __all__ = [
     'BatchWeeklyTestSerializer',
     'BatchWeeklyTestCreateUpdateSerializer',
     'BatchTestQuestionSerializer',
+    'LiveSessionSerializer',
+    # Legacy aliases (kept for backward compat)
     'WeeklyTestSerializer',
     'WeeklyTestCreateUpdateSerializer',
     'WeeklyTestQuestionSerializer',
