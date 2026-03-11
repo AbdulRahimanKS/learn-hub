@@ -19,6 +19,8 @@ import {
   ChevronLeft,
   ChevronRight,
   Library,
+  Archive,
+  PlayCircle,
 } from 'lucide-react';
 
 const adminNavItems = [
@@ -28,6 +30,7 @@ const adminNavItems = [
   { icon: GraduationCap, label: 'Batches', path: '/batches' },
   { icon: ClipboardCheck, label: 'Assessments', path: '/assessments' },
   { icon: Video, label: 'Live Sessions', path: '/live-sessions' },
+  { icon: PlayCircle, label: 'Special Sessions', path: '/special-sessions' },
   { icon: BarChart3, label: 'Progress', path: '/progress' },
   { icon: MessageSquare, label: 'Chat', path: '/chat' },
   { icon: Mail, label: 'Email Configuration', path: '/email-config' },
@@ -39,6 +42,7 @@ const teacherNavItems = [
   { icon: GraduationCap, label: 'My Batches', path: '/batches' },
   { icon: ClipboardCheck, label: 'Assessments', path: '/assessments' },
   { icon: Video, label: 'Live Sessions', path: '/live-sessions' },
+  { icon: PlayCircle, label: 'Special Sessions', path: '/special-sessions' },
   { icon: BarChart3, label: 'Progress', path: '/progress' },
   { icon: MessageSquare, label: 'Chat', path: '/chat' },
 ];
@@ -46,9 +50,9 @@ const teacherNavItems = [
 const studentNavItems = [
   { icon: LayoutDashboard, label: 'Dashboard', path: '/dashboard' },
   { icon: BookOpen, label: 'My Courses', path: '/courses' },
-  { icon: Calendar, label: 'Webinars', path: '/webinars' },
   { icon: ClipboardCheck, label: 'Assessments', path: '/assessments' },
   { icon: Video, label: 'Live Sessions', path: '/live-sessions' },
+  { icon: PlayCircle, label: 'Special Sessions', path: '/special-sessions' },
   { icon: BarChart3, label: 'My Progress', path: '/progress' },
   { icon: MessageSquare, label: 'Chat', path: '/chat' },
 ];

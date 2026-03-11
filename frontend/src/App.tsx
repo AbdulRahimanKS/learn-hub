@@ -28,6 +28,7 @@ import BatchContent from "./pages/BatchContent";
 import BatchTestManagement from "./pages/BatchTestManagement";
 import WebinarManagement from "./pages/WebinarManagement";
 import StudentWebinars from "./pages/StudentWebinars";
+import SpecialSessions from "./pages/SpecialSessions";
 import Notifications from "./pages/Notifications";
 import NotFound from "./pages/NotFound";
 
@@ -71,6 +72,7 @@ function AppRoutes() {
       <Route path="/webinars" element={<ProtectedRoute><StudentWebinars /></ProtectedRoute>} />
       <Route path="/schedule" element={<ProtectedRoute><Schedule /></ProtectedRoute>} />
       <Route path="/live-sessions" element={<ProtectedRoute><LiveSessions /></ProtectedRoute>} />
+      <Route path="/special-sessions" element={<ProtectedRoute><SpecialSessions /></ProtectedRoute>} />
       <Route path="/settings" element={<ProtectedRoute><Settings /></ProtectedRoute>} />
       <Route path="/email-config" element={<ProtectedRoute><EmailConfig /></ProtectedRoute>} />
       <Route path="/notifications" element={<ProtectedRoute><Notifications /></ProtectedRoute>} />

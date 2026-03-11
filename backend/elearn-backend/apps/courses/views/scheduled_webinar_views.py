@@ -36,19 +36,11 @@ class ScheduledWebinarListCreateView(APIView):
 
         tab = request.query_params.get('tab', '').strip().lower()
         if tab == 'scheduled':
-            # Upcoming: end_time (unlock_at + duration_secs) is in the future
-            webinar_ids_passed = [
-                w.id for w in qs
-                if w.unlock_at + timedelta(seconds=w.duration_secs) < now
-            ]
-            qs = qs.exclude(id__in=webinar_ids_passed)
+            # Upcoming: unlock_at is in the future
+            qs = qs.filter(unlock_at__gt=now)
         elif tab == 'passed':
-            # Past: end_time is before now
-            webinar_ids_passed = [
-                w.id for w in qs
-                if w.unlock_at + timedelta(seconds=w.duration_secs) < now
-            ]
-            qs = qs.filter(id__in=webinar_ids_passed).order_by('-unlock_at')
+            # Past: unlock_at has arrived
+            qs = qs.filter(unlock_at__lte=now).order_by('-unlock_at')
 
         paginator = CustomPageNumberPagination()
         paginator.page_size = 6

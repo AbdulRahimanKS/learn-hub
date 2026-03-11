@@ -52,6 +52,8 @@ import {
   Check,
   LayoutGrid,
   Copy,
+  Archive,
+  PlayCircle,
 } from 'lucide-react';
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
@@ -629,13 +631,6 @@ export default function AdminBatches() {
                       >
                         <LayoutGrid className="h-3.5 w-3.5" />
                         Content
-                      </Link>
-                      <Link
-                        to={`/admin/batches/${batch.id}/webinars`}
-                        className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium bg-primary/10 text-primary hover:bg-primary/20 transition-colors"
-                      >
-                        <Calendar className="h-3.5 w-3.5" />
-                        Webinars
                       </Link>
                     </div>
 
