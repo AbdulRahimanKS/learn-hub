@@ -8,11 +8,12 @@ from rest_framework.parsers import MultiPartParser, FormParser, JSONParser
 from drf_spectacular.utils import extend_schema, OpenApiParameter
 from drf_spectacular.types import OpenApiTypes
 
-from apps.courses.models import ScheduledWebinar, Batch
+from apps.courses.models import ScheduledWebinar, Batch, BatchEnrollment
 from apps.courses.serializers.scheduled_webinar_serializers import ScheduledWebinarSerializer
 from utils.permissions import IsAdminOrTeacher, IsAuthenticated
 from utils.common import format_success_response, handle_serializer_errors, ServiceError
 from utils.pagination import CustomPageNumberPagination
+from utils.constants import UserTypeConstants
 
 logger = logging.getLogger(__name__)
 
@@ -32,8 +33,11 @@ class ScheduledWebinarListCreateView(APIView):
     )
     def get(self, request, batch_id):
         now = timezone.now()
-        qs = ScheduledWebinar.objects.filter(batch_id=batch_id).order_by('unlock_at')
+        if getattr(request.user.user_type, 'name', '') == UserTypeConstants.STUDENT:
+            if not BatchEnrollment.objects.filter(batch_id=batch_id, student=request.user, status=BatchEnrollment.Status.ACTIVE).exists():
+                raise ServiceError(detail="Access denied. You are not an active student in this batch.", status_code=status.HTTP_403_FORBIDDEN)
 
+        qs = ScheduledWebinar.objects.filter(batch_id=batch_id).order_by('unlock_at')
         tab = request.query_params.get('tab', '').strip().lower()
         if tab == 'scheduled':
             # Upcoming: unlock_at is in the future

@@ -95,7 +95,8 @@ class BatchListView(APIView):
                 ).distinct()
             elif user.user_type.name == UserTypeConstants.STUDENT:
                 qs = qs.filter(
-                    enrollments__student=user
+                    enrollments__student=user,
+                    enrollments__status=BatchEnrollment.Status.ACTIVE
                 ).distinct()
 
         status_param = request.query_params.get('status')

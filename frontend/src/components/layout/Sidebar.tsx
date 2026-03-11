@@ -135,10 +135,10 @@ export function Sidebar({ isCollapsed, toggleCollapse }: SidebarProps) {
       {/* Mobile Toggle */}
       {!isMobileOpen && (
         <button
-          className="fixed left-4 top-4 z-50 rounded-lg bg-primary p-2 text-primary-foreground shadow-lg lg:hidden"
+          className="fixed left-4 top-4 z-50 rounded-lg bg-primary h-10 w-10 flex items-center justify-center text-primary-foreground shadow-lg lg:hidden"
           onClick={() => setIsMobileOpen(true)}
         >
-          <Menu className="h-5 w-5" />
+          <Menu className="h-6 w-6" />
         </button>
       )}
 
@@ -164,9 +164,9 @@ export function Sidebar({ isCollapsed, toggleCollapse }: SidebarProps) {
         {!isMobileOpen && (
           <button
             onClick={toggleCollapse}
-            className="absolute -right-3 top-6 z-50 hidden lg:flex h-6 w-6 items-center justify-center rounded-full border border-border bg-background shadow-md hover:bg-muted transition-colors"
+            className="absolute -right-4 top-6 z-50 hidden lg:flex h-8 w-8 items-center justify-center rounded-full border border-border bg-background shadow-md hover:bg-muted transition-colors"
           >
-            {isCollapsed ? <ChevronRight className="h-3 w-3 text-muted-foreground" /> : <ChevronLeft className="h-3 w-3 text-muted-foreground" />}
+            {isCollapsed ? <ChevronRight className="h-4 w-4 text-muted-foreground" /> : <ChevronLeft className="h-4 w-4 text-muted-foreground" />}
           </button>
         )}
       </aside>

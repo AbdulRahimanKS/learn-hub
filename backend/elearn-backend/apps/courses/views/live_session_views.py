@@ -7,11 +7,12 @@ from rest_framework.permissions import IsAuthenticated
 from drf_spectacular.utils import extend_schema, OpenApiParameter
 from drf_spectacular.types import OpenApiTypes
 
-from apps.courses.models import LiveSession, Batch
+from apps.courses.models import LiveSession, Batch, BatchEnrollment
 from apps.courses.serializers.live_session_serializers import LiveSessionSerializer
 from utils.permissions import IsAdminOrTeacher
 from utils.common import format_success_response, handle_serializer_errors, ServiceError
 from utils.pagination import CustomPageNumberPagination
+from utils.constants import UserTypeConstants
 
 logger = logging.getLogger(__name__)
 
@@ -36,10 +37,13 @@ class LiveSessionListCreateView(APIView):
         # Based on start time + duration logic
         tab = request.query_params.get('tab', 'upcoming').strip().lower()
         
-        user_role = getattr(request.user.user_type, 'name', '').lower()
-        is_student = user_role == 'student'
+        user_role = getattr(request.user.user_type, 'name', '')
+        is_student = user_role == UserTypeConstants.STUDENT
         
         if is_student:
+            # Check if student is active in this batch
+            if not BatchEnrollment.objects.filter(batch_id=batch_id, student=request.user, status=BatchEnrollment.Status.ACTIVE).exists():
+                raise ServiceError(detail="Access denied. You are not an active student in this batch.", status_code=status.HTTP_403_FORBIDDEN)
             # Students only see upcoming or currently live sessions
             # Session is considered "past" if now > scheduled_at + duration
             upcoming_ids = [

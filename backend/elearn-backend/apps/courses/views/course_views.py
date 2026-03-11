@@ -6,7 +6,7 @@ from drf_spectacular.utils import extend_schema, OpenApiParameter
 from drf_spectacular.types import OpenApiTypes
 from django.db.models import Q
 
-from apps.courses.models import Course
+from apps.courses.models import Course, BatchEnrollment
 from apps.courses.serializers import (
     CourseListSerializer,
     CourseDetailSerializer,
@@ -47,7 +47,8 @@ class CourseListView(APIView):
                 ).distinct()
             elif user.user_type.name == UserTypeConstants.STUDENT:
                 qs = qs.filter(
-                    batches__enrollments__student=user
+                    batches__enrollments__student=user,
+                    batches__enrollments__status=BatchEnrollment.Status.ACTIVE
                 ).distinct()
 
         is_active_param = request.query_params.get('is_active')
@@ -122,7 +123,8 @@ class CourseDetailView(APIView):
                     ).distinct()
                 elif user.user_type.name == UserTypeConstants.STUDENT:
                     qs = qs.filter(
-                        batches__enrollments__student=user
+                        batches__enrollments__student=user,
+                        batches__enrollments__status=BatchEnrollment.Status.ACTIVE
                     ).distinct()
 
             return qs.prefetch_related('tags').get(pk=pk)

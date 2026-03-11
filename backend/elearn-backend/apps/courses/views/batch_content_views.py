@@ -36,6 +36,9 @@ class BatchWeekListView(APIView):
         
         user = request.user
         if getattr(user, 'user_type', None) and user.user_type.name == UserTypeConstants.STUDENT:
+            # Check if student is active in this batch
+            if not BatchEnrollment.objects.filter(batch_id=batch_id, student=user, status=BatchEnrollment.Status.ACTIVE).exists():
+                raise ServiceError(detail="Access denied. You are not an active student in this batch.", status_code=status.HTTP_403_FORBIDDEN)
             # For students, only show published weeks
             weeks = weeks.filter(is_published=True)
 
@@ -135,6 +138,11 @@ class BatchClassSessionListCreateView(APIView):
 
     @extend_schema(summary="List sessions for a batch week")
     def get(self, request, batch_id, week_id):
+        user = request.user
+        if getattr(user, 'user_type', None) and user.user_type.name == UserTypeConstants.STUDENT:
+            if not BatchEnrollment.objects.filter(batch_id=batch_id, student=user, status=BatchEnrollment.Status.ACTIVE).exists():
+                raise ServiceError(detail="Access denied. You are not an active student in this batch.", status_code=status.HTTP_403_FORBIDDEN)
+                
         week = self.get_week(batch_id, week_id)
         sessions = BatchClassSession.objects.filter(batch_week=week)
         serializer = BatchClassSessionSerializer(sessions, many=True, context={'request': request})
@@ -193,6 +201,11 @@ class BatchWeeklyTestView(APIView):
 
     @extend_schema(summary="Retrieve/Create/Update batch weekly test")
     def get(self, request, batch_id, week_id):
+        user = request.user
+        if getattr(user, 'user_type', None) and user.user_type.name == UserTypeConstants.STUDENT:
+            if not BatchEnrollment.objects.filter(batch_id=batch_id, student=user, status=BatchEnrollment.Status.ACTIVE).exists():
+                raise ServiceError(detail="Access denied. You are not an active student in this batch.", status_code=status.HTTP_403_FORBIDDEN)
+                
         week = self.get_week(batch_id, week_id)
         if not hasattr(week, 'weekly_test'):
             raise ServiceError(detail="No test configured for this batch week.", status_code=status.HTTP_404_NOT_FOUND)
@@ -427,9 +440,9 @@ class BatchClassSessionCompletionView(APIView):
         except BatchClassSession.DoesNotExist:
             raise ServiceError(detail="Batch session not found.", status_code=status.HTTP_404_NOT_FOUND)
 
-        enrollment = BatchEnrollment.objects.filter(student=request.user, batch_id=batch_id).first()
+        enrollment = BatchEnrollment.objects.filter(student=request.user, batch_id=batch_id, status=BatchEnrollment.Status.ACTIVE).first()
         if not enrollment:
-            raise ServiceError(detail="You are not enrolled in this batch.", status_code=status.HTTP_403_FORBIDDEN)
+            raise ServiceError(detail="You are not an active student in this batch.", status_code=status.HTTP_403_FORBIDDEN)
 
         view, created = StudentSessionView.objects.get_or_create(
             enrollment=enrollment,
