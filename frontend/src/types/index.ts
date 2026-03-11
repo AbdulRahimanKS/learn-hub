@@ -38,7 +38,7 @@ export interface Assessment {
   id: string;
   title: string;
   description: string;
-  type: 'post-class' | 'weekly';
+  type: 'weekly';
   weekNumber: number;
   questions: Question[];
   passingScore: number;

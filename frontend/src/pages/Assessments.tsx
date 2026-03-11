@@ -8,37 +8,17 @@ import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Progress } from '@/components/ui/progress';
 import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from '@/components/ui/dialog';
-import { Label } from '@/components/ui/label';
-import { Textarea } from '@/components/ui/textarea';
-import {
-  Plus,
   Clock,
   Calendar,
   Search,
   FileText,
   CheckCircle,
-  XCircle,
   AlertCircle,
-  Upload,
   Eye,
-  Edit,
-  Award,
   Users,
 } from 'lucide-react';
 
 const mockAssessments = {
-  postClass: [
-    { id: 1, title: 'Variables Quiz', week: 1, video: 'Variables and Data Types', questions: 10, submissions: 45, avgScore: 78, status: 'active' },
-    { id: 2, title: 'Control Flow Quiz', week: 1, video: 'Control Flow Statements', questions: 8, submissions: 42, avgScore: 82, status: 'active' },
-    { id: 3, title: 'Functions Quiz', week: 1, video: 'Functions and Modules', questions: 12, submissions: 38, avgScore: 75, status: 'active' },
-  ],
   weekly: [
     { id: 4, title: 'Week 1 Assessment', week: 1, questions: 20, submissions: 48, avgScore: 72, passingScore: 70, dueDate: 'Jan 28, 2026', status: 'completed' },
     { id: 5, title: 'Week 2 Assessment', week: 2, questions: 25, submissions: 32, avgScore: 68, passingScore: 70, dueDate: 'Feb 4, 2026', status: 'active' },
@@ -52,78 +32,20 @@ const mockAssessments = {
 };
 
 const studentAssessments = [
-  { id: 1, title: 'Variables Quiz', type: 'post-class', score: 85, maxScore: 100, status: 'completed', feedback: 'Great understanding of variables!' },
-  { id: 2, title: 'Control Flow Quiz', type: 'post-class', score: 90, maxScore: 100, status: 'completed', feedback: 'Excellent work on loops!' },
   { id: 3, title: 'Week 1 Assessment', type: 'weekly', score: 78, maxScore: 100, status: 'completed', feedback: 'Good overall performance. Review file handling concepts.' },
-  { id: 4, title: 'Functions Quiz', type: 'post-class', score: null, maxScore: 100, status: 'pending', dueDate: 'Today, 11:59 PM' },
   { id: 5, title: 'Week 2 Assessment', type: 'weekly', score: null, maxScore: 100, status: 'available', dueDate: 'Feb 4, 2026' },
 ];
 
 export default function Assessments() {
   const { user } = useAuth();
-  const [isCreateOpen, setIsCreateOpen] = useState(false);
 
   const AdminAssessments = () => (
     <div className="space-y-6">
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h1 className="font-display text-3xl font-bold text-foreground">Assessments</h1>
-          <p className="mt-1 text-muted-foreground">Manage tests and evaluate submissions</p>
+          <p className="mt-1 text-muted-foreground">Manage and evaluate student submissions</p>
         </div>
-        <Dialog open={isCreateOpen} onOpenChange={setIsCreateOpen}>
-          <DialogTrigger asChild>
-            <Button variant="gradient">
-              <Plus className="h-4 w-4" />
-              Create Assessment
-            </Button>
-          </DialogTrigger>
-          <DialogContent className="sm:max-w-lg">
-            <DialogHeader>
-              <DialogTitle>Create New Assessment</DialogTitle>
-              <DialogDescription>Set up a new quiz or weekly test</DialogDescription>
-            </DialogHeader>
-            <div className="space-y-4 py-4">
-              <div className="space-y-2">
-                <Label htmlFor="title">Assessment Title</Label>
-                <Input id="title" placeholder="Enter assessment title" />
-              </div>
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label htmlFor="type">Type</Label>
-                  <select id="type" className="w-full h-10 px-3 rounded-lg border border-input bg-background text-foreground text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2">
-                    <option value="post-class" className="bg-background text-foreground">Post-Class Quiz</option>
-                    <option value="weekly" className="bg-background text-foreground">Weekly Test</option>
-                  </select>
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="week">Week</Label>
-                  <Input id="week" type="number" placeholder="1" />
-                </div>
-              </div>
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label htmlFor="passingScore">Passing Score (%)</Label>
-                  <Input id="passingScore" type="number" placeholder="70" />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="dueDate">Due Date</Label>
-                  <Input id="dueDate" type="datetime-local" />
-                </div>
-              </div>
-              <div className="space-y-2">
-                <Label>Upload Questions (.ipynb or JSON)</Label>
-                <div className="border-2 border-dashed border-border rounded-lg p-6 text-center hover:border-primary/50 transition-colors cursor-pointer">
-                  <Upload className="h-8 w-8 text-muted-foreground mx-auto mb-2" />
-                  <p className="text-sm text-muted-foreground">Drop files here or click to upload</p>
-                </div>
-              </div>
-            </div>
-            <div className="flex justify-end gap-3">
-              <Button variant="outline" onClick={() => setIsCreateOpen(false)}>Cancel</Button>
-              <Button variant="gradient">Create Assessment</Button>
-            </div>
-          </DialogContent>
-        </Dialog>
       </div>
 
       {/* Stats */}
@@ -173,7 +95,6 @@ export default function Assessments() {
       <Tabs defaultValue="weekly" className="space-y-6">
         <TabsList className="bg-background p-1 border border-border/50 rounded-lg w-fit h-auto justify-start overflow-x-auto overflow-y-hidden flex-nowrap scrollbar-hide">
           <TabsTrigger value="weekly">Weekly Tests</TabsTrigger>
-          <TabsTrigger value="post-class">Post-Class Quizzes</TabsTrigger>
           <TabsTrigger value="review">
             Pending Review
             <Badge variant="destructive" className="ml-2">{mockAssessments.pendingReview.length}</Badge>
@@ -241,36 +162,7 @@ export default function Assessments() {
           </div>
         </TabsContent>
 
-        <TabsContent value="post-class">
-          <div className="space-y-4">
-            {mockAssessments.postClass.map((quiz) => (
-              <Card key={quiz.id} className="shadow-card">
-                <CardContent className="p-6">
-                  <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
-                    <div>
-                      <h3 className="font-semibold text-foreground">{quiz.title}</h3>
-                      <p className="text-sm text-muted-foreground mt-1">Video: {quiz.video}</p>
-                      <div className="flex items-center gap-3 mt-2 text-sm text-muted-foreground">
-                        <span>{quiz.questions} questions</span>
-                        <span>{quiz.submissions} submissions</span>
-                      </div>
-                    </div>
-                    <div className="flex items-center justify-between w-full md:w-auto gap-4">
-                      <div className="text-right">
-                        <p className="text-lg font-bold text-foreground">{quiz.avgScore}%</p>
-                        <p className="text-xs text-muted-foreground">Avg Score</p>
-                      </div>
-                      <Button variant="outline" size="sm">
-                        <Edit className="h-4 w-4 mr-1" />
-                        Edit
-                      </Button>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-            ))}
-          </div>
-        </TabsContent>
+
 
         <TabsContent value="review">
           <div className="space-y-4">
@@ -314,7 +206,7 @@ export default function Assessments() {
     <div className="space-y-6">
       <div>
         <h1 className="font-display text-3xl font-bold text-foreground">My Assessments</h1>
-        <p className="mt-1 text-muted-foreground">View your quizzes and test results</p>
+        <p className="mt-1 text-muted-foreground">View your test results</p>
       </div>
 
       {/* Progress Card */}
@@ -362,7 +254,7 @@ export default function Assessments() {
                   <div>
                     <h3 className="font-semibold text-foreground">{assessment.title}</h3>
                     <Badge variant="outline" className="mt-2">
-                      {assessment.type === 'weekly' ? 'Weekly Test' : 'Post-Class Quiz'}
+                      Weekly Test
                     </Badge>
                     {assessment.feedback && (
                       <p className="text-sm text-muted-foreground mt-2">{assessment.feedback}</p>
