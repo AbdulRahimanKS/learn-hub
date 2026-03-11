@@ -121,16 +121,65 @@ class BatchEnrollmentSerializer(serializers.ModelSerializer):
     total_weeks = serializers.SerializerMethodField()
     weekly_tests_submitted = serializers.SerializerMethodField()
     total_weekly_tests = serializers.SerializerMethodField()
+    manual_unlocked_weeks = serializers.SerializerMethodField()
+    weeks_access_status = serializers.SerializerMethodField()
+
     class Meta:
         model = BatchEnrollment
         fields = [
             'id', 'batch', 'student', 'student_name', 'student_email',
-            'status', 'notes', 'current_week_unlocked',
+            'status', 'notes', 'manual_unlocked_weeks', 'weeks_access_status',
             'enrolled_at', 'created_at',
             'overall_progress', 'weeks_completed', 'total_weeks',
             'weekly_tests_submitted', 'total_weekly_tests'
         ]
         read_only_fields = ['id', 'batch', 'enrolled_at', 'created_at', 'student_name', 'student_email']
+
+    def get_manual_unlocked_weeks(self, obj):
+        return list(obj.manual_unlocks.values_list('batch_week__week_number', flat=True))
+
+    def get_weeks_access_status(self, obj):
+        from apps.courses.models import BatchWeek, TestSubmission, StudentSessionView
+        weeks = BatchWeek.objects.filter(batch=obj.batch).order_by('week_number')
+        manual_unlocked_ids = set(obj.manual_unlocks.values_list('batch_week_id', flat=True))
+        
+        status_list = []
+        for week in weeks:
+            is_manually_unlocked = week.id in manual_unlocked_ids
+            
+            is_system_unlocked = False
+            if week.is_unlocked:
+                is_system_unlocked = True
+                if week.week_number > 1:
+                    prev_weeks = obj.batch.batch_weeks.filter(
+                        week_number__lt=week.week_number,
+                        weekly_test__isnull=False
+                    )
+                    for pw in prev_weeks:
+                        if not TestSubmission.objects.filter(
+                            enrollment=obj, batch_weekly_test=pw.weekly_test, status='published', is_passed=True
+                        ).exists():
+                            is_system_unlocked = False
+                            break
+            
+            is_revokable = is_manually_unlocked
+            if is_revokable:
+                has_session_progress = StudentSessionView.objects.filter(
+                    enrollment=obj, batch_session__batch_week=week, is_completed=True
+                ).exists()
+                has_test_progress = TestSubmission.objects.filter(
+                    enrollment=obj, batch_weekly_test__batch_week=week
+                ).exists()
+                if has_session_progress or has_test_progress:
+                    is_revokable = False
+
+            status_list.append({
+                'week_number': week.week_number,
+                'is_manually_unlocked': is_manually_unlocked,
+                'is_system_unlocked': is_system_unlocked,
+                'is_revokable': is_revokable
+            })
+        return status_list
 
     def get_overall_progress(self, obj):
         from apps.courses.models import BatchClassSession, StudentSessionView, BatchWeeklyTest, TestSubmission
@@ -148,15 +197,31 @@ class BatchEnrollmentSerializer(serializers.ModelSerializer):
         return min(100, round((completed_items / total_items) * 100))
 
     def get_weeks_completed(self, obj):
-        return 2 # Mock
+        from apps.courses.models import BatchWeek, TestSubmission
+        all_weeks = BatchWeek.objects.filter(batch=obj.batch).order_by('week_number')
+        completed = 0
+        for week in all_weeks:
+            # A week is completed if test (if exists) is passed
+            if hasattr(week, 'weekly_test') and week.weekly_test:
+                if TestSubmission.objects.filter(enrollment=obj, batch_weekly_test=week.weekly_test, status='published', is_passed=True).exists():
+                    completed += 1
+                else:
+                    # If there's a test and it's not passed, we stop counting linear progress
+                    break
+            else:
+                # If no test, and we reached here, consider it "done" if it's unlocked 
+                # (This is simplified, could also check session completion)
+                if week.is_unlocked:
+                    completed += 1
+        return completed
 
     def get_total_weeks(self, obj):
-        if obj.batch and obj.batch.course:
-            return obj.batch.course.total_weeks
-        return 0
-
-    def get_weekly_tests_submitted(self, obj):
-        return 1 # Mock
+        return obj.batch.batch_weeks.count()
 
     def get_total_weekly_tests(self, obj):
-        return 3 # Mock
+        from apps.courses.models import BatchWeeklyTest
+        return BatchWeeklyTest.objects.filter(batch_week__batch=obj.batch).count()
+
+    def get_weekly_tests_submitted(self, obj):
+        from apps.courses.models import TestSubmission
+        return TestSubmission.objects.filter(enrollment=obj, status='published', is_passed=True).count()

@@ -190,10 +190,10 @@ class BatchWeekSerializer(serializers.ModelSerializer):
             return {'is_locked': True, 'reason': 'not_enrolled'}
 
         # 1. Manual Unlock Override
-        # If the teacher manually unlocked up to a certain week,
-        # it bypasses all calendar and test restrictions.
-        if hasattr(enrollment, 'current_week_unlocked') and obj.week_number <= enrollment.current_week_unlocked:
-            return {'is_locked': False, 'reason': None}
+        # Check if this specific week is manually unlocked for this student
+        from apps.courses.models import ManualStudentWeekUnlock
+        if ManualStudentWeekUnlock.objects.filter(enrollment=enrollment, batch_week=obj).exists():
+            return {'is_locked': False, 'reason': 'manual_unlock'}
 
         # 2. Calendar Check
         if not obj.is_unlocked:

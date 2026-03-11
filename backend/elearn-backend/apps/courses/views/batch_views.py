@@ -519,25 +519,59 @@ class BatchStudentListView(APIView):
         parameters=[
             OpenApiParameter("page", OpenApiTypes.INT, description="Page number"),
             OpenApiParameter("page_size", OpenApiTypes.INT, description="Number of items per page"),
+            OpenApiParameter("search", OpenApiTypes.STR, description="Search by student name or email"),
+            OpenApiParameter("status", OpenApiTypes.STR, description="Filter by enrollment status"),
         ],
         responses={200: BatchEnrollmentSerializer(many=True)},
     )
     def get(self, request, pk):
         try:
             batch = Batch.objects.get(pk=pk)
-            enrollments = batch.enrollments.all().select_related('student').order_by('id')
+            enrollments = batch.enrollments.all().select_related('student')
+            
+            # Stats for top cards
+            status_stats = {
+                'total': enrollments.count(),
+                'active': enrollments.filter(status=BatchEnrollment.Status.ACTIVE).count(),
+                'completed': enrollments.filter(status=BatchEnrollment.Status.COMPLETED).count(),
+                'dropped': enrollments.filter(status=BatchEnrollment.Status.DROPPED).count(),
+            }
+
+            search = request.query_params.get('search')
+            if search:
+                enrollments = enrollments.filter(
+                    models.Q(student__fullname__icontains=search) |
+                    models.Q(student__email__icontains=search)
+                )
+
+            status_filter = request.query_params.get('status')
+            if status_filter and status_filter != 'all':
+                enrollments = enrollments.filter(status=status_filter)
+            
+            enrollments = enrollments.order_by('id')
 
             paginator = self.pagination_class()
             page = paginator.paginate_queryset(enrollments, request, view=self)
             
             if page is not None:
                 serializer = BatchEnrollmentSerializer(page, many=True)
-                return paginator.get_paginated_response(serializer.data)
+                response = paginator.get_paginated_response(serializer.data)
+                response.data['stats'] = status_stats
+                return response
+            
+            if page is not None:
+                serializer = BatchEnrollmentSerializer(page, many=True)
+                response = paginator.get_paginated_response(serializer.data)
+                response.data['stats'] = status_stats
+                return response
 
             serializer = BatchEnrollmentSerializer(enrollments, many=True)
             return format_success_response(
                 message="Batch students retrieved successfully",
-                data=serializer.data
+                data={
+                    'enrollments': serializer.data,
+                    'stats': status_stats
+                }
             )
         except Batch.DoesNotExist:
             raise ServiceError(detail="Batch not found.", status_code=status.HTTP_404_NOT_FOUND)
@@ -609,10 +643,9 @@ class BatchStudentEnrollmentUpdateView(APIView):
 
     class InputSerializer(serializers.Serializer):
         status = serializers.ChoiceField(choices=BatchEnrollment.Status.choices, required=False)
-        current_week_unlocked = serializers.IntegerField(required=False, min_value=1)
 
     @extend_schema(
-        summary="Update a student's enrollment status and unlocked week",
+        summary="Update a student's enrollment status",
         request=InputSerializer,
         responses={200: BatchEnrollmentSerializer},
     )
@@ -641,15 +674,102 @@ class BatchStudentEnrollmentUpdateView(APIView):
             data = serializer.validated_data
             if 'status' in data:
                 enrollment.status = data['status']
-            if 'current_week_unlocked' in data:
-                enrollment.current_week_unlocked = data['current_week_unlocked']
 
             enrollment.save()
-            return format_success_response(message="Enrollment updated successfully", data=BatchEnrollmentSerializer(enrollment).data)
+            return format_success_response(message="Enrollment updated successfully", data=BatchEnrollmentSerializer(enrollment, context={'request': request}).data)
         except Batch.DoesNotExist:
             raise ServiceError(detail="Batch not found.", status_code=status.HTTP_404_NOT_FOUND)
         except ServiceError:
             raise
         except Exception as e:
             logger.error(f"Error updating enrollment {enrollment_id}: {str(e)}")
+            raise ServiceError(detail=str(e), status_code=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+@extend_schema(tags=["Batches"])
+class BatchStudentWeekUnlockToggleView(APIView):
+    permission_classes = [IsSuperAdminAdminOrTeacher]
+
+    class InputSerializer(serializers.Serializer):
+        week_number = serializers.IntegerField(required=True, min_value=1)
+        action = serializers.ChoiceField(choices=['unlock', 'revoke'], required=True)
+
+    @extend_schema(
+        summary="Toggle manual unlock for a specific week for a student",
+        request=InputSerializer,
+        responses={200: BatchEnrollmentSerializer},
+    )
+    def post(self, request, pk, enrollment_id):
+        try:
+            batch = Batch.objects.get(pk=pk)
+            user = request.user
+            is_admin = getattr(user, 'user_type', None) and user.user_type.name in [UserTypeConstants.ADMIN, UserTypeConstants.SUPERADMIN]
+            is_assigned_teacher = (
+                getattr(user, 'user_type', None) and
+                user.user_type.name == UserTypeConstants.TEACHER and
+                (batch.teacher == user or batch.co_teachers.filter(pk=user.pk).exists())
+            )
+
+            if not (is_admin or is_assigned_teacher):
+                raise ServiceError(detail="You do not have permission to manage unlocks in this batch.", status_code=status.HTTP_403_FORBIDDEN)
+
+            enrollment = BatchEnrollment.objects.filter(batch=batch, pk=enrollment_id).first()
+            if not enrollment:
+                raise ServiceError(detail="Enrollment not found.", status_code=status.HTTP_404_NOT_FOUND)
+
+            serializer = self.InputSerializer(data=request.data)
+            if not serializer.is_valid():
+                raise ServiceError(detail=handle_serializer_errors(serializer), status_code=status.HTTP_400_BAD_REQUEST)
+
+            week_number = serializer.validated_data['week_number']
+            action = serializer.validated_data['action']
+
+            batch_week = BatchWeek.objects.filter(batch=batch, week_number=week_number).first()
+            if not batch_week:
+                raise ServiceError(detail=f"Week {week_number} not found in this batch.", status_code=status.HTTP_404_NOT_FOUND)
+
+            from apps.courses.models import ManualStudentWeekUnlock
+            if action == 'unlock':
+                ManualStudentWeekUnlock.objects.get_or_create(
+                    enrollment=enrollment,
+                    batch_week=batch_week,
+                    defaults={'unlocked_by': user}
+                )
+                message = f"Week {week_number} unlocked manually."
+            else:
+                # Check for student progress in this week before revoking
+                from apps.courses.models import StudentSessionView, TestSubmission, ManualStudentWeekUnlock
+                
+                has_session_progress = StudentSessionView.objects.filter(
+                    enrollment=enrollment, 
+                    batch_session__batch_week=batch_week, 
+                    is_completed=True
+                ).exists()
+                
+                has_test_progress = TestSubmission.objects.filter(
+                    enrollment=enrollment, 
+                    batch_weekly_test__batch_week=batch_week
+                ).exists()
+
+                if has_session_progress or has_test_progress:
+                     raise ServiceError(
+                         detail=f"Cannot revoke unlock for week {week_number} because the student has already started consuming content or attempted tests in this week.",
+                         status_code=status.HTTP_400_BAD_REQUEST
+                     )
+
+                ManualStudentWeekUnlock.objects.filter(
+                    enrollment=enrollment,
+                    batch_week=batch_week
+                ).delete()
+                message = f"Manual unlock for week {week_number} revoked."
+
+            return format_success_response(
+                message=message,
+                data=BatchEnrollmentSerializer(enrollment, context={'request': request}).data
+            )
+        except Batch.DoesNotExist:
+            raise ServiceError(detail="Batch not found.", status_code=status.HTTP_404_NOT_FOUND)
+        except ServiceError:
+            raise
+        except Exception as e:
+            logger.error(f"Error toggling manual unlock: {str(e)}")
             raise ServiceError(detail=str(e), status_code=status.HTTP_500_INTERNAL_SERVER_ERROR)

@@ -41,6 +41,8 @@ import {
   ChevronUp,
   MoreHorizontal,
   Settings2,
+  Filter,
+  Activity,
 } from 'lucide-react';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { batchApi, Batch, BatchUser } from '@/lib/batch-api';
@@ -69,6 +71,9 @@ export default function AdminBatchStudents() {
   const [studentSearch, setStudentSearch] = useState('');
   const [addingStudentId, setAddingStudentId] = useState<number | null>(null);
   const [expandedStudentId, setExpandedStudentId] = useState<number | null>(null);
+  const [enrolledSearch, setEnrolledSearch] = useState('');
+  const [statusFilter, setStatusFilter] = useState('all');
+  const [stats, setStats] = useState({ total: 0, active: 0, completed: 0, dropped: 0 });
 
   // Pagination for enrolled students
   const [currentPage, setCurrentPage] = useState(1);
@@ -96,20 +101,28 @@ export default function AdminBatchStudents() {
     }
   }, [batchId, navigate, toast]);
 
-  const fetchEnrolledStudents = useCallback(async (page: number) => {
+  const fetchEnrolledStudents = useCallback(async (page: number = 1, search: string = '', status: string = 'all') => {
     if (!batchId) return;
     try {
       setLoading(true);
-      const res = await batchApi.getBatchStudents(parseInt(batchId), { page, page_size: pageSize });
+      const res = await batchApi.getBatchStudents(parseInt(batchId), { 
+        page, 
+        page_size: pageSize,
+        search: search || undefined,
+        status: status === 'all' ? undefined : status
+      });
       setEnrolledStudents(res.data || []);
       setTotalPages(res.total_pages || 1);
       setCurrentPage(res.current_page || page);
+      if (res.stats) {
+        setStats(res.stats);
+      }
     } catch (err) {
       toast({ title: 'Error', description: 'Failed to fetch enrolled students', variant: 'destructive' });
     } finally {
       setLoading(false);
     }
-  }, [batchId, toast]);
+  }, [batchId, toast, pageSize]);
 
   const fetchAvailableStudents = useCallback(async (search?: string, page: number = 1) => {
     try {
@@ -140,8 +153,8 @@ export default function AdminBatchStudents() {
   }, [fetchBatchDetails]);
 
   useEffect(() => {
-    fetchEnrolledStudents(1);
-  }, [fetchEnrolledStudents]);
+    fetchEnrolledStudents(1, enrolledSearch, statusFilter);
+  }, [fetchEnrolledStudents, enrolledSearch, statusFilter]);
 
   useEffect(() => {
     if (isAddModalOpen) {
@@ -155,7 +168,7 @@ export default function AdminBatchStudents() {
       setAddingStudentId(studentId);
       await batchApi.addStudent(parseInt(batchId), studentId);
       toast({ title: 'Success', description: 'Student added to batch successfully', variant: 'success' });
-      fetchEnrolledStudents(currentPage);
+      fetchEnrolledStudents(currentPage, enrolledSearch, statusFilter);
       fetchAvailableStudents(studentSearch, availableCurrentPage);
     } catch (err: any) {
       toast({ 
@@ -168,12 +181,31 @@ export default function AdminBatchStudents() {
     }
   };
 
-  const handleUpdateEnrollment = async (enrollmentId: number, data: { status?: string, current_week_unlocked?: number }) => {
+  const handleToggleWeekUnlock = async (enrollmentId: number, weekNumber: number, action: 'unlock' | 'revoke') => {
+    if (!batchId) return;
+    try {
+      await batchApi.toggleWeekUnlock(parseInt(batchId), enrollmentId, weekNumber, action);
+      toast({ 
+        title: 'Success', 
+        description: `Week ${weekNumber} ${action === 'unlock' ? 'unlocked' : 'revoked'} successfully`, 
+        variant: 'success' 
+      });
+      fetchEnrolledStudents(currentPage, enrolledSearch, statusFilter);
+    } catch (err: any) {
+      toast({ 
+        title: 'Error', 
+        description: err.response?.data?.detail || `Failed to ${action} week`, 
+        variant: 'destructive' 
+      });
+    }
+  };
+
+  const handleUpdateEnrollment = async (enrollmentId: number, data: { status?: string }) => {
     if (!batchId) return;
     try {
       await batchApi.updateStudentEnrollment(parseInt(batchId), enrollmentId, data);
       toast({ title: 'Success', description: 'Student enrollment updated', variant: 'success' });
-      fetchEnrolledStudents(currentPage);
+      fetchEnrolledStudents(currentPage, enrolledSearch, statusFilter);
     } catch (err: any) {
       toast({ 
         title: 'Error', 
@@ -328,60 +360,98 @@ export default function AdminBatchStudents() {
           </Dialog>
         </div>
 
-        {/* Info Cards */}
-        <div className="grid gap-4 sm:grid-cols-3">
+        {/* Stats */}
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
           <Card className="shadow-card">
-            <CardContent className="p-4 flex items-center gap-4">
-                <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center">
-                    <Users className="h-5 w-5 text-primary" />
+            <CardContent className="p-6">
+              <div className="flex items-center gap-4">
+                <div className="p-3 rounded-xl bg-primary/10">
+                  <Users className="h-6 w-6 text-primary" />
                 </div>
                 <div>
-                    <p className="text-sm text-muted-foreground">Capacity</p>
-                    <p className="text-xl font-bold">{batch?.enrolled_count ?? enrolledStudents.length} / {batch?.max_students}</p>
+                  <p className="text-2xl font-bold text-foreground">{stats.total} <span className="text-sm font-normal text-muted-foreground">/ {batch?.max_students || '-'}</span></p>
+                  <p className="text-sm text-muted-foreground font-medium">Capacity</p>
                 </div>
+              </div>
             </CardContent>
           </Card>
+          
           <Card className="shadow-card">
-            <CardContent className="p-4 flex items-center gap-4">
+            <CardContent className="p-6">
+              <div className="flex items-center gap-4">
+                <div className="p-3 rounded-xl bg-success/10">
+                  <CheckCircle2 className="h-6 w-6 text-success" />
+                </div>
+                <div>
+                  <p className="text-2xl font-bold text-foreground">{stats.active}</p>
+                  <p className="text-sm text-muted-foreground font-medium">Active Students</p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card className="shadow-card">
+            <CardContent className="p-6">
+              <div className="flex items-center gap-4">
+                <div className="p-3 rounded-xl bg-warning/10">
+                  <Trophy className="h-6 w-6 text-warning" />
+                </div>
+                <div>
+                  <p className="text-2xl font-bold text-foreground">{stats.completed}</p>
+                  <p className="text-sm text-muted-foreground font-medium">Completed</p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card className="shadow-card">
+            <CardContent className="p-6">
+              <div className="flex items-center gap-4">
                 <div className={cn(
-                  "h-10 w-10 rounded-full flex items-center justify-center",
+                  "p-3 rounded-xl",
                   batch?.status === 'ACTIVE' ? "bg-success/10 text-success" : "bg-primary/10 text-primary"
                 )}>
-                    {batch?.status === 'ACTIVE' ? <CheckCircle2 className="h-5 w-5" /> : <Trophy className="h-5 w-5" />}
+                  <Activity className="h-6 w-6" />
                 </div>
                 <div>
-                    <p className="text-sm text-muted-foreground">Status</p>
-                    <p className="text-xl font-bold capitalize">
-                      {batch?.status ? batch.status.toLowerCase() : 'Loading...'}
-                    </p>
+                  <p className="text-2xl font-bold text-foreground capitalize">{batch?.status?.toLowerCase() || '-'}</p>
+                  <p className="text-sm text-muted-foreground font-medium">Batch Status</p>
                 </div>
-            </CardContent>
-          </Card>
-          <Card className="shadow-card">
-            <CardContent className="p-4 flex items-center gap-4">
-                <div className="h-10 w-10 rounded-full bg-accent/10 flex items-center justify-center">
-                    <Users className="h-5 w-5 text-accent" />
-                </div>
-                <div>
-                    <p className="text-sm text-muted-foreground">Available Seats</p>
-                    <p className="text-xl font-bold">{(batch?.max_students || 0) - (batch?.enrolled_count ?? enrolledStudents.length)}</p>
-                </div>
+              </div>
             </CardContent>
           </Card>
         </div>
 
-        {/* Enrolled Students Display - List View with Progress */}
-        <Card className="shadow-card border-none bg-card">
-          <CardHeader className="pb-3 px-6">
-            <div className="flex items-center justify-between">
-              <CardTitle className="text-xl font-bold flex items-center gap-2">
-                Students & Progress
-                <Badge variant="secondary" className="ml-2 bg-primary/10 text-primary border-none text-xs">
-                  {batch?.enrolled_count ?? enrolledStudents.length} Students
-                </Badge>
-              </CardTitle>
-            </div>
-          </CardHeader>
+        {/* Search & Filter Section */}
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <div className="relative flex-1">
+            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+            <Input
+              placeholder="Search students by name or email..."
+              value={enrolledSearch}
+              onChange={(e) => setEnrolledSearch(e.target.value)}
+              className="pl-10 h-10"
+            />
+          </div>
+          <div className="w-[180px] shrink-0">
+            <Select value={statusFilter} onValueChange={setStatusFilter}>
+              <SelectTrigger className="h-10 border-primary text-primary">
+                <div className="flex items-center">
+                  <Filter className="h-4 w-4 mr-2" />
+                  <SelectValue placeholder="All Status" />
+                </div>
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Status</SelectItem>
+                <SelectItem value="active">Active Only</SelectItem>
+                <SelectItem value="completed">Completed Only</SelectItem>
+                <SelectItem value="dropped">Dropped Only</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+        </div>
+
+        <Card className="shadow-card border-none bg-card overflow-hidden">
           <CardContent className="p-0">
             {loading && enrolledStudents.length === 0 ? (
               <div className="flex items-center justify-center py-20">
@@ -396,15 +466,15 @@ export default function AdminBatchStudents() {
                 </Button>
               </div>
             ) : (
-              <div className="flex flex-col gap-4">
+              <div className="flex flex-col divide-y divide-border/40">
                 {enrolledStudents.map((enrollment) => {
                   const isExpanded = expandedStudentId === enrollment.id;
                   
                   return (
-                  <div key={enrollment.id} className="rounded-xl border border-border/40 bg-card overflow-hidden transition-all duration-300 shadow-sm hover:shadow-md">
+                  <div key={enrollment.id} className="bg-card overflow-hidden transition-all duration-300">
                     {/* Collapsed Header / Standard Row */}
                     <div 
-                      className="p-5 flex flex-col md:flex-row gap-6 md:items-center cursor-pointer hover:bg-muted/10 transition-colors"
+                      className="p-4 flex flex-col md:flex-row gap-6 md:items-center cursor-pointer hover:bg-muted/10 transition-colors"
                       onClick={() => setExpandedStudentId(isExpanded ? null : enrollment.id)}
                     >
                       <div className="flex items-center gap-4 flex-1">
@@ -415,7 +485,7 @@ export default function AdminBatchStudents() {
                           <div className="flex items-center gap-3">
                             <h3 className="font-bold text-lg text-foreground truncate">{enrollment.student_name}</h3>
                             <Badge variant="outline" className={cn(
-                              "text-[10px] h-5 py-0 px-2 uppercase tracking-wide font-bold",
+                              "text-[10px] h-5 py-0 px-2 tracking-wide font-bold capitalize",
                               enrollment.status === 'active' ? "bg-success/10 text-success border-success/30" : 
                               enrollment.status === 'completed' ? "bg-primary/10 text-primary border-primary/30" :
                               enrollment.status === 'dropped' ? "bg-destructive/10 text-destructive border-destructive/30" :
@@ -432,50 +502,50 @@ export default function AdminBatchStudents() {
                       </div>
 
                       {/* Unified Stats Area */}
-                      <div className="flex-1 grid grid-cols-2 md:grid-cols-3 gap-4 md:gap-8 mt-4 md:mt-0 items-end">
-                        <div className="flex flex-col gap-1 w-full relative group">
+                      <div className="flex-1 grid grid-cols-2 md:grid-cols-3 gap-x-8 gap-y-3 mt-4 md:mt-0 items-end">
+                        <div className="flex flex-col gap-1 w-full group">
                           <div className="flex justify-between items-baseline mb-0.5">
-                            <span className="text-xs text-muted-foreground font-medium group-hover:text-foreground transition-colors">Weeks</span>
-                            <span className="text-sm font-bold">{enrollment.weeks_completed} <span className="text-xs text-muted-foreground font-normal">/ {enrollment.total_weeks}</span></span>
+                            <span className="text-[10px] text-muted-foreground font-bold uppercase tracking-tight group-hover:text-foreground transition-colors">Weeks</span>
+                            <span className="text-xs font-bold">{enrollment.weeks_completed} <span className="text-[10px] text-muted-foreground font-normal">/ {enrollment.total_weeks}</span></span>
                           </div>
-                          <Progress value={enrollment.total_weeks ? (enrollment.weeks_completed / enrollment.total_weeks) * 100 : 0} className="h-1.5 bg-primary/10" />
+                          <Progress value={enrollment.total_weeks ? (enrollment.weeks_completed / enrollment.total_weeks) * 100 : 0} className="h-1 bg-primary/10" />
                         </div>
                         
-                        <div className="flex flex-col gap-1 w-full relative group">
+                        <div className="flex flex-col gap-1 w-full group">
                           <div className="flex justify-between items-baseline mb-0.5">
-                            <span className="text-xs text-muted-foreground font-medium group-hover:text-foreground transition-colors">Tests</span>
-                            <span className="text-sm font-bold">{enrollment.weekly_tests_submitted} <span className="text-xs text-muted-foreground font-normal">/ {enrollment.total_weekly_tests}</span></span>
+                            <span className="text-[10px] text-muted-foreground font-bold uppercase tracking-tight group-hover:text-foreground transition-colors">Tests</span>
+                            <span className="text-xs font-bold">{enrollment.weekly_tests_submitted} <span className="text-[10px] text-muted-foreground font-normal">/ {enrollment.total_weekly_tests}</span></span>
                           </div>
-                          <Progress value={enrollment.total_weekly_tests ? (enrollment.weekly_tests_submitted / enrollment.total_weekly_tests) * 100 : 0} className="h-1.5 bg-success/20 [&>div]:bg-success" />
+                          <Progress value={enrollment.total_weekly_tests ? (enrollment.weekly_tests_submitted / enrollment.total_weekly_tests) * 100 : 0} className="h-1 bg-success/20 [&>div]:bg-success" />
                         </div>
 
-                        <div className="flex flex-col gap-1 w-full relative group col-span-2 md:col-span-1">
+                        <div className="flex flex-col gap-1 w-full group col-span-2 md:col-span-1">
                           <div className="flex justify-between items-baseline mb-0.5">
-                            <span className="text-xs text-muted-foreground font-medium group-hover:text-foreground transition-colors">Overall</span>
-                            <span className="text-sm font-bold">{Math.round(enrollment.overall_progress || 0)}%</span>
+                            <span className="text-[10px] text-muted-foreground font-bold uppercase tracking-tight group-hover:text-foreground transition-colors">Progress</span>
+                            <span className="text-xs font-bold">{Math.round(enrollment.overall_progress || 0)}%</span>
                           </div>
-                          <Progress value={enrollment.overall_progress || 0} className="h-1.5 bg-accent/20 [&>div]:bg-accent" />
+                          <Progress value={enrollment.overall_progress || 0} className="h-1 bg-accent/20 [&>div]:bg-accent" />
                         </div>
                       </div>
                       
-                      <div className="hidden md:flex flex-shrink-0 ml-4 items-center justify-center p-2 rounded-lg bg-muted/50 text-muted-foreground hover:bg-muted hover:text-foreground transition-colors mr-2 relative z-10" onClick={(e) => { e.stopPropagation(); }}>
+                      <div className="hidden md:flex flex-shrink-0 ml-4 items-center justify-center p-2 rounded-lg transition-colors mr-2 relative z-10" onClick={(e) => { e.stopPropagation(); }}>
                         <Select
                           value={enrollment.status}
                           onValueChange={(val) => handleUpdateEnrollment(enrollment.id, { status: val })}
                         >
                           <SelectTrigger className={cn(
-                            "h-8 px-3 text-[11px] uppercase font-bold tracking-wider rounded border border-border/70",
-                            enrollment.status === 'active' ? "bg-success/5 text-success hover:bg-success/10" : 
-                            enrollment.status === 'completed' ? "bg-primary/5 text-primary hover:bg-primary/10" :
-                            enrollment.status === 'dropped' ? "bg-destructive/5 text-destructive hover:bg-destructive/10" :
-                            "bg-muted text-muted-foreground hover:bg-muted/80"
+                            "h-9 px-4 text-xs font-semibold rounded-lg border border-border shadow-sm",
+                            enrollment.status === 'active' ? "bg-success/5 text-success border-success/20 hover:bg-success/10" : 
+                            enrollment.status === 'completed' ? "bg-primary/5 text-primary border-primary/20 hover:bg-primary/10" :
+                            enrollment.status === 'dropped' ? "bg-destructive/5 text-destructive border-destructive/20 hover:bg-destructive/10" :
+                            "bg-muted text-muted-foreground border-border hover:bg-muted/80"
                           )}>
                             <SelectValue />
                           </SelectTrigger>
                           <SelectContent>
-                            <SelectItem value="active" className="text-xs font-semibold">ACTIVE</SelectItem>
-                            <SelectItem value="completed" className="text-xs font-semibold">COMPLETED</SelectItem>
-                            <SelectItem value="dropped" className="text-xs font-semibold">DROPPED</SelectItem>
+                            <SelectItem value="active" className="text-xs font-medium">Active</SelectItem>
+                            <SelectItem value="completed" className="text-xs font-medium">Completed</SelectItem>
+                            <SelectItem value="dropped" className="text-xs font-medium">Dropped</SelectItem>
                           </SelectContent>
                         </Select>
                       </div>
@@ -488,103 +558,122 @@ export default function AdminBatchStudents() {
                     {/* Expandable "Unlocked Content" Panel */}
                     <div 
                       className={cn(
-                        "transition-all duration-300 ease-in-out border-t border-border/40 bg-muted/10",
-                        isExpanded ? "max-h-[1000px] opacity-100 py-6 px-5 block" : "max-h-0 opacity-0 py-0 px-5 overflow-hidden hidden"
+                        "transition-all duration-300 ease-in-out border-t border-border/40 bg-muted/5",
+                        isExpanded ? "max-h-[1000px] opacity-100 py-6 px-6 block" : "max-h-0 opacity-0 py-0 px-6 overflow-hidden hidden"
                       )}
                     >
-                      <div className="flex flex-col xl:flex-row gap-6">
+                      <div className="flex flex-col gap-6">
                         
-                        {/* Scrollable list of weeks representation */}
+                        {/* Granular Week Access Card */}
                         <div className="flex-1">
-                          <h4 className="text-sm font-bold mb-4 uppercase tracking-wider text-muted-foreground">Unlocked Content Map</h4>
-                          <div className="bg-background rounded-xl border border-border/40 p-1 divide-y divide-border/30 max-h-60 overflow-y-auto">
+                          <div className="flex items-center justify-between mb-4">
+                            <h4 className="text-sm font-bold uppercase tracking-wider text-muted-foreground flex items-center gap-2">
+                               Course Access Control
+                            </h4>
+                            <div className="flex items-center gap-3">
+                              <div className="flex items-center gap-1.5">
+                                <div className="h-2 w-2 rounded-full bg-success" />
+                                <span className="text-[10px] font-medium text-muted-foreground uppercase">Unlocked</span>
+                              </div>
+                              <div className="flex items-center gap-1.5">
+                                <div className="h-2 w-2 rounded-full bg-muted-foreground/30" />
+                                <span className="text-[10px] font-medium text-muted-foreground uppercase">Locked</span>
+                              </div>
+                            </div>
+                          </div>
+
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                             {Array.from({ length: enrollment.total_weeks || 0 }).map((_, i) => {
                               const weekNo = i + 1;
-                              const isUnlocked = weekNo <= (enrollment.current_week_unlocked || 0);
+                              const weekStatus = (enrollment.weeks_access_status || []).find((s: any) => s.week_number === weekNo);
+                              
+                              const isManual = weekStatus?.is_manually_unlocked;
+                              const isSystem = weekStatus?.is_system_unlocked;
+                              const isUnlocked = isManual || isSystem;
+                              const isRevokable = weekStatus?.is_revokable;
+                              const isDropped = enrollment.status === 'dropped';
+
                               return (
-                                <div key={weekNo} className="py-2.5 px-4 flex items-center justify-between hover:bg-muted/20 transition-colors">
+                                <div key={weekNo} className={cn(
+                                  "py-3 px-4 rounded-xl border flex items-center justify-between transition-all group",
+                                  isUnlocked ? "bg-background border-success/20 ring-1 ring-success/5 shadow-sm" : "bg-muted/20 border-border/40"
+                                )}>
                                   <div className="flex items-center gap-3">
                                     <div className={cn(
-                                      "flex items-center justify-center h-7 w-7 rounded-md",
-                                      isUnlocked ? "bg-success/10 text-success" : "bg-muted text-muted-foreground"
+                                      "flex items-center justify-center h-9 w-9 rounded-lg shadow-sm transition-all",
+                                      isUnlocked ? "bg-success text-success-foreground" : "bg-muted text-muted-foreground"
                                     )}>
-                                      {isUnlocked ? <Unlock className="h-3.5 w-3.5" /> : <Lock className="h-3.5 w-3.5" />}
+                                      {isUnlocked ? <Unlock className="h-4 w-4" /> : <Lock className="h-4 w-4" />}
                                     </div>
-                                    <span className={cn(
-                                      "text-sm font-medium",
-                                      isUnlocked ? "text-foreground" : "text-muted-foreground"
-                                    )}>Week {weekNo}</span>
+                                    <div className="flex flex-col">
+                                      <span className={cn(
+                                        "text-sm font-bold",
+                                        isUnlocked ? "text-foreground" : "text-muted-foreground"
+                                      )}>Week {weekNo}</span>
+                                      <span className={cn(
+                                        "text-[10px] font-medium leading-tight",
+                                        isSystem ? "text-success" : isManual ? "text-primary" : "text-muted-foreground"
+                                      )}>
+                                        {isSystem ? 'Standard Access' : isManual ? 'Manual Access' : 'Locked'}
+                                      </span>
+                                    </div>
                                   </div>
-                                  {isUnlocked && <Badge variant="secondary" className="bg-success/10 text-success text-[10px] font-medium border-none px-2 h-5">Access Granted</Badge>}
+                                  
+                                  <div className="flex items-center gap-2">
+                                    {isSystem ? (
+                                      <div className="h-8 px-3 flex items-center">
+                                        <CheckCircle2 className="h-4 w-4 text-success" />
+                                      </div>
+                                    ) : isManual ? (
+                                      <Button
+                                        size="sm"
+                                        variant="ghost"
+                                        className={cn(
+                                          "h-8 px-3 text-[11px] font-bold uppercase tracking-wider",
+                                          isRevokable && !isDropped ? "text-destructive hover:bg-destructive/10 hover:text-destructive" : "text-muted-foreground opacity-50 cursor-not-allowed"
+                                        )}
+                                        onClick={() => isRevokable && !isDropped && handleToggleWeekUnlock(enrollment.id, weekNo, 'revoke')}
+                                        disabled={!isRevokable || isDropped}
+                                        title={!isRevokable ? "Cannot revoke: student has already interacted with this week" : ""}
+                                      >
+                                        Revoke
+                                      </Button>
+                                    ) : (
+                                      <Button
+                                        size="sm"
+                                        variant="outline"
+                                        className={cn(
+                                          "h-8 px-3 text-[11px] font-bold uppercase tracking-wider text-primary hover:bg-primary/5 border-primary/20",
+                                          isDropped && "opacity-50 cursor-not-allowed"
+                                        )}
+                                        onClick={() => !isDropped && handleToggleWeekUnlock(enrollment.id, weekNo, 'unlock')}
+                                        disabled={isDropped}
+                                      >
+                                        Unlock now
+                                      </Button>
+                                    )}
+                                  </div>
                                 </div>
                               );
                             })}
-                            {(!enrollment.total_weeks || enrollment.total_weeks === 0) && (
-                              <div className="p-4 text-sm text-center text-muted-foreground">No weeks configured for this course yet.</div>
-                            )}
                           </div>
-                        </div>
-
-                        {/* Right quick management panel */}
-                        <div className="w-full xl:w-[320px] flex flex-col gap-4">
-                          <div className="bg-background rounded-xl border border-border/40 p-5 shadow-sm">
-                            <h4 className="text-sm font-bold mb-4 uppercase tracking-wider text-foreground flex items-center gap-2">
-                              <Settings2 className="h-4 w-4 text-primary" /> Management
-                            </h4>
-                            
-                            <div className="space-y-4">
-                              <div>
-                                <label className="text-xs font-medium text-muted-foreground mb-1.5 block">Overall Status</label>
-                                <Select
-                                  value={enrollment.status}
-                                  onValueChange={(val) => handleUpdateEnrollment(enrollment.id, { status: val })}
-                                >
-                                  <SelectTrigger className="w-full">
-                                    <SelectValue />
-                                  </SelectTrigger>
-                                  <SelectContent>
-                                    <SelectItem value="active">Active</SelectItem>
-                                    <SelectItem value="completed">Completed</SelectItem>
-                                    <SelectItem value="dropped">Dropped</SelectItem>
-                                  </SelectContent>
-                                </Select>
-                              </div>
-
-                              <div>
-                                <label className="text-xs font-medium text-muted-foreground mb-1.5 block">Maximum Unlocked Week Number</label>
-                                <div className="flex gap-2">
-                                  <Input 
-                                    type="number" 
-                                    min={1} 
-                                    max={enrollment.total_weeks || 1}
-                                    defaultValue={enrollment.current_week_unlocked || 1}
-                                    className="w-20 font-mono text-center"
-                                    onBlur={(e) => {
-                                      const val = parseInt(e.target.value);
-                                      if (!isNaN(val) && val !== enrollment.current_week_unlocked) {
-                                        handleUpdateEnrollment(enrollment.id, { current_week_unlocked: val });
-                                      }
-                                    }}
-                                  />
-                                  <Button 
-                                    variant="secondary" 
-                                    className="flex-1 font-semibold"
-                                    onClick={() => {
-                                      const next = (enrollment.current_week_unlocked || 0) + 1;
-                                      if (next <= (enrollment.total_weeks || 1)) {
-                                        handleUpdateEnrollment(enrollment.id, { current_week_unlocked: next });
-                                      } else {
-                                        toast({ description: "All available weeks are already unlocked.", variant: "default" })
-                                      }
-                                    }}
-                                  >
-                                    + Unlock Next Week
-                                  </Button>
-                                </div>
-                                <p className="text-[10px] text-muted-foreground mt-2 leading-relaxed">
-                                  Sets the maximum week content accessible by this student. The system will automatically respect standard drip-feed time limitations until this value is met.
-                                </p>
-                              </div>
+                          
+                          {(!enrollment.total_weeks || enrollment.total_weeks === 0) && (
+                            <div className="p-8 text-center bg-muted/5 rounded-2xl border border-dashed border-border">
+                              <Info className="h-8 w-8 mx-auto mb-2 text-muted-foreground opacity-30" />
+                              <p className="text-sm font-medium text-muted-foreground">No weeks configured for this course yet.</p>
+                            </div>
+                          )}
+                          
+                          <div className="mt-6 flex items-start gap-3 bg-primary/5 p-4 rounded-xl border border-primary/10">
+                            <Info className="h-4 w-4 text-primary mt-0.5 shrink-0" />
+                            <div className="text-xs text-primary/80 leading-relaxed">
+                              <p className="font-bold mb-1 uppercase tracking-tight">Access Rules Help</p>
+                              <ul className="list-disc pl-4 space-y-1">
+                                <li><strong>Standard Access:</strong> Automatically granted based on start date and previous week assessment results.</li>
+                                <li><strong>Manual Access:</strong> Explicitly granted by an admin/teacher. These bypass standard requirements.</li>
+                                <li><strong>Revoke:</strong> Only possible for manual unlocks if the student hasn't started video sessions or attempted tests.</li>
+                              </ul>
                             </div>
                           </div>
                         </div>
@@ -609,7 +698,7 @@ export default function AdminBatchStudents() {
                   variant="outline" 
                   size="sm" 
                   disabled={currentPage === 1 || loading}
-                  onClick={() => fetchEnrolledStudents(currentPage - 1)}
+                  onClick={() => fetchEnrolledStudents(currentPage - 1, enrolledSearch, statusFilter)}
                   className="h-8 w-8 p-0"
                 >
                   <ChevronLeft className="h-4 w-4" />
@@ -620,7 +709,7 @@ export default function AdminBatchStudents() {
                       key={i}
                       variant={currentPage === i + 1 ? "default" : "outline"}
                       size="sm"
-                      onClick={() => fetchEnrolledStudents(i + 1)}
+                      onClick={() => fetchEnrolledStudents(i + 1, enrolledSearch, statusFilter)}
                       className={cn("h-8 w-8 p-0 text-xs", currentPage === i + 1 ? "bg-primary text-primary-foreground" : "")}
                       disabled={loading}
                     >
@@ -632,7 +721,7 @@ export default function AdminBatchStudents() {
                   variant="outline" 
                   size="sm" 
                   disabled={currentPage === totalPages || loading}
-                  onClick={() => fetchEnrolledStudents(currentPage + 1)}
+                  onClick={() => fetchEnrolledStudents(currentPage + 1, enrolledSearch, statusFilter)}
                   className="h-8 w-8 p-0"
                 >
                   <ChevronRight className="h-4 w-4" />

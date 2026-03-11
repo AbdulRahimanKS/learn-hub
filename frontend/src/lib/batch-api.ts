@@ -164,7 +164,7 @@ export const batchApi = {
     return response.data;
   },
 
-  getBatchStudents: async (batchId: number, params?: { page?: number; page_size?: number }) => {
+  getBatchStudents: async (batchId: number, params?: { page?: number; page_size?: number; search?: string; status?: string }) => {
     const response = await apiClient.get<{ 
       data: any[]; 
       success: boolean; 
@@ -172,15 +172,24 @@ export const batchApi = {
       total_count?: number;
       total_pages?: number;
       current_page?: number;
+      stats?: { total: number; active: number; completed: number; dropped: number };
     }>(
       `/api/courses/v1/batches/${batchId}/students/`, { params }
     );
     return response.data;
   },
 
-  updateStudentEnrollment: async (batchId: number, enrollmentId: number, data: { status?: string; current_week_unlocked?: number }) => {
+  updateStudentEnrollment: async (batchId: number, enrollmentId: number, data: { status?: string }) => {
     const response = await apiClient.patch<{ data: any; success: boolean; message: string }>(
       `/api/courses/v1/batches/${batchId}/students/${enrollmentId}/`, data
+    );
+    return response.data;
+  },
+
+  toggleWeekUnlock: async (batchId: number, enrollmentId: number, weekNumber: number, action: 'unlock' | 'revoke') => {
+    const response = await apiClient.post<{ data: any; success: boolean; message: string }>(
+      `/api/courses/v1/batches/${batchId}/students/${enrollmentId}/toggle-week-unlock/`,
+      { week_number: weekNumber, action }
     );
     return response.data;
   },

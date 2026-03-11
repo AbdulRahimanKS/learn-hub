@@ -200,8 +200,6 @@ class BatchEnrollment(models.Model):
     completed_at = models.DateTimeField(null=True, blank=True)
     notes        = models.TextField(blank=True)
 
-    current_week_unlocked = models.PositiveIntegerField(default=1)
-
     enrolled_by = models.ForeignKey(
         'users.User', on_delete=models.SET_NULL, null=True, blank=True,
         related_name='enrollment_actions'
@@ -282,6 +280,32 @@ class StudentSessionView(models.Model):
             f"{self.enrollment.student.fullname} | "
             f"{self.batch_session.title} | {self.watched_percent:.0f}%"
         )
+
+
+class ManualStudentWeekUnlock(models.Model):
+    """A granular manual unlock for a specific week and student."""
+    enrollment = models.ForeignKey(
+        BatchEnrollment, on_delete=models.CASCADE, related_name='manual_unlocks'
+    )
+    batch_week = models.ForeignKey(
+        'BatchWeek', on_delete=models.CASCADE, related_name='manual_unlocks'
+    )
+    unlocked_at = models.DateTimeField(auto_now_add=True)
+    unlocked_by = models.ForeignKey(
+        'users.User', on_delete=models.SET_NULL, null=True, blank=True,
+        related_name='weeks_unlocked_by'
+    )
+
+    class Meta:
+        verbose_name = _('Manual Student Week Unlock')
+        verbose_name_plural = _('Manual Student Week Unlocks')
+        unique_together = ('enrollment', 'batch_week')
+        indexes = [
+            models.Index(fields=['enrollment', 'batch_week']),
+        ]
+
+    def __str__(self):
+        return f"{self.enrollment.student.fullname} | Week {self.batch_week.week_number} Manual Unlock"
 
 
 # Course Week
