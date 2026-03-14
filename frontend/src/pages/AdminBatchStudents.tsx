@@ -56,6 +56,17 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
+import { Checkbox } from '@/components/ui/checkbox';
 
 export default function AdminBatchStudents() {
   const { batchId } = useParams<{ batchId: string }>();
@@ -74,6 +85,13 @@ export default function AdminBatchStudents() {
   const [enrolledSearch, setEnrolledSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
   const [stats, setStats] = useState({ total: 0, active: 0, completed: 0, dropped: 0 });
+  const [selectedEnrollments, setSelectedEnrollments] = useState<number[]>([]);
+
+  // Confirmation modal states
+  const [isBulkConfirmOpen, setIsBulkConfirmOpen] = useState(false);
+  const [isBulkUpdating, setIsBulkUpdating] = useState(false);
+  const [individualConfirm, setIndividualConfirm] = useState<{ isOpen: boolean; enrollmentId: number; status: string } | null>(null);
+  const [individualLoading, setIndividualLoading] = useState<number | null>(null);
 
   // Pagination for enrolled students
   const [currentPage, setCurrentPage] = useState(1);
@@ -117,6 +135,10 @@ export default function AdminBatchStudents() {
       if (res.stats) {
         setStats(res.stats);
       }
+      
+      // We only clear selection when search or filter changes, not on page change
+      // But fetchEnrolledStudents is called for all three. 
+      // Handled by the useEffect below for resets.
     } catch (err) {
       toast({ title: 'Error', description: 'Failed to fetch enrolled students', variant: 'destructive' });
     } finally {
@@ -154,6 +176,7 @@ export default function AdminBatchStudents() {
 
   useEffect(() => {
     fetchEnrolledStudents(1, enrolledSearch, statusFilter);
+    setSelectedEnrollments([]); // Clear selection when search/filter actually changes
   }, [fetchEnrolledStudents, enrolledSearch, statusFilter]);
 
   useEffect(() => {
@@ -202,7 +225,15 @@ export default function AdminBatchStudents() {
 
   const handleUpdateEnrollment = async (enrollmentId: number, data: { status?: string }) => {
     if (!batchId) return;
+    
+    // If setting to completed, show confirmation first
+    if (data.status === 'completed' && !individualConfirm?.isOpen) {
+      setIndividualConfirm({ isOpen: true, enrollmentId, status: data.status });
+      return;
+    }
+
     try {
+      setIndividualLoading(enrollmentId);
       await batchApi.updateStudentEnrollment(parseInt(batchId), enrollmentId, data);
       toast({ title: 'Success', description: 'Student enrollment updated', variant: 'success' });
       fetchEnrolledStudents(currentPage, enrolledSearch, statusFilter);
@@ -212,6 +243,61 @@ export default function AdminBatchStudents() {
         description: err.response?.data?.detail || 'Failed to update student enrollment', 
         variant: 'destructive' 
       });
+    } finally {
+      setIndividualLoading(null);
+      setIndividualConfirm(null);
+    }
+  };
+
+  const handleBulkComplete = async () => {
+    if (!batchId) return;
+    try {
+      setIsBulkUpdating(true);
+      // If we have selections, use them. Otherwise pass undefined to update all active students
+      const idsToUpdate = selectedEnrollments.length > 0 ? selectedEnrollments : undefined;
+      
+      const res = await batchApi.bulkUpdateStudents(parseInt(batchId), 'completed', idsToUpdate);
+      toast({ 
+        title: 'Success', 
+        description: res.message || `Successfully updated students`, 
+        variant: 'success' 
+      });
+      setIsBulkConfirmOpen(false);
+      setSelectedEnrollments([]);
+      fetchEnrolledStudents(1, enrolledSearch, statusFilter);
+    } catch (err: any) {
+      toast({ 
+        title: 'Error', 
+        description: err.response?.data?.detail || 'Failed to bulk update students', 
+        variant: 'destructive' 
+      });
+    } finally {
+      setIsBulkUpdating(false);
+    }
+  };
+
+  const toggleSelectAll = (checked: boolean) => {
+    const activeEnrollmentsOnPage = enrolledStudents
+      .filter(e => e.status === 'active')
+      .map(e => e.id);
+
+    if (checked) {
+      // Add only those not already in selection
+      setSelectedEnrollments(prev => {
+        const newIds = activeEnrollmentsOnPage.filter(id => !prev.includes(id));
+        return [...prev, ...newIds];
+      });
+    } else {
+      // Remove only those that are on the current page
+      setSelectedEnrollments(prev => prev.filter(id => !activeEnrollmentsOnPage.includes(id)));
+    }
+  };
+
+  const toggleSelect = (enrollmentId: number, checked: boolean) => {
+    if (checked) {
+      setSelectedEnrollments(prev => [...prev, enrollmentId]);
+    } else {
+      setSelectedEnrollments(prev => prev.filter(id => id !== enrollmentId));
     }
   };
 
@@ -243,13 +329,33 @@ export default function AdminBatchStudents() {
               <p className="mt-1 text-muted-foreground">Manage students enrolled in this batch</p>
             </div>
           </div>
-          <Dialog open={isAddModalOpen} onOpenChange={setIsAddModalOpen}>
-            <DialogTrigger asChild>
-              <Button variant="gradient">
-                <Plus className="h-4 w-4" />
-                Add Students
+          <div className="flex items-center gap-3">
+            {enrolledStudents.length > 0 && stats.active > 0 && (
+              <Button 
+                variant="outline" 
+                className="text-primary border-primary/20 hover:bg-primary/5 gap-2"
+                onClick={() => setIsBulkConfirmOpen(true)}
+              >
+                <CheckCircle2 className="h-4 w-4" />
+                <span className="hidden sm:inline">
+                  {selectedEnrollments.length > 0 
+                    ? `Mark Selected (${selectedEnrollments.length}) Completed` 
+                    : 'Mark All Active Completed'}
+                </span>
+                <span className="sm:hidden">
+                  {selectedEnrollments.length > 0 
+                    ? `Mark (${selectedEnrollments.length})` 
+                    : 'Mark All'}
+                </span>
               </Button>
-            </DialogTrigger>
+            )}
+            <Dialog open={isAddModalOpen} onOpenChange={setIsAddModalOpen}>
+              <DialogTrigger asChild>
+                <Button variant="gradient">
+                  <Plus className="h-4 w-4" />
+                  Add Students
+                </Button>
+              </DialogTrigger>
             <DialogContent className="sm:max-w-2xl max-h-[80vh] flex flex-col">
               <DialogHeader>
                 <DialogTitle>Add Students to Batch</DialogTitle>
@@ -357,7 +463,8 @@ export default function AdminBatchStudents() {
                 </div>
               </div>
             </DialogContent>
-          </Dialog>
+            </Dialog>
+          </div>
         </div>
 
         {/* Stats */}
@@ -433,21 +540,41 @@ export default function AdminBatchStudents() {
               className="pl-10 h-10"
             />
           </div>
-          <div className="w-[180px] shrink-0">
-            <Select value={statusFilter} onValueChange={setStatusFilter}>
-              <SelectTrigger className="h-10 border-primary text-primary">
-                <div className="flex items-center">
-                  <Filter className="h-4 w-4 mr-2" />
-                  <SelectValue placeholder="All Status" />
-                </div>
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All Status</SelectItem>
-                <SelectItem value="active">Active Only</SelectItem>
-                <SelectItem value="completed">Completed Only</SelectItem>
-                <SelectItem value="dropped">Dropped Only</SelectItem>
-              </SelectContent>
-            </Select>
+          <div className="flex items-center gap-2">
+            <div className="flex items-center space-x-2 bg-card border border-border px-3 h-10 rounded-md">
+              <Checkbox 
+                id="select-all" 
+                checked={
+                  enrolledStudents.length > 0 && 
+                  enrolledStudents.filter(e => e.status === 'active').length > 0 && 
+                  enrolledStudents.filter(e => e.status === 'active').every(e => selectedEnrollments.includes(e.id))
+                }
+                onCheckedChange={(checked) => toggleSelectAll(!!checked)}
+                disabled={enrolledStudents.filter(e => e.status === 'active').length === 0}
+              />
+              <label 
+                htmlFor="select-all" 
+                className="text-xs font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 cursor-pointer"
+              >
+                Select All Active
+              </label>
+            </div>
+            <div className="w-[180px] shrink-0">
+              <Select value={statusFilter} onValueChange={setStatusFilter}>
+                <SelectTrigger className="h-10 border-primary text-primary">
+                  <div className="flex items-center">
+                    <Filter className="h-4 w-4 mr-2" />
+                    <SelectValue placeholder="All Status" />
+                  </div>
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Status</SelectItem>
+                  <SelectItem value="active">Active Only</SelectItem>
+                  <SelectItem value="completed">Completed Only</SelectItem>
+                  <SelectItem value="dropped">Dropped Only</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
           </div>
         </div>
 
@@ -478,8 +605,16 @@ export default function AdminBatchStudents() {
                       onClick={() => setExpandedStudentId(isExpanded ? null : enrollment.id)}
                     >
                       <div className="flex items-center gap-4 flex-1">
-                        <div className="h-12 w-12 rounded-full bg-primary/10 flex items-center justify-center text-primary font-bold text-lg shrink-0 border border-primary/20 shadow-inner">
-                          {enrollment.student_name.charAt(0).toUpperCase()}
+                        <div className="flex items-center gap-3" onClick={(e) => e.stopPropagation()}>
+                          <Checkbox 
+                            checked={selectedEnrollments.includes(enrollment.id)}
+                            onCheckedChange={(checked) => toggleSelect(enrollment.id, !!checked)}
+                            disabled={enrollment.status !== 'active'}
+                            className={cn(enrollment.status !== 'active' && "opacity-20")}
+                          />
+                          <div className="h-12 w-12 rounded-full bg-primary/10 flex items-center justify-center text-primary font-bold text-lg shrink-0 border border-primary/20 shadow-inner">
+                            {enrollment.student_name.charAt(0).toUpperCase()}
+                          </div>
                         </div>
                         <div className="min-w-0 flex-1">
                           <div className="flex items-center gap-3">
@@ -529,25 +664,38 @@ export default function AdminBatchStudents() {
                       </div>
                       
                       <div className="hidden md:flex flex-shrink-0 ml-4 items-center justify-center p-2 rounded-lg transition-colors mr-2 relative z-10" onClick={(e) => { e.stopPropagation(); }}>
-                        <Select
-                          value={enrollment.status}
-                          onValueChange={(val) => handleUpdateEnrollment(enrollment.id, { status: val })}
-                        >
-                          <SelectTrigger className={cn(
-                            "h-9 px-4 text-xs font-semibold rounded-lg border border-border shadow-sm",
-                            enrollment.status === 'active' ? "bg-success/5 text-success border-success/20 hover:bg-success/10" : 
-                            enrollment.status === 'completed' ? "bg-primary/5 text-primary border-primary/20 hover:bg-primary/10" :
-                            enrollment.status === 'dropped' ? "bg-destructive/5 text-destructive border-destructive/20 hover:bg-destructive/10" :
-                            "bg-muted text-muted-foreground border-border hover:bg-muted/80"
-                          )}>
-                            <SelectValue />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="active" className="text-xs font-medium">Active</SelectItem>
-                            <SelectItem value="completed" className="text-xs font-medium">Completed</SelectItem>
-                            <SelectItem value="dropped" className="text-xs font-medium">Dropped</SelectItem>
-                          </SelectContent>
-                        </Select>
+                        {individualLoading === enrollment.id ? (
+                          <div className="h-9 w-[100px] flex items-center justify-center text-muted-foreground">
+                            <Loader2 className="h-4 w-4 animate-spin" />
+                          </div>
+                        ) : (
+                          <Select
+                            value={enrollment.status}
+                            onValueChange={(val) => handleUpdateEnrollment(enrollment.id, { status: val })}
+                            disabled={enrollment.status === 'completed'}
+                          >
+                            <SelectTrigger className={cn(
+                              "h-9 px-4 text-xs font-semibold rounded-lg border border-border shadow-sm",
+                              enrollment.status === 'active' ? "bg-success/5 text-success border-success/20 hover:bg-success/10" : 
+                              enrollment.status === 'completed' ? "bg-primary/5 text-primary border-primary/20 hover:bg-primary/10 opacity-80" :
+                              enrollment.status === 'dropped' ? "bg-destructive/5 text-destructive border-destructive/20 hover:bg-destructive/10" :
+                              "bg-muted text-muted-foreground border-border hover:bg-muted/80"
+                            )}>
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="active" className="text-xs font-medium">Active</SelectItem>
+                              <SelectItem 
+                                value="completed" 
+                                className="text-xs font-medium"
+                                disabled={enrollment.status !== 'active' && enrollment.status !== 'completed'}
+                              >
+                                Completed {enrollment.status === 'dropped' && "(Active status required)"}
+                              </SelectItem>
+                              <SelectItem value="dropped" className="text-xs font-medium">Dropped</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        )}
                       </div>
 
                       <div className="hidden md:flex flex-shrink-0 ml-2 items-center justify-center p-2 rounded-lg bg-muted/50 text-muted-foreground hover:bg-muted hover:text-foreground transition-colors">
@@ -730,6 +878,84 @@ export default function AdminBatchStudents() {
             </div>
           )}
         </Card>
+
+        {/* Bulk Update Confirmation */}
+        <AlertDialog open={isBulkConfirmOpen} onOpenChange={setIsBulkConfirmOpen}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>
+                {selectedEnrollments.length > 0 
+                  ? `Mark ${selectedEnrollments.length} selected students as completed?` 
+                  : 'Mark all active students as completed?'}
+              </AlertDialogTitle>
+              <AlertDialogDescription className="space-y-3 pt-2">
+                <div className="p-3 bg-warning/10 border border-warning/20 rounded-lg text-warning-foreground text-xs leading-relaxed">
+                  <div className="flex gap-2">
+                    <Info className="h-4 w-4 shrink-0" />
+                    <div>
+                      <strong>Note:</strong> This will only update students with <strong>Active</strong> status. Dropped or already completed students will not be affected.
+                    </div>
+                  </div>
+                </div>
+                <div className="p-3 bg-destructive/10 border border-destructive/20 rounded-lg text-destructive text-xs leading-relaxed">
+                   <strong>Warning:</strong> This action is <strong>irreversible</strong>. Once marked as completed, you cannot change them back to active or dropped.
+                </div>
+                <p>
+                  {selectedEnrollments.length > 0 
+                    ? `You are about to mark ${selectedEnrollments.length} selected active students as 'Completed'.`
+                    : `This will update all ${stats.active} currently active students in this batch to 'Completed' status.`}
+                </p>
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel disabled={isBulkUpdating}>Cancel</AlertDialogCancel>
+              <AlertDialogAction 
+                onClick={(e) => {
+                  e.preventDefault();
+                  handleBulkComplete();
+                }}
+                disabled={isBulkUpdating}
+                className="bg-primary hover:bg-primary/90"
+              >
+                {isBulkUpdating && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                Confirm Bulk Completion
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
+
+        {/* Individual Status Change Confirmation */}
+        <AlertDialog 
+          open={!!individualConfirm} 
+          onOpenChange={(open) => !open && setIndividualConfirm(null)}
+        >
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>Mark student as completed?</AlertDialogTitle>
+              <AlertDialogDescription className="space-y-3 pt-2">
+                <div className="p-3 bg-warning/10 border border-warning/20 rounded-lg text-warning-foreground text-xs leading-relaxed">
+                  <strong>Warning:</strong> This action is <strong>irreversible</strong>. Once a student is marked as completed, their status cannot be changed back to active or dropped.
+                </div>
+                <p>
+                  Are you sure you want to mark this student as 'Completed'?
+                </p>
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel>Cancel</AlertDialogCancel>
+              <AlertDialogAction 
+                onClick={() => {
+                  if (individualConfirm) {
+                    handleUpdateEnrollment(individualConfirm.enrollmentId, { status: individualConfirm.status });
+                  }
+                }}
+                className="bg-primary hover:bg-primary/90"
+              >
+                Mark as Completed
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
       </div>
     </DashboardLayout>
   );

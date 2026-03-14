@@ -186,6 +186,14 @@ export const batchApi = {
     return response.data;
   },
 
+  bulkUpdateStudents: async (batchId: number, status: string, enrollmentIds?: number[]) => {
+    const response = await apiClient.post<{ success: boolean; message: string }>(
+      `/api/courses/v1/batches/${batchId}/students/bulk-update/`,
+      { status, enrollment_ids: enrollmentIds }
+    );
+    return response.data;
+  },
+
   toggleWeekUnlock: async (batchId: number, enrollmentId: number, weekNumber: number, action: 'unlock' | 'revoke') => {
     const response = await apiClient.post<{ data: any; success: boolean; message: string }>(
       `/api/courses/v1/batches/${batchId}/students/${enrollmentId}/toggle-week-unlock/`,

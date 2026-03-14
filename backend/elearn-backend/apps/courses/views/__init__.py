@@ -19,6 +19,7 @@ from .batch_views import (
     CloneBatchContentView,
     ExtendBatchTimelineView,
     BatchStudentWeekUnlockToggleView,
+    BatchStudentBulkUpdateView,
 )
 
 from .course_module_views import (
@@ -123,4 +124,5 @@ __all__ = [
     'LiveSessionListCreateView',
     'LiveSessionDetailView',
     'BatchStudentWeekUnlockToggleView',
+    'BatchStudentBulkUpdateView',
 ]

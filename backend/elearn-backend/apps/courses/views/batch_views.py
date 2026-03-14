@@ -7,6 +7,7 @@ from drf_spectacular.utils import extend_schema, OpenApiParameter
 from drf_spectacular.types import OpenApiTypes
 from django.db.models import Q
 
+from django.utils import timezone
 from apps.courses.models import Batch, BatchEnrollment
 from apps.courses.serializers import (
     BatchListSerializer,
@@ -673,7 +674,23 @@ class BatchStudentEnrollmentUpdateView(APIView):
 
             data = serializer.validated_data
             if 'status' in data:
-                enrollment.status = data['status']
+                new_status = data['status']
+                
+                # Check irreversibility
+                if enrollment.status == BatchEnrollment.Status.COMPLETED and new_status != BatchEnrollment.Status.COMPLETED:
+                    raise ServiceError(detail="Once a student's status is marked as 'completed', it cannot be changed.", status_code=status.HTTP_400_BAD_REQUEST)
+                
+                # Rule: Only ACTIVE students can be marked COMPLETED
+                if new_status == BatchEnrollment.Status.COMPLETED and enrollment.status != BatchEnrollment.Status.ACTIVE:
+                    raise ServiceError(detail="Only active students can be marked as completed. Please move the student to 'Active' status first if you wish to mark them as completed.", status_code=status.HTTP_400_BAD_REQUEST)
+
+                # Handle completed_at
+                if new_status == BatchEnrollment.Status.COMPLETED and enrollment.status != BatchEnrollment.Status.COMPLETED:
+                    enrollment.completed_at = timezone.now()
+                elif new_status != BatchEnrollment.Status.COMPLETED:
+                    enrollment.completed_at = None
+                    
+                enrollment.status = new_status
 
             enrollment.save()
             return format_success_response(message="Enrollment updated successfully", data=BatchEnrollmentSerializer(enrollment, context={'request': request}).data)
@@ -772,4 +789,71 @@ class BatchStudentWeekUnlockToggleView(APIView):
             raise
         except Exception as e:
             logger.error(f"Error toggling manual unlock: {str(e)}")
+            raise ServiceError(detail=str(e), status_code=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+@extend_schema(tags=["Batches"])
+class BatchStudentBulkUpdateView(APIView):
+    permission_classes = [IsSuperAdminAdminOrTeacher]
+
+    class InputSerializer(serializers.Serializer):
+        status = serializers.ChoiceField(choices=BatchEnrollment.Status.choices, required=True)
+        enrollment_ids = serializers.ListField(child=serializers.IntegerField(), required=False)
+
+    @extend_schema(
+        summary="Bulk update enrollment status for students in a batch",
+        request=InputSerializer,
+        responses={200: None},
+    )
+    def post(self, request, pk):
+        try:
+            batch = Batch.objects.get(pk=pk)
+            user = request.user
+            is_admin = getattr(user, 'user_type', None) and user.user_type.name in [UserTypeConstants.ADMIN, UserTypeConstants.SUPERADMIN]
+            is_assigned_teacher = (
+                getattr(user, 'user_type', None) and
+                user.user_type.name == UserTypeConstants.TEACHER and
+                (batch.teacher == user or batch.co_teachers.filter(pk=user.pk).exists())
+            )
+
+            if not (is_admin or is_assigned_teacher):
+                raise ServiceError(detail="You do not have permission to update enrollments in this batch.", status_code=status.HTTP_403_FORBIDDEN)
+
+            serializer = self.InputSerializer(data=request.data)
+            if not serializer.is_valid():
+                raise ServiceError(detail=handle_serializer_errors(serializer), status_code=status.HTTP_400_BAD_REQUEST)
+
+            target_status = serializer.validated_data['status']
+            enrollment_ids = serializer.validated_data.get('enrollment_ids')
+            
+            # Start with base queryset for the batch
+            enrollments = BatchEnrollment.objects.filter(batch=batch)
+            
+            # If specific IDs provided, filter by them
+            if enrollment_ids:
+                enrollments = enrollments.filter(id__in=enrollment_ids)
+            
+            # CRITICAL: Only update ACTIVE enrollments as requested
+            # Students already COMPLETED or DROPPED should not be updated in bulk
+            active_enrollments = enrollments.filter(status=BatchEnrollment.Status.ACTIVE)
+            
+            if target_status == BatchEnrollment.Status.COMPLETED:
+                 updated_count = active_enrollments.update(
+                     status=target_status, 
+                     completed_at=timezone.now(),
+                     updated_at=timezone.now()
+                 )
+            else:
+                updated_count = active_enrollments.update(
+                    status=target_status,
+                    completed_at=None,
+                    updated_at=timezone.now()
+                )
+
+            return format_success_response(message=f"Successfully updated {updated_count} active students to {target_status.lower()}.")
+        except Batch.DoesNotExist:
+            raise ServiceError(detail="Batch not found.", status_code=status.HTTP_404_NOT_FOUND)
+        except ServiceError:
+            raise
+        except Exception as e:
+            logger.error(f"Error bulk updating students in batch {pk}: {str(e)}")
             raise ServiceError(detail=str(e), status_code=status.HTTP_500_INTERNAL_SERVER_ERROR)
