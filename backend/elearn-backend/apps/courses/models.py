@@ -391,6 +391,42 @@ class BatchWeek(models.Model):
         """Content cannot be deleted or re-added if it has already been unlocked."""
         return not self.is_unlocked
 
+    def is_unlocked_for_student(self, student):
+        """
+        Check if the week is unlocked for a specific student.
+        1. Current time >= unlock_date.
+        2. Previous week's test is passed (if week > 1).
+        """
+        if not self.is_unlocked:
+            return False
+            
+        if self.week_number == 1:
+            return True
+            
+        # Check previous week's test status
+        prev_week = BatchWeek.objects.filter(
+            batch=self.batch, 
+            week_number=self.week_number - 1
+        ).first()
+        
+        if not prev_week:
+            return True # Should not happen with Monday starts
+            
+        if not hasattr(prev_week, 'weekly_test'):
+            return True # No test, no lock
+            
+        from apps.courses.models import TestSubmission
+        last_submission = TestSubmission.objects.filter(
+            batch_weekly_test=prev_week.weekly_test,
+            enrollment__student=student,
+            enrollment__batch=self.batch
+        ).order_by('-attempt_number').first()
+        
+        if not last_submission:
+            return False
+            
+        return last_submission.status == TestSubmission.Status.PUBLISHED and last_submission.is_passed
+
 
 # Shared weekday choices (both session models use the same values)
 WEEKDAY_CHOICES = [
@@ -732,7 +768,6 @@ class TestSubmission(models.Model):
     )
     attempt_number = models.PositiveSmallIntegerField(_('Attempt #'), default=1)
 
-    # Student uploads their answer file
     answer_file  = models.FileField(
         upload_to='test_submissions/',
         null=True, blank=True,
@@ -745,10 +780,19 @@ class TestSubmission(models.Model):
 
     submitted_at = models.DateTimeField(auto_now_add=True)
 
+    # AI Evaluation
+    ai_score = models.FloatField(null=True, blank=True)
+    ai_feedback = models.TextField(blank=True)
+    ai_response = models.JSONField(
+        null=True,
+        blank=True,
+        help_text=_('Raw AI evaluation response')
+    )
+    ai_evaluated_at = models.DateTimeField(null=True, blank=True)
+
     # Grading
     marks_obtained = models.FloatField(
-        _('Marks Obtained (%)'), null=True, blank=True,
-        validators=[MinValueValidator(0), MaxValueValidator(100)]
+        _('Marks Obtained'), null=True, blank=True
     )
     is_passed      = models.BooleanField(default=False)
     grader_remarks = models.TextField(blank=True)
@@ -783,10 +827,44 @@ class TestSubmission(models.Model):
             f"Attempt {self.attempt_number}"
         )
 
-# ─────────────────────────────────────────────────────────────────────────────
-# Post-Session MCQ (In-Lesson Assessment)
-# ─────────────────────────────────────────────────────────────────────────────
 
+class TestSubmissionAnswer(models.Model):
+    """
+    Individual answer for a specific question in a TestSubmission.
+    Allows for per-question files and text answers.
+    """
+    submission = models.ForeignKey(
+        TestSubmission, on_delete=models.CASCADE, related_name='answers'
+    )
+    question = models.ForeignKey(
+        BatchTestQuestion, on_delete=models.CASCADE, related_name='student_answers'
+    )
+    answer_file = models.FileField(
+        upload_to='test_submissions/answers/',
+        null=True, blank=True,
+        help_text=_('Supported: .ipynb, .pdf, .doc, .docx, .jpg, .jpeg, .png')
+    )
+    answer_text = models.TextField(
+        _('Answer Text'), blank=True,
+        help_text=_('For text-based answers')
+    )
+    
+    # Per-question marking
+    marks_obtained = models.FloatField(_('Marks Obtained'), null=True, blank=True)
+    ai_score = models.FloatField(null=True, blank=True)
+    ai_feedback = models.TextField(blank=True)
+
+    class Meta:
+        verbose_name = _('Test Submission Answer')
+        verbose_name_plural = _('Test Submission Answers')
+        unique_together = ('submission', 'question')
+
+    def __str__(self):
+        return f"Answer for Q{self.question.order} by {self.submission.enrollment.student.fullname}"
+
+
+
+# Post-Session MCQ (In-Lesson Assessment)
 class CoursePostSessionQuestion(models.Model):
     course_session = models.ForeignKey(
         CourseClassSession, on_delete=models.CASCADE, related_name='mcq_questions',

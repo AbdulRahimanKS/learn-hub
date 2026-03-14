@@ -1,15 +1,95 @@
 import time
 import random
-from rest_framework import generics, status
+from rest_framework import generics, status, serializers as drf_serializers
 from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.views import APIView
 from django.utils import timezone
-from apps.courses.models import TestSubmission
-from apps.courses.serializers.test_submission_serializers import TestSubmissionSerializer, TestSubmissionUpdateSerializer
+from apps.courses.models import (
+    TestSubmission, TestSubmissionAnswer, BatchWeeklyTest, 
+    BatchEnrollment, BatchTestQuestion
+)
+from apps.courses.serializers.test_submission_serializers import (
+    TestSubmissionSerializer, TestSubmissionUpdateSerializer
+)
 from utils.constants import UserTypeConstants
 from django.contrib.contenttypes.models import ContentType
 from apps.users.models import Notification
+from utils.common import format_success_response, ServiceError
+
+class TestSubmissionCreateView(APIView):
+    """
+    Allows a student to submit their weekly test.
+    Expects multi-part form data with:
+    - answers: JSON string mapping question_id to answer_text (optional)
+    - file_q_{id}: File upload for a specific question (optional)
+    """
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request, batch_id, week_id):
+        user = request.user
+        
+        # 1. Verify Enrollment
+        enrollment = BatchEnrollment.objects.filter(
+            batch_id=batch_id, 
+            student=user, 
+            status=BatchEnrollment.Status.ACTIVE
+        ).first()
+        if not enrollment:
+            raise ServiceError(detail="You are not an active student in this batch.", status_code=status.HTTP_403_FORBIDDEN)
+
+        # 2. Get Test
+        try:
+            test = BatchWeeklyTest.objects.get(batch_week_id=week_id, batch_week__batch_id=batch_id)
+        except BatchWeeklyTest.DoesNotExist:
+            raise ServiceError(detail="Test not found for this week.", status_code=status.HTTP_404_NOT_FOUND)
+
+        # 3. Check Attempt
+        latest_attempt = TestSubmission.objects.filter(
+            batch_weekly_test=test, enrollment=enrollment
+        ).order_by('-attempt_number').first()
+        
+        # If the latest attempt is already PUBLISHED and passed, they shouldn't resubmit
+        if latest_attempt and latest_attempt.status == TestSubmission.Status.PUBLISHED and latest_attempt.is_passed:
+             raise ServiceError(detail="You have already passed this test.", status_code=status.HTTP_400_BAD_REQUEST)
+
+        attempt_number = (latest_attempt.attempt_number + 1) if latest_attempt else 1
+
+        # 4. Create Submission
+        submission = TestSubmission.objects.create(
+            batch_weekly_test=test,
+            enrollment=enrollment,
+            attempt_number=attempt_number,
+            status=TestSubmission.Status.PENDING
+        )
+
+        # 5. Handle Answers
+        import json
+        answers_data = {}
+        if 'answers' in request.data:
+            try:
+                answers_data = json.loads(request.data.get('answers'))
+            except json.JSONDecodeError:
+                pass
+
+        questions = test.questions.all()
+        for question in questions:
+            answer_text = answers_data.get(str(question.id), "")
+            answer_file = request.FILES.get(f'file_q_{question.id}')
+            
+            if answer_text or answer_file:
+                TestSubmissionAnswer.objects.create(
+                    submission=submission,
+                    question=question,
+                    answer_text=answer_text,
+                    answer_file=answer_file
+                )
+
+        return format_success_response(
+            message="Test submitted successfully",
+            data=TestSubmissionSerializer(submission).data,
+            status_code=status.HTTP_201_CREATED
+        )
 
 class BatchTestSubmissionListView(generics.ListAPIView):
     """
@@ -142,13 +222,18 @@ class TriggerAIEvaluationView(APIView):
                 object_id=submission.id
             )
 
-        # In a real scenario, you'd enqueue a Celery task here.
-        # e.g., run_ai_grader.delay(submission.id)
+        # Trigger actual evaluation
+        from apps.courses.ai_services import AIEvaluationService
+        ai_service = AIEvaluationService()
+        ai_service.evaluate_submission(submission.id)
+        
+        # Refresh submission from DB after AI evaluation
+        submission.refresh_from_db()
         
         return Response({
             "success": True,
-            "message": "AI evaluation started successfully.",
-            "data": {"status": submission.status}
+            "message": "AI evaluation completed and moved to Pending Review." if submission.status == TestSubmission.Status.PENDING_REVIEW else "AI evaluation initiated.",
+            "data": TestSubmissionSerializer(submission).data
         }, status=status.HTTP_200_OK)
 
 class SimulateAIEvaluationCompleteView(APIView):
@@ -195,3 +280,13 @@ class SimulateAIEvaluationCompleteView(APIView):
             "message": "AI evaluation completed and is pending review.",
             "data": TestSubmissionSerializer(submission).data
         }, status=status.HTTP_200_OK)
+
+class MyTestSubmissionsListView(generics.ListAPIView):
+    """
+    Lists all test submissions for the authenticated student.
+    """
+    permission_classes = [IsAuthenticated]
+    serializer_class = TestSubmissionSerializer
+
+    def get_queryset(self):
+        return TestSubmission.objects.filter(enrollment__student=self.request.user).order_by('-submitted_at')

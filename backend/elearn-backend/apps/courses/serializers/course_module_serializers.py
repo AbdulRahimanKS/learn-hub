@@ -349,15 +349,37 @@ class BatchWeeklyTestSerializer(serializers.ModelSerializer):
     questions = BatchTestQuestionSerializer(many=True, read_only=True)
     is_passed = serializers.SerializerMethodField()
     has_attempted = serializers.SerializerMethodField()
+    latest_submission = serializers.SerializerMethodField()
 
     class Meta:
         model = BatchWeeklyTest
         fields = [
             'id', 'batch_week', 'title', 'instructions', 'pass_percentage',
-            'answer_key', 'questions', 'is_passed', 'has_attempted', 
+            'answer_key', 'questions', 'is_passed', 'has_attempted', 'latest_submission',
             'created_by', 'updated_by', 'created_at', 'updated_at'
         ]
         read_only_fields = ['batch_week', 'created_by', 'updated_by', 'created_at', 'updated_at']
+
+    def get_latest_submission(self, obj):
+        request = self.context.get('request')
+        if not request or not request.user.is_authenticated:
+            return None
+            
+        from apps.courses.models import BatchEnrollment, TestSubmission
+        from apps.courses.serializers.test_submission_serializers import TestSubmissionSerializer
+
+        enrollment = BatchEnrollment.objects.filter(student=request.user, batch=obj.batch_week.batch).first()
+        if not enrollment:
+            return None
+            
+        submission = TestSubmission.objects.filter(
+            enrollment=enrollment,
+            batch_weekly_test=obj
+        ).order_by('-submitted_at').first()
+        
+        if submission:
+            return TestSubmissionSerializer(submission, context=self.context).data
+        return None
 
     def get_is_passed(self, obj):
         request = self.context.get('request')

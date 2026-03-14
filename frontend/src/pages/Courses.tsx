@@ -36,6 +36,9 @@ import { batchContentApi } from '@/lib/batch-api';
 import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
 import { SessionMcqPractice } from '@/components/SessionMcqPractice';
+import { WeeklyTestSubmission } from '@/components/WeeklyTestSubmission';
+import { WeeklyTestResults } from '@/components/WeeklyTestResults';
+import { WeeklyTest } from '@/components/WeeklyTestManager';
 
 export default function Courses() {
   const { toast } = useToast();
@@ -59,6 +62,12 @@ export default function Courses() {
 
   // State for locally tracking viewed sessions in this component session
   const [viewedSessions, setViewedSessions] = useState<string[]>([]);
+
+  // State for student test submission
+  const [isTestSubmissionOpen, setIsTestSubmissionOpen] = useState(false);
+  const [isResultsOpen, setIsResultsOpen] = useState(false);
+  const [activeTest, setActiveTest] = useState<WeeklyTest | null>(null);
+  const [activeTestWeek, setActiveTestWeek] = useState<number | null>(null);
 
   useEffect(() => {
     fetchCourses();
@@ -805,16 +814,30 @@ export default function Courses() {
                                   </div>
                                   <Button
                                     size="sm"
-                                    disabled={locked || !sessions.every((s: any) => s.is_completed)}
+                                    disabled={locked || (!sessions.every((s: any) => s.is_completed) && !(week.weekly_test as any).has_attempted)}
                                     className={cn(
                                       'font-bold rounded-full h-9 px-6 text-xs transition-all',
-                                      locked || !sessions.every((s: any) => s.is_completed)
+                                      locked || (!sessions.every((s: any) => s.is_completed) && !(week.weekly_test as any).has_attempted)
                                         ? 'bg-muted text-muted-foreground cursor-not-allowed border'
-                                        : 'bg-primary hover:bg-primary/90 text-white shadow-md'
+                                        : (week.weekly_test as any).has_attempted 
+                                          ? 'bg-white border-primary/20 text-primary hover:bg-primary/5 shadow-sm'
+                                          : 'bg-primary hover:bg-primary/90 text-white shadow-md'
                                     )}
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      setActiveTest(week.weekly_test as any);
+                                      setActiveTestWeek(week.id);
+                                      if ((week.weekly_test as any).has_attempted) {
+                                        setIsResultsOpen(true);
+                                      } else {
+                                        setIsTestSubmissionOpen(true);
+                                      }
+                                    }}
                                   >
                                     {locked
                                       ? 'Locked'
+                                      : (week.weekly_test as any).has_attempted
+                                      ? 'View Results'
                                       : !sessions.every((s: any) => s.is_completed)
                                       ? 'Complete Lessons'
                                       : 'Take Test'}
@@ -863,6 +886,38 @@ export default function Courses() {
                 </DialogContent>
               )}
             </Dialog>
+
+            {/* Student Weekly Test Submission */}
+            {activeTest && selectedCourse?.batch_id && activeTestWeek && (
+              <WeeklyTestSubmission
+                open={isTestSubmissionOpen}
+                onClose={() => {
+                  setIsTestSubmissionOpen(false);
+                  setActiveTest(null);
+                  setActiveTestWeek(null);
+                }}
+                test={activeTest}
+                batchId={selectedCourse.batch_id}
+                weekId={activeTestWeek}
+                onSubmitted={() => {
+                  if (selectedCourse) loadCourseContent(selectedCourse);
+                }}
+              />
+            )}
+
+            {/* Student Weekly Test Results */}
+            {activeTest && (activeTest as any).latest_submission && (
+              <WeeklyTestResults
+                open={isResultsOpen}
+                onClose={() => {
+                  setIsResultsOpen(false);
+                  setActiveTest(null);
+                  setActiveTestWeek(null);
+                }}
+                submission={(activeTest as any).latest_submission}
+                testTitle={activeTest.title}
+              />
+            )}
           </>
         )}
       </div>

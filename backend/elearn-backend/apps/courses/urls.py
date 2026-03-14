@@ -59,6 +59,8 @@ from apps.courses.views.test_submission_views import (
     TestSubmissionDetailView,
     TriggerAIEvaluationView,
     SimulateAIEvaluationCompleteView,
+    TestSubmissionCreateView,
+    MyTestSubmissionsListView,
 )
 from apps.courses.views.live_session_views import (
     LiveSessionListCreateView,
@@ -119,12 +121,14 @@ urlpatterns = [
     path("batches/<int:batch_id>/weeks/<int:week_id>/test/questions/<int:question_id>/", BatchWeeklyTestQuestionDetailView.as_view(), name="batch-test-question-detail"),
     path("batches/<int:batch_id>/weeks/<int:week_id>/test/questions/<int:question_id>/attachments/", BatchWeeklyTestQuestionAttachmentView.as_view(), name="batch-test-question-attachments"),
     path("batches/<int:batch_id>/weeks/<int:week_id>/test/questions/<int:question_id>/attachments/<int:attachment_id>/", BatchWeeklyTestQuestionAttachmentDetailView.as_view(), name="batch-test-question-attachment-detail"),
+    path("batches/<int:batch_id>/weeks/<int:week_id>/test/submit/", TestSubmissionCreateView.as_view(), name="batch-test-submit"),
 
     # Test Submissions / Evaluation Workflow
-    path("batches/<int:batch_id>/submissions/", BatchTestSubmissionListView.as_view(), name="batch-submissions-list"),
-    path("submissions/<int:pk>/", TestSubmissionDetailView.as_view(), name="submission-detail"),
-    path("submissions/<int:pk>/trigger-evaluation/", TriggerAIEvaluationView.as_view(), name="trigger-ai-evaluation"),
-    path("submissions/<int:pk>/simulate-evaluation-complete/", SimulateAIEvaluationCompleteView.as_view(), name="simulate-ai-evaluation-complete"),
+    path("batches/<int:batch_id>/test-submissions/", BatchTestSubmissionListView.as_view(), name="batch-submissions-list"),
+    path("test-submissions/my-submissions/", MyTestSubmissionsListView.as_view(), name="my-test-submissions"),
+    path("test-submissions/<int:pk>/", TestSubmissionDetailView.as_view(), name="submission-detail"),
+    path("test-submissions/<int:pk>/trigger-ai/", TriggerAIEvaluationView.as_view(), name="trigger-ai-evaluation"),
+    path("test-submissions/<int:pk>/simulate-ai-complete/", SimulateAIEvaluationCompleteView.as_view(), name="simulate-ai-evaluation-complete"),
 
     # Webinars
     path("batches/<int:batch_id>/webinars/", ScheduledWebinarListCreateView.as_view(), name="batch-webinar-list-create"),
