@@ -2,16 +2,12 @@ import React, { useState, useRef } from 'react';
 import {
   Dialog,
   DialogContent,
-  DialogHeader,
   DialogTitle,
   DialogDescription,
-  DialogFooter,
 } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
-import { Card, CardContent } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
 import {
   FileText,
   Upload,
@@ -20,10 +16,13 @@ import {
   CheckCircle,
   AlertCircle,
   Image as ImageIcon,
-  Clock,
   HelpCircle,
   Eye,
   Download,
+  ArrowLeft,
+  ArrowRight,
+  Copy,
+  MoreHorizontal
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { apiClient } from '@/lib/api';
@@ -52,6 +51,7 @@ export function WeeklyTestSubmission({
   const [files, setFiles] = useState<Record<number, File>>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [showConfirm, setShowConfirm] = useState(false);
+  const [activeQuestionIndex, setActiveQuestionIndex] = useState(0);
   const fileInputRefs = useRef<Record<number, HTMLInputElement | null>>({});
 
   const handleTextChange = (questionId: number, text: string) => {
@@ -113,270 +113,397 @@ export function WeeklyTestSubmission({
     return url.split('/').pop()?.split('?')[0] || url;
   };
 
+  if (!test?.questions || test.questions.length === 0) return null;
+
   const answeredCount = test.questions.filter(q => 
     (answers[q.id] && answers[q.id].trim() !== '') || files[q.id]
   ).length;
   const totalQuestions = test.questions.length;
+  const progress = totalQuestions > 0 ? (answeredCount / totalQuestions) * 100 : 0;
+  
+  const activeQuestion = test.questions[activeQuestionIndex];
 
   return (
     <Dialog open={open} onOpenChange={(v) => !v && !isSubmitting && onClose()}>
-      <DialogContent className="sm:max-w-3xl max-h-[92vh] flex flex-col p-0 overflow-hidden border-none shadow-2xl bg-white dark:bg-background">
-        {/* Compact Blue Header */}
-        <div className="bg-gradient-to-br from-[#1a237e] via-[#283593] to-[#3949ab] p-6 text-white shrink-0 relative">
-          <DialogTitle className="text-xl font-bold tracking-tight mb-1">
-            {test.title}
-          </DialogTitle>
-          <DialogDescription className="text-white/70 text-xs font-medium max-w-lg">
-            Answer questions by typing or uploading files.
-          </DialogDescription>
+      {/* Container is full-width style modal */}
+      <DialogContent className="max-w-[1200px] w-[95vw] h-[90vh] flex flex-col p-0 overflow-hidden border-[#1A1F36] shadow-[0_0_80px_rgba(0,0,0,0.6)] bg-[#0A0D18] text-slate-300">
+        
+        {/* Header Section */}
+        <div className="flex-none pt-8 px-8 pb-4">
+           {/* Top part: Title and global progress */}
+           <div className="flex justify-between items-start mb-6">
+              <div>
+                 <DialogTitle className="text-2xl font-semibold text-white tracking-wide mb-1.5">{test.title}</DialogTitle>
+                 <DialogDescription className="text-slate-400 text-[15px]">Answer questions by typing or uploading files.</DialogDescription>
+              </div>
+              <div className="flex items-center gap-5">
+                 <span className="text-[13px] font-medium text-indigo-400/80">Answered {answeredCount} / {totalQuestions}</span>
+                 <div className="w-[100px] bg-[#1a1f33] h-1.5 rounded-full overflow-hidden">
+                   <div className="bg-[#4a5ee3] h-full rounded-full transition-all duration-300" style={{ width: `${progress}%` }}></div>
+                 </div>
+                 <span className="text-[13px] font-medium text-slate-400">{Math.round(progress)}%</span>
+              </div>
+           </div>
+
+           {/* Tabs section */}
+           <div className="flex items-center gap-6 pb-2 border-b border-[#1A1F36]">
+              <div className="bg-[#101423] p-1.5 rounded-[2rem] flex items-center justify-between w-full">
+                 <div className="flex items-center gap-2">
+                    <div className="bg-transparent px-4 py-1.5 rounded-full flex items-center gap-3">
+                       <span className="text-[15px] font-semibold text-white">Questions</span>
+                       <div className="bg-[#1a1f33] text-[11px] font-bold px-2.5 py-1 rounded-full text-slate-300">
+                          {test.questions.reduce((sum, q) => sum + q.marks, 0)} / {totalQuestions}
+                       </div>
+                    </div>
+                    
+                    <div className="w-px h-6 bg-[#1A1F36] mx-1"></div>
+
+                    <div className="flex-1 flex gap-1">
+                       {test.questions.map((q, i) => (
+                          <button
+                            key={q.id}
+                            onClick={() => setActiveQuestionIndex(i)}
+                            className={`px-5 py-2.5 rounded-full text-[13px] font-medium whitespace-nowrap transition-all duration-300 ${
+                              activeQuestionIndex === i 
+                                ? 'bg-[#21295c] text-indigo-300 shadow-[0_0_15px_rgba(65,85,225,0.1)]' 
+                                : 'bg-transparent text-slate-400 hover:text-white hover:bg-[#1a1f33]'
+                            }`}
+                          >
+                            Question {i + 1}
+                          </button>
+                       ))}
+                    </div>
+                 </div>
+                 
+                 <div className="hidden md:flex items-center gap-2 px-5 py-2.5 bg-[#101423] rounded-full text-[13px] font-medium text-slate-400 border border-[#1A1F36]/50">
+                    <CheckCircle className="w-3.5 h-3.5 text-indigo-400/60" /> Test Progress Tracker
+                 </div>
+              </div>
+           </div>
         </div>
 
-        <div className="flex-1 overflow-y-auto p-5 md:p-6 space-y-6 scrollbar-hide">
-          {test.questions.map((question, index) => (
-            <Card key={question.id} className="border-none shadow-sm bg-white dark:bg-card dark:border dark:border-slate-800/50 rounded-2xl overflow-hidden">
-              <CardContent className="p-5 md:p-6">
-                {/* Question Header */}
-                <div className="flex items-center justify-between mb-4">
-                  <div className="flex items-center gap-2.5">
-                    <Badge className="bg-indigo-50 dark:bg-indigo-950/30 text-indigo-600 dark:text-indigo-400 border-none font-bold px-3 py-1 rounded text-xs leading-none">
-                      Question {index + 1}
-                    </Badge>
-                    <Badge className="bg-slate-100 dark:bg-slate-800/50 text-slate-500 dark:text-slate-400 border-none font-medium px-3 py-1 rounded text-[10px] leading-none uppercase tracking-wider">
-                      {question.marks} marks
-                    </Badge>
+        {/* Main Content Split */}
+        <div className="flex-1 flex overflow-hidden">
+           
+           {/* Left: Question Area */}
+           <div className="flex-1 overflow-y-auto px-10 py-8 relative [&::-webkit-scrollbar]:w-2 [&::-webkit-scrollbar-thumb]:bg-[#1A1F36] [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-track]:bg-transparent">
+              <div className="max-w-[800px] mb-8">
+                
+                {/* Question Info Header */}
+                <div className="flex items-center gap-4 mb-6">
+                  <div className="bg-[#161a33] text-[#6979F8] px-3.5 py-1.5 rounded-md text-[10px] font-bold tracking-widest uppercase">
+                    QUESTION {activeQuestionIndex + 1}
                   </div>
-                  <span className="text-xs uppercase font-bold text-slate-300 dark:text-slate-700">
-                    {question.marks} marks
-                  </span>
+                  <div className="text-slate-400 text-[13px] font-medium">
+                    {activeQuestion.marks} Marks
+                  </div>
                 </div>
 
                 {/* Question Text */}
-                <h3 className="text-base md:text-lg font-bold text-slate-800 dark:text-slate-100 mb-4 leading-relaxed">
-                  {question.text}
-                </h3>
+                <h2 className="text-[26px] font-bold text-white leading-snug mb-6 whitespace-pre-line">
+                  {activeQuestion.text}
+                </h2>
 
-                <div className="h-px bg-slate-100 dark:bg-white/5 w-full mb-5" />
-
-                <div className="space-y-6">
-                  {/* Question Resources (Reference Materials from Admin) */}
-                  {(question.question_file || question.image || (question.attachments && question.attachments.length > 0)) && (
-                    <div className="space-y-3">
-                      <Label className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest flex items-center gap-2">
-                        <HelpCircle className="h-3 w-3" /> Reference Files
-                      </Label>
-                      
-                      <div className="grid grid-cols-1 gap-2">
-                        {question.question_file && (
-                          <div className="flex items-center justify-between p-2.5 rounded-xl bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-800/50 group/file hover:bg-slate-100 dark:hover:bg-slate-800 transition-all shadow-sm">
-                             <div className="flex items-center gap-2.5 min-w-0">
-                                <div className="h-8 w-8 rounded-lg bg-indigo-50 dark:bg-indigo-500/10 flex items-center justify-center shrink-0">
-                                  <FileText className="h-4 w-4 text-indigo-600 dark:text-indigo-400" />
-                                </div>
-                                <div className="min-w-0">
-                                   <p className="text-[11px] font-bold text-slate-800 dark:text-slate-100 truncate" title={shortName(question.question_file)}>
-                                     {shortName(question.question_file)}
-                                   </p>
-                                   <p className="text-[8px] font-bold text-slate-400 dark:text-white/30 uppercase tracking-wider">Question Resource</p>
-                                </div>
-                             </div>
-                             <div className="flex items-center gap-1 opacity-40 group-hover/file:opacity-100 transition-opacity">
-                                <Button variant="ghost" size="icon" className="h-7 w-7" asChild>
-                                   <a href={question.question_file} target="_blank" rel="noreferrer">
-                                     <Eye className="h-3.5 w-3.5" />
-                                   </a>
-                                </Button>
-                                <Button variant="ghost" size="icon" className="h-7 w-7" asChild>
-                                   <a href={question.question_file} download>
-                                     <Download className="h-3.5 w-3.5" />
-                                   </a>
-                                </Button>
-                             </div>
-                          </div>
-                        )}
-                        {question.image && (
-                          <div className="flex items-center justify-between p-2.5 rounded-xl bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-800/50 group/file hover:bg-slate-100 dark:hover:bg-slate-800 transition-all shadow-sm">
-                             <div className="flex items-center gap-2.5 min-w-0">
-                                <div className="h-8 w-8 rounded-lg bg-indigo-50 dark:bg-indigo-500/10 flex items-center justify-center shrink-0">
-                                  <ImageIcon className="h-4 w-4 text-indigo-600 dark:text-indigo-400" />
-                                </div>
-                                <div className="min-w-0">
-                                   <p className="text-[11px] font-bold text-slate-800 dark:text-slate-100 truncate">Image Preview</p>
-                                   <p className="text-[8px] font-bold text-slate-400 dark:text-white/30 uppercase tracking-wider">Visual Asset</p>
-                                </div>
-                             </div>
-                             <div className="flex items-center gap-1 opacity-40 group-hover/file:opacity-100 transition-opacity">
-                                <Button variant="ghost" size="icon" className="h-7 w-7" asChild>
-                                   <a href={question.image} target="_blank" rel="noreferrer">
-                                     <Eye className="h-3.5 w-3.5" />
-                                   </a>
-                                </Button>
-                                <Button variant="ghost" size="icon" className="h-7 w-7" asChild>
-                                   <a href={question.image} download>
-                                     <Download className="h-3.5 w-3.5" />
-                                   </a>
-                                </Button>
-                             </div>
-                          </div>
-                        )}
-                        {(question.attachments || []).map(att => (
-                          <div key={att.id} className="flex items-center justify-between p-2.5 rounded-xl bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-800/50 group/file hover:bg-slate-100 dark:hover:bg-slate-800 transition-all shadow-sm">
-                             <div className="flex items-center gap-2.5 min-w-0">
-                                <div className="h-8 w-8 rounded-lg bg-indigo-50 dark:bg-indigo-500/10 flex items-center justify-center shrink-0">
-                                  <FileText className="h-4 w-4 text-indigo-600 dark:text-indigo-400" />
-                                </div>
-                                <div className="min-w-0">
-                                   <p className="text-[11px] font-bold text-slate-800 dark:text-slate-100 truncate" title={att.name || att.file}>
-                                     {att.name || shortName(att.file)}
-                                   </p>
-                                   <p className="text-[8px] font-bold text-slate-400 dark:text-white/30 uppercase tracking-wider">Additional Resource</p>
-                                </div>
-                             </div>
-                             <div className="flex items-center gap-1 opacity-40 group-hover/file:opacity-100 transition-opacity">
-                                <Button variant="ghost" size="icon" className="h-7 w-7" asChild>
-                                   <a href={att.file} target="_blank" rel="noreferrer">
-                                     <Eye className="h-3.5 w-3.5" />
-                                   </a>
-                                </Button>
-                                <Button variant="ghost" size="icon" className="h-7 w-7" asChild>
-                                   <a href={att.file} download>
-                                     <Download className="h-3.5 w-3.5" />
-                                   </a>
-                                </Button>
-                             </div>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-
-                  {/* Your Answer Section */}
-                  <div className="space-y-3">
-                    <Label className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest">
-                      Your Answer
+                {/* Question Resources (Reference Materials from Admin) */}
+                {(activeQuestion.question_file || activeQuestion.image || (activeQuestion.attachments && activeQuestion.attachments.length > 0)) && (
+                  <div className="space-y-3 mb-8">
+                    <Label className="text-[11px] font-bold text-slate-400 uppercase tracking-[0.15em] flex items-center gap-2">
+                      <HelpCircle className="h-4 w-4" /> Reference Files
                     </Label>
                     
-                    <div className="grid gap-3">
-                      <Textarea 
-                        placeholder="Type your answer here..."
-                        value={answers[question.id] || ''}
-                        onChange={(e) => handleTextChange(question.id, e.target.value)}
-                        className="min-h-[90px] rounded-xl bg-slate-50 dark:bg-slate-900/50 border-slate-200 dark:border-slate-800/50 p-4 text-base resize-none focus:ring-1 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all font-medium"
-                      />
-                      
-                      {files[question.id] ? (
-                        <div className="flex items-center justify-between p-3 rounded-xl bg-emerald-50/50 dark:bg-emerald-950/10 border border-emerald-100 dark:border-emerald-900/30">
-                          <div className="flex items-center gap-3 overflow-hidden">
-                            <div className="h-10 w-10 rounded-lg bg-emerald-100 dark:bg-emerald-900/50 flex items-center justify-center shrink-0">
-                               <FileText className="h-5 w-5 text-emerald-600 dark:text-emerald-400" />
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                      {activeQuestion.question_file && (
+                        <div className="flex items-center justify-between p-3 rounded-xl bg-[#0c101d] border border-[#1A1F36] group/file shadow-sm">
+                            <div className="flex items-center gap-3 min-w-0">
+                              <div className="h-10 w-10 rounded-lg bg-[#1a1f33] flex items-center justify-center shrink-0">
+                                <FileText className="h-5 w-5 text-indigo-400" />
+                              </div>
+                              <div className="min-w-0">
+                                  <p className="text-[13px] font-semibold text-slate-200 truncate" title={shortName(activeQuestion.question_file)}>
+                                    {shortName(activeQuestion.question_file)}
+                                  </p>
+                                  <p className="text-[10px] font-medium text-slate-500 uppercase tracking-widest mt-0.5">Question Resource</p>
+                              </div>
                             </div>
-                            <div className="min-w-0">
-                               <p className="text-xs font-bold text-slate-900 dark:text-slate-100 truncate">{files[question.id].name}</p>
-                               <p className="text-[10px] font-medium text-emerald-600 dark:text-emerald-400">Successfully Uploaded</p>
+                            <div className="flex items-center gap-1 opacity-0 group-hover/file:opacity-100 transition-opacity">
+                              <Button variant="ghost" size="icon" className="h-8 w-8 text-slate-400 hover:text-white" asChild>
+                                  <a href={activeQuestion.question_file} target="_blank" rel="noreferrer">
+                                    <Eye className="h-4 w-4" />
+                                  </a>
+                              </Button>
+                              <Button variant="ghost" size="icon" className="h-8 w-8 text-slate-400 hover:text-white" asChild>
+                                  <a href={activeQuestion.question_file} download>
+                                    <Download className="h-4 w-4" />
+                                  </a>
+                              </Button>
                             </div>
-                          </div>
-                          <button 
-                            onClick={() => handleFileChange(question.id, null)}
-                            className="h-8 w-8 rounded-lg hover:bg-rose-50 dark:hover:bg-rose-950/30 text-slate-400 hover:text-rose-500 flex items-center justify-center transition-colors"
-                          >
-                            <X className="h-4 w-4" />
-                          </button>
-                        </div>
-                      ) : (
-                        <div 
-                          className="border border-dashed border-slate-200 dark:border-slate-800/50 rounded-xl p-6 text-center cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-800/30 transition-all group"
-                          onClick={() => fileInputRefs.current[question.id]?.click()}
-                        >
-                          <input 
-                            type="file"
-                            className="hidden"
-                            ref={(el) => (fileInputRefs.current[question.id] = el)}
-                            onChange={(e) => handleFileChange(question.id, e.target.files?.[0] || null)}
-                          />
-                          <div className="flex flex-col items-center gap-2">
-                            <div className="h-10 w-10 rounded-full bg-slate-100 dark:bg-slate-800/50 flex items-center justify-center group-hover:scale-105 transition-transform">
-                              <Upload className="h-5 w-5 text-slate-400 group-hover:text-indigo-400 transition-colors" />
-                            </div>
-                            <div>
-                               <p className="text-sm font-bold text-slate-600 dark:text-slate-400">Click to upload solution file</p>
-                               <p className="text-[10px] font-medium text-slate-400 mt-0.5">Support for .ipynb, .pdf, .zip etc.</p>
-                            </div>
-                          </div>
                         </div>
                       )}
+                      
+                      {activeQuestion.image && (
+                        <div className="flex items-center justify-between p-3 rounded-xl bg-[#0c101d] border border-[#1A1F36] group/file shadow-sm">
+                            <div className="flex items-center gap-3 min-w-0">
+                              <div className="h-10 w-10 rounded-lg bg-[#1a1f33] flex items-center justify-center shrink-0">
+                                <ImageIcon className="h-5 w-5 text-indigo-400" />
+                              </div>
+                              <div className="min-w-0">
+                                  <p className="text-[13px] font-semibold text-slate-200 truncate">Image Preview</p>
+                                  <p className="text-[10px] font-medium text-slate-500 uppercase tracking-widest mt-0.5">Visual Asset</p>
+                              </div>
+                            </div>
+                            <div className="flex items-center gap-1 opacity-0 group-hover/file:opacity-100 transition-opacity">
+                              <Button variant="ghost" size="icon" className="h-8 w-8 text-slate-400 hover:text-white" asChild>
+                                  <a href={activeQuestion.image} target="_blank" rel="noreferrer">
+                                    <Eye className="h-4 w-4" />
+                                  </a>
+                              </Button>
+                              <Button variant="ghost" size="icon" className="h-8 w-8 text-slate-400 hover:text-white" asChild>
+                                  <a href={activeQuestion.image} download>
+                                    <Download className="h-4 w-4" />
+                                  </a>
+                              </Button>
+                            </div>
+                        </div>
+                      )}
+                      
+                      {(activeQuestion.attachments || []).map(att => (
+                        <div key={att.id} className="flex items-center justify-between p-3 rounded-xl bg-[#0c101d] border border-[#1A1F36] group/file shadow-sm">
+                            <div className="flex items-center gap-3 min-w-0">
+                              <div className="h-10 w-10 rounded-lg bg-[#1a1f33] flex items-center justify-center shrink-0">
+                                <FileText className="h-5 w-5 text-indigo-400" />
+                              </div>
+                              <div className="min-w-0">
+                                  <p className="text-[13px] font-semibold text-slate-200 truncate" title={att.name || att.file}>
+                                    {att.name || shortName(att.file)}
+                                  </p>
+                                  <p className="text-[10px] font-medium text-slate-500 uppercase tracking-widest mt-0.5">Additional Resource</p>
+                              </div>
+                            </div>
+                            <div className="flex items-center gap-1 opacity-0 group-hover/file:opacity-100 transition-opacity">
+                              <Button variant="ghost" size="icon" className="h-8 w-8 text-slate-400 hover:text-white" asChild>
+                                  <a href={att.file} target="_blank" rel="noreferrer">
+                                    <Eye className="h-4 w-4" />
+                                  </a>
+                              </Button>
+                              <Button variant="ghost" size="icon" className="h-8 w-8 text-slate-400 hover:text-white" asChild>
+                                  <a href={att.file} download>
+                                    <Download className="h-4 w-4" />
+                                  </a>
+                              </Button>
+                            </div>
+                        </div>
+                      ))}
                     </div>
                   </div>
+                )}
+                
+                {/* Answer Box */}
+                <div className="space-y-4 mb-10">
+                  <div className="flex items-center justify-between">
+                    <h3 className="text-[11px] font-bold text-slate-400 tracking-[0.15em] uppercase">Your Answer</h3>
+                    {answers[activeQuestion.id] && answers[activeQuestion.id].trim() !== '' && (
+                      <div className="flex items-center gap-2 text-[11px] text-[#22c55e] font-medium tracking-wide">
+                        <div className="w-1.5 h-1.5 rounded-full bg-[#22c55e] animate-pulse"></div>
+                        Draft saved
+                      </div>
+                    )}
+                  </div>
+                  
+                  <div className="border border-[#1A1F36] bg-[#0c101d] rounded-2xl overflow-hidden focus-within:border-indigo-500/50 focus-within:ring-1 focus-within:ring-indigo-500/20 transition-all shadow-inner">
+                     <Textarea 
+                       placeholder="Type your answer here..."
+                       value={answers[activeQuestion.id] || ''}
+                       onChange={(e) => handleTextChange(activeQuestion.id, e.target.value)}
+                       className="min-h-[200px] w-full bg-transparent border-none text-slate-200 placeholder:text-slate-600 resize-none p-6 focus-visible:ring-0 text-[16px] leading-relaxed focus:outline-none focus-visible:outline-none rounded-none shadow-none"
+                     />
+                  </div>
                 </div>
-              </CardContent>
-            </Card>
-          ))}
+
+                {/* Upload Solution */}
+                <div className="space-y-4">
+                  <div className="flex items-center gap-2 text-slate-300">
+                    <h3 className="text-[13px] font-semibold flex items-center gap-2">
+                       <Upload className="w-4 h-4 opacity-50"/> Upload Solution
+                    </h3>
+                  </div>
+
+                  {!files[activeQuestion.id] ? (
+                    <div 
+                      onClick={() => fileInputRefs.current[activeQuestion.id]?.click()}
+                      className="border border-dashed border-[#1A1F36] rounded-xl p-10 bg-[#0c101d]/50 hover:bg-[#0c101d] transition-colors cursor-pointer flex flex-col items-center justify-center group"
+                    >
+                       <input 
+                         type="file"
+                         className="hidden"
+                         ref={(el) => (fileInputRefs.current[activeQuestion.id] = el)}
+                         onChange={(e) => handleFileChange(activeQuestion.id, e.target.files?.[0] || null)}
+                       />
+                       <p className="text-slate-300 text-[15px] mb-2">
+                         <span className="font-semibold text-white">Drag & drop your</span> file here or <span className="text-indigo-400 group-hover:text-indigo-300 transition-colors">Browse</span>
+                       </p>
+                       <p className="text-[11px] text-slate-500 font-medium tracking-wide">Supported: .ipynb, pdf, doc, png</p>
+                    </div>
+                  ) : (
+                    <div className="flex items-center justify-between p-4 rounded-xl border border-[#1A1F36] bg-[#0c101d]">
+                       <div className="flex items-center gap-4">
+                          <div className="w-10 h-10 rounded bg-[#22c55e]/10 flex items-center justify-center text-[#22c55e]">
+                            <FileText className="w-5 h-5" />
+                          </div>
+                          <div>
+                            <p className="text-[14px] font-semibold text-slate-200">{files[activeQuestion.id].name}</p>
+                            <p className="text-[11px] text-[#22c55e] font-medium flex items-center gap-1.5 mt-0.5">
+                               <div className="w-1.5 h-1.5 rounded-full bg-[#22c55e]"></div> Uploaded
+                            </p>
+                          </div>
+                       </div>
+                       <div className="flex items-center gap-3">
+                          <Button variant="ghost" size="icon" className="text-slate-400 hover:text-white h-8 w-8"><Copy className="w-4 h-4"/></Button>
+                          <Button variant="ghost" size="icon" className="text-slate-400 hover:text-white h-8 w-8"><Download className="w-4 h-4"/></Button>
+                          <Button variant="ghost" size="icon" className="text-slate-400 hover:text-white h-8 w-8"><MoreHorizontal className="w-4 h-4"/></Button>
+                          <Button variant="ghost" size="icon" className="text-slate-400 hover:text-rose-400 h-8 w-8 ml-2" onClick={() => handleFileChange(activeQuestion.id, null)}><X className="w-4 h-4"/></Button>
+                       </div>
+                    </div>
+                  )}
+                </div>
+              </div>
+           </div>
+
+           {/* Right: Questions Summary List */}
+           <div className="w-[320px] lg:w-[380px] flex-none border-l border-[#1A1F36] bg-[#0A0D18] flex flex-col p-6">
+              <div className="pb-6">
+                <div className="flex justify-between items-center mb-4">
+                  <span className="text-white font-medium text-[16px]">Answered {answeredCount} / {totalQuestions}</span>
+                  <div className="flex items-center gap-3">
+                     <div className="w-16 bg-[#1a1f33] h-1.5 rounded-full overflow-hidden">
+                       <div className="bg-[#4a5ee3] h-full transition-all duration-300" style={{ width: `${progress}%` }}></div>
+                     </div>
+                     <span className="bg-[#101423] border border-[#1A1F36] text-slate-300 text-[11px] font-bold px-2 py-1 rounded-md">{Math.round(progress)}%</span>
+                  </div>
+                </div>
+              </div>
+
+              <div className="flex-1 overflow-y-auto space-y-1 [&::-webkit-scrollbar]:w-1.5 [&::-webkit-scrollbar-thumb]:bg-[#1A1F36] [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-track]:bg-transparent">
+                {test.questions.map((q, i) => {
+                  const isAnswered = answers[q.id]?.trim() || files[q.id];
+                  const isActive = activeQuestionIndex === i;
+                  return (
+                    <button
+                      key={q.id}
+                      onClick={() => setActiveQuestionIndex(i)}
+                      className={`w-full text-left px-5 py-4 flex items-center justify-between rounded-lg border-l-[3px] transition-all ${
+                        isActive 
+                          ? 'bg-[#151a30] border-[#4a5ee3]' 
+                          : 'border-transparent hover:bg-[#101423]'
+                      }`}
+                    >
+                      <span className={`font-semibold text-[15px] ${isActive ? 'text-white' : 'text-slate-400'}`}>Question {i+1}</span>
+                      <div className="flex items-center gap-4">
+                        <span className={`text-[12px] font-medium ${isActive ? 'text-slate-400' : 'text-slate-500'}`}>{q.marks} Marks</span>
+                        {isAnswered ? (
+                           <CheckCircle className={`w-[18px] h-[18px] ${isActive ? 'text-[#22c55e]' : 'text-[#22c55e]/60'}`} />
+                        ) : (
+                           <div className="w-[18px] h-[18px]" />
+                        )}
+                      </div>
+                    </button>
+                  )
+                })}
+              </div>
+           </div>
+
         </div>
 
-        <DialogFooter className="p-6 bg-white dark:bg-background border-t border-slate-100 dark:border-slate-800/50 shrink-0">
-          <div className="w-full flex justify-center">
-            <Button 
-              variant="gradient" 
-              size="lg"
-              onClick={validateAndConfirm} 
-              disabled={isSubmitting} 
-              className="px-12 py-4 h-auto rounded-xl font-black uppercase text-xs tracking-[0.2em] shadow-xl shadow-indigo-500/20 group hover:scale-[1.01] transition-all"
-            >
-              {isSubmitting ? (
-                <>
-                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                  Submitting
-                </>
-              ) : (
-                <>
-                  <Clock className="h-4 w-4 mr-2 opacity-70 group-hover:rotate-12 transition-transform" />
-                  Submit All Answers ({answeredCount}/{totalQuestions})
-                </>
-              )}
-            </Button>
+        {/* Footer Navigation */}
+        <div className="flex-none flex items-center justify-between px-8 py-5 border-t border-[#1A1F36] bg-[#0A0D18]">
+          <Button 
+            variant="ghost" 
+            className="text-slate-300 hover:text-white hover:bg-[#1A1F36] px-5 h-12 rounded-xl bg-[#101423] font-medium text-[14px]"
+            onClick={() => setActiveQuestionIndex(p => Math.max(0, p - 1))}
+            disabled={activeQuestionIndex === 0}
+          >
+             <ArrowLeft className="w-4 h-4 mr-2"/> Previous
+          </Button>
+
+          <div className="flex items-center gap-4 hidden md:flex">
+             <span className="text-[13px] text-slate-400 font-medium">Answered <span className="text-white">{answeredCount}</span> / {totalQuestions}</span>
+             <div className="w-48 bg-[#1a1f33] h-1.5 rounded-full overflow-hidden">
+               <div className="bg-[#4a5ee3] h-full transition-all duration-300" style={{ width: `${progress}%` }}></div>
+             </div>
+             <span className="text-[13px] text-slate-400 font-medium">{Math.round(progress)}%</span>
           </div>
-        </DialogFooter>
+
+          <div className="flex h-12 shadow-lg shadow-indigo-500/10 rounded-xl overflow-hidden">
+            {activeQuestionIndex < totalQuestions - 1 ? (
+               <Button 
+                 className="bg-[#242f6d] hover:bg-[#2e3b8a] text-white px-8 h-full uppercase tracking-wider text-[12px] font-bold rounded-none"
+                 onClick={() => setActiveQuestionIndex(p => p + 1)}
+               >
+                 Next Question <ArrowRight className="w-4 h-4 ml-2" />
+               </Button>
+            ) : (
+               <>
+                 <Button 
+                   className="bg-[#242f6d] hover:bg-[#2e3b8a] text-white px-8 h-full rounded-r-none border-r border-[#1a2357] uppercase tracking-wider text-[12px] font-bold shadow-none"
+                   onClick={validateAndConfirm}
+                   disabled={isSubmitting}
+                 >
+                   {isSubmitting ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <div className="w-3.5 h-3.5 rounded-full border-[1.5px] border-white/60 mr-2.5" />}
+                   Submit All Answers ({answeredCount}/{totalQuestions})
+                 </Button>
+                 <Button 
+                   className="bg-[#242f6d] hover:bg-[#2e3b8a] text-white px-4 h-full rounded-l-none shadow-none text-white/60"
+                   onClick={() => setActiveQuestionIndex(0)}
+                   title="Review from start"
+                 >
+                   <ArrowRight className="w-4 h-4" />
+                 </Button>
+               </>
+            )}
+          </div>
+        </div>
+
       </DialogContent>
 
       <Dialog open={showConfirm} onOpenChange={setShowConfirm}>
-        <DialogContent className="sm:max-w-[400px] rounded-3xl p-8 md:p-10 border-none dark:bg-card shadow-2xl animate-in zoom-in-95 duration-200">
-          <div className="flex flex-col items-center text-center space-y-6">
-            <div className="w-20 h-20 rounded-full bg-indigo-50 dark:bg-indigo-950/30 flex items-center justify-center text-indigo-600 dark:text-indigo-400 shadow-inner">
-              <HelpCircle className="h-10 w-10 animate-pulse" />
+        <DialogContent className="sm:max-w-[420px] rounded-[2rem] p-0 border-[#1A1F36] bg-[#0A0D18] shadow-[0_0_100px_rgba(0,0,0,0.8)] overflow-hidden">
+          <div className="bg-gradient-to-b from-indigo-600/10 to-transparent p-10 flex flex-col items-center text-center">
+            <div className="w-24 h-24 rounded-full bg-[#1a2357] flex items-center justify-center text-indigo-400 mb-8 shadow-2xl border border-indigo-500/20">
+              <HelpCircle className="h-12 w-12 animate-pulse" />
             </div>
             
-            <div className="space-y-2">
-              <DialogTitle className="text-2xl font-black tracking-tight text-slate-900 dark:text-white">
-                Ready to Submit?
-              </DialogTitle>
-              <DialogDescription className="text-sm font-medium text-slate-500 dark:text-slate-400 leading-relaxed">
-                Once submitted, you won't be able to edit your answers.
-              </DialogDescription>
-            </div>
+            <DialogTitle className="text-2xl font-bold tracking-tight text-white mb-3">
+              Ready to Submit?
+            </DialogTitle>
+            <DialogDescription className="text-[15px] font-medium text-slate-400 leading-relaxed mb-8">
+              Once submitted, your answers will be finalized and sent for evaluation. You won't be able to make further changes.
+            </DialogDescription>
 
             {test.questions.filter(q => !answers[q.id]?.trim() && !files[q.id]).length > 0 && (
-              <div className="w-full p-4 bg-rose-50 dark:bg-rose-950/20 border border-rose-100 dark:border-rose-900/30 rounded-2xl flex items-center gap-3">
-                <AlertCircle className="h-5 w-5 text-rose-500 shrink-0" />
-                <p className="text-xs font-bold text-rose-600 dark:text-rose-400 text-left leading-tight">
-                  Warning: You have {test.questions.filter(q => !answers[q.id]?.trim() && !files[q.id]).length} unanswered questions.
+              <div className="w-full p-4 bg-rose-500/5 border border-rose-500/20 rounded-2xl flex items-center gap-4 mb-8">
+                <div className="w-10 h-10 rounded-full bg-rose-500/10 flex items-center justify-center shrink-0">
+                   <AlertCircle className="h-5 w-5 text-rose-500" />
+                </div>
+                <p className="text-[13px] font-semibold text-rose-400 text-left leading-tight">
+                  Heads up! You have {test.questions.filter(q => !answers[q.id]?.trim() && !files[q.id]).length} unanswered questions.
                 </p>
               </div>
             )}
 
-            <div className="flex flex-col w-full gap-3 pt-2">
+            <div className="flex flex-col w-full gap-3">
               <Button 
-                variant="gradient" 
                 onClick={handleSubmit} 
                 disabled={isSubmitting} 
-                className="w-full h-12 rounded-xl font-black uppercase text-xs tracking-[0.2em] shadow-lg shadow-indigo-500/20"
+                className="w-full h-14 rounded-2xl bg-indigo-600 hover:bg-indigo-700 text-white font-bold uppercase tracking-[0.1em] text-[13px] shadow-lg shadow-indigo-600/20 transition-all active:scale-95"
               >
-                {isSubmitting ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
-                Confirm & Submit
+                {isSubmitting ? <Loader2 className="h-5 w-5 animate-spin mr-2" /> : null}
+                Finalize & Submit
               </Button>
               <Button 
                 variant="ghost" 
                 onClick={() => setShowConfirm(false)} 
-                className="w-full h-11 rounded-xl font-bold text-xs text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"
+                className="w-full h-14 rounded-2xl font-bold text-[13px] text-slate-400 hover:text-white hover:bg-[#1A1F36] transition-all"
               >
-                Go Back
+                Wait, I need to check
               </Button>
             </div>
           </div>
@@ -385,4 +512,3 @@ export function WeeklyTestSubmission({
     </Dialog>
   );
 }
-
