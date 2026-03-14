@@ -289,6 +289,11 @@ class AppConfiguration(models.Model):
     business_name = models.CharField(_("Business Name"), max_length=255, default="Learn Hub")
     timezone = models.CharField(_("Timezone"), max_length=100, default="Asia/Kolkata")
     logo = models.ImageField(upload_to="app_config/logos/", null=True, blank=True)
+    
+    openai_api_key = models.CharField(_("OpenAI API Key"), max_length=255, blank=True, null=True)
+    openai_model = models.CharField(_("OpenAI Model"), max_length=100, default="gpt-4o-mini", help_text="e.g. gpt-4o-mini or gpt-4")
+    groq_api_key = models.CharField(_("Groq API Key"), max_length=255, blank=True, null=True)
+    groq_model = models.CharField(_("Groq Model"), max_length=100, default="llama-3.3-70b-versatile", help_text="e.g. llama-3.3-70b-versatile")
 
     class Meta:
         verbose_name = _('App Configuration')

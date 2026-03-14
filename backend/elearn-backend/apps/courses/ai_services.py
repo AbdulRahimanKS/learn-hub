@@ -30,9 +30,27 @@ class AIEvaluationService:
     def __init__(self):
         self.openai_key = getattr(settings, 'OPENAI_API_KEY', None)
         self.groq_key = getattr(settings, 'GROQ_API_KEY', None)
+        self.openai_model = "gpt-4o-mini" # Default
+        self.groq_model = "llama-3.3-70b-versatile" # Default
+        
+        try:
+            from apps.users.models import AppConfiguration
+            app_config = AppConfiguration.objects.first()
+            if app_config:
+                if app_config.openai_api_key:
+                    self.openai_key = app_config.openai_api_key
+                if app_config.groq_api_key:
+                    self.groq_key = app_config.groq_api_key
+                if app_config.openai_model:
+                    self.openai_model = app_config.openai_model
+                if app_config.groq_model:
+                    self.groq_model = app_config.groq_model
+        except Exception as e:
+            logger.warning(f"Could not load AppConfiguration for AI configs: {e}")
+            
         self.client = None
         self.provider = None
-        self.model = "gpt-4o-mini" # Default
+        self.model = self.openai_model
 
         if self.groq_key and openai:
             try:
@@ -42,16 +60,16 @@ class AIEvaluationService:
                     base_url="https://api.groq.com/openai/v1"
                 )
                 self.provider = "groq"
-                self.model = "llama-3.3-70b-versatile"
-                logger.info("Using Groq for AI evaluation.")
+                self.model = self.groq_model
+                logger.info(f"Using Groq for AI evaluation with model {self.model}.")
             except Exception as e:
                 logger.error(f"Failed to initialize Groq client: {e}")
 
         if not self.client and self.openai_key and openai:
             self.client = openai.OpenAI(api_key=self.openai_key)
             self.provider = "openai"
-            self.model = "gpt-4o-mini"
-            logger.info("Using OpenAI for AI evaluation.")
+            self.model = self.openai_model
+            logger.info(f"Using OpenAI for AI evaluation with model {self.model}.")
 
         if not self.client:
             if not openai:
