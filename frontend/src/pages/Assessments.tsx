@@ -22,6 +22,7 @@ import {
   Filter,
   Award,
   TrendingUp,
+  BookOpen,
 } from 'lucide-react';
 import {
   Select,
@@ -53,6 +54,13 @@ export default function Assessments() {
   const [selectedBatch, setSelectedBatch] = useState<string>('');
   const [submissions, setSubmissions] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(false);
+  // Filters & Pagination
+  const [selectedWeek, setSelectedWeek] = useState<string>('all');
+  const [currentPage, setCurrentPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
+  const [activeTab, setActiveTab] = useState('review');
+  const [stats, setStats] = useState({ total: 0, pending: 0, published: 0 });
+  const [batchWeeks, setBatchWeeks] = useState<any[]>([]);
   
   // Review Modal State
   const [reviewId, setReviewId] = useState<number | null>(null);
@@ -69,18 +77,23 @@ export default function Assessments() {
   const [selectedBatchId, setSelectedBatchId] = useState<number | null>(null);
 
   useEffect(() => {
-    if (user?.role === 'student') {
-      fetchStudentSubmissions();
-    } else {
-      fetchBatches();
-    }
+    fetchBatches();
   }, [user]);
 
   useEffect(() => {
-    if (selectedBatch) {
-      fetchBatchSubmissions(selectedBatch);
+    if (user?.role === 'student') {
+      fetchStudentSubmissions(currentPage, selectedWeek);
     }
-  }, [selectedBatch]);
+  }, [currentPage, selectedWeek, user]);
+
+  useEffect(() => {
+    if (selectedBatch) {
+      if (user?.role !== 'student') {
+        fetchBatchSubmissions(selectedBatch, currentPage, selectedWeek);
+      }
+      fetchBatchWeeks(selectedBatch);
+    }
+  }, [selectedBatch, currentPage, selectedWeek, user]);
 
   const fetchBatches = async () => {
     try {
@@ -96,12 +109,29 @@ export default function Assessments() {
     }
   };
 
-  const fetchBatchSubmissions = async (batchId: string) => {
+  const fetchBatchWeeks = async (batchId: string) => {
+    try {
+      const res = await apiClient.get(`/api/courses/v1/batches/${batchId}/weeks/`);
+      if (res.data?.success) {
+        setBatchWeeks(res.data.data);
+      }
+    } catch (err) {
+      console.error("Failed to fetch batch weeks", err);
+    }
+  };
+
+  const fetchBatchSubmissions = async (batchId: string, page = 1, week = 'all') => {
     setIsLoading(true);
     try {
-      const res = await apiClient.get(`/api/courses/v1/batches/${batchId}/test-submissions/`);
+      let url = `/api/courses/v1/batches/${batchId}/test-submissions/?page=${page}`;
+      if (week !== 'all') url += `&week_number=${week}`;
+      
+      setSubmissions([]);
+      const res = await apiClient.get(url);
       if (res.data?.success) {
-        setSubmissions(res.data.data);
+        setSubmissions(res.data.data || []);
+        setTotalPages(res.data.total_pages || 1);
+        if (res.data.stats) setStats(res.data.stats);
       }
     } catch (err) {
       toast({ title: 'Error', description: 'Failed to fetch submissions.', variant: 'destructive' });
@@ -110,24 +140,28 @@ export default function Assessments() {
     }
   };
 
-  const fetchStudentSubmissions = async () => {
+  const fetchStudentSubmissions = async (page = 1, week = 'all') => {
     setIsLoading(true);
     try {
-      // Assuming a generic endpoint for student's own submissions exists or we use filtering
-      const res = await apiClient.get('/api/courses/v1/test-submissions/my-submissions/');
+      let url = `/api/courses/v1/test-submissions/my-submissions/?page=${page}`;
+      if (week !== 'all') url += `&week_number=${week}`;
+
+      setSubmissions([]);
+      const res = await apiClient.get(url);
       if (res.data?.success) {
-        setSubmissions(res.data.data);
+        setSubmissions(res.data.data || []);
+        setTotalPages(res.data.total_pages || 1);
+        if (res.data.stats) setStats(res.data.stats);
       }
     } catch (err) {
-      // If endpoint doesn't exist yet, we'll handle gracefully
       console.error("Failed to fetch student submissions");
     } finally {
       setIsLoading(false);
     }
   };
 
-  const pendingCount = submissions.filter(s => s.status === 'pending_review' || s.status === 'evaluating').length;
-  const publishedCount = submissions.filter(s => s.status === 'published').length;
+  const pendingCount = stats.pending;
+  const publishedCount = stats.published;
 
   const AdminAssessments = () => (
     <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
@@ -139,15 +173,59 @@ export default function Assessments() {
         </div>
       </div>
 
+      {/* Selection Filter Pattern */}
+      <div className="flex flex-col sm:flex-row items-center justify-between gap-4 p-5 rounded-2xl bg-card border shadow-sm">
+        <div className="flex items-center gap-3">
+          <div className="w-10 h-10 rounded-xl bg-primary/10 text-primary flex items-center justify-center shrink-0">
+             <BookOpen className="w-5 h-5" />
+          </div>
+          <div>
+            <p className="text-sm font-medium text-muted-foreground">Course Batch</p>
+            <h3 className="font-bold text-foreground">
+              {batches.find(b => b.id.toString() === selectedBatch)?.name || 'Select a batch'}
+            </h3>
+          </div>
+        </div>
+        
+        <div className="flex items-center gap-3 w-full sm:w-auto">
+          <div className="w-[180px] shrink-0">
+            <Select value={selectedWeek} onValueChange={(val) => { setSelectedWeek(val); setCurrentPage(1); }}>
+              <SelectTrigger className="h-11 bg-background rounded-xl font-bold">
+                <SelectValue placeholder="All Weeks" />
+              </SelectTrigger>
+              <SelectContent className="rounded-xl">
+                <SelectItem value="all" className="font-medium cursor-pointer">All Weeks</SelectItem>
+                {batchWeeks.map(w => (
+                  <SelectItem key={w.id} value={w.week_number.toString()} className="font-medium cursor-pointer">Week {w.week_number}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
+          <div className="w-[240px] shrink-0">
+            <Select value={selectedBatch} onValueChange={(val) => { setSelectedBatch(val); setCurrentPage(1); }}>
+              <SelectTrigger className="w-full h-11 bg-background rounded-xl font-bold">
+                <SelectValue placeholder="Select a Batch" />
+              </SelectTrigger>
+              <SelectContent className="rounded-xl">
+                {batches.map(b => (
+                  <SelectItem key={b.id} value={b.id.toString()} className="font-medium cursor-pointer">{b.name}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+        </div>
+      </div>
+
       {/* Stats Cards */}
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         {[
-          { label: 'Total Submissions', value: submissions.length, icon: FileText, color: 'info' },
-          { label: 'Pending Review', value: pendingCount, icon: AlertCircle, color: 'warning' },
-          { label: 'Evaluated', value: publishedCount, icon: CheckCircle, color: 'success' },
+          { label: 'Total Submissions', value: stats.total, icon: FileText, color: 'info' },
+          { label: 'Pending Review', value: stats.pending, icon: AlertCircle, color: 'warning' },
+          { label: 'Evaluated', value: stats.published, icon: CheckCircle, color: 'success' },
           { label: 'Avg Pass Rate', value: '76%', icon: TrendingUp, color: 'primary' }
         ].map((stat, i) => (
-          <Card key={i} className="shadow-card overflow-hidden group">
+          <Card key={i} className="shadow-card border-none overflow-hidden group">
             <CardContent className="p-6">
               <div className="flex items-center gap-4">
                 <div className={cn(
@@ -168,173 +246,173 @@ export default function Assessments() {
         ))}
       </div>
 
-      {/* Filters Area */}
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <div className="relative flex-1">
-          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-          <Input
-            placeholder="Search student names or tests..."
-            className="pl-10"
-          />
-        </div>
-        <div className="w-[240px] shrink-0">
-          <Select value={selectedBatch} onValueChange={setSelectedBatch}>
-            <SelectTrigger className="border-primary text-primary">
-              <Filter className="h-4 w-4 mr-2" />
-              <SelectValue placeholder="Select a Batch" />
-            </SelectTrigger>
-            <SelectContent>
-              {batches.map(b => (
-                <SelectItem key={b.id} value={b.id.toString()}>{b.name}</SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
-      </div>
-
       <Tabs defaultValue="review" className="space-y-6">
-        <TabsList className="bg-background p-1 border border-border/50 rounded-lg w-fit">
-          <TabsTrigger value="review" className="gap-2 w-40">
+        <TabsList className="bg-background p-1 border border-border/50 rounded-lg w-fit h-10">
+          <TabsTrigger value="review" className="gap-2 w-40 h-8 text-xs font-bold">
             Pending Review
-            {pendingCount > 0 && (
-              <Badge className="ml-1 bg-warning text-warning-foreground h-5 min-w-[20px] px-1 rounded-full text-[10px]">
-                {pendingCount}
-              </Badge>
-            )}
           </TabsTrigger>
-          <TabsTrigger value="published" className="gap-2 w-40">
+          <TabsTrigger value="published" className="gap-2 w-40 h-8 text-xs font-bold">
             Published Results
           </TabsTrigger>
         </TabsList>
 
-        <TabsContent value="review" className="mt-0">
+        <TabsContent value="review" className="mt-0 outline-none">
           <div className="grid gap-4">
             {isLoading ? (
-              <div className="py-20 flex flex-col items-center justify-center text-slate-400 gap-4">
-                <Loader2 className="h-10 w-10 animate-spin text-primary" />
-                <p className="font-bold text-sm uppercase tracking-widest">Loading Submissions...</p>
+              <div className="flex flex-col items-center justify-center py-20 gap-4">
+                <Loader2 className="h-12 w-12 animate-spin text-primary" />
+                <p className="text-lg font-medium text-muted-foreground">Finding submissions...</p>
               </div>
             ) : submissions.filter(s => s.status !== 'published').length === 0 ? (
-              <div className="text-center py-12 text-muted-foreground border-2 border-dashed border-border rounded-xl">
-                 <div className="inline-flex h-16 w-16 items-center justify-center rounded-full bg-slate-50 dark:bg-slate-900 text-slate-300 mb-4">
-                   <CheckCircle className="h-8 w-8" />
+              <div className="text-center py-20 text-muted-foreground border-2 border-dashed border-muted-foreground/30 rounded-2xl bg-card/50">
+                 <div className="inline-flex h-20 w-20 items-center justify-center rounded-full bg-slate-50 dark:bg-slate-900 text-slate-300 mb-6 border shadow-inner">
+                   <CheckCircle className="h-10 w-10" />
                  </div>
-                 <h3 className="text-lg font-medium text-foreground">All caught up!</h3>
-                 <p className="max-w-xs mx-auto mt-1 font-medium">No pending submissions found for the selected batch.</p>
+                 <h3 className="text-xl font-bold text-foreground mb-2">All caught up!</h3>
+                 <p className="max-w-xs mx-auto font-medium opacity-70">No pending submissions found for the selected batch. Great job keeping up with reviews!</p>
               </div>
             ) : (
-              submissions.filter(s => s.status !== 'published').map((item) => (
-                <Card key={item.id} className="shadow-card border-none hover:shadow-md transition-all duration-300 overflow-hidden group">
-                  <CardContent className="p-0">
-                    <div className="flex flex-col md:flex-row md:items-center">
-                      <div className="flex-1 p-5 flex items-center gap-4">
-                        <div className="h-12 w-12 rounded-xl bg-primary/10 flex items-center justify-center border border-primary/5 transition-transform group-hover:scale-105">
-                          <span className="text-lg font-bold text-primary">{item.student_name?.charAt(0)}</span>
-                        </div>
-                        <div className="space-y-0.5">
-                          <h3 className="font-bold text-base text-foreground group-hover:text-primary transition-colors">{item.student_name}</h3>
-                          <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs font-medium text-muted-foreground">
-                            <span className="flex items-center gap-1.5"><FileText className="h-3 w-3" /> Week {item.week_number} • {item.test_title}</span>
-                            <span className="hidden sm:inline h-1 w-1 rounded-full bg-slate-300 dark:bg-slate-700" />
-                            <span className="flex items-center gap-1.5"><Clock className="h-3 w-3" /> {format(new Date(item.submitted_at), 'MMM d, h:mm a')}</span>
+              <div className="grid gap-4">
+                {submissions.filter(s => s.status !== 'published').map((item) => (
+                  <Card key={item.id} className="shadow-card border-none hover:shadow-md transition-all duration-300 overflow-hidden group">
+                    <CardContent className="p-0">
+                      <div className="flex flex-col md:flex-row md:items-center">
+                        <div className="flex-1 p-5 flex items-center gap-4">
+                          <div className="h-12 w-12 rounded-xl bg-primary/10 flex items-center justify-center border border-primary/5 transition-transform group-hover:scale-105">
+                            <span className="text-lg font-bold text-primary">{item.student_name?.charAt(0)}</span>
+                          </div>
+                          <div className="space-y-0.5">
+                            <h3 className="font-bold text-base text-foreground group-hover:text-primary transition-colors">{item.student_name}</h3>
+                            <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs font-medium text-muted-foreground">
+                              <span className="flex items-center gap-1.5"><FileText className="h-3 w-3" /> Week {item.week_number} • {item.test_title}</span>
+                              <span className="hidden sm:inline h-1 w-1 rounded-full bg-slate-300 dark:bg-slate-700" />
+                              <span className="flex items-center gap-1.5"><Clock className="h-3 w-3" /> {format(new Date(item.submitted_at), 'MMM d, h:mm a')}</span>
+                            </div>
                           </div>
                         </div>
-                      </div>
-                      <div className="p-5 bg-muted/30 flex items-center justify-between md:justify-end gap-8 md:min-w-[320px] border-t md:border-t-0 md:border-l border-border/50">
-                        <div className="text-center md:text-right">
-                          <p className="text-[10px] font-bold uppercase text-muted-foreground tracking-wider mb-1">AI Suggestion</p>
-                          <div className="flex items-center justify-end gap-2">
-                             {item.status === 'evaluating' ? (
-                               <Badge className="bg-primary/10 text-primary border-none animate-pulse">Evaluating...</Badge>
-                             ) : (
-                               <p className="text-xl font-bold text-foreground">{item.marks_obtained?.toFixed(1) || '0.0'}%</p>
-                             )}
+                        <div className="p-5 bg-muted/30 flex items-center justify-between md:justify-end gap-8 md:min-w-[320px] border-t md:border-t-0 md:border-l border-border/50">
+                          <div className="text-center md:text-right">
+                            <p className="text-[10px] font-bold uppercase text-muted-foreground tracking-wider mb-1">AI Suggestion</p>
+                            <div className="flex items-center justify-end gap-2">
+                               {item.status === 'evaluating' ? (
+                                 <Badge className="bg-primary/10 text-primary border-none animate-pulse">Evaluating...</Badge>
+                               ) : (
+                                 <p className="text-xl font-bold text-foreground">{item.marks_obtained?.toFixed(1) || '0.0'}%</p>
+                               )}
+                            </div>
                           </div>
+                          <Button 
+                            variant="gradient" 
+                            className="font-bold rounded-xl shadow-lg shadow-primary/20 h-10 px-6"
+                            onClick={() => {
+                              setReviewId(item.id);
+                              setIsReviewOpen(true);
+                            }}
+                          >
+                            Review & Edit
+                          </Button>
                         </div>
-                        <Button 
-                          variant="gradient" 
-                          className="font-bold rounded-xl shadow-lg shadow-primary/20 h-10 px-6"
-                          onClick={() => {
-                            setReviewId(item.id);
-                            setIsReviewOpen(true);
-                          }}
-                        >
-                          Review & Edit
-                        </Button>
                       </div>
-                    </div>
-                  </CardContent>
-                </Card>
-              ))
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
             )}
           </div>
         </TabsContent>
 
-        <TabsContent value="published">
-          <Card className="shadow-card">
-            <CardContent className="p-0">
-              <Table>
-                <TableHeader>
+        <TabsContent value="published" className="mt-0 outline-none">
+          <div className="border rounded-2xl overflow-hidden shadow-sm bg-card">
+            <Table>
+              <TableHeader className="bg-muted/30">
+                <TableRow>
+                  <TableHead className="font-bold uppercase text-[10px] tracking-wider py-4">Student</TableHead>
+                  <TableHead className="font-bold uppercase text-[10px] tracking-wider py-4">Assessment Details</TableHead>
+                  <TableHead className="font-bold uppercase text-[10px] tracking-wider py-4">Submitted On</TableHead>
+                  <TableHead className="font-bold uppercase text-[10px] tracking-wider py-4">Score</TableHead>
+                  <TableHead className="text-right font-bold uppercase text-[10px] tracking-wider py-4">Action</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {submissions.filter(s => s.status === 'published').length === 0 ? (
                   <TableRow>
-                    <TableHead>Student</TableHead>
-                    <TableHead>Assessment Details</TableHead>
-                    <TableHead>Submitted On</TableHead>
-                    <TableHead>Score</TableHead>
-                    <TableHead className="text-right">Action</TableHead>
+                    <TableCell colSpan={5} className="h-64 text-center">
+                      <div className="flex flex-col items-center justify-center py-12 text-muted-foreground">
+                         <FileText className="h-12 w-12 mb-4 opacity-20" />
+                         <p className="font-bold text-lg">No published results yet</p>
+                         <p className="max-w-xs mx-auto mt-1 opacity-70">Evaluated assessments for this batch will appear in this table.</p>
+                      </div>
+                    </TableCell>
                   </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {submissions.filter(s => s.status === 'published').length === 0 ? (
-                    <TableRow>
-                      <TableCell colSpan={5} className="h-32 text-center text-muted-foreground">
-                        No published results found.
+                ) : (
+                  submissions.filter(s => s.status === 'published').map((item) => (
+                    <TableRow key={item.id} className="group hover:bg-muted/10 transition-colors border-b last:border-0">
+                      <TableCell className="py-4">
+                        <div className="flex items-center gap-3">
+                          <div className="h-9 w-9 rounded-full bg-success/10 text-success flex items-center justify-center font-bold text-sm border border-success/10">
+                            {item.student_name?.charAt(0)}
+                          </div>
+                          <span className="font-bold text-foreground">{item.student_name}</span>
+                        </div>
+                      </TableCell>
+                      <TableCell className="py-4">
+                        <div className="flex flex-col">
+                          <span className="text-sm font-bold text-foreground">Week {item.week_number}</span>
+                          <span className="text-xs text-muted-foreground font-medium">{item.test_title}</span>
+                        </div>
+                      </TableCell>
+                      <TableCell className="text-sm text-muted-foreground font-medium py-4">
+                        {format(new Date(item.submitted_at), 'MMM d, yyyy')}
+                      </TableCell>
+                      <TableCell className="py-4">
+                        <Badge variant="outline" className="border-success/30 text-success bg-success/5 font-black text-xs px-2 py-0.5 rounded-lg shadow-sm">
+                          {item.marks_obtained}%
+                        </Badge>
+                      </TableCell>
+                      <TableCell className="text-right py-4">
+                        <Button 
+                          variant="ghost" 
+                          size="sm" 
+                          className="hover:bg-primary/10 hover:text-primary font-bold rounded-lg transition-all h-9"
+                          onClick={() => { setReviewId(item.id); setIsReviewOpen(true); }}
+                        >
+                          <Eye className="h-4 w-4 mr-2" />
+                          View Results
+                        </Button>
                       </TableCell>
                     </TableRow>
-                  ) : (
-                    submissions.filter(s => s.status === 'published').map((item) => (
-                      <TableRow key={item.id} className="group">
-                        <TableCell>
-                          <div className="flex items-center gap-3">
-                            <div className="h-9 w-9 rounded-full bg-success/10 text-success flex items-center justify-center font-bold text-sm">
-                              {item.student_name?.charAt(0)}
-                            </div>
-                            <span className="font-medium">{item.student_name}</span>
-                          </div>
-                        </TableCell>
-                        <TableCell>
-                          <div className="flex flex-col">
-                            <span className="text-sm font-medium">Week {item.week_number}</span>
-                            <span className="text-xs text-muted-foreground">{item.test_title}</span>
-                          </div>
-                        </TableCell>
-                        <TableCell className="text-sm text-muted-foreground">
-                          {format(new Date(item.submitted_at), 'MMM d, yyyy')}
-                        </TableCell>
-                        <TableCell>
-                          <Badge variant="outline" className="border-success/30 text-success bg-success/5 font-bold">
-                            {item.marks_obtained}%
-                          </Badge>
-                        </TableCell>
-                        <TableCell className="text-right">
-                          <Button 
-                            variant="ghost" 
-                            size="sm" 
-                            className="hover:bg-primary/10 hover:text-primary font-bold"
-                            onClick={() => { setReviewId(item.id); setIsReviewOpen(true); }}
-                          >
-                            <Eye className="h-4 w-4 mr-2" />
-                            View Results
-                          </Button>
-                        </TableCell>
-                      </TableRow>
-                    ))
-                  )}
-                </TableBody>
-              </Table>
-            </CardContent>
-          </Card>
+                  ))
+                )}
+              </TableBody>
+            </Table>
+          </div>
         </TabsContent>
       </Tabs>
+
+      {/* Pagination Controls */}
+      {!isLoading && submissions.length > 0 && totalPages > 1 && (
+        <div className="flex items-center justify-center gap-2 mt-8">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+            disabled={currentPage === 1}
+          >
+            Previous
+          </Button>
+          <div className="text-sm font-medium text-muted-foreground px-4">
+            Page {currentPage} of {totalPages}
+          </div>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+            disabled={currentPage === totalPages}
+          >
+            Next
+          </Button>
+        </div>
+      )}
     </div>
   );
 
@@ -366,6 +444,20 @@ export default function Assessments() {
           <h1 className="font-display text-3xl font-bold text-foreground">My Results</h1>
           <p className="mt-1 text-muted-foreground">Track your performance and review feedback</p>
         </div>
+
+        <div className="w-[180px] shrink-0">
+          <Select value={selectedWeek} onValueChange={(val) => { setSelectedWeek(val); setCurrentPage(1); }}>
+            <SelectTrigger className="h-11 bg-card rounded-xl font-bold border-none shadow-sm">
+              <SelectValue placeholder="All Weeks" />
+            </SelectTrigger>
+            <SelectContent className="rounded-xl">
+              <SelectItem value="all" className="font-medium cursor-pointer">All Weeks</SelectItem>
+              {batchWeeks.map(w => (
+                <SelectItem key={w.id} value={w.week_number.toString()} className="font-medium cursor-pointer">Week {w.week_number}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
       </div>
 
       {/* Student Stats */}
@@ -395,7 +487,12 @@ export default function Assessments() {
         ))}
       </div>
 
-      {submissions.length === 0 ? (
+      {isLoading ? (
+        <div className="flex flex-col items-center justify-center py-20 gap-4">
+          <Loader2 className="h-12 w-12 animate-spin text-primary" />
+          <p className="text-lg font-medium text-muted-foreground">Finding assessments...</p>
+        </div>
+      ) : submissions.length === 0 ? (
         <div className="text-center py-20 bg-background border-2 border-dashed border-border rounded-2xl">
           <div className="inline-flex h-16 w-16 items-center justify-center rounded-full bg-muted text-muted-foreground mb-4">
             <LayoutGrid className="h-8 w-8" />
@@ -474,6 +571,33 @@ export default function Assessments() {
               </CardContent>
             </Card>
           ))}
+        </div>
+      )}
+
+      {/* Pagination Controls */}
+      {!isLoading && submissions.length > 0 && totalPages > 1 && (
+        <div className="flex items-center justify-center gap-2 mt-12 bg-card p-4 rounded-2xl border shadow-sm w-fit mx-auto">
+          <Button
+            variant="outline"
+            size="sm"
+            className="h-9 px-4 rounded-xl border-border/50"
+            onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+            disabled={currentPage === 1}
+          >
+            Previous
+          </Button>
+          <div className="text-sm font-bold text-foreground px-6 py-1 bg-muted/50 rounded-lg">
+            Page {currentPage} of {totalPages}
+          </div>
+          <Button
+            variant="outline"
+            size="sm"
+            className="h-9 px-4 rounded-xl border-border/50"
+            onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+            disabled={currentPage === totalPages}
+          >
+            Next
+          </Button>
         </div>
       )}
     </div>

@@ -12,6 +12,7 @@ from apps.courses.models import (
 from apps.courses.serializers.test_submission_serializers import (
     TestSubmissionSerializer, TestSubmissionUpdateSerializer
 )
+from utils.pagination import CustomPageNumberPagination
 from utils.constants import UserTypeConstants
 from django.contrib.contenttypes.models import ContentType
 from apps.users.models import Notification
@@ -97,6 +98,7 @@ class BatchTestSubmissionListView(generics.ListAPIView):
     """
     permission_classes = [IsAuthenticated]
     serializer_class = TestSubmissionSerializer
+    pagination_class = CustomPageNumberPagination
 
     def get_queryset(self):
         batch_id = self.kwargs.get('batch_id')
@@ -109,8 +111,39 @@ class BatchTestSubmissionListView(generics.ListAPIView):
         status_param = self.request.query_params.get('status')
         if status_param:
             qs = qs.filter(status=status_param)
+
+        week_number = self.request.query_params.get('week_number')
+        if week_number and week_number != 'all':
+            try:
+                week_int = int(week_number)
+                qs = qs.filter(batch_weekly_test__batch_week__week_number=week_int)
+            except (ValueError, TypeError):
+                pass
             
         return qs.order_by('-submitted_at')
+
+    def list(self, request, *args, **kwargs):
+        queryset = self.filter_queryset(self.get_queryset())
+
+        stats = {
+            "total": queryset.count(),
+            "pending": queryset.filter(status__in=[
+                TestSubmission.Status.PENDING, 
+                TestSubmission.Status.EVALUATING, 
+                TestSubmission.Status.PENDING_REVIEW
+            ]).count(),
+            "published": queryset.filter(status=TestSubmission.Status.PUBLISHED).count(),
+        }
+
+        page = self.paginate_queryset(queryset)
+        if page is not None:
+            serializer = self.get_serializer(page, many=True)
+            response = self.get_paginated_response(serializer.data)
+            response.data['stats'] = stats
+            return response
+
+        serializer = self.get_serializer(queryset, many=True)
+        return format_success_response(data=serializer.data, extra_params={"stats": stats})
 
 class TestSubmissionDetailView(generics.RetrieveUpdateAPIView):
     """
@@ -287,6 +320,40 @@ class MyTestSubmissionsListView(generics.ListAPIView):
     """
     permission_classes = [IsAuthenticated]
     serializer_class = TestSubmissionSerializer
+    pagination_class = CustomPageNumberPagination
 
     def get_queryset(self):
-        return TestSubmission.objects.filter(enrollment__student=self.request.user).order_by('-submitted_at')
+        qs = TestSubmission.objects.filter(enrollment__student=self.request.user)
+        
+        week_number = self.request.query_params.get('week_number')
+        if week_number and week_number != 'all':
+            try:
+                week_int = int(week_number)
+                qs = qs.filter(batch_weekly_test__batch_week__week_number=week_int)
+            except (ValueError, TypeError):
+                pass
+            
+        return qs.order_by('-submitted_at')
+
+    def list(self, request, *args, **kwargs):
+        queryset = self.filter_queryset(self.get_queryset())
+
+        stats = {
+            "total": queryset.count(),
+            "pending": queryset.filter(status__in=[
+                TestSubmission.Status.PENDING, 
+                TestSubmission.Status.EVALUATING, 
+                TestSubmission.Status.PENDING_REVIEW
+            ]).count(),
+            "published": queryset.filter(status=TestSubmission.Status.PUBLISHED).count(),
+        }
+
+        page = self.paginate_queryset(queryset)
+        if page is not None:
+            serializer = self.get_serializer(page, many=True)
+            response = self.get_paginated_response(serializer.data)
+            response.data['stats'] = stats
+            return response
+
+        serializer = self.get_serializer(queryset, many=True)
+        return format_success_response(data=serializer.data, extra_params={"stats": stats})
