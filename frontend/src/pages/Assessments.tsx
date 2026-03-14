@@ -54,6 +54,7 @@ export default function Assessments() {
   const [selectedBatch, setSelectedBatch] = useState<string>('');
   const [submissions, setSubmissions] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(false);
+  const [isInitialLoading, setIsInitialLoading] = useState(true);
   // Filters & Pagination
   const [selectedWeek, setSelectedWeek] = useState<string>('all');
   const [currentPage, setCurrentPage] = useState(1);
@@ -102,10 +103,15 @@ export default function Assessments() {
         setBatches(res.data.data);
         if (res.data.data.length > 0) {
           setSelectedBatch(res.data.data[0].id.toString());
+        } else {
+          setIsInitialLoading(false);
         }
+      } else {
+        setIsInitialLoading(false);
       }
     } catch (err) {
       toast({ title: 'Error', description: 'Failed to fetch batches.', variant: 'destructive' });
+      setIsInitialLoading(false);
     }
   };
 
@@ -126,7 +132,6 @@ export default function Assessments() {
       let url = `/api/courses/v1/batches/${batchId}/test-submissions/?page=${page}`;
       if (week !== 'all') url += `&week_number=${week}`;
       
-      setSubmissions([]);
       const res = await apiClient.get(url);
       if (res.data?.success) {
         setSubmissions(res.data.data || []);
@@ -137,6 +142,7 @@ export default function Assessments() {
       toast({ title: 'Error', description: 'Failed to fetch submissions.', variant: 'destructive' });
     } finally {
       setIsLoading(false);
+      setIsInitialLoading(false);
     }
   };
 
@@ -146,7 +152,6 @@ export default function Assessments() {
       let url = `/api/courses/v1/test-submissions/my-submissions/?page=${page}`;
       if (week !== 'all') url += `&week_number=${week}`;
 
-      setSubmissions([]);
       const res = await apiClient.get(url);
       if (res.data?.success) {
         setSubmissions(res.data.data || []);
@@ -157,13 +162,15 @@ export default function Assessments() {
       console.error("Failed to fetch student submissions");
     } finally {
       setIsLoading(false);
+      setIsInitialLoading(false);
     }
   };
 
   const pendingCount = stats.pending;
   const publishedCount = stats.published;
 
-  const AdminAssessments = () => (
+  // Render Logic
+  const renderAdminView = () => (
     <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
       {/* Header */}
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
@@ -259,9 +266,8 @@ export default function Assessments() {
         <TabsContent value="review" className="mt-0 outline-none">
           <div className="grid gap-4">
             {isLoading ? (
-              <div className="flex flex-col items-center justify-center py-20 gap-4">
-                <Loader2 className="h-12 w-12 animate-spin text-primary" />
-                <p className="text-lg font-medium text-muted-foreground">Finding submissions...</p>
+              <div className="flex items-center justify-center py-20">
+                <Loader2 className="h-8 w-8 animate-spin text-primary" />
               </div>
             ) : submissions.filter(s => s.status !== 'published').length === 0 ? (
               <div className="text-center py-20 text-muted-foreground border-2 border-dashed border-muted-foreground/30 rounded-2xl bg-card/50">
@@ -416,27 +422,7 @@ export default function Assessments() {
     </div>
   );
 
-  const handleRetake = async (submission: any) => {
-    setIsLoading(true);
-    try {
-      const batchId = submission.enrollment_batch_id || submission.batch_id; 
-      const weekId = submission.batch_week_id; 
-      
-      const res = await apiClient.get(`/api/courses/v1/batches/${batchId}/weeks/${weekId}/test/`);
-      if (res.data?.success) {
-        setRetakeTest(res.data.data);
-        setSelectedWeekId(weekId);
-        setSelectedBatchId(batchId);
-        setIsSubmissionOpen(true);
-      }
-    } catch (err) {
-      toast({ title: 'Error', description: 'Failed to fetch test details for retake.', variant: 'destructive' });
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-   const StudentAssessments = () => (
+  const renderStudentView = () => (
     <div className="space-y-6 animate-in fade-in duration-500">
       {/* Header */}
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
@@ -488,9 +474,8 @@ export default function Assessments() {
       </div>
 
       {isLoading ? (
-        <div className="flex flex-col items-center justify-center py-20 gap-4">
-          <Loader2 className="h-12 w-12 animate-spin text-primary" />
-          <p className="text-lg font-medium text-muted-foreground">Finding assessments...</p>
+        <div className="flex items-center justify-center py-20">
+          <Loader2 className="h-8 w-8 animate-spin text-primary" />
         </div>
       ) : submissions.length === 0 ? (
         <div className="text-center py-20 bg-background border-2 border-dashed border-border rounded-2xl">
@@ -603,11 +588,34 @@ export default function Assessments() {
     </div>
   );
 
+  const handleRetake = async (submission: any) => {
+    setIsLoading(true);
+    try {
+      const batchId = submission.enrollment_batch_id || submission.batch_id; 
+      const weekId = submission.batch_week_id; 
+      
+      const res = await apiClient.get(`/api/courses/v1/batches/${batchId}/weeks/${weekId}/test/`);
+      if (res.data?.success) {
+        setRetakeTest(res.data.data);
+        setSelectedWeekId(weekId);
+        setSelectedBatchId(batchId);
+        setIsSubmissionOpen(true);
+      }
+    } catch (err) {
+      toast({ title: 'Error', description: 'Failed to fetch test details for retake.', variant: 'destructive' });
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
    return (
     <DashboardLayout>
-      <div className="space-y-6 min-h-screen pb-20">
-        {user?.role === 'student' ? <StudentAssessments /> : <AdminAssessments />}
+      <div className="space-y-6 min-h-screen pb-20 flex flex-col">
+        {isInitialLoading ? (
+          <div className="flex-1 flex items-center justify-center">
+            <Loader2 className="h-10 w-10 animate-spin text-primary" />
+          </div>
+        ) : user?.role === 'student' ? renderStudentView() : renderAdminView()}
         
         {/* Admin Review Modal */}
         {reviewId && (
