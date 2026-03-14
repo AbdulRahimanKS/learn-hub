@@ -745,7 +745,7 @@ export default function Courses() {
                                             variant="secondary"
                                             disabled={locked || !completed}
                                             className={cn(
-                                              "h-8 sm:h-9 px-6 sm:px-4 text-[10px] w-full sm:w-auto font-black uppercase tracking-widest rounded-full transition-all border",
+                                              "h-8 sm:h-9 px-6 sm:px-4 text-[10px] w-full sm:w-auto font-black rounded-full transition-all border",
                                               (locked || !completed)
                                                 ? "bg-muted text-muted-foreground opacity-50 cursor-not-allowed"
                                                 : "bg-[#283593] hover:bg-[#1a237e] text-white border-transparent shadow-sm"
@@ -820,7 +820,7 @@ export default function Courses() {
                                       locked || (!sessions.every((s: any) => s.is_completed) && !(week.weekly_test as any).has_attempted)
                                         ? 'bg-muted text-muted-foreground cursor-not-allowed border'
                                         : (week.weekly_test as any).has_attempted 
-                                          ? 'bg-white border-primary/20 text-primary hover:bg-primary/5 shadow-sm'
+                                          ? 'bg-[#283593] hover:bg-[#1a237e] text-white border-transparent shadow-sm'
                                           : 'bg-primary hover:bg-primary/90 text-white shadow-md'
                                     )}
                                     onClick={(e) => {
