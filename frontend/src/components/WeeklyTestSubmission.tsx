@@ -21,6 +21,7 @@ import {
   AlertCircle,
   Image as ImageIcon,
   Clock,
+  HelpCircle,
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { apiClient } from '@/lib/api';
@@ -66,15 +67,6 @@ export function WeeklyTestSubmission({
   };
 
   const validateAndConfirm = () => {
-    const unanswered = test.questions.filter(q => !answers[q.id]?.trim() && !files[q.id]);
-    
-    if (unanswered.length > 0) {
-      toast({
-        title: "Incomplete Assessment",
-        description: `You have ${unanswered.length} unanswered questions. Are you sure you want to submit?`,
-        variant: "destructive",
-      });
-    }
     setShowConfirm(true);
   };
 
@@ -99,11 +91,6 @@ export function WeeklyTestSubmission({
       );
 
       if (res.data?.success) {
-        toast({
-          title: 'Success',
-          description: 'Your assessment has been submitted successfully.',
-          variant: 'success',
-        });
         onSubmitted();
         onClose();
       }
@@ -132,12 +119,6 @@ export function WeeklyTestSubmission({
       <DialogContent className="sm:max-w-2xl max-h-[90vh] flex flex-col p-0 overflow-hidden border-none shadow-2xl bg-white dark:bg-background">
         {/* Compact Blue Header */}
         <div className="bg-gradient-to-br from-[#1a237e] via-[#283593] to-[#3949ab] p-5 text-white shrink-0 relative">
-          <button 
-            onClick={onClose}
-            className="absolute right-4 top-4 p-1 rounded-full hover:bg-white/10 transition-colors"
-          >
-            <X className="h-4 w-4" />
-          </button>
           <DialogTitle className="text-lg font-bold tracking-tight mb-0.5">
             {test.title}
           </DialogTitle>
@@ -174,61 +155,63 @@ export function WeeklyTestSubmission({
 
                 <div className="space-y-4">
                   {/* Upload Attachments Section */}
-                  <div className="space-y-2">
-                    <Label className="text-[9px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest">
-                      Upload Attachments
-                    </Label>
-                    
-                    <div className="flex flex-wrap gap-2">
-                      {question.question_file && (
-                        <a 
-                          href={question.question_file} 
-                          target="_blank" 
-                          rel="noreferrer"
-                          className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-indigo-50/50 dark:bg-indigo-950/10 border border-indigo-100/50 dark:border-indigo-900/30 text-[10px] font-bold text-indigo-600 dark:text-indigo-400 hover:bg-indigo-100 transition-colors"
-                        >
-                          <FileText className="h-3 w-3" />
-                          {shortName(question.question_file)}
-                        </a>
-                      )}
-                      {question.image && (
-                        <a 
-                          href={question.image} 
-                          target="_blank" 
-                          rel="noreferrer"
-                          className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-indigo-50/50 dark:bg-indigo-950/10 border border-indigo-100/50 dark:border-indigo-900/30 text-[10px] font-bold text-indigo-600 dark:text-indigo-400 hover:bg-indigo-100 transition-colors"
-                        >
-                          <ImageIcon className="h-3 w-3" />
-                          Img Ref
-                        </a>
-                      )}
-                      {(question.attachments || []).map(att => (
-                        <a 
-                          key={att.id}
-                          href={att.file} 
-                          target="_blank" 
-                          rel="noreferrer"
-                          className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-indigo-50/50 dark:bg-indigo-950/10 border border-indigo-100/50 dark:border-indigo-900/30 text-[10px] font-bold text-indigo-600 dark:text-indigo-400 hover:bg-indigo-100 transition-colors"
-                        >
-                          <FileText className="h-3 w-3" />
-                          {att.name || 'File'}
-                        </a>
-                      ))}
-
-                      {files[question.id] && (
-                        <div className="flex items-center gap-2 px-2.5 py-1.5 rounded-lg bg-emerald-50 dark:bg-emerald-950/20 border border-emerald-100/50 dark:border-emerald-900/30 text-[10px] font-bold text-emerald-600 dark:text-emerald-400">
-                          <CheckCircle className="h-3 w-3" />
-                          <span className="truncate max-w-[100px]">{files[question.id].name}</span>
-                          <button 
-                            onClick={(e) => { e.stopPropagation(); handleFileChange(question.id, null); }}
-                            className="ml-1 hover:text-rose-500 transition-colors"
+                  {(question.question_file || question.image || (question.attachments && question.attachments.length > 0) || files[question.id]) && (
+                    <div className="space-y-2">
+                      <Label className="text-[9px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest">
+                        Upload Attachments
+                      </Label>
+                      
+                      <div className="flex flex-wrap gap-2">
+                        {question.question_file && (
+                          <a 
+                            href={question.question_file} 
+                            target="_blank" 
+                            rel="noreferrer"
+                            className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-indigo-50/50 dark:bg-indigo-950/10 border border-indigo-100/50 dark:border-indigo-900/30 text-[10px] font-bold text-indigo-600 dark:text-indigo-400 hover:bg-indigo-100 transition-colors"
                           >
-                            <X className="h-3 w-3" />
-                          </button>
-                        </div>
-                      )}
+                            <FileText className="h-3 w-3" />
+                            {shortName(question.question_file)}
+                          </a>
+                        )}
+                        {question.image && (
+                          <a 
+                            href={question.image} 
+                            target="_blank" 
+                            rel="noreferrer"
+                            className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-indigo-50/50 dark:bg-indigo-950/10 border border-indigo-100/50 dark:border-indigo-900/30 text-[10px] font-bold text-indigo-600 dark:text-indigo-400 hover:bg-indigo-100 transition-colors"
+                          >
+                            <ImageIcon className="h-3 w-3" />
+                            Img Ref
+                          </a>
+                        )}
+                        {(question.attachments || []).map(att => (
+                          <a 
+                            key={att.id}
+                            href={att.file} 
+                            target="_blank" 
+                            rel="noreferrer"
+                            className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-indigo-50/50 dark:bg-indigo-950/10 border border-indigo-100/50 dark:border-indigo-900/30 text-[10px] font-bold text-indigo-600 dark:text-indigo-400 hover:bg-indigo-100 transition-colors"
+                          >
+                            <FileText className="h-3 w-3" />
+                            {att.name || 'File'}
+                          </a>
+                        ))}
+
+                        {files[question.id] && (
+                          <div className="flex items-center gap-2 px-2.5 py-1.5 rounded-lg bg-emerald-50 dark:bg-emerald-950/20 border border-emerald-100/50 dark:border-emerald-900/30 text-[10px] font-bold text-emerald-600 dark:text-emerald-400">
+                            <CheckCircle className="h-3 w-3" />
+                            <span className="truncate max-w-[100px]">{files[question.id].name}</span>
+                            <button 
+                              onClick={(e) => { e.stopPropagation(); handleFileChange(question.id, null); }}
+                              className="ml-1 hover:text-rose-500 transition-colors"
+                            >
+                              <X className="h-3 w-3" />
+                            </button>
+                          </div>
+                        )}
+                      </div>
                     </div>
-                  </div>
+                  )}
 
                   {/* Your Answer Section */}
                   <div className="space-y-2">
@@ -295,27 +278,49 @@ export function WeeklyTestSubmission({
       </DialogContent>
 
       <Dialog open={showConfirm} onOpenChange={setShowConfirm}>
-        <DialogContent className="sm:max-w-md rounded-xl p-5 border-none dark:bg-card">
-          <DialogHeader className="space-y-2">
-            <DialogTitle className="text-lg font-bold">Confirm Submission</DialogTitle>
-            <DialogDescription className="text-xs font-medium text-slate-500 dark:text-slate-400">
-              Submit your assessment? This action cannot be undone.
-              {test.questions.filter(q => !answers[q.id]?.trim() && !files[q.id]).length > 0 && (
-                <div className="mt-2 p-2 bg-rose-50 dark:bg-rose-950/10 border border-rose-100 dark:border-rose-900/20 rounded flex items-start gap-2">
-                  <AlertCircle className="h-3 w-3 text-rose-500 mt-0.5" />
-                  <p className="text-[10px] font-bold text-rose-600 dark:text-rose-400">
-                    Warning: {test.questions.filter(q => !answers[q.id]?.trim() && !files[q.id]).length} questions unanswered.
-                  </p>
-                </div>
-              )}
-            </DialogDescription>
-          </DialogHeader>
-          <DialogFooter className="mt-4 flex gap-2">
-            <Button variant="ghost" onClick={() => setShowConfirm(false)} className="rounded-md font-bold text-[10px] h-8 px-3">Cancel</Button>
-            <Button variant="gradient" onClick={handleSubmit} disabled={isSubmitting} className="rounded-md font-bold text-[10px] h-8 px-4">
-              Confirm & Submit
-            </Button>
-          </DialogFooter>
+        <DialogContent className="sm:max-w-[360px] rounded-3xl p-8 border-none dark:bg-card shadow-2xl animate-in zoom-in-95 duration-200">
+          <div className="flex flex-col items-center text-center space-y-5">
+            <div className="w-16 h-16 rounded-full bg-indigo-50 dark:bg-indigo-950/30 flex items-center justify-center text-indigo-600 dark:text-indigo-400 shadow-inner">
+              <HelpCircle className="h-8 w-8 animate-pulse" />
+            </div>
+            
+            <div className="space-y-2">
+              <DialogTitle className="text-xl font-black tracking-tight text-slate-900 dark:text-white">
+                Ready to Submit?
+              </DialogTitle>
+              <DialogDescription className="text-xs font-medium text-slate-500 dark:text-slate-400 leading-relaxed">
+                Once submitted, you won't be able to edit your answers.
+              </DialogDescription>
+            </div>
+
+            {test.questions.filter(q => !answers[q.id]?.trim() && !files[q.id]).length > 0 && (
+              <div className="w-full p-3 bg-rose-50 dark:bg-rose-950/20 border border-rose-100 dark:border-rose-900/30 rounded-2xl flex items-center gap-3">
+                <AlertCircle className="h-4 w-4 text-rose-500 shrink-0" />
+                <p className="text-[10px] font-bold text-rose-600 dark:text-rose-400 text-left leading-tight">
+                  Warning: You have {test.questions.filter(q => !answers[q.id]?.trim() && !files[q.id]).length} unanswered questions.
+                </p>
+              </div>
+            )}
+
+            <div className="flex flex-col w-full gap-2 pt-2">
+              <Button 
+                variant="gradient" 
+                onClick={handleSubmit} 
+                disabled={isSubmitting} 
+                className="w-full h-11 rounded-xl font-black uppercase text-[10px] tracking-[0.15em] shadow-lg shadow-indigo-500/20"
+              >
+                {isSubmitting ? <Loader2 className="h-3 w-3 animate-spin mr-2" /> : null}
+                Confirm & Submit
+              </Button>
+              <Button 
+                variant="ghost" 
+                onClick={() => setShowConfirm(false)} 
+                className="w-full h-10 rounded-xl font-bold text-[10px] text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"
+              >
+                Go Back
+              </Button>
+            </div>
+          </div>
         </DialogContent>
       </Dialog>
     </Dialog>
