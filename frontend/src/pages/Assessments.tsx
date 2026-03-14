@@ -20,7 +20,24 @@ import {
   ChevronRight,
   Loader2,
   Filter,
+  Award,
+  TrendingUp,
 } from 'lucide-react';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table';
 import { apiClient } from '@/lib/api';
 import { useToast } from '@/hooks/use-toast';
 import { SubmissionReviewModal } from '@/components/SubmissionReviewModal';
@@ -28,24 +45,6 @@ import { WeeklyTestResults } from '@/components/WeeklyTestResults';
 import { WeeklyTestSubmission } from '@/components/WeeklyTestSubmission';
 import { cn } from '@/lib/utils';
 import { format } from 'date-fns';
-
-const mockAssessments = {
-  weekly: [
-    { id: 4, title: 'Week 1 Assessment', week: 1, questions: 20, submissions: 48, avgScore: 72, passingScore: 70, dueDate: 'Jan 28, 2026', status: 'completed' },
-    { id: 5, title: 'Week 2 Assessment', week: 2, questions: 25, submissions: 32, avgScore: 68, passingScore: 70, dueDate: 'Feb 4, 2026', status: 'active' },
-    { id: 6, title: 'Week 3 Assessment', week: 3, questions: 20, submissions: 0, avgScore: 0, passingScore: 70, dueDate: 'Feb 11, 2026', status: 'scheduled' },
-  ],
-  pendingReview: [
-    { id: 1, student: 'Alex Thompson', assessment: 'Week 2 Assessment', submittedAt: '2 hours ago', autoScore: 85 },
-    { id: 2, student: 'Maria Garcia', assessment: 'Week 2 Assessment', submittedAt: '3 hours ago', autoScore: 78 },
-    { id: 3, student: 'John Smith', assessment: 'Week 2 Assessment', submittedAt: '5 hours ago', autoScore: 92 },
-  ],
-};
-
-const studentAssessments = [
-  { id: 3, title: 'Week 1 Assessment', type: 'weekly', score: 78, maxScore: 100, status: 'completed', feedback: 'Good overall performance. Review file handling concepts.' },
-  { id: 5, title: 'Week 2 Assessment', type: 'weekly', score: null, maxScore: 100, status: 'available', dueDate: 'Feb 4, 2026' },
-];
 
 export default function Assessments() {
   const { user } = useAuth();
@@ -132,50 +131,36 @@ export default function Assessments() {
 
   const AdminAssessments = () => (
     <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
-      <div className="flex flex-col gap-6 sm:flex-row sm:items-end sm:justify-between bg-white dark:bg-card p-8 rounded-3xl border border-slate-100 dark:border-slate-800 shadow-sm">
-        <div className="space-y-1">
-          <h1 className="font-black text-4xl text-slate-900 tracking-tight">Assessments</h1>
-          <p className="text-slate-500 font-medium">Evaluate and manage student test submissions across batches.</p>
-        </div>
-        
-        <div className="flex flex-col sm:flex-row gap-3">
-          <div className="relative group">
-            <Filter className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400 group-hover:text-primary transition-colors" />
-            <select 
-              value={selectedBatch}
-              onChange={(e) => setSelectedBatch(e.target.value)}
-              className="pl-10 pr-10 py-3 bg-slate-50 border-slate-200 rounded-2xl text-sm font-bold text-slate-700 outline-none focus:ring-4 focus:ring-primary/10 transition-all appearance-none min-w-[240px]"
-            >
-              <option value="" disabled>Select a Batch</option>
-              {batches.map(b => (
-                <option key={b.id} value={b.id}>{b.name}</option>
-              ))}
-            </select>
-            <ChevronRight className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400 rotate-90 pointer-events-none" />
-          </div>
+      {/* Header */}
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+        <div>
+          <h1 className="font-display text-3xl font-bold text-foreground">Assessments</h1>
+          <p className="mt-1 text-muted-foreground">Manage and evaluate student test submissions</p>
         </div>
       </div>
 
       {/* Stats Cards */}
-      <div className="grid gap-6 sm:grid-cols-3">
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         {[
-          { label: 'Total Submissions', value: submissions.length, icon: FileText, color: 'primary' },
-          { label: 'Pending Review', value: pendingCount, icon: AlertCircle, color: 'amber' },
-          { label: 'Evaluated', value: publishedCount, icon: CheckCircle, color: 'emerald' }
+          { label: 'Total Submissions', value: submissions.length, icon: FileText, color: 'info' },
+          { label: 'Pending Review', value: pendingCount, icon: AlertCircle, color: 'warning' },
+          { label: 'Evaluated', value: publishedCount, icon: CheckCircle, color: 'success' },
+          { label: 'Avg Pass Rate', value: '76%', icon: TrendingUp, color: 'primary' }
         ].map((stat, i) => (
-          <Card key={i} className="border-none shadow-xl shadow-slate-200/50 dark:shadow-none dark:bg-card overflow-hidden group">
+          <Card key={i} className="shadow-card overflow-hidden group">
             <CardContent className="p-6">
-              <div className="flex items-center gap-5">
+              <div className="flex items-center gap-4">
                 <div className={cn(
-                  "p-4 rounded-2xl transition-transform group-hover:scale-110 duration-300",
-                  stat.color === 'primary' ? "bg-primary/10 text-primary" :
-                  stat.color === 'amber' ? "bg-amber-100 text-amber-600" : "bg-emerald-100 text-emerald-600"
+                  "p-3 rounded-xl transition-transform group-hover:scale-110 duration-300",
+                  stat.color === 'info' ? "bg-info/10 text-info" :
+                  stat.color === 'warning' ? "bg-warning/10 text-warning" :
+                  stat.color === 'success' ? "bg-success/10 text-success" : "bg-primary/10 text-primary"
                 )}>
                   <stat.icon className="h-6 w-6" />
                 </div>
                 <div>
-                  <p className="text-3xl font-black text-slate-900 dark:text-slate-100 leading-tight">{stat.value}</p>
-                  <p className="text-xs font-bold text-slate-400 uppercase tracking-widest">{stat.label}</p>
+                  <p className="text-2xl font-bold text-foreground leading-tight">{stat.value}</p>
+                  <p className="text-sm text-muted-foreground">{stat.label}</p>
                 </div>
               </div>
             </CardContent>
@@ -183,13 +168,41 @@ export default function Assessments() {
         ))}
       </div>
 
-      <Tabs defaultValue="review" className="space-y-8">
-        <TabsList className="bg-slate-100/50 p-1.5 rounded-2xl border border-slate-200/60 w-fit h-auto backdrop-blur-sm">
-          <TabsTrigger value="review" className="rounded-xl px-6 py-2.5 font-bold data-[state=active]:bg-white data-[state=active]:text-primary data-[state=active]:shadow-md transition-all">
+      {/* Filters Area */}
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <div className="relative flex-1">
+          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+          <Input
+            placeholder="Search student names or tests..."
+            className="pl-10"
+          />
+        </div>
+        <div className="w-[240px] shrink-0">
+          <Select value={selectedBatch} onValueChange={setSelectedBatch}>
+            <SelectTrigger className="border-primary text-primary">
+              <Filter className="h-4 w-4 mr-2" />
+              <SelectValue placeholder="Select a Batch" />
+            </SelectTrigger>
+            <SelectContent>
+              {batches.map(b => (
+                <SelectItem key={b.id} value={b.id.toString()}>{b.name}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+      </div>
+
+      <Tabs defaultValue="review" className="space-y-6">
+        <TabsList className="bg-background p-1 border border-border/50 rounded-lg w-fit">
+          <TabsTrigger value="review" className="gap-2 w-40">
             Pending Review
-            {pendingCount > 0 && <Badge className="ml-2 bg-amber-500 hover:bg-amber-600">{pendingCount}</Badge>}
+            {pendingCount > 0 && (
+              <Badge className="ml-1 bg-warning text-warning-foreground h-5 min-w-[20px] px-1 rounded-full text-[10px]">
+                {pendingCount}
+              </Badge>
+            )}
           </TabsTrigger>
-          <TabsTrigger value="published" className="rounded-xl px-6 py-2.5 font-bold data-[state=active]:bg-white data-[state=active]:text-primary data-[state=active]:shadow-md transition-all">
+          <TabsTrigger value="published" className="gap-2 w-40">
             Published Results
           </TabsTrigger>
         </TabsList>
@@ -202,57 +215,51 @@ export default function Assessments() {
                 <p className="font-bold text-sm uppercase tracking-widest">Loading Submissions...</p>
               </div>
             ) : submissions.filter(s => s.status !== 'published').length === 0 ? (
-              <div className="bg-white border-2 border-dashed border-slate-200 rounded-3xl p-20 text-center space-y-4">
-                <div className="inline-flex h-20 w-20 items-center justify-center rounded-full bg-slate-50 text-slate-300">
-                  <CheckCircle className="h-10 w-10" />
-                </div>
-                <div>
-                  <h3 className="text-xl font-bold text-slate-900">All caught up!</h3>
-                  <p className="text-slate-500 max-w-xs mx-auto mt-1 font-medium">No pending submissions found for the selected batch.</p>
-                </div>
+              <div className="text-center py-12 text-muted-foreground border-2 border-dashed border-border rounded-xl">
+                 <div className="inline-flex h-16 w-16 items-center justify-center rounded-full bg-slate-50 dark:bg-slate-900 text-slate-300 mb-4">
+                   <CheckCircle className="h-8 w-8" />
+                 </div>
+                 <h3 className="text-lg font-medium text-foreground">All caught up!</h3>
+                 <p className="max-w-xs mx-auto mt-1 font-medium">No pending submissions found for the selected batch.</p>
               </div>
             ) : (
               submissions.filter(s => s.status !== 'published').map((item) => (
-                <Card key={item.id} className="border-none shadow-lg shadow-slate-200/40 dark:shadow-none dark:bg-card group hover:shadow-xl transition-all duration-300 overflow-hidden">
+                <Card key={item.id} className="shadow-card border-none hover:shadow-md transition-all duration-300 overflow-hidden group">
                   <CardContent className="p-0">
                     <div className="flex flex-col md:flex-row md:items-center">
-                      <div className="flex-1 p-6 flex items-center gap-5">
-                        <div className="h-14 w-14 rounded-2xl bg-gradient-to-br from-slate-100 to-slate-200 flex items-center justify-center border border-white shadow-inner group-hover:scale-105 transition-transform">
-                          <span className="text-xl font-black text-slate-400">{item.student_name?.charAt(0)}</span>
+                      <div className="flex-1 p-5 flex items-center gap-4">
+                        <div className="h-12 w-12 rounded-xl bg-primary/10 flex items-center justify-center border border-primary/5 transition-transform group-hover:scale-105">
+                          <span className="text-lg font-bold text-primary">{item.student_name?.charAt(0)}</span>
                         </div>
-                        <div className="space-y-1">
-                          <h3 className="font-black text-lg text-slate-900 dark:text-slate-100 group-hover:text-primary transition-colors">{item.student_name}</h3>
-                          <div className="flex items-center gap-3 text-xs font-bold text-slate-400 uppercase tracking-tight">
-                            <span>Week {item.week_number} • {item.test_title}</span>
-                            <span className="h-1 w-1 rounded-full bg-slate-300" />
-                            <span className="flex items-center gap-1">
-                              <Clock className="h-3 w-3" />
-                              {format(new Date(item.submitted_at), 'MMM d, h:mm a')}
-                            </span>
+                        <div className="space-y-0.5">
+                          <h3 className="font-bold text-base text-foreground group-hover:text-primary transition-colors">{item.student_name}</h3>
+                          <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs font-medium text-muted-foreground">
+                            <span className="flex items-center gap-1.5"><FileText className="h-3 w-3" /> Week {item.week_number} • {item.test_title}</span>
+                            <span className="hidden sm:inline h-1 w-1 rounded-full bg-slate-300 dark:bg-slate-700" />
+                            <span className="flex items-center gap-1.5"><Clock className="h-3 w-3" /> {format(new Date(item.submitted_at), 'MMM d, h:mm a')}</span>
                           </div>
                         </div>
                       </div>
-                      <div className="p-6 bg-slate-50/50 dark:bg-slate-900/20 flex items-center justify-between md:justify-end gap-10 md:min-w-[300px]">
+                      <div className="p-5 bg-muted/30 flex items-center justify-between md:justify-end gap-8 md:min-w-[320px] border-t md:border-t-0 md:border-l border-border/50">
                         <div className="text-center md:text-right">
-                          <p className="text-xs font-black uppercase text-slate-400 tracking-wider mb-1">AI Suggestion</p>
+                          <p className="text-[10px] font-bold uppercase text-muted-foreground tracking-wider mb-1">AI Suggestion</p>
                           <div className="flex items-center justify-end gap-2">
                              {item.status === 'evaluating' ? (
-                               <Badge className="bg-primary/10 text-primary border-none animate-pulse">Processing...</Badge>
+                               <Badge className="bg-primary/10 text-primary border-none animate-pulse">Evaluating...</Badge>
                              ) : (
-                               <p className="text-2xl font-black text-slate-800 dark:text-slate-200">{item.marks_obtained?.toFixed(1) || '0.0'}%</p>
+                               <p className="text-xl font-bold text-foreground">{item.marks_obtained?.toFixed(1) || '0.0'}%</p>
                              )}
                           </div>
                         </div>
                         <Button 
                           variant="gradient" 
-                          size="lg" 
-                          className="font-black uppercase tracking-wider rounded-2xl shadow-lg shadow-primary/20"
+                          className="font-bold rounded-xl shadow-lg shadow-primary/20 h-10 px-6"
                           onClick={() => {
                             setReviewId(item.id);
                             setIsReviewOpen(true);
                           }}
                         >
-                          Review Entry
+                          Review & Edit
                         </Button>
                       </div>
                     </div>
@@ -264,27 +271,68 @@ export default function Assessments() {
         </TabsContent>
 
         <TabsContent value="published">
-           <div className="grid gap-4">
-              {submissions.filter(s => s.status === 'published').map((item) => (
-                <Card key={item.id} className="border-border/50 shadow-sm opacity-80 hover:opacity-100 transition-opacity">
-                   <CardContent className="p-5 flex items-center justify-between">
-                      <div className="flex items-center gap-4">
-                        <div className="h-10 w-10 rounded-full bg-emerald-50 text-emerald-600 flex items-center justify-center font-bold">
-                           {item.student_name?.charAt(0)}
-                        </div>
-                        <div>
-                           <p className="font-bold text-slate-900">{item.student_name}</p>
-                           <p className="text-xs text-slate-500">Score: {item.marks_obtained}% • Week {item.week_number}</p>
-                        </div>
-                      </div>
-                      <Button variant="ghost" size="sm" onClick={() => { setReviewId(item.id); setIsReviewOpen(true); }}>
-                        <Eye className="h-4 w-4 mr-2" />
-                        View
-                      </Button>
-                   </CardContent>
-                </Card>
-              ))}
-           </div>
+          <Card className="shadow-card">
+            <CardContent className="p-0">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Student</TableHead>
+                    <TableHead>Assessment Details</TableHead>
+                    <TableHead>Submitted On</TableHead>
+                    <TableHead>Score</TableHead>
+                    <TableHead className="text-right">Action</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {submissions.filter(s => s.status === 'published').length === 0 ? (
+                    <TableRow>
+                      <TableCell colSpan={5} className="h-32 text-center text-muted-foreground">
+                        No published results found.
+                      </TableCell>
+                    </TableRow>
+                  ) : (
+                    submissions.filter(s => s.status === 'published').map((item) => (
+                      <TableRow key={item.id} className="group">
+                        <TableCell>
+                          <div className="flex items-center gap-3">
+                            <div className="h-9 w-9 rounded-full bg-success/10 text-success flex items-center justify-center font-bold text-sm">
+                              {item.student_name?.charAt(0)}
+                            </div>
+                            <span className="font-medium">{item.student_name}</span>
+                          </div>
+                        </TableCell>
+                        <TableCell>
+                          <div className="flex flex-col">
+                            <span className="text-sm font-medium">Week {item.week_number}</span>
+                            <span className="text-xs text-muted-foreground">{item.test_title}</span>
+                          </div>
+                        </TableCell>
+                        <TableCell className="text-sm text-muted-foreground">
+                          {format(new Date(item.submitted_at), 'MMM d, yyyy')}
+                        </TableCell>
+                        <TableCell>
+                          <Badge variant="outline" className="border-success/30 text-success bg-success/5 font-bold">
+                            {item.marks_obtained}%
+                          </Badge>
+                        </TableCell>
+                        <TableCell className="text-right">
+                          <Button 
+                            variant="ghost" 
+                            size="sm" 
+                            className="hover:bg-primary/10 hover:text-primary font-bold"
+                            onClick={() => { setReviewId(item.id); setIsReviewOpen(true); }}
+                          >
+                            <Eye className="h-4 w-4 mr-2" />
+                            View Results
+                          </Button>
+                        </TableCell>
+                      </TableRow>
+                    ))
+                  )}
+                </TableBody>
+              </Table>
+            </CardContent>
+          </Card>
         </TabsContent>
       </Tabs>
     </div>
@@ -312,31 +360,61 @@ export default function Assessments() {
 
    const StudentAssessments = () => (
     <div className="space-y-6 animate-in fade-in duration-500">
-      <div className="bg-white dark:bg-card p-8 rounded-3xl border border-slate-100 dark:border-slate-800 shadow-sm">
-        <h1 className="font-black text-4xl text-slate-900 dark:text-slate-100 tracking-tight">My Results</h1>
-        <p className="text-slate-500 font-medium">Track your performance and review instructor feedback.</p>
+      {/* Header */}
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+        <div>
+          <h1 className="font-display text-3xl font-bold text-foreground">My Results</h1>
+          <p className="mt-1 text-muted-foreground">Track your performance and review feedback</p>
+        </div>
+      </div>
+
+      {/* Student Stats */}
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+        {[
+          { label: 'Completed Tests', value: publishedCount, icon: CheckCircle, color: 'success' },
+          { label: 'Pending Review', value: pendingCount, icon: Clock, color: 'warning' },
+          { label: 'Overall Average', value: '82%', icon: Award, color: 'primary' }
+        ].map((stat, i) => (
+          <Card key={i} className="shadow-card group overflow-hidden">
+            <CardContent className="p-6">
+              <div className="flex items-center gap-4">
+                <div className={cn(
+                  "p-3 rounded-xl transition-transform group-hover:scale-110 duration-300",
+                  stat.color === 'success' ? "bg-success/10 text-success" :
+                  stat.color === 'warning' ? "bg-warning/10 text-warning" : "bg-primary/10 text-primary"
+                )}>
+                  <stat.icon className="h-6 w-6" />
+                </div>
+                <div>
+                  <p className="text-2xl font-bold text-foreground leading-tight">{stat.value}</p>
+                  <p className="text-sm text-muted-foreground">{stat.label}</p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        ))}
       </div>
 
       {submissions.length === 0 ? (
-        <div className="bg-white border-2 border-dashed border-slate-200 rounded-3xl p-20 text-center space-y-4">
-          <div className="inline-flex h-20 w-20 items-center justify-center rounded-full bg-slate-50 text-slate-300">
-            <LayoutGrid className="h-10 w-10" />
+        <div className="text-center py-20 bg-background border-2 border-dashed border-border rounded-2xl">
+          <div className="inline-flex h-16 w-16 items-center justify-center rounded-full bg-muted text-muted-foreground mb-4">
+            <LayoutGrid className="h-8 w-8" />
           </div>
-          <div>
-            <h3 className="text-xl font-bold text-slate-900">No assessments yet</h3>
-            <p className="text-slate-500 max-w-xs mx-auto mt-1 font-medium">Start learning and completing lessons to unlock your assessments.</p>
-          </div>
+          <h3 className="text-xl font-bold text-foreground">No assessments yet</h3>
+          <p className="text-muted-foreground max-w-sm mx-auto mt-2">Start learning and completing lessons to unlock your assessments.</p>
         </div>
       ) : (
         <div className="grid gap-4">
           {submissions.map((assessment) => (
-            <Card key={assessment.id} className="border-none shadow-lg shadow-slate-200/40 dark:shadow-slate-800/40 dark:bg-card group overflow-hidden">
+            <Card key={assessment.id} className="shadow-card border-none hover:shadow-md transition-all duration-300 overflow-hidden group">
               <CardContent className="p-0">
                 <div className="flex flex-col md:flex-row md:items-center">
-                  <div className="flex-1 p-6 flex items-start gap-4">
+                  <div className="flex-1 p-5 flex items-start gap-4">
                     <div className={cn(
-                      "p-4 rounded-2xl shrink-0",
-                      assessment.status === 'published' ? "bg-emerald-100 text-emerald-600" : "bg-amber-100 text-amber-600"
+                      "p-3.5 rounded-xl shrink-0 transition-colors",
+                      assessment.status === 'published' 
+                        ? "bg-success/10 text-success group-hover:bg-success/20" 
+                        : "bg-warning/10 text-warning group-hover:bg-warning/20"
                     )}>
                       {assessment.status === 'published' ? (
                         <CheckCircle className="h-6 w-6" />
@@ -344,46 +422,46 @@ export default function Assessments() {
                         <Clock className="h-6 w-6" />
                       )}
                     </div>
-                    <div>
-                      <h3 className="font-black text-lg text-slate-900 dark:text-slate-100">{assessment.test_title}</h3>
-                      <div className="flex items-center gap-3 mt-2">
-                         <Badge variant="outline" className="border-slate-200 text-slate-400 font-bold text-[10px] uppercase">
+                    <div className="space-y-1">
+                      <h3 className="font-bold text-lg text-foreground group-hover:text-primary transition-colors">{assessment.test_title}</h3>
+                      <div className="flex flex-wrap items-center gap-3">
+                         <Badge variant="outline" className="border-border text-muted-foreground font-bold text-[10px] uppercase tracking-wider px-2">
                            Week {assessment.week_number}
                          </Badge>
-                         <span className="text-xs text-slate-400 font-bold uppercase tracking-tight">
+                         <span className="text-[10px] text-muted-foreground font-black uppercase tracking-widest bg-muted rounded px-2 py-0.5">
                            Attempt {assessment.attempt_number}
                          </span>
                       </div>
                       {assessment.grader_remarks && assessment.status === 'published' && (
-                        <p className="text-sm text-slate-500 mt-4 leading-relaxed font-medium line-clamp-2 italic">
+                        <p className="text-sm text-muted-foreground mt-3 leading-relaxed font-medium line-clamp-1 italic max-w-2xl">
                           "{assessment.grader_remarks}"
                         </p>
                       )}
                     </div>
                   </div>
-                  <div className="p-6 bg-slate-50/50 dark:bg-background/20 flex items-center justify-between md:justify-end gap-10 md:min-w-[280px]">
+                  <div className="p-5 bg-muted/20 flex items-center justify-between md:justify-end gap-10 md:min-w-[300px] border-t md:border-t-0 md:border-l border-border/50">
                     {assessment.status === 'published' ? (
                       <div className="text-center md:text-right">
-                        <p className="text-3xl font-black text-slate-900 dark:text-slate-100">{assessment.marks_obtained}%</p>
-                        <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Your Score</p>
+                        <p className="text-2xl font-bold text-foreground">{assessment.marks_obtained}%</p>
+                        <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Your Score</p>
                       </div>
                     ) : (
                       <div className="text-center md:text-right">
                         <Badge className={cn(
-                          "font-black uppercase text-[10px] py-1 px-3",
-                          assessment.status === 'returned' ? "bg-rose-500 hover:bg-rose-600 shadow-lg shadow-rose-200" : "bg-amber-500 hover:bg-amber-600"
+                          "font-bold uppercase text-[10px] py-1 px-3 border-none",
+                          assessment.status === 'returned' ? "bg-destructive text-destructive-foreground shadow-lg shadow-destructive/20" : "bg-warning text-warning-foreground"
                         )}>
                           {assessment.status.replace('_', ' ')}
                         </Badge>
                         {assessment.status === 'returned' && (
-                          <p className="text-[9px] font-bold text-rose-400 uppercase mt-1">Please retake</p>
+                          <p className="text-[9px] font-bold text-destructive uppercase mt-1">Please retake</p>
                         )}
                       </div>
                     )}
                     <Button 
                       variant={assessment.status === 'published' ? 'outline' : 'gradient'} 
                       size="lg"
-                      className="font-black uppercase tracking-wider rounded-2xl"
+                      className="font-bold h-10 px-6 rounded-xl"
                       onClick={() => {
                         setViewingSubmission(assessment);
                         setIsResultsOpen(true);
@@ -404,7 +482,7 @@ export default function Assessments() {
 
    return (
     <DashboardLayout>
-      <div className="max-w-6xl mx-auto py-6 px-4 sm:px-6 lg:px-8 bg-slate-50/30 dark:bg-background/20 min-h-screen pb-20">
+      <div className="space-y-6 min-h-screen pb-20">
         {user?.role === 'student' ? <StudentAssessments /> : <AdminAssessments />}
         
         {/* Admin Review Modal */}
