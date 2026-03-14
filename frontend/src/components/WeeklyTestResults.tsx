@@ -361,7 +361,7 @@ export function WeeklyTestResults({
             )}
             <Button 
               onClick={onClose} 
-              className="flex-1 sm:flex-none bg-slate-900 dark:bg-[#283593] hover:bg-black dark:hover:bg-[#1a237e] text-white font-black px-10 h-10 rounded-xl uppercase text-[10px] tracking-[0.2em] shadow-xl dark:shadow-blue-900/20 group"
+              className="flex-1 sm:flex-none bg-indigo-600 dark:bg-[#283593] hover:bg-indigo-700 dark:hover:bg-[#1a237e] text-white font-black px-10 h-10 rounded-xl uppercase text-[10px] tracking-[0.2em] shadow-xl shadow-indigo-200 dark:shadow-blue-900/20 transition-all active:scale-[0.98] group"
             >
               Done
               <CheckCircle className="ml-2 h-3.5 w-3.5 opacity-50 group-hover:opacity-100 transition-opacity" />
