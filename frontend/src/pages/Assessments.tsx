@@ -132,7 +132,7 @@ export default function Assessments() {
 
   const AdminAssessments = () => (
     <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
-      <div className="flex flex-col gap-6 sm:flex-row sm:items-end sm:justify-between bg-white p-8 rounded-3xl border border-slate-100 shadow-sm">
+      <div className="flex flex-col gap-6 sm:flex-row sm:items-end sm:justify-between bg-white dark:bg-slate-900 p-8 rounded-3xl border border-slate-100 dark:border-slate-800 shadow-sm">
         <div className="space-y-1">
           <h1 className="font-black text-4xl text-slate-900 tracking-tight">Assessments</h1>
           <p className="text-slate-500 font-medium">Evaluate and manage student test submissions across batches.</p>
@@ -163,7 +163,7 @@ export default function Assessments() {
           { label: 'Pending Review', value: pendingCount, icon: AlertCircle, color: 'amber' },
           { label: 'Evaluated', value: publishedCount, icon: CheckCircle, color: 'emerald' }
         ].map((stat, i) => (
-          <Card key={i} className="border-none shadow-xl shadow-slate-200/50 overflow-hidden group">
+          <Card key={i} className="border-none shadow-xl shadow-slate-200/50 dark:shadow-none dark:bg-slate-900 overflow-hidden group">
             <CardContent className="p-6">
               <div className="flex items-center gap-5">
                 <div className={cn(
@@ -312,7 +312,7 @@ export default function Assessments() {
 
   const StudentAssessments = () => (
     <div className="space-y-6 animate-in fade-in duration-500">
-      <div className="bg-white p-8 rounded-3xl border border-slate-100 shadow-sm">
+      <div className="bg-white dark:bg-slate-900 p-8 rounded-3xl border border-slate-100 dark:border-slate-800 shadow-sm">
         <h1 className="font-black text-4xl text-slate-900 tracking-tight">My Results</h1>
         <p className="text-slate-500 font-medium">Track your performance and review instructor feedback.</p>
       </div>
@@ -404,7 +404,7 @@ export default function Assessments() {
 
   return (
     <DashboardLayout>
-      <div className="max-w-6xl mx-auto py-6 px-4 sm:px-6 lg:px-8 bg-slate-50/30 min-h-screen pb-20">
+      <div className="max-w-6xl mx-auto py-6 px-4 sm:px-6 lg:px-8 bg-slate-50/30 dark:bg-slate-950/20 min-h-screen pb-20">
         {user?.role === 'student' ? <StudentAssessments /> : <AdminAssessments />}
         
         {/* Admin Review Modal */}

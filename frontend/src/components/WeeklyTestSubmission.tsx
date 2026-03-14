@@ -19,9 +19,8 @@ import {
   Loader2,
   CheckCircle,
   AlertCircle,
-  Paperclip,
   Image as ImageIcon,
-  HelpCircle,
+  Clock,
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { apiClient } from '@/lib/api';
@@ -84,11 +83,7 @@ export function WeeklyTestSubmission({
     setIsSubmitting(true);
     try {
       const formData = new FormData();
-      
-      // The backend expects 'answers' as a JSON string
       formData.append('answers', JSON.stringify(answers));
-
-      // Individual files for questions
       Object.entries(files).forEach(([qId, file]) => {
         formData.append(`file_q_${qId}`, file);
       });
@@ -129,58 +124,70 @@ export function WeeklyTestSubmission({
     return url.split('/').pop()?.split('?')[0] || url;
   };
 
+  const uploadedCount = Object.keys(files).length;
+  const totalQuestions = test.questions.length;
+
   return (
     <Dialog open={open} onOpenChange={(v) => !v && !isSubmitting && onClose()}>
-      <DialogContent className="sm:max-w-4xl max-h-[90vh] flex flex-col p-0 overflow-hidden">
-        <div className="bg-gradient-to-br from-[#1a237e] to-[#283593] p-6 text-white shrink-0">
-          <DialogTitle className="text-2xl font-bold tracking-tight mb-2">
+      <DialogContent className="sm:max-w-2xl max-h-[90vh] flex flex-col p-0 overflow-hidden border-none shadow-2xl bg-slate-50 dark:bg-[#0a0a0b]">
+        {/* Compact Blue Header */}
+        <div className="bg-gradient-to-br from-[#1a237e] to-[#283593] p-5 text-white shrink-0 relative">
+          <button 
+            onClick={onClose}
+            className="absolute right-4 top-4 p-1 rounded-full hover:bg-white/10 transition-colors"
+          >
+            <X className="h-4 w-4" />
+          </button>
+          <DialogTitle className="text-lg font-bold tracking-tight mb-0.5">
             {test.title}
           </DialogTitle>
-          <DialogDescription className="text-white/70 text-sm">
-            Please answer all questions carefully. You can upload files (PDF, .ipynb, images) or type your answers directly.
+          <DialogDescription className="text-white/70 text-[11px] font-medium max-w-lg">
+            Answer questions by typing or uploading files.
           </DialogDescription>
-          {test.instructions && (
-            <div className="mt-4 p-3 bg-white/10 rounded-lg border border-white/10 text-xs">
-              <p className="font-bold mb-1 flex items-center gap-1.5 uppercase tracking-wider opacity-70">
-                <HelpCircle className="h-3 w-3" /> Instructions
-              </p>
-              {test.instructions}
-            </div>
-          )}
         </div>
 
-        <div className="flex-1 overflow-y-auto p-6 space-y-8 scrollbar-hide">
+        <div className="flex-1 overflow-y-auto p-4 md:p-5 space-y-5 scrollbar-hide">
           {test.questions.map((question, index) => (
-            <Card key={question.id} className="border-border/50 shadow-sm overflow-hidden">
-              <CardContent className="p-0">
-                <div className="flex flex-col md:flex-row divide-y md:divide-y-0 md:divide-x divide-border/30">
-                  {/* Left: Question Content */}
-                  <div className="flex-1 p-5 md:max-w-[50%] bg-muted/5">
-                    <div className="flex items-center gap-2 mb-3">
-                      <Badge variant="outline" className="bg-primary/10 text-primary border-primary/20 font-bold h-6 px-2">
-                        Question {index + 1}
-                      </Badge>
-                      <Badge variant="secondary" className="h-6 px-2 text-[10px] font-bold uppercase tracking-wider">
-                        {question.marks} Mark{question.marks !== 1 ? 's' : ''}
-                      </Badge>
-                    </div>
-                    
-                    {question.text && (
-                      <p className="text-sm font-medium text-foreground mb-4 whitespace-pre-wrap leading-relaxed">
-                        {question.text}
-                      </p>
-                    )}
+            <Card key={question.id} className="border-none shadow-sm dark:bg-[#111114] dark:border dark:border-white/5 rounded-xl overflow-hidden">
+              <CardContent className="p-4">
+                {/* Question Header */}
+                <div className="flex items-center justify-between mb-3">
+                  <div className="flex items-center gap-2">
+                    <Badge className="bg-indigo-50 dark:bg-indigo-950/30 text-indigo-600 dark:text-indigo-400 border-none font-bold px-2 py-0.5 rounded text-[10px] leading-none">
+                      Q{index + 1}
+                    </Badge>
+                    <Badge className="bg-slate-100 dark:bg-slate-800/50 text-slate-500 dark:text-slate-400 border-none font-medium px-2 py-0.5 rounded text-[9px] leading-none uppercase tracking-wider">
+                      {question.marks} marks
+                    </Badge>
+                  </div>
+                  <span className="text-[10px] uppercase font-bold text-slate-300 dark:text-slate-700">
+                    {question.marks} marks
+                  </span>
+                </div>
 
-                    {/* Question Media */}
-                    <div className="flex flex-wrap gap-2 mt-4">
+                {/* Question Text */}
+                <h3 className="text-sm font-semibold text-slate-800 dark:text-slate-200 mb-3 leading-snug">
+                  {question.text}
+                </h3>
+
+                <div className="h-px bg-slate-100 dark:bg-white/5 w-full mb-4" />
+
+                <div className="space-y-4">
+                  {/* Upload Attachments Section */}
+                  <div className="space-y-2">
+                    <Label className="text-[9px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest">
+                      Upload Attachments
+                    </Label>
+                    
+                    <div className="flex flex-wrap gap-2">
                       {question.question_file && (
                         <a 
                           href={question.question_file} 
                           target="_blank" 
                           rel="noreferrer"
-                          className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-background border border-border text-[11px] font-semibold text-primary hover:bg-muted transition-colors"
+                          className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-indigo-50/50 dark:bg-indigo-950/10 border border-indigo-100/50 dark:border-indigo-900/30 text-[10px] font-bold text-indigo-600 dark:text-indigo-400 hover:bg-indigo-100 transition-colors"
                         >
-                          <Paperclip className="h-3 w-3" />
+                          <FileText className="h-3 w-3" />
                           {shortName(question.question_file)}
                         </a>
                       )}
@@ -189,10 +196,10 @@ export function WeeklyTestSubmission({
                           href={question.image} 
                           target="_blank" 
                           rel="noreferrer"
-                          className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-background border border-border text-[11px] font-semibold text-primary hover:bg-muted transition-colors"
+                          className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-indigo-50/50 dark:bg-indigo-950/10 border border-indigo-100/50 dark:border-indigo-900/30 text-[10px] font-bold text-indigo-600 dark:text-indigo-400 hover:bg-indigo-100 transition-colors"
                         >
                           <ImageIcon className="h-3 w-3" />
-                          Reference Image
+                          Img Ref
                         </a>
                       )}
                       {(question.attachments || []).map(att => (
@@ -201,69 +208,59 @@ export function WeeklyTestSubmission({
                           href={att.file} 
                           target="_blank" 
                           rel="noreferrer"
-                          className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-background border border-border text-[11px] font-semibold text-primary hover:bg-muted transition-colors"
+                          className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-indigo-50/50 dark:bg-indigo-950/10 border border-indigo-100/50 dark:border-indigo-900/30 text-[10px] font-bold text-indigo-600 dark:text-indigo-400 hover:bg-indigo-100 transition-colors"
                         >
                           <FileText className="h-3 w-3" />
-                          {att.name || shortName(att.file)}
+                          {att.name || 'File'}
                         </a>
                       ))}
+
+                      {files[question.id] && (
+                        <div className="flex items-center gap-2 px-2.5 py-1.5 rounded-lg bg-emerald-50 dark:bg-emerald-950/20 border border-emerald-100/50 dark:border-emerald-900/30 text-[10px] font-bold text-emerald-600 dark:text-emerald-400">
+                          <CheckCircle className="h-3 w-3" />
+                          <span className="truncate max-w-[100px]">{files[question.id].name}</span>
+                          <button 
+                            onClick={(e) => { e.stopPropagation(); handleFileChange(question.id, null); }}
+                            className="ml-1 hover:text-rose-500 transition-colors"
+                          >
+                            <X className="h-3 w-3" />
+                          </button>
+                        </div>
+                      )}
                     </div>
                   </div>
 
-                  {/* Right: Answer Input */}
-                  <div className="flex-1 p-5 space-y-4">
-                    <div className="space-y-2">
-                      <Label className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Your Answer</Label>
+                  {/* Your Answer Section */}
+                  <div className="space-y-2">
+                    <Label className="text-[9px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest">
+                      Your Answer
+                    </Label>
+                    
+                    <div className="grid gap-2">
                       <Textarea 
                         placeholder="Type your answer here..."
                         value={answers[question.id] || ''}
                         onChange={(e) => handleTextChange(question.id, e.target.value)}
-                        className="min-h-[120px] text-sm resize-none focus:ring-primary/20"
+                        className="min-h-[70px] rounded-lg bg-slate-50 dark:bg-[#0a0a0b] border-slate-200 dark:border-white/5 p-3 text-sm resize-none focus:ring-1 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all font-medium"
                       />
-                    </div>
-
-                    <div className="space-y-2">
-                      <Label className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Attach Solution File</Label>
-                      <div 
-                        className={cn(
-                          "border-2 border-dashed rounded-xl p-3 text-center cursor-pointer transition-all h-24 flex flex-col items-center justify-center",
-                          files[question.id] 
-                            ? "bg-primary/5 border-primary/40" 
-                            : "hover:bg-muted/50 border-border/60"
-                        )}
-                        onClick={() => fileInputRefs.current[question.id]?.click()}
-                      >
-                        <input 
-                          type="file"
-                          className="hidden"
-                          ref={(el) => (fileInputRefs.current[question.id] = el)}
-                          onChange={(e) => handleFileChange(question.id, e.target.files?.[0] || null)}
-                        />
-                        {files[question.id] ? (
-                          <div className="flex flex-col items-center">
-                            <CheckCircle className="h-5 w-5 text-primary mb-1" />
-                            <p className="text-[11px] font-bold text-primary truncate max-w-[200px]">
-                              {files[question.id].name}
-                            </p>
-                            <button 
-                              className="text-[10px] text-destructive font-black uppercase mt-1 hover:underline"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                handleFileChange(question.id, null);
-                              }}
-                            >
-                              Remove
-                            </button>
+                      
+                      {!files[question.id] && (
+                        <div 
+                          className="border border-dashed border-slate-200 dark:border-white/10 rounded-lg p-4 text-center cursor-pointer hover:bg-slate-100 dark:hover:bg-white/[0.02] transition-all group"
+                          onClick={() => fileInputRefs.current[question.id]?.click()}
+                        >
+                          <input 
+                            type="file"
+                            className="hidden"
+                            ref={(el) => (fileInputRefs.current[question.id] = el)}
+                            onChange={(e) => handleFileChange(question.id, e.target.files?.[0] || null)}
+                          />
+                          <div className="flex flex-col items-center gap-1.5">
+                            <Upload className="h-4 w-4 text-slate-300 dark:text-slate-600 group-hover:text-indigo-400 transition-colors" />
+                            <p className="text-xs font-bold text-slate-600 dark:text-slate-400">Upload solution file</p>
                           </div>
-                        ) : (
-                          <>
-                            <Upload className="h-5 w-5 text-muted-foreground/50 mb-1" />
-                            <p className="text-[11px] font-medium text-muted-foreground">
-                              Upload .ipynb, .pdf, or image
-                            </p>
-                          </>
-                        )}
-                      </div>
+                        </div>
+                      )}
                     </div>
                   </div>
                 </div>
@@ -272,52 +269,51 @@ export function WeeklyTestSubmission({
           ))}
         </div>
 
-        <DialogFooter className="p-4 border-t bg-muted/20 flex flex-col sm:flex-row items-center justify-between gap-4">
-          <div className="flex items-center gap-2 text-xs text-muted-foreground">
-            <AlertCircle className="h-3.5 w-3.5" />
-            <span>Ensure all answers are saved before submitting.</span>
-          </div>
-          <div className="flex gap-3 w-full sm:w-auto">
-            <Button variant="ghost" onClick={onClose} disabled={isSubmitting} className="flex-1 sm:flex-none">
-              Cancel
-            </Button>
+        <DialogFooter className="p-4 bg-white dark:bg-[#0a0a0b] border-t border-slate-100 dark:border-white/5 shrink-0">
+          <div className="w-full flex justify-center">
             <Button 
               variant="gradient" 
+              size="lg"
               onClick={validateAndConfirm} 
               disabled={isSubmitting} 
-              className="flex-1 sm:flex-none px-12 font-bold shadow-lg shadow-primary/20"
+              className="px-8 py-3 h-auto rounded-lg font-bold text-xs uppercase tracking-widest shadow-xl shadow-indigo-500/10 group hover:scale-[1.01] transition-all"
             >
               {isSubmitting ? (
                 <>
-                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                  Submitting...
+                  <Loader2 className="h-3 w-3 mr-2 animate-spin" />
+                  Submitting
                 </>
               ) : (
-                'Final Submit'
+                <>
+                  <Clock className="h-3.5 w-3.5 mr-2 opacity-70 group-hover:rotate-12 transition-transform" />
+                  Submit All Answers ({uploadedCount}/{totalQuestions})
+                </>
               )}
             </Button>
           </div>
         </DialogFooter>
       </DialogContent>
 
-      {/* Confirmation Dialog */}
       <Dialog open={showConfirm} onOpenChange={setShowConfirm}>
-        <DialogContent className="sm:max-w-md">
-          <DialogHeader>
-            <DialogTitle>Confirm Submission</DialogTitle>
-            <DialogDescription>
-              Are you sure you want to submit your assessment? This action cannot be undone.
+        <DialogContent className="sm:max-w-md rounded-xl p-5 border-none dark:bg-[#111114]">
+          <DialogHeader className="space-y-2">
+            <DialogTitle className="text-lg font-bold">Confirm Submission</DialogTitle>
+            <DialogDescription className="text-xs font-medium text-slate-500 dark:text-slate-400">
+              Submit your assessment? This action cannot be undone.
               {test.questions.filter(q => !answers[q.id]?.trim() && !files[q.id]).length > 0 && (
-                <p className="mt-2 text-destructive font-bold">
-                  Warning: You have unanswered questions.
-                </p>
+                <div className="mt-2 p-2 bg-rose-50 dark:bg-rose-950/10 border border-rose-100 dark:border-rose-900/20 rounded flex items-start gap-2">
+                  <AlertCircle className="h-3 w-3 text-rose-500 mt-0.5" />
+                  <p className="text-[10px] font-bold text-rose-600 dark:text-rose-400">
+                    Warning: {test.questions.filter(q => !answers[q.id]?.trim() && !files[q.id]).length} questions unanswered.
+                  </p>
+                </div>
               )}
             </DialogDescription>
           </DialogHeader>
-          <DialogFooter className="flex gap-2">
-            <Button variant="ghost" onClick={() => setShowConfirm(false)}>Cancel</Button>
-            <Button variant="gradient" onClick={handleSubmit} disabled={isSubmitting}>
-              {isSubmitting ? <Loader2 className="h-4 w-4 animate-spin" /> : "Confirm & Submit"}
+          <DialogFooter className="mt-4 flex gap-2">
+            <Button variant="ghost" onClick={() => setShowConfirm(false)} className="rounded-md font-bold text-[10px] h-8 px-3">Cancel</Button>
+            <Button variant="gradient" onClick={handleSubmit} disabled={isSubmitting} className="rounded-md font-bold text-[10px] h-8 px-4">
+              Confirm & Submit
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -325,3 +321,4 @@ export function WeeklyTestSubmission({
     </Dialog>
   );
 }
+
