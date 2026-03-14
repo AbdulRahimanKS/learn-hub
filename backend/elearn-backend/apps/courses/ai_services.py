@@ -203,6 +203,7 @@ class AIEvaluationService:
                 if answer:
                     answer.ai_score = eval_data.get('score', 0)
                     answer.ai_feedback = eval_data.get('feedback', '')
+                    answer.ai_response = eval_data
                     answer.save()
                     total_ai_score += answer.ai_score
             except (ValueError, TypeError):

@@ -837,7 +837,9 @@ export default function Courses() {
                                     {locked
                                       ? 'Locked'
                                       : (week.weekly_test as any).has_attempted
-                                      ? 'View Results'
+                                      ? (week.weekly_test as any).latest_submission?.status === 'published'
+                                        ? 'View Results'
+                                        : 'View Submission'
                                       : !sessions.every((s: any) => s.is_completed)
                                       ? 'Complete Lessons'
                                       : 'Take Test'}

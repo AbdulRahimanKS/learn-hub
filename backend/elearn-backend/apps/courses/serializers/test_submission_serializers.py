@@ -5,17 +5,24 @@ class TestSubmissionAnswerSerializer(serializers.ModelSerializer):
     question_text = serializers.CharField(source='question.text', read_only=True)
     question_order = serializers.IntegerField(source='question.order', read_only=True)
     max_marks = serializers.FloatField(source='question.marks', read_only=True)
+    question_file = serializers.FileField(source='question.question_file', read_only=True)
+    attachments = serializers.SerializerMethodField()
 
     class Meta:
         model = TestSubmissionAnswer
         fields = [
             'id', 'question', 'question_text', 'question_order', 'max_marks',
-            'answer_file', 'answer_text', 'marks_obtained', 'ai_score', 'ai_feedback'
+            'question_file', 'answer_file', 'answer_text', 'marks_obtained', 
+            'ai_score', 'ai_feedback', 'ai_response', 'attachments'
         ]
         read_only_fields = ['id', 'ai_score', 'ai_feedback']
 
+    def get_attachments(self, obj):
+        from apps.courses.serializers.course_module_serializers import BatchTestQuestionAttachmentSerializer
+        return BatchTestQuestionAttachmentSerializer(obj.question.attachments.all(), many=True).data
+
 class TestSubmissionSerializer(serializers.ModelSerializer):
-    answers = TestSubmissionAnswerSerializer(many=True, read_only=True)
+    answers = serializers.SerializerMethodField()
     student_name = serializers.CharField(source='enrollment.student.fullname', read_only=True)
     student_email = serializers.CharField(source='enrollment.student.email', read_only=True)
     batch_name = serializers.CharField(source='enrollment.batch.name', read_only=True)
@@ -27,11 +34,45 @@ class TestSubmissionSerializer(serializers.ModelSerializer):
         model = TestSubmission
         fields = [
             'id', 'batch_weekly_test', 'enrollment', 'attempt_number', 'student_name', 'student_email',
-            'batch_name', 'week_number', 'test_title', 'answer_file', 'answer_text', 
+            'batch_name', 'week_number', 'test_title',
             'submitted_at', 'marks_obtained', 'is_passed', 'grader_remarks', 
             'graded_at', 'graded_by', 'graded_by_name', 'status', 'answers'
         ]
         read_only_fields = ['id', 'batch_weekly_test', 'enrollment', 'submitted_at', 'graded_at', 'graded_by']
+
+    def get_answers(self, obj):
+        from apps.courses.serializers.course_module_serializers import BatchTestQuestionAttachmentSerializer
+        
+        request = self.context.get('request')
+        questions = obj.batch_weekly_test.questions.all().order_by('order', 'id')
+        submission_answers = {a.question_id: a for a in obj.answers.all()}
+        
+        results = []
+        for q in questions:
+            ans = submission_answers.get(q.id)
+            if ans:
+                data = TestSubmissionAnswerSerializer(ans, context=self.context).data
+                data['is_attended'] = True
+            else:
+                # Mock the structure for unattended questions
+                data = {
+                    'id': f"unattended-{q.id}",
+                    'question': q.id,
+                    'question_text': q.text,
+                    'question_order': q.order,
+                    'max_marks': q.marks,
+                    'question_file': request.build_absolute_uri(q.question_file.url) if q.question_file and request else (q.question_file.url if q.question_file else None),
+                    'answer_text': None,
+                    'answer_file': None,
+                    'marks_obtained': 0,
+                    'ai_score': None,
+                    'ai_feedback': None,
+                    'ai_response': None,
+                    'attachments': BatchTestQuestionAttachmentSerializer(q.attachments.all(), many=True, context=self.context).data,
+                    'is_attended': False
+                }
+            results.append(data)
+        return results
 
     def get_week_number(self, obj):
         if obj.batch_weekly_test.batch_week:

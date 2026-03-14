@@ -22,6 +22,8 @@ import {
   Image as ImageIcon,
   Clock,
   HelpCircle,
+  Eye,
+  Download,
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { apiClient } from '@/lib/api';
@@ -159,44 +161,89 @@ export function WeeklyTestSubmission({
                   {/* Question Resources (Reference Materials from Admin) */}
                   {(question.question_file || question.image || (question.attachments && question.attachments.length > 0)) && (
                     <div className="space-y-3">
-                      <Label className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest">
-                        Reference Files
+                      <Label className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest flex items-center gap-2">
+                        <HelpCircle className="h-3 w-3" /> Reference Files
                       </Label>
                       
-                      <div className="flex flex-wrap gap-2.5">
+                      <div className="grid grid-cols-1 gap-2">
                         {question.question_file && (
-                          <a 
-                            href={question.question_file} 
-                            target="_blank" 
-                            rel="noreferrer"
-                            className="flex items-center gap-2 px-3 py-2 rounded-xl bg-indigo-50/50 dark:bg-indigo-950/10 border border-indigo-100/50 dark:border-indigo-900/30 text-xs font-bold text-indigo-600 dark:text-indigo-400 hover:bg-indigo-100 transition-colors"
-                          >
-                            <FileText className="h-3.5 w-3.5" />
-                            {shortName(question.question_file)}
-                          </a>
+                          <div className="flex items-center justify-between p-2.5 rounded-xl bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-800/50 group/file hover:bg-slate-100 dark:hover:bg-slate-800 transition-all shadow-sm">
+                             <div className="flex items-center gap-2.5 min-w-0">
+                                <div className="h-8 w-8 rounded-lg bg-indigo-50 dark:bg-indigo-500/10 flex items-center justify-center shrink-0">
+                                  <FileText className="h-4 w-4 text-indigo-600 dark:text-indigo-400" />
+                                </div>
+                                <div className="min-w-0">
+                                   <p className="text-[11px] font-bold text-slate-800 dark:text-slate-100 truncate" title={shortName(question.question_file)}>
+                                     {shortName(question.question_file)}
+                                   </p>
+                                   <p className="text-[8px] font-bold text-slate-400 dark:text-white/30 uppercase tracking-wider">Question Resource</p>
+                                </div>
+                             </div>
+                             <div className="flex items-center gap-1 opacity-40 group-hover/file:opacity-100 transition-opacity">
+                                <Button variant="ghost" size="icon" className="h-7 w-7" asChild>
+                                   <a href={question.question_file} target="_blank" rel="noreferrer">
+                                     <Eye className="h-3.5 w-3.5" />
+                                   </a>
+                                </Button>
+                                <Button variant="ghost" size="icon" className="h-7 w-7" asChild>
+                                   <a href={question.question_file} download>
+                                     <Download className="h-3.5 w-3.5" />
+                                   </a>
+                                </Button>
+                             </div>
+                          </div>
                         )}
                         {question.image && (
-                          <a 
-                            href={question.image} 
-                            target="_blank" 
-                            rel="noreferrer"
-                            className="flex items-center gap-2 px-3 py-2 rounded-xl bg-indigo-50/50 dark:bg-indigo-950/10 border border-indigo-100/50 dark:border-indigo-900/30 text-xs font-bold text-indigo-600 dark:text-indigo-400 hover:bg-indigo-100 transition-colors"
-                          >
-                            <ImageIcon className="h-3.5 w-3.5" />
-                            Image View
-                          </a>
+                          <div className="flex items-center justify-between p-2.5 rounded-xl bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-800/50 group/file hover:bg-slate-100 dark:hover:bg-slate-800 transition-all shadow-sm">
+                             <div className="flex items-center gap-2.5 min-w-0">
+                                <div className="h-8 w-8 rounded-lg bg-indigo-50 dark:bg-indigo-500/10 flex items-center justify-center shrink-0">
+                                  <ImageIcon className="h-4 w-4 text-indigo-600 dark:text-indigo-400" />
+                                </div>
+                                <div className="min-w-0">
+                                   <p className="text-[11px] font-bold text-slate-800 dark:text-slate-100 truncate">Image Preview</p>
+                                   <p className="text-[8px] font-bold text-slate-400 dark:text-white/30 uppercase tracking-wider">Visual Asset</p>
+                                </div>
+                             </div>
+                             <div className="flex items-center gap-1 opacity-40 group-hover/file:opacity-100 transition-opacity">
+                                <Button variant="ghost" size="icon" className="h-7 w-7" asChild>
+                                   <a href={question.image} target="_blank" rel="noreferrer">
+                                     <Eye className="h-3.5 w-3.5" />
+                                   </a>
+                                </Button>
+                                <Button variant="ghost" size="icon" className="h-7 w-7" asChild>
+                                   <a href={question.image} download>
+                                     <Download className="h-3.5 w-3.5" />
+                                   </a>
+                                </Button>
+                             </div>
+                          </div>
                         )}
                         {(question.attachments || []).map(att => (
-                          <a 
-                            key={att.id}
-                            href={att.file} 
-                            target="_blank" 
-                            rel="noreferrer"
-                            className="flex items-center gap-2 px-3 py-2 rounded-xl bg-indigo-50/50 dark:bg-indigo-950/10 border border-indigo-100/50 dark:border-indigo-900/30 text-xs font-bold text-indigo-600 dark:text-indigo-400 hover:bg-indigo-100 transition-colors"
-                          >
-                            <FileText className="h-3.5 w-3.5" />
-                            {att.name || 'Resource File'}
-                          </a>
+                          <div key={att.id} className="flex items-center justify-between p-2.5 rounded-xl bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-800/50 group/file hover:bg-slate-100 dark:hover:bg-slate-800 transition-all shadow-sm">
+                             <div className="flex items-center gap-2.5 min-w-0">
+                                <div className="h-8 w-8 rounded-lg bg-indigo-50 dark:bg-indigo-500/10 flex items-center justify-center shrink-0">
+                                  <FileText className="h-4 w-4 text-indigo-600 dark:text-indigo-400" />
+                                </div>
+                                <div className="min-w-0">
+                                   <p className="text-[11px] font-bold text-slate-800 dark:text-slate-100 truncate" title={att.name || att.file}>
+                                     {att.name || shortName(att.file)}
+                                   </p>
+                                   <p className="text-[8px] font-bold text-slate-400 dark:text-white/30 uppercase tracking-wider">Additional Resource</p>
+                                </div>
+                             </div>
+                             <div className="flex items-center gap-1 opacity-40 group-hover/file:opacity-100 transition-opacity">
+                                <Button variant="ghost" size="icon" className="h-7 w-7" asChild>
+                                   <a href={att.file} target="_blank" rel="noreferrer">
+                                     <Eye className="h-3.5 w-3.5" />
+                                   </a>
+                                </Button>
+                                <Button variant="ghost" size="icon" className="h-7 w-7" asChild>
+                                   <a href={att.file} download>
+                                     <Download className="h-3.5 w-3.5" />
+                                   </a>
+                                </Button>
+                             </div>
+                          </div>
                         ))}
                       </div>
                     </div>

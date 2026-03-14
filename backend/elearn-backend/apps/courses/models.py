@@ -768,16 +768,6 @@ class TestSubmission(models.Model):
     )
     attempt_number = models.PositiveSmallIntegerField(_('Attempt #'), default=1)
 
-    answer_file  = models.FileField(
-        upload_to='test_submissions/',
-        null=True, blank=True,
-        help_text=_('Supported: .ipynb, .pdf, .doc, .docx, .jpg, .jpeg, .png')
-    )
-    answer_text  = models.TextField(
-        _('Inline Answer Text'), blank=True,
-        help_text=_('For text-only answers; used alongside or instead of file')
-    )
-
     submitted_at = models.DateTimeField(auto_now_add=True)
 
     # AI Evaluation
@@ -853,6 +843,11 @@ class TestSubmissionAnswer(models.Model):
     marks_obtained = models.FloatField(_('Marks Obtained'), null=True, blank=True)
     ai_score = models.FloatField(null=True, blank=True)
     ai_feedback = models.TextField(blank=True)
+    ai_response = models.JSONField(
+        null=True,
+        blank=True,
+        help_text=_('Raw AI evaluation response for this specific question')
+    )
 
     class Meta:
         verbose_name = _('Test Submission Answer')
