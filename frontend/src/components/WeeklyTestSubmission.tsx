@@ -154,11 +154,11 @@ export function WeeklyTestSubmission({
                 <div className="h-px bg-slate-100 dark:bg-white/5 w-full mb-4" />
 
                 <div className="space-y-4">
-                  {/* Upload Attachments Section */}
-                  {(question.question_file || question.image || (question.attachments && question.attachments.length > 0) || files[question.id]) && (
+                  {/* Question Resources (Reference Materials from Admin) */}
+                  {(question.question_file || question.image || (question.attachments && question.attachments.length > 0)) && (
                     <div className="space-y-2">
                       <Label className="text-[9px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest">
-                        Upload Attachments
+                        Reference Files
                       </Label>
                       
                       <div className="flex flex-wrap gap-2">
@@ -196,19 +196,6 @@ export function WeeklyTestSubmission({
                             {att.name || 'File'}
                           </a>
                         ))}
-
-                        {files[question.id] && (
-                          <div className="flex items-center gap-2 px-2.5 py-1.5 rounded-lg bg-emerald-50 dark:bg-emerald-950/20 border border-emerald-100/50 dark:border-emerald-900/30 text-[10px] font-bold text-emerald-600 dark:text-emerald-400">
-                            <CheckCircle className="h-3 w-3" />
-                            <span className="truncate max-w-[100px]">{files[question.id].name}</span>
-                            <button 
-                              onClick={(e) => { e.stopPropagation(); handleFileChange(question.id, null); }}
-                              className="ml-1 hover:text-rose-500 transition-colors"
-                            >
-                              <X className="h-3 w-3" />
-                            </button>
-                          </div>
-                        )}
                       </div>
                     </div>
                   )}
@@ -227,7 +214,25 @@ export function WeeklyTestSubmission({
                         className="min-h-[70px] rounded-lg bg-slate-50 dark:bg-slate-900/50 border-slate-200 dark:border-slate-800/50 p-3 text-sm resize-none focus:ring-1 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all font-medium"
                       />
                       
-                      {!files[question.id] && (
+                      {files[question.id] ? (
+                        <div className="flex items-center justify-between p-2.5 rounded-lg bg-emerald-50/50 dark:bg-emerald-950/10 border border-emerald-100 dark:border-emerald-900/30">
+                          <div className="flex items-center gap-2 overflow-hidden">
+                            <div className="h-7 w-7 rounded-md bg-emerald-100 dark:bg-emerald-900/50 flex items-center justify-center shrink-0">
+                               <FileText className="h-3.5 w-3.5 text-emerald-600 dark:text-emerald-400" />
+                            </div>
+                            <div className="min-w-0">
+                               <p className="text-[10px] font-bold text-slate-900 dark:text-slate-100 truncate">{files[question.id].name}</p>
+                               <p className="text-[9px] font-medium text-emerald-600 dark:text-emerald-400">Successfully Uploaded</p>
+                            </div>
+                          </div>
+                          <button 
+                            onClick={() => handleFileChange(question.id, null)}
+                            className="h-6 w-6 rounded-md hover:bg-rose-50 dark:hover:bg-rose-950/30 text-slate-400 hover:text-rose-500 flex items-center justify-center transition-colors"
+                          >
+                            <X className="h-3.5 w-3.5" />
+                          </button>
+                        </div>
+                      ) : (
                         <div 
                           className="border border-dashed border-slate-200 dark:border-slate-800/50 rounded-lg p-4 text-center cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-800/30 transition-all group"
                           onClick={() => fileInputRefs.current[question.id]?.click()}
