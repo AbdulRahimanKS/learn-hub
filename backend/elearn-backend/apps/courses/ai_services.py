@@ -79,8 +79,10 @@ class AIEvaluationService:
 
         except Exception as e:
             logger.error(f"AI evaluation failed for submission {submission_id}: {str(e)}")
+            # If it fails, move to PENDING_REVIEW but with clear error so they can retry
             submission.status = TestSubmission.Status.PENDING_REVIEW
-            submission.grader_remarks = f"AI Evaluation failed: {str(e)}. Please review manually."
+            submission.ai_feedback = f"AI Evaluation Error: {str(e)}"
+            submission.grader_remarks = f"System Error during AI evaluation. You can try refreshing the AI analysis specifically for this submission."
             submission.save()
 
     def _prepare_prompt(self, test, answers, answer_key_content=""):
@@ -258,3 +260,76 @@ class AIEvaluationService:
             
         submission.status = TestSubmission.Status.PENDING_REVIEW
         submission.save()
+
+    def evaluate_single_answer(self, answer_id):
+        """
+        Evaluates a single question answer.
+        """
+        try:
+            answer = TestSubmissionAnswer.objects.get(pk=answer_id)
+        except TestSubmissionAnswer.DoesNotExist:
+            return
+
+        submission = answer.submission
+        test = submission.batch_weekly_test
+        q = answer.question
+
+        # Prepare context
+        answer_key_content = ""
+        if test.answer_key:
+            answer_key_content = self._extract_file_content(test.answer_key)
+
+        main_q_file_content = ""
+        if q.question_file:
+            main_q_file_content = self._extract_file_content(q.question_file)
+
+        extracted_answer_file_content = ""
+        if answer.answer_file:
+            extracted_answer_file_content = self._extract_file_content(answer.answer_file)
+
+        prompt = f"""
+        Evaluate the following answer for a specific question.
+        
+        CONTEXT:
+        Test: {test.title}
+        Answer Key Reference: {answer_key_content}
+        
+        QUESTION:
+        Text: {q.text}
+        Max Marks: {q.marks}
+        Question File Content: {main_q_file_content}
+        
+        STUDENT ANSWER:
+        Text: {answer.answer_text}
+        Extracted File Content: {extracted_answer_file_content}
+        
+        TASK:
+        Provide a score (integer or float, 0 to {q.marks}) and concise feedback.
+        Return as JSON with keys 'score' and 'feedback'.
+        """
+
+        if not self.client:
+            import random
+            answer.ai_score = random.uniform(0, q.marks)
+            answer.ai_feedback = "Mocked single question feedback."
+            answer.save()
+            return
+
+        try:
+            response = self.client.chat.completions.create(
+                model="gpt-4-turbo-preview",
+                messages=[
+                    {"role": "system", "content": "You are a technical grader. Evaluate the provided answer accurately based on the question and context."},
+                    {"role": "user", "content": prompt}
+                ],
+                response_format={"type": "json_object"}
+            )
+            result = json.loads(response.choices[0].message.content)
+            answer.ai_score = result.get('score', 0)
+            answer.ai_feedback = result.get('feedback', '')
+            answer.ai_response = result
+            answer.save()
+        except Exception as e:
+            logger.error(f"Single answer AI evaluation failed: {str(e)}")
+            answer.ai_feedback = f"AI Error: {str(e)}"
+            answer.save()

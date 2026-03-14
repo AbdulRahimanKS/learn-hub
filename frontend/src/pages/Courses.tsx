@@ -806,29 +806,68 @@ export default function Courses() {
                                             ? `Unlocks on ${new Date((lockInfo as any).unlock_date).toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric' })}`
                                             : 'Pass previous assessment to unlock'
                                           : 'Test your understanding of this week\'s lessons'}
-                                        {isPass && (
-                                          <span className="text-[10px] px-2 py-0.5 rounded-full bg-emerald-500 text-white font-black uppercase inline-block">Passed</span>
+                                        {isPass ? (
+                                          <Badge className="bg-emerald-500/20 text-emerald-400 border-emerald-500/30 text-[10px] h-5 px-2 font-black uppercase tracking-wider shadow-[0_0_10px_rgba(16,185,129,0.1)]">
+                                            Passed
+                                          </Badge>
+                                        ) : (week.weekly_test as any).latest_submission?.status === 'published' ? (
+                                          <Badge className="bg-rose-500/20 text-rose-400 border-rose-500/30 text-[10px] h-5 px-2 font-black uppercase tracking-wider shadow-[0_0_10px_rgba(244,63,94,0.1)]">
+                                            Failed
+                                          </Badge>
+                                        ) : (week.weekly_test as any).latest_submission && (
+                                          <Badge className="bg-blue-500/10 text-blue-500 border-blue-500/20 text-[10px] h-5 px-2 font-black uppercase tracking-wider shadow-[0_0_10px_rgba(59,130,246,0.05)]">
+                                            {(week.weekly_test as any).latest_submission.status.replace('_', ' ')}
+                                          </Badge>
+                                        )}
+                                        
+                                        {(week.weekly_test as any).latest_submission?.status === 'published' && (
+                                          <span className="text-[10px] font-bold text-foreground">
+                                            Score: {(week.weekly_test as any).latest_submission.marks_obtained}%
+                                          </span>
                                         )}
                                       </p>
                                     </div>
                                   </div>
-                                  <Button
-                                    size="sm"
-                                    disabled={locked || (!sessions.every((s: any) => s.is_completed) && !(week.weekly_test as any).has_attempted)}
-                                    className={cn(
-                                      'font-bold rounded-full h-9 px-6 text-xs transition-all',
-                                      locked || (!sessions.every((s: any) => s.is_completed) && !(week.weekly_test as any).has_attempted)
-                                        ? 'bg-muted text-muted-foreground cursor-not-allowed border'
-                                        : (week.weekly_test as any).has_attempted 
-                                          ? 'bg-[#283593] hover:bg-[#1a237e] text-white border-transparent shadow-sm'
-                                          : 'bg-primary hover:bg-primary/90 text-white shadow-md'
+                                  <div className="flex items-center gap-2">
+                                    {(week.weekly_test as any).has_attempted && (week.weekly_test as any).latest_submission?.status === 'published' && (
+                                      <Button
+                                        size="sm"
+                                        variant="outline"
+                                        className="font-bold rounded-full h-9 px-4 text-xs"
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          setActiveTest(week.weekly_test as any);
+                                          setActiveTestWeek(week.id);
+                                          setIsResultsOpen(true);
+                                        }}
+                                      >
+                                        View Results
+                                      </Button>
                                     )}
+                                    {!isPass && (
+                                      <Button
+                                        size="sm"
+                                        disabled={locked || (!sessions.every((s: any) => s.is_completed) && !(week.weekly_test as any).has_attempted)}
+                                      className={cn(
+                                        'font-bold rounded-full h-9 px-6 text-xs transition-all',
+                                        locked || (!sessions.every((s: any) => s.is_completed) && !(week.weekly_test as any).has_attempted)
+                                          ? 'bg-muted text-muted-foreground cursor-not-allowed border'
+                                          : (week.weekly_test as any).has_attempted 
+                                            ? isPass 
+                                              ? 'bg-emerald-500/10 text-emerald-600 border-emerald-500/20 hover:bg-emerald-500/20'
+                                              : 'bg-primary hover:bg-primary/90 text-white shadow-md'
+                                            : 'bg-primary hover:bg-primary/90 text-white shadow-md'
+                                      )}
                                     onClick={(e) => {
                                       e.stopPropagation();
                                       setActiveTest(week.weekly_test as any);
                                       setActiveTestWeek(week.id);
                                       if ((week.weekly_test as any).has_attempted) {
-                                        setIsResultsOpen(true);
+                                        if (!isPass && (week.weekly_test as any).latest_submission?.status === 'published') {
+                                          setIsTestSubmissionOpen(true);
+                                        } else {
+                                          setIsResultsOpen(true);
+                                        }
                                       } else {
                                         setIsTestSubmissionOpen(true);
                                       }
@@ -837,13 +876,17 @@ export default function Courses() {
                                     {locked
                                       ? 'Locked'
                                       : (week.weekly_test as any).has_attempted
-                                      ? (week.weekly_test as any).latest_submission?.status === 'published'
-                                        ? 'View Results'
-                                        : 'View Submission'
+                                      ? isPass
+                                        ? 'Passed'
+                                        : (week.weekly_test as any).latest_submission?.status === 'published'
+                                          ? 'Retake Test'
+                                          : 'View Submission'
                                       : !sessions.every((s: any) => s.is_completed)
                                       ? 'Complete Lessons'
                                       : 'Take Test'}
                                   </Button>
+                                    )}
+                                </div>
                                 </div>
                               ) : (
                                 <div className="flex items-center gap-3 rounded-xl bg-muted/20 border border-dashed border-border/50 px-5 py-4 text-muted-foreground">

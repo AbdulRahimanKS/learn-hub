@@ -157,6 +157,11 @@ class TestSubmissionDetailView(generics.RetrieveUpdateAPIView):
             return TestSubmissionUpdateSerializer
         return TestSubmissionSerializer
 
+    def retrieve(self, request, *args, **kwargs):
+        instance = self.get_object()
+        serializer = self.get_serializer(instance)
+        return format_success_response(data=serializer.data)
+
     def update(self, request, *args, **kwargs):
         partial = kwargs.pop('partial', False)
         instance = self.get_object()
@@ -258,15 +263,46 @@ class TriggerAIEvaluationView(APIView):
         # Trigger actual evaluation
         from apps.courses.ai_services import AIEvaluationService
         ai_service = AIEvaluationService()
-        ai_service.evaluate_submission(submission.id)
         
+        try:
+            ai_service.evaluate_submission(submission.id)
+        except Exception as e:
+            # Safety fallback if ai_service itself crashes outside its own try-except
+            submission.status = TestSubmission.Status.PENDING_REVIEW
+            submission.ai_feedback = f"Catastrophic failure: {str(e)}"
+            submission.save()
+            
         # Refresh submission from DB after AI evaluation
         submission.refresh_from_db()
         
         return Response({
             "success": True,
-            "message": "AI evaluation completed and moved to Pending Review." if submission.status == TestSubmission.Status.PENDING_REVIEW else "AI evaluation initiated.",
+            "message": "AI evaluation completed." if submission.status == TestSubmission.Status.PENDING_REVIEW else "AI evaluation initiated.",
             "data": TestSubmissionSerializer(submission).data
+        }, status=status.HTTP_200_OK)
+
+class TriggerAnswerAIEvaluationView(APIView):
+    """
+    Triggers AI Evaluation for a specific answer.
+    """
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request, submission_pk, answer_pk):
+        try:
+            answer = TestSubmissionAnswer.objects.get(pk=answer_pk, submission_id=submission_pk)
+        except TestSubmissionAnswer.DoesNotExist:
+            return Response({"success": False, "message": "Answer not found"}, status=status.HTTP_404_NOT_FOUND)
+
+        from apps.courses.ai_services import AIEvaluationService
+        ai_service = AIEvaluationService()
+        ai_service.evaluate_single_answer(answer.id)
+        
+        answer.refresh_from_db()
+        
+        return Response({
+            "success": True,
+            "message": "AI analysis for this question complete.",
+            "data": TestSubmissionAnswerSerializer(answer).data
         }, status=status.HTTP_200_OK)
 
 class SimulateAIEvaluationCompleteView(APIView):
@@ -325,6 +361,10 @@ class MyTestSubmissionsListView(generics.ListAPIView):
     def get_queryset(self):
         qs = TestSubmission.objects.filter(enrollment__student=self.request.user)
         
+        batch_id = self.request.query_params.get('batch_id')
+        if batch_id and batch_id != 'all':
+            qs = qs.filter(enrollment__batch_id=batch_id)
+
         week_number = self.request.query_params.get('week_number')
         if week_number and week_number != 'all':
             try:

@@ -23,6 +23,8 @@ import {
   Award,
   TrendingUp,
   BookOpen,
+  Zap,
+  Edit3,
 } from 'lucide-react';
 import {
   Select,
@@ -76,6 +78,7 @@ export default function Assessments() {
   const [retakeTest, setRetakeTest] = useState<any>(null);
   const [selectedWeekId, setSelectedWeekId] = useState<number | null>(null);
   const [selectedBatchId, setSelectedBatchId] = useState<number | null>(null);
+  const [evaluatingIds, setEvaluatingIds] = useState<number[]>([]);
 
   useEffect(() => {
     fetchBatches();
@@ -83,9 +86,9 @@ export default function Assessments() {
 
   useEffect(() => {
     if (user?.role === 'student') {
-      fetchStudentSubmissions(currentPage, selectedWeek);
+      fetchStudentSubmissions(currentPage, selectedWeek, selectedBatch);
     }
-  }, [currentPage, selectedWeek, user]);
+  }, [currentPage, selectedWeek, selectedBatch, user]);
 
   useEffect(() => {
     if (selectedBatch) {
@@ -146,11 +149,12 @@ export default function Assessments() {
     }
   };
 
-  const fetchStudentSubmissions = async (page = 1, week = 'all') => {
+  const fetchStudentSubmissions = async (page = 1, week = 'all', batch_id = 'all') => {
     setIsLoading(true);
     try {
       let url = `/api/courses/v1/test-submissions/my-submissions/?page=${page}`;
       if (week !== 'all') url += `&week_number=${week}`;
+      if (batch_id !== 'all') url += `&batch_id=${batch_id}`;
 
       const res = await apiClient.get(url);
       if (res.data?.success) {
@@ -163,6 +167,22 @@ export default function Assessments() {
     } finally {
       setIsLoading(false);
       setIsInitialLoading(false);
+    }
+  };
+
+  const handleTriggerAI = async (id: number) => {
+    setEvaluatingIds(prev => [...prev, id]);
+    try {
+      const res = await apiClient.post(`/api/courses/v1/test-submissions/${id}/trigger-ai/`);
+      if (res.data?.success) {
+        toast({ title: 'AI Analysis Started', description: 'AI is evaluating the submission.', variant: 'success' });
+        // Refresh local data
+        if (selectedBatch) fetchBatchSubmissions(selectedBatch, currentPage, selectedWeek);
+      }
+    } catch (err) {
+      toast({ title: 'AI Error', description: 'Failed to trigger AI evaluation.', variant: 'destructive' });
+    } finally {
+      setEvaluatingIds(prev => prev.filter(eid => eid !== id));
     }
   };
 
@@ -296,27 +316,60 @@ export default function Assessments() {
                             </div>
                           </div>
                         </div>
-                        <div className="p-5 bg-muted/30 flex items-center justify-between md:justify-end gap-8 md:min-w-[320px] border-t md:border-t-0 md:border-l border-border/50">
+                        <div className="p-5 bg-muted/30 flex items-center justify-between md:justify-end gap-8 md:min-w-[340px] border-t md:border-t-0 md:border-l border-border/50">
                           <div className="text-center md:text-right">
                             <p className="text-[10px] font-bold uppercase text-muted-foreground tracking-wider mb-1">AI Suggestion</p>
                             <div className="flex items-center justify-end gap-2">
-                               {item.status === 'evaluating' ? (
+                               {item.status === 'evaluating' || evaluatingIds.includes(item.id) ? (
                                  <Badge className="bg-primary/10 text-primary border-none animate-pulse">Evaluating...</Badge>
+                               ) : item.status === 'pending' ? (
+                                 <Badge variant="outline" className="text-[10px] border-dashed border-muted-foreground/30 text-muted-foreground">Waiting for Trigger</Badge>
                                ) : (
-                                 <p className="text-xl font-bold text-foreground">{item.marks_obtained?.toFixed(1) || '0.0'}%</p>
+                                 <p className="text-xl font-bold text-foreground">{(item.ai_score || item.marks_obtained || 0).toFixed(1)}%</p>
                                )}
                             </div>
                           </div>
-                          <Button 
-                            variant="gradient" 
-                            className="font-bold rounded-xl shadow-lg shadow-primary/20 h-10 px-6"
-                            onClick={() => {
-                              setReviewId(item.id);
-                              setIsReviewOpen(true);
-                            }}
-                          >
-                            Review & Edit
-                          </Button>
+                          
+                          {item.status === 'pending' ? (
+                            <div className="flex items-center gap-3">
+                              <Button 
+                                variant="outline"
+                                className="font-bold rounded-xl border-primary/20 text-primary hover:bg-primary/5 h-10 px-4"
+                                onClick={() => handleTriggerAI(item.id)}
+                                disabled={evaluatingIds.includes(item.id)}
+                              >
+                                {evaluatingIds.includes(item.id) ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Zap className="h-4 w-4 mr-2 fill-primary" />}
+                                Evaluate via AI
+                              </Button>
+                              <Button 
+                                variant="gradient"
+                                className="font-bold rounded-xl h-10 px-4 shadow-lg shadow-primary/20"
+                                onClick={() => {
+                                  setReviewId(item.id);
+                                  setIsReviewOpen(true);
+                                }}
+                              >
+                                <Edit3 className="h-4 w-4 mr-2" />
+                                Review & Grade
+                              </Button>
+                            </div>
+                          ) : (
+                            <Button 
+                              variant={item.status === 'pending_review' ? 'gradient' : 'outline'} 
+                              className={cn(
+                                "font-bold rounded-xl h-10 px-6",
+                                item.status === 'pending_review' ? "shadow-lg shadow-primary/20" : ""
+                              )}
+                              onClick={() => {
+                                setReviewId(item.id);
+                                setIsReviewOpen(true);
+                              }}
+                              disabled={item.status === 'evaluating' || evaluatingIds.includes(item.id)}
+                            >
+                              <Edit3 className="h-4 w-4 mr-2" />
+                              {item.status === 'pending_review' || item.status === 'evaluating' ? 'Review & Grade' : 'View Submission'}
+                            </Button>
+                          )}
                         </div>
                       </div>
                     </CardContent>
@@ -430,48 +483,92 @@ export default function Assessments() {
           <h1 className="font-display text-3xl font-bold text-foreground">My Results</h1>
           <p className="mt-1 text-muted-foreground">Track your performance and review feedback</p>
         </div>
+      </div>
 
-        <div className="w-[180px] shrink-0">
-          <Select value={selectedWeek} onValueChange={(val) => { setSelectedWeek(val); setCurrentPage(1); }}>
-            <SelectTrigger className="h-11 bg-card rounded-xl font-bold border-none shadow-sm">
-              <SelectValue placeholder="All Weeks" />
-            </SelectTrigger>
-            <SelectContent className="rounded-xl">
-              <SelectItem value="all" className="font-medium cursor-pointer">All Weeks</SelectItem>
-              {batchWeeks.map(w => (
-                <SelectItem key={w.id} value={w.week_number.toString()} className="font-medium cursor-pointer">Week {w.week_number}</SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+      {/* Selection Filter Pattern */}
+      <div className="flex flex-col sm:flex-row items-center justify-between gap-4 p-5 rounded-2xl bg-card border shadow-sm">
+        <div className="flex items-center gap-3">
+          <div className="w-10 h-10 rounded-xl bg-primary/10 text-primary flex items-center justify-center shrink-0">
+             <BookOpen className="w-5 h-5" />
+          </div>
+          <div>
+            <p className="text-sm font-medium text-muted-foreground">Course Batch</p>
+            <h3 className="font-bold text-foreground">
+              {selectedBatch === 'all' ? 'All Batches' : batches.find(b => b.id.toString() === selectedBatch)?.name || 'Select a batch'}
+            </h3>
+          </div>
+        </div>
+        
+        <div className="flex items-center gap-3 w-full sm:w-auto">
+          <div className="w-[180px] shrink-0">
+            <Select value={selectedWeek} onValueChange={(val) => { setSelectedWeek(val); setCurrentPage(1); }}>
+              <SelectTrigger className="h-11 bg-background rounded-xl font-bold">
+                <SelectValue placeholder="All Weeks" />
+              </SelectTrigger>
+              <SelectContent className="rounded-xl">
+                <SelectItem value="all" className="font-medium cursor-pointer">All Weeks</SelectItem>
+                {batchWeeks.map(w => (
+                  <SelectItem key={w.id} value={w.week_number.toString()} className="font-medium cursor-pointer">Week {w.week_number}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
+          <div className="w-[240px] shrink-0">
+            <Select value={selectedBatch} onValueChange={(val) => { setSelectedBatch(val); setCurrentPage(1); }}>
+              <SelectTrigger className="w-full h-11 bg-background rounded-xl font-bold">
+                <SelectValue placeholder="All Batches" />
+              </SelectTrigger>
+              <SelectContent className="rounded-xl">
+                <SelectItem value="all" className="font-medium cursor-pointer">All Batches</SelectItem>
+                {batches.map(b => (
+                  <SelectItem key={b.id} value={b.id.toString()} className="font-medium cursor-pointer">{b.name}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
         </div>
       </div>
 
       {/* Student Stats */}
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-        {[
-          { label: 'Completed Tests', value: publishedCount, icon: CheckCircle, color: 'success' },
-          { label: 'Pending Review', value: pendingCount, icon: Clock, color: 'warning' },
-          { label: 'Overall Average', value: '82%', icon: Award, color: 'primary' }
-        ].map((stat, i) => (
-          <Card key={i} className="shadow-card group overflow-hidden">
-            <CardContent className="p-6">
-              <div className="flex items-center gap-4">
-                <div className={cn(
-                  "p-3 rounded-xl transition-transform group-hover:scale-110 duration-300",
-                  stat.color === 'success' ? "bg-success/10 text-success" :
-                  stat.color === 'warning' ? "bg-warning/10 text-warning" : "bg-primary/10 text-primary"
-                )}>
-                  <stat.icon className="h-6 w-6" />
-                </div>
-                <div>
-                  <p className="text-2xl font-bold text-foreground leading-tight">{stat.value}</p>
-                  <p className="text-sm text-muted-foreground">{stat.label}</p>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-        ))}
-      </div>
+      {(() => {
+        const publishedSubs = submissions.filter(s => s.status === 'published');
+        const average = publishedSubs.length > 0 
+          ? Math.round(publishedSubs.reduce((acc, s) => acc + (s.marks_obtained || 0), 0) / publishedSubs.length) 
+          : 0;
+        const lastFailed = publishedSubs.find(s => !s.is_passed);
+
+        return (
+          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+            {[
+              { label: 'Completed Tests', value: stats.published, icon: CheckCircle, color: 'success' },
+              { label: 'Pending Review', value: stats.pending, icon: Clock, color: 'warning' },
+              { label: 'Overall Average', value: `${average}%`, icon: Award, color: 'primary' },
+              { label: 'Total Attempts', value: stats.total, icon: FileText, color: 'info' }
+            ].map((stat, i) => (
+              <Card key={i} className="shadow-card group overflow-hidden">
+                <CardContent className="p-6">
+                  <div className="flex items-center gap-4">
+                    <div className={cn(
+                      "p-3 rounded-xl transition-transform group-hover:scale-110 duration-300",
+                      stat.color === 'success' ? "bg-success/10 text-success" :
+                      stat.color === 'warning' ? "bg-warning/10 text-warning" :
+                      stat.color === 'destructive' ? "bg-destructive/10 text-destructive" :
+                      stat.color === 'muted' ? "bg-muted text-muted-foreground" : "bg-primary/10 text-primary"
+                    )}>
+                      <stat.icon className="h-6 w-6" />
+                    </div>
+                    <div>
+                      <p className="text-2xl font-bold text-foreground leading-tight">{stat.value}</p>
+                      <p className="text-sm text-muted-foreground">{stat.label}</p>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+        );
+      })()}
 
       {isLoading ? (
         <div className="flex items-center justify-center py-20">
@@ -523,8 +620,18 @@ export default function Assessments() {
                   </div>
                   <div className="p-5 bg-muted/20 flex items-center justify-between md:justify-end gap-10 md:min-w-[300px] border-t md:border-t-0 md:border-l border-border/50">
                     {assessment.status === 'published' ? (
-                      <div className="text-center md:text-right">
-                        <p className="text-2xl font-bold text-foreground">{assessment.marks_obtained}%</p>
+                      <div className="text-center md:text-right flex flex-col items-center md:items-end gap-1">
+                        <div className="flex items-center gap-2">
+                          <p className="text-2xl font-bold text-foreground">{assessment.marks_obtained}%</p>
+                          <Badge className={cn(
+                            "font-black uppercase text-[8px] px-2 py-0.5 border-none",
+                            assessment.is_passed 
+                              ? "bg-emerald-500/20 text-emerald-600 dark:text-emerald-400" 
+                              : "bg-rose-500/20 text-rose-600 dark:text-rose-400"
+                          )}>
+                            {assessment.is_passed ? 'Passed' : 'Failed'}
+                          </Badge>
+                        </div>
                         <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Your Score</p>
                       </div>
                     ) : (
@@ -540,17 +647,19 @@ export default function Assessments() {
                         )}
                       </div>
                     )}
-                    <Button 
-                      variant={assessment.status === 'published' ? 'outline' : 'gradient'} 
-                      size="lg"
-                      className="font-bold h-10 px-6 rounded-xl"
-                      onClick={() => {
-                        setViewingSubmission(assessment);
-                        setIsResultsOpen(true);
-                      }}
-                    >
-                      {assessment.status === 'published' ? 'View Feedback' : 'Details'}
-                    </Button>
+                    <div className="flex flex-col sm:flex-row items-center gap-3">
+                      <Button 
+                        variant={assessment.status === 'published' ? 'outline' : 'gradient'} 
+                        size="sm"
+                        className="font-bold h-10 px-6 rounded-xl w-full sm:w-auto"
+                        onClick={() => {
+                          setViewingSubmission(assessment);
+                          setIsResultsOpen(true);
+                        }}
+                      >
+                        {assessment.status === 'published' ? 'View Feedback' : 'Details'}
+                      </Button>
+                    </div>
                   </div>
                 </div>
               </CardContent>

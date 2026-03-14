@@ -338,7 +338,34 @@ export function WeeklyTestResults({
               <Button 
                 variant="outline" 
                 className="bg-white dark:bg-white/5 border-slate-200 dark:border-white/10 text-slate-600 dark:text-white/60 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-white/10 font-bold rounded-xl h-10 px-5 gap-2 w-full sm:w-auto transition-all text-xs"
-                onClick={() => alert('Feedback download started...')}
+                onClick={() => {
+                  const content = `
+Test: ${testTitle}
+Status: ${isPublished ? 'Published' : 'Pending Review'}
+Score: ${score}%
+Result: ${isPassed ? 'PASSED' : 'FAILED'}
+
+Summary:
+${submission.grader_remarks || submission.ai_feedback || 'No overall feedback provided.'}
+
+Detailed Question Results:
+${submission.answers?.map((ans: any, idx: number) => `
+Question ${idx + 1}: ${ans.question_text}
+Score: ${ans.marks_obtained} / ${ans.max_marks}
+Feedback: ${ans.grader_remarks || ans.ai_feedback || 'No specific feedback.'}
+`).join('\n')}
+                  `.trim();
+                  
+                  const blob = new Blob([content], { type: 'text/plain' });
+                  const url = URL.createObjectURL(blob);
+                  const link = document.createElement('a');
+                  link.href = url;
+                  link.download = `${testTitle.replace(/\s+/g, '_')}_Feedback.txt`;
+                  document.body.appendChild(link);
+                  link.click();
+                  document.body.removeChild(link);
+                  URL.revokeObjectURL(url);
+                }}
               >
                 <Download className="h-3.5 w-3.5" />
                 Download Feedback
@@ -347,18 +374,6 @@ export function WeeklyTestResults({
           </div>
           
           <div className="flex items-center gap-3 w-full sm:w-auto order-1 sm:order-2">
-            {(isPublished && !isPassed) && (
-              <Button 
-                variant="gradient" 
-                className="flex-1 sm:flex-none font-black px-8 h-10 rounded-xl text-[10px] uppercase tracking-widest shadow-lg shadow-indigo-500/20"
-                onClick={() => {
-                  onClose();
-                  onRetake?.();
-                }}
-              >
-                Retake Assessment
-              </Button>
-            )}
             <Button 
               onClick={onClose} 
               className="flex-1 sm:flex-none bg-indigo-600 dark:bg-[#283593] hover:bg-indigo-700 dark:hover:bg-[#1a237e] text-white font-black px-10 h-10 rounded-xl uppercase text-[10px] tracking-[0.2em] shadow-xl shadow-indigo-200 dark:shadow-blue-900/20 transition-all active:scale-[0.98] group"

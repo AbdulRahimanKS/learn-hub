@@ -58,6 +58,7 @@ from apps.courses.views.test_submission_views import (
     BatchTestSubmissionListView,
     TestSubmissionDetailView,
     TriggerAIEvaluationView,
+    TriggerAnswerAIEvaluationView,
     SimulateAIEvaluationCompleteView,
     TestSubmissionCreateView,
     MyTestSubmissionsListView,
@@ -128,6 +129,7 @@ urlpatterns = [
     path("test-submissions/my-submissions/", MyTestSubmissionsListView.as_view(), name="my-test-submissions"),
     path("test-submissions/<int:pk>/", TestSubmissionDetailView.as_view(), name="submission-detail"),
     path("test-submissions/<int:pk>/trigger-ai/", TriggerAIEvaluationView.as_view(), name="trigger-ai-evaluation"),
+    path("test-submissions/<int:submission_pk>/answers/<int:answer_pk>/trigger-ai/", TriggerAnswerAIEvaluationView.as_view(), name="trigger-answer-ai-evaluation"),
     path("test-submissions/<int:pk>/simulate-ai-complete/", SimulateAIEvaluationCompleteView.as_view(), name="simulate-ai-evaluation-complete"),
 
     # Webinars
