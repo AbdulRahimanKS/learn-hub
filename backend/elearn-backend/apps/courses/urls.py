@@ -118,10 +118,10 @@ urlpatterns = [
     path("batches/<int:batch_id>/weeks/<int:week_id>/sessions/<int:session_id>/mcq/<int:mcq_id>/", BatchPostSessionQuestionDetailView.as_view(), name="batch-session-mcq-detail"),
     path("batches/<int:batch_id>/weeks/<int:week_id>/test/", BatchWeeklyTestView.as_view(), name="batch-weekly-test"),
     path("batches/<int:batch_id>/weeks/<int:week_id>/test/manage/", BatchWeeklyTestManageView.as_view(), name="batch-weekly-test-manage"),
-    path("batches/<int:batch_id>/weeks/<int:week_id>/test/questions/", BatchWeeklyTestQuestionListCreateView.as_view(), name="batch-test-question-list"),
-    path("batches/<int:batch_id>/weeks/<int:week_id>/test/questions/<int:question_id>/", BatchWeeklyTestQuestionDetailView.as_view(), name="batch-test-question-detail"),
-    path("batches/<int:batch_id>/weeks/<int:week_id>/test/questions/<int:question_id>/attachments/", BatchWeeklyTestQuestionAttachmentView.as_view(), name="batch-test-question-attachments"),
-    path("batches/<int:batch_id>/weeks/<int:week_id>/test/questions/<int:question_id>/attachments/<int:attachment_id>/", BatchWeeklyTestQuestionAttachmentDetailView.as_view(), name="batch-test-question-attachment-detail"),
+    path("batches/<int:batch_id>/weeks/<int:week_id>/test/manage/questions/", BatchWeeklyTestQuestionListCreateView.as_view(), name="batch-test-question-list"),
+    path("batches/<int:batch_id>/weeks/<int:week_id>/test/manage/questions/<int:question_id>/", BatchWeeklyTestQuestionDetailView.as_view(), name="batch-test-question-detail"),
+    path("batches/<int:batch_id>/weeks/<int:week_id>/test/manage/questions/<int:question_id>/attachments/", BatchWeeklyTestQuestionAttachmentView.as_view(), name="batch-test-question-attachments"),
+    path("batches/<int:batch_id>/weeks/<int:week_id>/test/manage/questions/<int:question_id>/attachments/<int:attachment_id>/", BatchWeeklyTestQuestionAttachmentDetailView.as_view(), name="batch-test-question-attachment-detail"),
     path("batches/<int:batch_id>/weeks/<int:week_id>/test/submit/", TestSubmissionCreateView.as_view(), name="batch-test-submit"),
 
     # Test Submissions / Evaluation Workflow

@@ -1,6 +1,9 @@
 import logging
 import json
-import openai
+try:
+    import openai
+except ImportError:
+    openai = None
 import time
 from django.conf import settings
 from django.utils import timezone
@@ -25,12 +28,36 @@ class AIEvaluationService:
     """
 
     def __init__(self):
-        self.api_key = getattr(settings, 'OPENAI_API_KEY', None)
-        if self.api_key:
-            self.client = openai.OpenAI(api_key=self.api_key)
-        else:
-            self.client = None
-            logger.warning("OPENAI_API_KEY not found in settings. AI evaluation will be mocked.")
+        self.openai_key = getattr(settings, 'OPENAI_API_KEY', None)
+        self.groq_key = getattr(settings, 'GROQ_API_KEY', None)
+        self.client = None
+        self.provider = None
+        self.model = "gpt-4o-mini" # Default
+
+        if self.groq_key and openai:
+            try:
+                # We can use the openai client to talk to Groq as it's binary compatible
+                self.client = openai.OpenAI(
+                    api_key=self.groq_key,
+                    base_url="https://api.groq.com/openai/v1"
+                )
+                self.provider = "groq"
+                self.model = "llama-3.3-70b-versatile"
+                logger.info("Using Groq for AI evaluation.")
+            except Exception as e:
+                logger.error(f"Failed to initialize Groq client: {e}")
+
+        if not self.client and self.openai_key and openai:
+            self.client = openai.OpenAI(api_key=self.openai_key)
+            self.provider = "openai"
+            self.model = "gpt-4o-mini"
+            logger.info("Using OpenAI for AI evaluation.")
+
+        if not self.client:
+            if not openai:
+                logger.warning("openai library not installed. AI evaluation will be mocked.")
+            else:
+                logger.warning("No AI API keys (OpenAI/Groq) found. AI evaluation will be mocked.")
 
     def evaluate_submission(self, submission_id):
         """
@@ -66,7 +93,7 @@ class AIEvaluationService:
 
         try:
             response = self.client.chat.completions.create(
-                model="gpt-4-turbo-preview",
+                model=self.model,
                 messages=[
                     {"role": "system", "content": "You are an expert technical instructor. Evaluate the student answers based on the provided questions and answer key. If a student provides both a text answer and a file, prioritize the text answer for detailed evaluation, but acknowledge that a supplementary file was uploaded. If only a file is provided without text, note that the file content is not yet directly readable by the AI and suggest the instructor review it manually. Provide a score and constructive feedback for each question in JSON format."},
                     {"role": "user", "content": prompt}
@@ -173,8 +200,10 @@ class AIEvaluationService:
             
             elif ext == 'pdf':
                 if extract_pdf_text:
-                    # Optional: handle large files better, but for now simple extract
-                    return extract_pdf_text(file_field)[:5000]
+                    import io
+                    # Use a BytesIO object to avoid "Unsupported input type" errors with FieldFile
+                    pdf_io = io.BytesIO(content)
+                    return extract_pdf_text(pdf_io)[:5000]
                 return "[PDF extraction libraries not installed on server]"
             
             elif ext in ['xlsx', 'xls', 'csv']:
@@ -317,7 +346,7 @@ class AIEvaluationService:
 
         try:
             response = self.client.chat.completions.create(
-                model="gpt-4-turbo-preview",
+                model=self.model,
                 messages=[
                     {"role": "system", "content": "You are a technical grader. Evaluate the provided answer accurately based on the question and context."},
                     {"role": "user", "content": prompt}

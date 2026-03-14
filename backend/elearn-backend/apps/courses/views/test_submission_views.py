@@ -261,13 +261,12 @@ class TriggerAIEvaluationView(APIView):
             )
 
         # Trigger actual evaluation
-        from apps.courses.ai_services import AIEvaluationService
-        ai_service = AIEvaluationService()
-        
         try:
+            from apps.courses.ai_services import AIEvaluationService
+            ai_service = AIEvaluationService()
             ai_service.evaluate_submission(submission.id)
         except Exception as e:
-            # Safety fallback if ai_service itself crashes outside its own try-except
+            # Safety fallback if ai_service itself crashes or fails to import
             submission.status = TestSubmission.Status.PENDING_REVIEW
             submission.ai_feedback = f"Catastrophic failure: {str(e)}"
             submission.save()

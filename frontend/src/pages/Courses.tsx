@@ -745,7 +745,7 @@ export default function Courses() {
                                             variant="secondary"
                                             disabled={locked || !completed}
                                             className={cn(
-                                              "h-8 sm:h-9 px-6 sm:px-4 text-[10px] w-full sm:w-auto font-black rounded-full transition-all border",
+                                              "h-8 sm:h-9 px-6 sm:px-4 text-xs w-full sm:w-auto font-black rounded-full transition-all border",
                                               (locked || !completed)
                                                 ? "bg-muted text-muted-foreground opacity-50 cursor-not-allowed"
                                                 : "bg-[#283593] hover:bg-[#1a237e] text-white border-transparent shadow-sm"
@@ -853,17 +853,16 @@ export default function Courses() {
                                         locked || (!sessions.every((s: any) => s.is_completed) && !(week.weekly_test as any).has_attempted)
                                           ? 'bg-muted text-muted-foreground cursor-not-allowed border'
                                           : (week.weekly_test as any).has_attempted 
-                                            ? isPass 
-                                              ? 'bg-emerald-500/10 text-emerald-600 border-emerald-500/20 hover:bg-emerald-500/20'
-                                              : 'bg-primary hover:bg-primary/90 text-white shadow-md'
-                                            : 'bg-primary hover:bg-primary/90 text-white shadow-md'
+                                            ? 'bg-[#283593] hover:bg-[#1a237e] text-white shadow-md'
+                                            : 'bg-[#283593] hover:bg-[#1a237e] text-white shadow-md'
                                       )}
                                     onClick={(e) => {
                                       e.stopPropagation();
                                       setActiveTest(week.weekly_test as any);
                                       setActiveTestWeek(week.id);
                                       if ((week.weekly_test as any).has_attempted) {
-                                        if (!isPass && (week.weekly_test as any).latest_submission?.status === 'published') {
+                                        const status = (week.weekly_test as any).latest_submission?.status;
+                                        if (!isPass && (status === 'published' || status === 'returned')) {
                                           setIsTestSubmissionOpen(true);
                                         } else {
                                           setIsResultsOpen(true);
@@ -878,7 +877,7 @@ export default function Courses() {
                                       : (week.weekly_test as any).has_attempted
                                       ? isPass
                                         ? 'Passed'
-                                        : (week.weekly_test as any).latest_submission?.status === 'published'
+                                        : ((week.weekly_test as any).latest_submission?.status === 'published' || (week.weekly_test as any).latest_submission?.status === 'returned')
                                           ? 'Retake Test'
                                           : 'View Submission'
                                       : !sessions.every((s: any) => s.is_completed)

@@ -308,14 +308,14 @@ export const batchContentApi = {
 
   getTestQuestions: async (batchId: number, weekId: number) => {
     const response = await apiClient.get<{ data: any[]; success: boolean }>(
-      `/api/courses/v1/batches/${batchId}/weeks/${weekId}/test/questions/`
+      `/api/courses/v1/batches/${batchId}/weeks/${weekId}/test/manage/questions/`
     );
     return response.data;
   },
 
   addTestQuestion: async (batchId: number, weekId: number, data: any) => {
     const response = await apiClient.post<{ success: boolean; message: string }>(
-      `/api/courses/v1/batches/${batchId}/weeks/${weekId}/test/questions/`,
+      `/api/courses/v1/batches/${batchId}/weeks/${weekId}/test/manage/questions/`,
       data
     );
     return response.data;
@@ -323,7 +323,7 @@ export const batchContentApi = {
 
   updateTestQuestion: async (batchId: number, weekId: number, questionId: number, data: any) => {
     const response = await apiClient.patch<{ success: boolean; message: string }>(
-      `/api/courses/v1/batches/${batchId}/weeks/${weekId}/test/questions/${questionId}/`,
+      `/api/courses/v1/batches/${batchId}/weeks/${weekId}/test/manage/questions/${questionId}/`,
       data
     );
     return response.data;
@@ -331,7 +331,7 @@ export const batchContentApi = {
 
   deleteTestQuestion: async (batchId: number, weekId: number, questionId: number) => {
     const response = await apiClient.delete<{ success: boolean; message: string }>(
-      `/api/courses/v1/batches/${batchId}/weeks/${weekId}/test/questions/${questionId}/`
+      `/api/courses/v1/batches/${batchId}/weeks/${weekId}/test/manage/questions/${questionId}/`
     );
     return response.data;
   },

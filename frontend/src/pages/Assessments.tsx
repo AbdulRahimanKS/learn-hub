@@ -367,7 +367,7 @@ export default function Assessments() {
                               disabled={item.status === 'evaluating' || evaluatingIds.includes(item.id)}
                             >
                               <Edit3 className="h-4 w-4 mr-2" />
-                              {item.status === 'pending_review' || item.status === 'evaluating' ? 'Review & Grade' : 'View Submission'}
+                              {item.status === 'pending_review' || item.status === 'evaluating' ? 'Review & Grade' : item.status === 'returned' ? 'Review Correction' : 'View Submission'}
                             </Button>
                           )}
                         </div>
@@ -653,11 +653,15 @@ export default function Assessments() {
                         size="sm"
                         className="font-bold h-10 px-6 rounded-xl w-full sm:w-auto"
                         onClick={() => {
-                          setViewingSubmission(assessment);
-                          setIsResultsOpen(true);
+                          if (assessment.status === 'returned') {
+                            handleRetake(assessment);
+                          } else {
+                            setViewingSubmission(assessment);
+                            setIsResultsOpen(true);
+                          }
                         }}
                       >
-                        {assessment.status === 'published' ? 'View Feedback' : 'Details'}
+                        {assessment.status === 'published' ? 'View Feedback' : assessment.status === 'returned' ? 'Retake Test' : 'Details'}
                       </Button>
                     </div>
                   </div>
