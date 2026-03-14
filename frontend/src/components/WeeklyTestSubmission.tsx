@@ -129,9 +129,9 @@ export function WeeklyTestSubmission({
 
   return (
     <Dialog open={open} onOpenChange={(v) => !v && !isSubmitting && onClose()}>
-      <DialogContent className="sm:max-w-2xl max-h-[90vh] flex flex-col p-0 overflow-hidden border-none shadow-2xl bg-slate-50 dark:bg-[#0a0a0b]">
+      <DialogContent className="sm:max-w-2xl max-h-[90vh] flex flex-col p-0 overflow-hidden border-none shadow-2xl bg-white dark:bg-background">
         {/* Compact Blue Header */}
-        <div className="bg-gradient-to-br from-[#1a237e] to-[#283593] p-5 text-white shrink-0 relative">
+        <div className="bg-gradient-to-br from-[#1a237e] via-[#283593] to-[#3949ab] p-5 text-white shrink-0 relative">
           <button 
             onClick={onClose}
             className="absolute right-4 top-4 p-1 rounded-full hover:bg-white/10 transition-colors"
@@ -148,7 +148,7 @@ export function WeeklyTestSubmission({
 
         <div className="flex-1 overflow-y-auto p-4 md:p-5 space-y-5 scrollbar-hide">
           {test.questions.map((question, index) => (
-            <Card key={question.id} className="border-none shadow-sm dark:bg-[#111114] dark:border dark:border-white/5 rounded-xl overflow-hidden">
+            <Card key={question.id} className="border-none shadow-sm bg-white dark:bg-card dark:border dark:border-slate-800/50 rounded-xl overflow-hidden">
               <CardContent className="p-4">
                 {/* Question Header */}
                 <div className="flex items-center justify-between mb-3">
@@ -241,12 +241,12 @@ export function WeeklyTestSubmission({
                         placeholder="Type your answer here..."
                         value={answers[question.id] || ''}
                         onChange={(e) => handleTextChange(question.id, e.target.value)}
-                        className="min-h-[70px] rounded-lg bg-slate-50 dark:bg-[#0a0a0b] border-slate-200 dark:border-white/5 p-3 text-sm resize-none focus:ring-1 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all font-medium"
+                        className="min-h-[70px] rounded-lg bg-slate-50 dark:bg-slate-900/50 border-slate-200 dark:border-slate-800/50 p-3 text-sm resize-none focus:ring-1 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all font-medium"
                       />
                       
                       {!files[question.id] && (
                         <div 
-                          className="border border-dashed border-slate-200 dark:border-white/10 rounded-lg p-4 text-center cursor-pointer hover:bg-slate-100 dark:hover:bg-white/[0.02] transition-all group"
+                          className="border border-dashed border-slate-200 dark:border-slate-800/50 rounded-lg p-4 text-center cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-800/30 transition-all group"
                           onClick={() => fileInputRefs.current[question.id]?.click()}
                         >
                           <input 
@@ -269,7 +269,7 @@ export function WeeklyTestSubmission({
           ))}
         </div>
 
-        <DialogFooter className="p-4 bg-white dark:bg-[#0a0a0b] border-t border-slate-100 dark:border-white/5 shrink-0">
+        <DialogFooter className="p-4 bg-white dark:bg-background border-t border-slate-100 dark:border-slate-800/50 shrink-0">
           <div className="w-full flex justify-center">
             <Button 
               variant="gradient" 
@@ -295,7 +295,7 @@ export function WeeklyTestSubmission({
       </DialogContent>
 
       <Dialog open={showConfirm} onOpenChange={setShowConfirm}>
-        <DialogContent className="sm:max-w-md rounded-xl p-5 border-none dark:bg-[#111114]">
+        <DialogContent className="sm:max-w-md rounded-xl p-5 border-none dark:bg-card">
           <DialogHeader className="space-y-2">
             <DialogTitle className="text-lg font-bold">Confirm Submission</DialogTitle>
             <DialogDescription className="text-xs font-medium text-slate-500 dark:text-slate-400">

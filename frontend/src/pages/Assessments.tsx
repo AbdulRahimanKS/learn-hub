@@ -132,7 +132,7 @@ export default function Assessments() {
 
   const AdminAssessments = () => (
     <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
-      <div className="flex flex-col gap-6 sm:flex-row sm:items-end sm:justify-between bg-white dark:bg-slate-900 p-8 rounded-3xl border border-slate-100 dark:border-slate-800 shadow-sm">
+      <div className="flex flex-col gap-6 sm:flex-row sm:items-end sm:justify-between bg-white dark:bg-card p-8 rounded-3xl border border-slate-100 dark:border-slate-800 shadow-sm">
         <div className="space-y-1">
           <h1 className="font-black text-4xl text-slate-900 tracking-tight">Assessments</h1>
           <p className="text-slate-500 font-medium">Evaluate and manage student test submissions across batches.</p>
@@ -163,7 +163,7 @@ export default function Assessments() {
           { label: 'Pending Review', value: pendingCount, icon: AlertCircle, color: 'amber' },
           { label: 'Evaluated', value: publishedCount, icon: CheckCircle, color: 'emerald' }
         ].map((stat, i) => (
-          <Card key={i} className="border-none shadow-xl shadow-slate-200/50 dark:shadow-none dark:bg-slate-900 overflow-hidden group">
+          <Card key={i} className="border-none shadow-xl shadow-slate-200/50 dark:shadow-none dark:bg-card overflow-hidden group">
             <CardContent className="p-6">
               <div className="flex items-center gap-5">
                 <div className={cn(
@@ -174,7 +174,7 @@ export default function Assessments() {
                   <stat.icon className="h-6 w-6" />
                 </div>
                 <div>
-                  <p className="text-3xl font-black text-slate-900 leading-tight">{stat.value}</p>
+                  <p className="text-3xl font-black text-slate-900 dark:text-slate-100 leading-tight">{stat.value}</p>
                   <p className="text-xs font-bold text-slate-400 uppercase tracking-widest">{stat.label}</p>
                 </div>
               </div>
@@ -213,7 +213,7 @@ export default function Assessments() {
               </div>
             ) : (
               submissions.filter(s => s.status !== 'published').map((item) => (
-                <Card key={item.id} className="border-none shadow-lg shadow-slate-200/40 group hover:shadow-xl transition-all duration-300 overflow-hidden">
+                <Card key={item.id} className="border-none shadow-lg shadow-slate-200/40 dark:shadow-none dark:bg-card group hover:shadow-xl transition-all duration-300 overflow-hidden">
                   <CardContent className="p-0">
                     <div className="flex flex-col md:flex-row md:items-center">
                       <div className="flex-1 p-6 flex items-center gap-5">
@@ -221,7 +221,7 @@ export default function Assessments() {
                           <span className="text-xl font-black text-slate-400">{item.student_name?.charAt(0)}</span>
                         </div>
                         <div className="space-y-1">
-                          <h3 className="font-black text-lg text-slate-900 group-hover:text-primary transition-colors">{item.student_name}</h3>
+                          <h3 className="font-black text-lg text-slate-900 dark:text-slate-100 group-hover:text-primary transition-colors">{item.student_name}</h3>
                           <div className="flex items-center gap-3 text-xs font-bold text-slate-400 uppercase tracking-tight">
                             <span>Week {item.week_number} • {item.test_title}</span>
                             <span className="h-1 w-1 rounded-full bg-slate-300" />
@@ -232,14 +232,14 @@ export default function Assessments() {
                           </div>
                         </div>
                       </div>
-                      <div className="p-6 bg-slate-50/50 flex items-center justify-between md:justify-end gap-10 md:min-w-[300px]">
+                      <div className="p-6 bg-slate-50/50 dark:bg-slate-900/20 flex items-center justify-between md:justify-end gap-10 md:min-w-[300px]">
                         <div className="text-center md:text-right">
                           <p className="text-xs font-black uppercase text-slate-400 tracking-wider mb-1">AI Suggestion</p>
                           <div className="flex items-center justify-end gap-2">
                              {item.status === 'evaluating' ? (
                                <Badge className="bg-primary/10 text-primary border-none animate-pulse">Processing...</Badge>
                              ) : (
-                               <p className="text-2xl font-black text-slate-800">{item.marks_obtained?.toFixed(1) || '0.0'}%</p>
+                               <p className="text-2xl font-black text-slate-800 dark:text-slate-200">{item.marks_obtained?.toFixed(1) || '0.0'}%</p>
                              )}
                           </div>
                         </div>
@@ -310,10 +310,10 @@ export default function Assessments() {
     }
   };
 
-  const StudentAssessments = () => (
+   const StudentAssessments = () => (
     <div className="space-y-6 animate-in fade-in duration-500">
-      <div className="bg-white dark:bg-slate-900 p-8 rounded-3xl border border-slate-100 dark:border-slate-800 shadow-sm">
-        <h1 className="font-black text-4xl text-slate-900 tracking-tight">My Results</h1>
+      <div className="bg-white dark:bg-card p-8 rounded-3xl border border-slate-100 dark:border-slate-800 shadow-sm">
+        <h1 className="font-black text-4xl text-slate-900 dark:text-slate-100 tracking-tight">My Results</h1>
         <p className="text-slate-500 font-medium">Track your performance and review instructor feedback.</p>
       </div>
 
@@ -330,7 +330,7 @@ export default function Assessments() {
       ) : (
         <div className="grid gap-4">
           {submissions.map((assessment) => (
-            <Card key={assessment.id} className="border-none shadow-lg shadow-slate-200/40 group overflow-hidden">
+            <Card key={assessment.id} className="border-none shadow-lg shadow-slate-200/40 dark:shadow-slate-800/40 dark:bg-card group overflow-hidden">
               <CardContent className="p-0">
                 <div className="flex flex-col md:flex-row md:items-center">
                   <div className="flex-1 p-6 flex items-start gap-4">
@@ -345,7 +345,7 @@ export default function Assessments() {
                       )}
                     </div>
                     <div>
-                      <h3 className="font-black text-lg text-slate-900">{assessment.test_title}</h3>
+                      <h3 className="font-black text-lg text-slate-900 dark:text-slate-100">{assessment.test_title}</h3>
                       <div className="flex items-center gap-3 mt-2">
                          <Badge variant="outline" className="border-slate-200 text-slate-400 font-bold text-[10px] uppercase">
                            Week {assessment.week_number}
@@ -361,10 +361,10 @@ export default function Assessments() {
                       )}
                     </div>
                   </div>
-                  <div className="p-6 bg-slate-50/50 flex items-center justify-between md:justify-end gap-10 md:min-w-[280px]">
+                  <div className="p-6 bg-slate-50/50 dark:bg-background/20 flex items-center justify-between md:justify-end gap-10 md:min-w-[280px]">
                     {assessment.status === 'published' ? (
                       <div className="text-center md:text-right">
-                        <p className="text-3xl font-black text-slate-900">{assessment.marks_obtained}%</p>
+                        <p className="text-3xl font-black text-slate-900 dark:text-slate-100">{assessment.marks_obtained}%</p>
                         <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Your Score</p>
                       </div>
                     ) : (
@@ -402,9 +402,9 @@ export default function Assessments() {
   );
 
 
-  return (
+   return (
     <DashboardLayout>
-      <div className="max-w-6xl mx-auto py-6 px-4 sm:px-6 lg:px-8 bg-slate-50/30 dark:bg-slate-950/20 min-h-screen pb-20">
+      <div className="max-w-6xl mx-auto py-6 px-4 sm:px-6 lg:px-8 bg-slate-50/30 dark:bg-background/20 min-h-screen pb-20">
         {user?.role === 'student' ? <StudentAssessments /> : <AdminAssessments />}
         
         {/* Admin Review Modal */}
