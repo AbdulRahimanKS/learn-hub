@@ -125,6 +125,7 @@ class BatchEnrollmentSerializer(serializers.ModelSerializer):
     weeks_access_status = serializers.SerializerMethodField()
     videos_watched = serializers.SerializerMethodField()
     total_videos = serializers.SerializerMethodField()
+    week_details = serializers.SerializerMethodField()
 
     class Meta:
         model = BatchEnrollment
@@ -134,7 +135,7 @@ class BatchEnrollmentSerializer(serializers.ModelSerializer):
             'enrolled_at', 'created_at',
             'overall_progress', 'weeks_completed', 'total_weeks',
             'weekly_tests_submitted', 'total_weekly_tests',
-            'videos_watched', 'total_videos'
+            'videos_watched', 'total_videos', 'week_details'
         ]
         read_only_fields = ['id', 'batch', 'enrolled_at', 'created_at', 'student_name', 'student_email']
 
@@ -247,3 +248,45 @@ class BatchEnrollmentSerializer(serializers.ModelSerializer):
     def get_total_videos(self, obj):
         from apps.courses.models import BatchClassSession
         return BatchClassSession.objects.filter(batch_week__batch=obj.batch).count()
+
+    def get_week_details(self, obj):
+        from apps.courses.models import BatchWeek, BatchClassSession, StudentSessionView, TestSubmission
+        weeks = BatchWeek.objects.filter(batch=obj.batch).order_by('week_number')
+        result = []
+        for week in weeks:
+            total_vids = BatchClassSession.objects.filter(batch_week=week).count()
+            watched_vids = StudentSessionView.objects.filter(
+                enrollment=obj,
+                batch_session__batch_week=week,
+                is_completed=True
+            ).count()
+
+            # Safely check if week has a weekly_test
+            try:
+                weekly_test = week.weekly_test
+            except Exception:
+                weekly_test = None
+
+            if weekly_test:
+                submission = TestSubmission.objects.filter(
+                    enrollment=obj,
+                    batch_weekly_test=weekly_test,
+                    status='published'
+                ).order_by('-submitted_at').first()
+                test_info = {
+                    'exists': True,
+                    'is_passed': submission.is_passed if submission else False,
+                    'score': submission.marks_obtained if submission else None,
+                    'attempted': submission is not None,
+                }
+            else:
+                test_info = {'exists': False, 'is_passed': False, 'score': None, 'attempted': False}
+
+            result.append({
+                'week_number': week.week_number,
+                'title': week.title,
+                'total_videos': total_vids,
+                'videos_watched': watched_vids,
+                'test': test_info,
+            })
+        return result
