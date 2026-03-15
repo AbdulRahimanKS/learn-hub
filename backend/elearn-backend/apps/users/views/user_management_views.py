@@ -250,7 +250,7 @@ class UserManagementDetailView(APIView):
                 
                 if enrollments:
                     raise ServiceError(
-                        detail="This student has active batch enrollments and cannot be deleted.",
+                        detail="This student has batch enrollments and cannot be deleted.",
                         status_code=status.HTTP_400_BAD_REQUEST
                     )
 

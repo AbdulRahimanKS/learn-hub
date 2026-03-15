@@ -8,7 +8,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { Save, Server, CheckCircle2, Circle, Info } from 'lucide-react';
+import { Save, Server, CheckCircle2, Circle, Info, Loader2 } from 'lucide-react';
 import { useToast } from '@/components/ui/use-toast';
 import { listEmailConfigs, saveEmailConfig, toggleEmailConfig, EmailConfig } from '@/lib/email-api';
 import {
@@ -169,8 +169,8 @@ export default function EmailConfigPage() {
   if (fetching) {
     return (
       <DashboardLayout>
-        <div className="flex items-center justify-center h-64">
-          <p className="text-muted-foreground">Loading configuration...</p>
+        <div className="flex items-center justify-center h-64" aria-busy="true" aria-label="Loading">
+          <Loader2 className="h-8 w-8 animate-spin text-primary" />
         </div>
       </DashboardLayout>
     );

@@ -53,7 +53,7 @@ class RequestPasswordResetView(APIView):
             if not user.is_active:
                 raise ServiceError(
                     detail="This account is disabled",
-                    status_code=status.HTTP_403_FORBIDDEN
+                    status_code=status.HTTP_400_BAD_REQUEST
                 )
 
             # Delete any existing unused OTPs for this user to prevent data accumulation
