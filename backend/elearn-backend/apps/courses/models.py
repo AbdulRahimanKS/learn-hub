@@ -4,6 +4,8 @@ from django.core.validators import MinValueValidator, MaxValueValidator
 from django.core.exceptions import ValidationError
 from django.utils.translation import gettext_lazy as _
 from django.utils import timezone
+from utils.common import get_current_local_date
+from apps.courses.models import TestSubmission
 
 
 # Tag
@@ -282,6 +284,7 @@ class StudentSessionView(models.Model):
         )
 
 
+# Manual Student Week Unlock
 class ManualStudentWeekUnlock(models.Model):
     """A granular manual unlock for a specific week and student."""
     enrollment = models.ForeignKey(
@@ -383,7 +386,6 @@ class BatchWeek(models.Model):
     def is_unlocked(self):
         if not self.unlock_date:
             return True
-        from utils.common import get_current_local_date
         return get_current_local_date() >= self.unlock_date.date()
 
     @property
@@ -403,19 +405,17 @@ class BatchWeek(models.Model):
         if self.week_number == 1:
             return True
             
-        # Check previous week's test status
         prev_week = BatchWeek.objects.filter(
             batch=self.batch, 
             week_number=self.week_number - 1
         ).first()
         
         if not prev_week:
-            return True # Should not happen with Monday starts
+            return True
             
         if not hasattr(prev_week, 'weekly_test'):
-            return True # No test, no lock
+            return True
             
-        from apps.courses.models import TestSubmission
         last_submission = TestSubmission.objects.filter(
             batch_weekly_test=prev_week.weekly_test,
             enrollment__student=student,
@@ -597,6 +597,7 @@ class CourseWeeklyTest(models.Model):
         return f"{self.course_week.course.title} – Week {self.course_week.week_number} Test (Template)"
 
 
+# Course Test Question
 class CourseTestQuestion(models.Model):
     """
     A question belonging to a CourseWeeklyTest template.
@@ -624,7 +625,6 @@ class CourseTestQuestion(models.Model):
 
     def __str__(self):
         return f"Course Q{self.order} for Test {self.test.id}"
-
 
 
 # Batch-level Weekly Test
@@ -668,6 +668,7 @@ class BatchWeeklyTest(models.Model):
         return f"{self.batch_week.batch.name} – Week {self.batch_week.week_number} Test"
 
 
+# Batch Test Question
 class BatchTestQuestion(models.Model):
     """
     A question belonging to a BatchWeeklyTest.
@@ -698,6 +699,7 @@ class BatchTestQuestion(models.Model):
         return f"Batch Q{self.order} for Test {self.test.id}"
 
 
+# Course Test Question Attachment
 class CourseTestQuestionAttachment(models.Model):
     """
     Allows multiple file attachments per course template question.
@@ -720,7 +722,7 @@ class CourseTestQuestionAttachment(models.Model):
         return self.name or f"Attachment {self.id} for Course Q{self.question.id}"
 
 
-
+# Batch Test Question Attachment
 class BatchTestQuestionAttachment(models.Model):
     """
     Allows multiple file attachments per batch test question.
@@ -743,8 +745,7 @@ class BatchTestQuestionAttachment(models.Model):
         return self.name or f"Attachment {self.id} for Batch Q{self.question.id}"
 
 
-
-# TestSubmission
+# Batch Test Submission
 class TestSubmission(models.Model):
     """
     A student's answer submission for a WeeklyTest.
@@ -818,6 +819,7 @@ class TestSubmission(models.Model):
         )
 
 
+# Batch Test Submission Answer
 class TestSubmissionAnswer(models.Model):
     """
     Individual answer for a specific question in a TestSubmission.
@@ -858,7 +860,6 @@ class TestSubmissionAnswer(models.Model):
         return f"Answer for Q{self.question.order} by {self.submission.enrollment.student.fullname}"
 
 
-
 # Post-Session MCQ (In-Lesson Assessment)
 class CoursePostSessionQuestion(models.Model):
     course_session = models.ForeignKey(
@@ -881,6 +882,7 @@ class CoursePostSessionQuestion(models.Model):
         return f"Course MCQ Q{self.order} for Session {self.course_session_id}"
 
 
+# Course Post-Session Choice
 class CoursePostSessionChoice(models.Model):
     question = models.ForeignKey(
         CoursePostSessionQuestion, on_delete=models.CASCADE, related_name='choices'
@@ -892,6 +894,7 @@ class CoursePostSessionChoice(models.Model):
         return self.text
 
 
+# Batch Post-Session Question
 class BatchPostSessionQuestion(models.Model):
     batch_session = models.ForeignKey(
         BatchClassSession, on_delete=models.CASCADE, related_name='mcq_questions',
@@ -913,6 +916,7 @@ class BatchPostSessionQuestion(models.Model):
         return f"Batch MCQ Q{self.order} for Session {self.batch_session_id}"
 
 
+# Batch Post-Session Choice
 class BatchPostSessionChoice(models.Model):
     question = models.ForeignKey(
         BatchPostSessionQuestion, on_delete=models.CASCADE, related_name='choices'
@@ -922,7 +926,6 @@ class BatchPostSessionChoice(models.Model):
 
     def __str__(self):
         return self.text
-
 
 
 # LiveSession
@@ -974,7 +977,6 @@ class LiveSession(models.Model):
         return self.scheduled_at + timezone.timedelta(minutes=self.duration_mins)
 
 
-
 # ScheduledWebinar
 class ScheduledWebinar(models.Model):
     class SessionType(models.TextChoices):
@@ -1017,7 +1019,6 @@ class ScheduledWebinar(models.Model):
 
     def __str__(self):
         return f"Webinar: {self.title} [{self.batch.name}]"
-
 
 
 # BatchChatMessage
@@ -1067,7 +1068,7 @@ class BatchChatMessage(models.Model):
         return f"{sender_name} → {self.batch.name}: {preview}"
 
 
-
+# Batch Chat Read Receipt
 class BatchChatReadReceipt(models.Model):
     batch = models.ForeignKey(
         Batch, on_delete=models.CASCADE, related_name='read_receipts'
