@@ -33,18 +33,22 @@ export function Header() {
   };
 
   const [notifications, setNotifications] = useState<Notification[]>([]);
-  
+  const [unreadCount, setUnreadCount] = useState(0);
+
   const fetchNotifications = async () => {
+    if (!user) return;
     try {
-      const res = await notificationsApi.getNotifications();
-      if (res.success) {
-        if (Array.isArray(res.data)) {
-          setNotifications(res.data);
-        } else if (res.data && 'data' in res.data) {
-          setNotifications(res.data.data);
-        }
+      const res = await notificationsApi.getNotifications({
+        unread_only: true,
+        page_size: 4,
+        paginate: true,
+      }) as { success?: boolean; data?: Notification[]; total_items?: number };
+      if (res?.success !== false && res.data !== undefined) {
+        const list = Array.isArray(res.data) ? res.data : [];
+        setNotifications(list);
+        setUnreadCount(res.total_items ?? list.length);
       }
-    } catch(err) {
+    } catch (err) {
       console.error(err);
     }
   };
@@ -52,20 +56,22 @@ export function Header() {
   useEffect(() => {
     if (user) {
       fetchNotifications();
-      // Poll every 30 seconds
       const interval = setInterval(fetchNotifications, 30000);
       return () => clearInterval(interval);
     }
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- refetch when user changes; interval uses user
   }, [user]);
 
-  const unreadCount = notifications.filter(n => !n.is_read).length;
+  const showViewAll = true;
 
   const handleNotificationClick = async (notif: Notification) => {
     if (!notif.is_read) {
       try {
         await notificationsApi.markAsRead(notif.id);
-        setNotifications(prev => prev.map(n => n.id === notif.id ? { ...n, is_read: true } : n));
-      } catch (err) {}
+        await fetchNotifications();
+      } catch {
+        // ignore
+      }
     }
     if (notif.action_url) {
       navigate(notif.action_url);
@@ -75,8 +81,11 @@ export function Header() {
   const markAllRead = async () => {
     try {
       await notificationsApi.markAllAsRead();
-      setNotifications(prev => prev.map(n => ({ ...n, is_read: true })));
-    } catch(err) {}
+      setNotifications([]);
+      setUnreadCount(0);
+    } catch {
+      // ignore
+    }
   };
 
   const getNotificationColor = (type: string) => {
@@ -101,9 +110,8 @@ export function Header() {
             <Button variant="ghost" size="icon" className="relative h-10 w-10 rounded-full border border-border focus-visible:ring-0 focus-visible:ring-offset-0">
               <Bell className="h-5 w-5 text-muted-foreground hover:text-foreground transition-colors" />
               {unreadCount > 0 && (
-                <span className="absolute top-2 right-2 flex h-2.5 w-2.5">
-                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-destructive opacity-75"></span>
-                  <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-destructive border-2 border-background"></span>
+                <span className="absolute -top-0.5 -right-0.5 min-w-[18px] h-[18px] px-1 flex items-center justify-center rounded-full bg-destructive text-destructive-foreground text-[11px] font-semibold border-2 border-background">
+                  {unreadCount > 99 ? '99+' : unreadCount}
                 </span>
               )}
             </Button>
@@ -125,22 +133,24 @@ export function Header() {
             <DropdownMenuSeparator />
             <div className="max-h-[300px] overflow-y-auto">
                {notifications.length === 0 ? (
-                 <div className="p-4 text-center text-sm text-muted-foreground">No notifications</div>
+                 <div className="p-4 text-center text-sm text-muted-foreground">
+                   No unread notifications
+                 </div>
                ) : (
-                 notifications.slice(0, 5).map(notif => (
+                 notifications.map(notif => (
                    <DropdownMenuItem 
                      key={notif.id} 
-                     className={`cursor-pointer flex flex-col items-start gap-1 p-3 ${!notif.is_read ? 'bg-muted/30' : ''}`}
+                     className="cursor-pointer flex flex-col items-start gap-1 p-3 bg-muted/30"
                      onClick={() => handleNotificationClick(notif)}
                    >
                      <div className="flex items-center gap-2 w-full">
-                       {!notif.is_read && <div className={`h-2 w-2 rounded-full flex-shrink-0 ${getNotificationColor(notif.notification_type)}`} />}
-                       <span className={`font-medium text-sm ${!notif.is_read ? '' : 'text-muted-foreground'}`}>{notif.title}</span>
+                       <div className={`h-2 w-2 rounded-full flex-shrink-0 ${getNotificationColor(notif.notification_type)}`} />
+                       <span className="font-medium text-sm">{notif.title}</span>
                        <span className="ml-auto text-xs text-muted-foreground">
                          {formatDistanceToNow(new Date(notif.created_at), { addSuffix: true })}
                        </span>
                      </div>
-                     <p className={`text-xs line-clamp-2 pl-4 ${!notif.is_read ? 'text-foreground' : 'text-muted-foreground'}`}>
+                     <p className="text-xs line-clamp-2 pl-4 text-foreground">
                        {notif.message}
                      </p>
                    </DropdownMenuItem>
@@ -148,9 +158,11 @@ export function Header() {
                )}
             </div>
             <DropdownMenuSeparator />
-            <DropdownMenuItem className="cursor-pointer text-center justify-center text-primary font-medium focus:text-primary" onClick={() => navigate('/notifications')}>
-              View all notifications
-            </DropdownMenuItem>
+            {showViewAll && (
+              <DropdownMenuItem className="cursor-pointer text-center justify-center text-primary font-medium focus:text-primary" onClick={() => navigate('/notifications')}>
+                View all notifications
+              </DropdownMenuItem>
+            )}
           </DropdownMenuContent>
         </DropdownMenu>
 

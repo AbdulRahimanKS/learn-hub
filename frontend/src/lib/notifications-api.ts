@@ -48,7 +48,7 @@ export const appConfigApi = {
 };
 
 export const notificationsApi = {
-  getNotifications: async (params?: { page?: number, page_size?: number, paginate?: boolean }) => {
+  getNotifications: async (params?: { page?: number, page_size?: number, paginate?: boolean; unread_only?: boolean }) => {
     const response = await apiClient.get<ApiResponse<PaginatedNotificationResponse | Notification[]>>('/api/users/v1/notifications/', { params });
     return response.data;
   },

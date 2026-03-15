@@ -2,33 +2,32 @@ import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { DashboardLayout } from '@/components/layout/DashboardLayout';
 import { Button } from '@/components/ui/button';
-import { Check, Trash2, Bell, AlertCircle } from 'lucide-react';
+import { Check, Bell, Loader2, Info, CircleCheck, TriangleAlert, CircleX } from 'lucide-react';
 import { notificationsApi, Notification } from '@/lib/notifications-api';
 import { formatDistanceToNow } from 'date-fns';
 import { useAuth } from '@/contexts/AuthContext';
+
+const PAGE_SIZE = 10;
 
 export default function Notifications() {
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [loading, setLoading] = useState(true);
   const [currentPage, setCurrentPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
+  const [totalItems, setTotalItems] = useState(0);
   const navigate = useNavigate();
   const { user } = useAuth();
 
-  const fetchNotifications = async (page = currentPage) => {
+  const fetchNotifications = async (page: number = currentPage) => {
     try {
-      const res = await notificationsApi.getNotifications({ page, page_size: 10, paginate: true });
-      if (res.success) {
-        // Handle both paginated and non-paginated responses for safety
-        const data = res.data;
-        if ('data' in data && Array.isArray(data.data)) {
-          setNotifications(data.data);
-          setTotalPages(data.total_pages || 1);
-          setCurrentPage(data.current_page || 1);
-        } else if (Array.isArray(data)) {
-          setNotifications(data);
-          setTotalPages(1);
-        }
+      const res = await notificationsApi.getNotifications({ page, page_size: PAGE_SIZE, paginate: true });
+      if (res.success && res.data !== undefined) {
+        const body = res as { data: Notification[]; total_pages?: number; current_page?: number; total_items?: number };
+        const list = Array.isArray(body.data) ? body.data : [];
+        setNotifications(list);
+        setTotalPages(body.total_pages ?? 1);
+        setCurrentPage(body.current_page ?? 1);
+        setTotalItems(body.total_items ?? list.length);
       }
     } catch(err) {
       console.error(err);
@@ -38,9 +37,10 @@ export default function Notifications() {
   };
 
   useEffect(() => {
-    fetchNotifications();
-    const interval = setInterval(() => fetchNotifications(currentPage), 60000); // 1-min polling
+    fetchNotifications(currentPage);
+    const interval = setInterval(() => fetchNotifications(currentPage), 60000);
     return () => clearInterval(interval);
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- refetch when page changes; interval uses current page
   }, [currentPage]);
 
   const handleNotificationClick = async (notif: Notification) => {
@@ -48,7 +48,9 @@ export default function Notifications() {
       try {
         await notificationsApi.markAsRead(notif.id);
         setNotifications(prev => prev.map(n => n.id === notif.id ? { ...n, is_read: true } : n));
-      } catch (err) {}
+      } catch {
+        // ignore
+      }
     }
     if (notif.action_url) {
       navigate(notif.action_url);
@@ -59,110 +61,114 @@ export default function Notifications() {
     try {
       await notificationsApi.markAllAsRead();
       setNotifications(prev => prev.map(n => ({ ...n, is_read: true })));
-    } catch(err) {}
+    } catch {
+      // ignore
+    }
   };
 
-  const getNotificationColor = (type: string) => {
-    switch(type) {
-      case 'success': return 'bg-green-500';
-      case 'warning': return 'bg-yellow-500';
-      case 'error': return 'bg-red-500';
+  const getNotificationStyle = (type: string) => {
+    switch (type) {
+      case 'success': return { icon: CircleCheck, iconClass: 'text-emerald-600 dark:text-emerald-500' };
+      case 'warning': return { icon: TriangleAlert, iconClass: 'text-amber-600 dark:text-amber-500' };
+      case 'error': return { icon: CircleX, iconClass: 'text-red-600 dark:text-red-500' };
       case 'info':
-      default: return 'bg-blue-500';
+      default: return { icon: Info, iconClass: 'text-muted-foreground' };
     }
   };
 
   return (
     <DashboardLayout>
-      <div className="max-w-4xl mx-auto space-y-6">
-        <div className="flex flex-col gap-4 sm:flex-row sm:items-center justify-between">
+      <div className="space-y-6 max-w-4xl mx-auto">
+        <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
           <div>
-            <h1 className="text-3xl font-bold font-display tracking-tight text-foreground">Notifications</h1>
-            <p className="text-muted-foreground mt-1">Stay updated with your latest alerts and messages.</p>
+            <h1 className="font-display text-3xl font-bold text-foreground">Notifications</h1>
+            <p className="mt-1 text-muted-foreground">Your notification history.</p>
           </div>
           {notifications.some(n => !n.is_read) && (
-            <Button variant="outline" onClick={markAllRead}>
+            <Button variant="outline" onClick={markAllRead} className="shrink-0">
               <Check className="h-4 w-4 mr-2" /> Mark all as read
             </Button>
           )}
         </div>
 
-        <div className="bg-card rounded-xl border border-border/50 shadow-sm overflow-hidden">
+        <div className="bg-card rounded-xl border border-border shadow-sm overflow-hidden">
           {loading ? (
-             <div className="flex flex-col items-center justify-center py-20 text-muted-foreground">
-               <Bell className="h-10 w-10 animate-pulse mb-4 text-primary/40" />
-               <p>Loading notifications...</p>
-             </div>
+            <div className="flex items-center justify-center h-64" aria-busy="true" aria-label="Loading">
+              <Loader2 className="h-8 w-8 animate-spin text-primary" />
+            </div>
           ) : notifications.length === 0 ? (
-            <div className="flex flex-col items-center justify-center py-20 text-muted-foreground">
-              <div className="bg-muted w-16 h-16 rounded-full flex items-center justify-center mb-4">
-                <Bell className="h-8 w-8 opacity-50" />
+            <div className="flex flex-col items-center justify-center py-24 text-muted-foreground">
+              <div className="bg-muted/50 w-20 h-20 rounded-full flex items-center justify-center mb-5 ring-4 ring-muted">
+                <Bell className="h-10 w-10 opacity-60" />
               </div>
-              <p className="text-lg font-medium text-foreground">You're all caught up!</p>
-              <p className="text-sm">There are no new notifications right now.</p>
+              <p className="text-lg font-semibold text-foreground">You're all caught up</p>
+              <p className="text-sm mt-1">New alerts and updates will appear here.</p>
             </div>
           ) : (
-            <div className="divide-y divide-border/50">
-              {notifications.map((notif) => (
-                <div 
-                  key={notif.id} 
-                  onClick={() => handleNotificationClick(notif)}
-                  className={`p-5 transition-colors cursor-pointer hover:bg-muted/50 ${!notif.is_read ? 'bg-primary/5 border-l-4 border-l-primary' : 'border-l-4 border-l-transparent'}`}
-                >
-                  <div className="flex gap-4">
-                    <div className="flex-shrink-0 mt-1">
-                      <div 
-                        className={`w-10 h-10 rounded-full flex items-center justify-center shadow-sm text-white ${getNotificationColor(notif.notification_type)}`}
-                      >
-                        <AlertCircle className="h-5 w-5" />
+            <>
+              <div className="divide-y divide-border/60">
+                {notifications.map((notif) => {
+                  const style = getNotificationStyle(notif.notification_type);
+                  const Icon = style.icon;
+                  return (
+                    <div
+                      key={notif.id}
+                      onClick={() => handleNotificationClick(notif)}
+                      className={`group flex gap-4 p-5 transition-colors cursor-pointer hover:bg-muted/40 ${!notif.is_read ? 'bg-muted/30' : ''}`}
+                    >
+                      <div className={`flex-shrink-0 w-10 h-10 rounded-lg flex items-center justify-center bg-muted/50 ${style.iconClass}`}>
+                        <Icon className="h-5 w-5" strokeWidth={1.5} />
                       </div>
-                    </div>
-                    <div className="flex-1 space-y-1">
-                      <div className="flex items-center justify-between">
-                        <p className={`font-semibold ${!notif.is_read ? 'text-foreground' : 'text-foreground/80'}`}>
-                          {notif.title}
+                      <div className="flex-1 min-w-0">
+                        <div className="flex flex-wrap items-center gap-2">
+                          <p className={`font-semibold text-base ${!notif.is_read ? 'text-foreground' : 'text-foreground/85'}`}>
+                            {notif.title}
+                          </p>
+                          {!notif.is_read && (
+                            <span className="inline-flex h-2 w-2 rounded-full bg-primary shrink-0" aria-hidden />
+                          )}
+                          <span className="text-xs text-muted-foreground whitespace-nowrap ml-auto">
+                            {formatDistanceToNow(new Date(notif.created_at), { addSuffix: true })}
+                          </span>
+                        </div>
+                        <p className={`text-sm mt-1 ${!notif.is_read ? 'text-foreground/90' : 'text-muted-foreground'}`}>
+                          {notif.message}
                         </p>
-                        <span className="text-xs text-muted-foreground whitespace-nowrap ml-4">
-                          {formatDistanceToNow(new Date(notif.created_at), { addSuffix: true })}
-                        </span>
+                        {notif.action_url && (
+                          <p className="text-xs text-primary font-medium mt-2 group-hover:underline">View details &rarr;</p>
+                        )}
                       </div>
-                      <p className={`text-sm ${!notif.is_read ? 'text-foreground/90' : 'text-muted-foreground'}`}>
-                        {notif.message}
-                      </p>
-                      {notif.action_url && (
-                        <p className="text-xs text-primary font-medium mt-2">Click to view details &rarr;</p>
-                      )}
                     </div>
+                  );
+                })}
+              </div>
+
+              {totalPages > 1 && (
+                <div className="flex items-center justify-center gap-2 px-5 py-4 bg-muted/20 border-t border-border/60">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                    disabled={currentPage === 1}
+                  >
+                    Previous
+                  </Button>
+                  <div className="text-sm font-medium text-muted-foreground px-4">
+                    Page {currentPage} of {totalPages}
                   </div>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+                    disabled={currentPage === totalPages}
+                  >
+                    Next
+                  </Button>
                 </div>
-              ))}
-            </div>
+              )}
+            </>
           )}
         </div>
-
-        {!loading && notifications.length > 0 && totalPages > 1 && (
-          <div className="flex items-center justify-center gap-2 mt-8">
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
-              disabled={currentPage === 1}
-            >
-              Previous
-            </Button>
-            <div className="text-sm font-medium text-muted-foreground px-4">
-              Page {currentPage} of {totalPages}
-            </div>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
-              disabled={currentPage === totalPages}
-            >
-              Next
-            </Button>
-          </div>
-        )}
       </div>
     </DashboardLayout>
   );
