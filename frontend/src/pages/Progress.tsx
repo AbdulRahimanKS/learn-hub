@@ -697,6 +697,7 @@ export default function Progress() {
 
   const StudentProgress = () => (
     <div className="space-y-6">
+      {/* Header with Batch Selector */}
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h1 className="font-display text-3xl font-bold text-foreground">My Progress</h1>
@@ -739,144 +740,175 @@ export default function Progress() {
         </div>
       ) : (
         <>
-          {/* Overall Stats */}
+          {/* Overall Stats Banner */}
           <Card className="shadow-xl bg-gradient-to-br from-[#1a237e] via-[#283593] to-[#3949ab] text-white overflow-hidden border-none rounded-2xl">
             <CardContent className="p-6 md:p-8 relative">
               <div className="absolute top-0 right-0 p-8 pointer-events-none opacity-5 hidden md:block">
                  <TrendingUp className="h-48 w-48" />
               </div>
-              <div className="grid gap-8 sm:grid-cols-4 relative z-10">
-                <div className="sm:border-r sm:border-white/20 pr-4">
-                  <p className="text-white/70 text-sm font-bold tracking-widest uppercase">Overall Progress</p>
-                  <div className="flex items-end gap-2 mt-2">
+              <div className="grid gap-6 sm:grid-cols-4 relative z-10">
+                <div className="sm:border-r sm:border-white/20 sm:pr-6">
+                  <p className="text-white/70 text-xs font-bold tracking-widest uppercase">Overall Progress</p>
+                  <div className="flex items-end gap-2 mt-1.5">
                     <p className="text-4xl md:text-5xl font-black font-display">{studentStats.overallProgress}%</p>
                   </div>
-                  <ProgressBar value={studentStats.overallProgress} className="mt-4 h-2 bg-white/20" />
+                  <ProgressBar value={studentStats.overallProgress} className="mt-3 h-1.5 bg-white/20" />
                 </div>
                 <div>
-                  <p className="text-white/70 text-sm font-bold tracking-widest uppercase">Videos Watched</p>
-                  <div className="flex items-baseline gap-1 mt-2">
+                  <p className="text-white/70 text-xs font-bold tracking-widest uppercase">Videos Watched</p>
+                  <div className="flex items-baseline gap-1 mt-1.5">
                      <p className="text-3xl md:text-4xl font-black font-display">{studentStats.videosWatched}</p>
-                     <p className="text-white/70 font-bold">/ {studentStats.totalVideos}</p>
+                     <p className="text-white/60 font-bold text-lg">/{studentStats.totalVideos}</p>
                   </div>
                 </div>
                 <div>
-                  <p className="text-white/70 text-sm font-bold tracking-widest uppercase">Tests Passed</p>
-                  <div className="flex items-baseline gap-1 mt-2">
+                  <p className="text-white/70 text-xs font-bold tracking-widest uppercase">Tests Passed</p>
+                  <div className="flex items-baseline gap-1 mt-1.5">
                      <p className="text-3xl md:text-4xl font-black font-display">{studentStats.testsPassed}</p>
-                     <p className="text-white/70 font-bold">/ {studentStats.totalTests}</p>
+                     <p className="text-white/60 font-bold text-lg">/{studentStats.totalTests}</p>
                   </div>
                 </div>
                 <div>
-                  <p className="text-white/70 text-sm font-bold tracking-widest uppercase">Average Score</p>
-                  <div className="flex items-baseline gap-1 mt-2">
-                     <p className="text-3xl md:text-4xl font-black font-display">{studentStats.avgScore}%</p>
+                  <p className="text-white/70 text-xs font-bold tracking-widest uppercase">Average Score</p>
+                  <div className="flex items-baseline gap-1 mt-1.5">
+                     <p className="text-3xl md:text-4xl font-black font-display">
+                       {studentStats.avgScore > 0 ? `${studentStats.avgScore}%` : '—'}
+                     </p>
                   </div>
                 </div>
               </div>
             </CardContent>
           </Card>
 
-          {/* Weekly Progress */}
-          <div className="space-y-4">
-             <div className="flex items-center gap-3 mb-2">
-                <Award className="h-6 w-6 text-primary" />
-                <h3 className="text-xl font-display font-black">Weekly Breakdown</h3>
-             </div>
-             
-             {weeks.length === 0 ? (
-               <div className="py-12 border-2 border-dashed border-border/50 text-center rounded-2xl bg-card">
-                  <p className="text-muted-foreground">No weeks have been published for this batch yet.</p>
-               </div>
-             ) : (
-               weeks.map((week) => {
-                 const totalWeekVids = week.class_sessions?.length || 0;
-                 const completedWeekVids = week.class_sessions?.filter(s => s.is_completed).length || 0;
-                 const weekTestScore = week.weekly_test?.latest_submission?.score;
-                 const isWeekPassed = week.weekly_test?.is_passed;
-
-                 return (
-                  <div
-                    key={week.id}
-                    className={cn(
-                      "p-5 rounded-2xl border transition-all",
-                      week.is_unlocked 
-                        ? "bg-card border-border shadow-card hover:border-primary/30 hover:shadow-md" 
-                        : "bg-muted/30 border-border/40 opacity-75"
-                    )}
+          {/* Weekly Progress Card */}
+          <Card className="shadow-card">
+            <CardHeader className="pb-3">
+              <div className="flex items-center justify-between">
+                <div>
+                  <CardTitle className="flex items-center gap-2 text-xl font-display font-black">
+                    <Award className="h-5 w-5 text-primary" />
+                    Weekly Progress
+                  </CardTitle>
+                  <CardDescription className="mt-0.5">Complete each week's content to unlock the next</CardDescription>
+                </div>
+                {selectedBatchId && (
+                  <Button 
+                    variant="outline" 
+                    size="sm"
+                    className="shrink-0 gap-1.5 text-primary border-primary/40 hover:bg-primary/5"
+                    onClick={() => navigate(`/batches/${selectedBatchId}`)}
                   >
-                    <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-                      <div className="flex items-start sm:items-center gap-4">
+                    View All
+                    <ChevronRight className="h-4 w-4" />
+                  </Button>
+                )}
+              </div>
+            </CardHeader>
+            <CardContent className="pt-0">
+              {weeks.length === 0 ? (
+                <div className="py-12 border-2 border-dashed border-border/50 text-center rounded-2xl">
+                  <p className="text-muted-foreground">No weeks have been published for this batch yet.</p>
+                </div>
+              ) : (
+                <div className="space-y-2">
+                  {weeks.map((week) => {
+                    const totalWeekVids = week.class_sessions?.length || 0;
+                    const completedWeekVids = week.class_sessions?.filter(s => s.is_completed).length || 0;
+                    const weekTestScore = week.weekly_test?.latest_submission?.score;
+                    const isWeekPassed = week.weekly_test?.is_passed;
+                    const vidPct = totalWeekVids > 0 ? Math.round((completedWeekVids / totalWeekVids) * 100) : 0;
+
+                    return (
+                      <div
+                        key={week.id}
+                        className={cn(
+                          "flex items-center gap-4 px-4 py-3.5 rounded-xl border transition-all",
+                          week.is_unlocked 
+                            ? "bg-card border-border hover:border-primary/30 hover:bg-muted/20" 
+                            : "bg-muted/20 border-border/30 opacity-60"
+                        )}
+                      >
+                        {/* Week Icon */}
                         <div className={cn(
-                          "flex shrink-0 h-14 w-14 items-center justify-center rounded-2xl shadow-sm transition-colors",
-                          isWeekPassed ? 'bg-success/10 text-success' :
-                          week.is_unlocked ? 'bg-primary/10 text-primary' : 'bg-muted border border-border text-muted-foreground'
+                          "flex h-10 w-10 shrink-0 items-center justify-center rounded-xl font-black text-sm transition-colors",
+                          isWeekPassed 
+                            ? 'bg-success/10 text-success' 
+                            : week.is_unlocked 
+                              ? 'bg-primary/10 text-primary' 
+                              : 'bg-muted text-muted-foreground border border-border'
                         )}>
                           {isWeekPassed ? (
-                            <CheckCircle className="h-7 w-7" />
+                            <CheckCircle className="h-5 w-5" />
                           ) : week.is_unlocked ? (
-                            <span className="text-xl font-black font-display">{week.week_number}</span>
+                            <span className="font-black">{week.week_number}</span>
                           ) : (
-                            <Lock className="h-6 w-6" />
+                            <Lock className="h-4 w-4" />
                           )}
                         </div>
-                        <div>
-                          <div className="flex items-center gap-2 mb-1">
-                            <h3 className={cn("font-bold text-lg", week.is_unlocked ? 'text-foreground' : 'text-muted-foreground')}>
+
+                        {/* Week Info */}
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <p className={cn("font-bold text-sm truncate", week.is_unlocked ? 'text-foreground' : 'text-muted-foreground')}>
                               Week {week.week_number}: {week.title}
-                            </h3>
-                            {isWeekPassed && <Badge className="bg-success text-white font-bold h-5 text-[10px]">PASSED</Badge>}
+                            </p>
+                            {isWeekPassed && (
+                              <Badge className="bg-success text-white text-[9px] h-4 px-1.5 shrink-0 font-black">PASSED</Badge>
+                            )}
                           </div>
-                          
-                          <div className="flex flex-wrap items-center gap-3 sm:gap-6 mt-1 text-xs font-bold text-muted-foreground">
-                            <span className="flex items-center gap-1.5">
-                              <VideoIcon className="h-4 w-4 opacity-70" />
-                              <span className={week.is_unlocked ? 'text-foreground' : ''}>{completedWeekVids}/{totalWeekVids}</span> videos watched
+                          <div className="flex items-center gap-4 mt-1 text-xs text-muted-foreground">
+                            <span className="flex items-center gap-1">
+                              <VideoIcon className="h-3 w-3" />
+                              {completedWeekVids}/{totalWeekVids} videos
                             </span>
                             {week.weekly_test && (
-                              <span className="flex items-center gap-1.5">
-                                <FileText className="h-4 w-4 opacity-70" />
-                                Test: {weekTestScore !== undefined && weekTestScore !== null ? (
-                                   <span className={isWeekPassed ? 'text-success' : 'text-warning'}>{weekTestScore}%</span>
-                                ) : 'Not Attempted'}
+                              <span className="flex items-center gap-1">
+                                <FileText className="h-3 w-3" />
+                                {weekTestScore !== undefined && weekTestScore !== null ? (
+                                  <span className={isWeekPassed ? 'text-success font-bold' : 'text-warning font-bold'}>
+                                    Test: {weekTestScore}%
+                                  </span>
+                                ) : 'Test: Not Attempted'}
                               </span>
                             )}
                           </div>
                         </div>
-                      </div>
-                      
-                      <div className="flex items-center gap-4 w-full sm:w-auto mt-2 sm:mt-0 justify-end border-t sm:border-t-0 pt-4 sm:pt-0">
-                        {week.is_unlocked && (
-                          <>
-                            <div className="hidden lg:block w-32 mr-2">
-                              <ProgressBar 
-                                value={totalWeekVids > 0 ? (completedWeekVids / totalWeekVids) * 100 : 0} 
-                                className="h-2"
-                              />
+
+                        {/* Right section: Progress bar OR Locked badge */}
+                        <div className="shrink-0 flex items-center gap-3">
+                          {week.is_unlocked ? (
+                            <div className="w-28 hidden sm:block">
+                              <ProgressBar value={vidPct} className="h-1.5" />
                             </div>
-                            <Button 
-                              variant={isWeekPassed ? 'outline' : 'gradient'} 
-                              size="sm"
-                              className="w-full sm:w-auto"
-                              onClick={() => navigate(`/batches/${selectedBatchId}`)}
-                            >
-                              {isWeekPassed ? 'Review' : completedWeekVids === totalWeekVids ? 'Take Test' : 'Continue Learning'}
-                            </Button>
-                          </>
-                        )}
-                        {!week.is_unlocked && (
-                          <Badge variant="outline" className="text-muted-foreground bg-muted/50 border-border/50 shadow-sm py-1.5 px-3">
-                            <Lock className="h-3 w-3 mr-1.5" />
-                            Locked
-                          </Badge>
-                        )}
+                          ) : (
+                            <span className="text-xs font-medium text-muted-foreground flex items-center gap-1">
+                              <Lock className="h-3 w-3" />
+                              Locked
+                            </span>
+                          )}
+                        </div>
                       </div>
-                    </div>
-                  </div>
-                 );
-               })
-             )}
-          </div>
+                    );
+                  })}
+                </div>
+              )}
+
+              {/* Bottom View All link */}
+              {weeks.length > 0 && selectedBatchId && (
+                <div className="mt-4 pt-4 border-t text-center">
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="text-primary hover:text-primary gap-1.5 font-bold"
+                    onClick={() => navigate(`/batches/${selectedBatchId}`)}
+                  >
+                    Go to Course Content to continue learning
+                    <ChevronRight className="h-4 w-4" />
+                  </Button>
+                </div>
+              )}
+            </CardContent>
+          </Card>
         </>
       )}
     </div>
