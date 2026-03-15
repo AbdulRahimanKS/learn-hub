@@ -1,6 +1,7 @@
+import { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { DashboardLayout } from '@/components/layout/DashboardLayout';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Progress as ProgressBar } from '@/components/ui/progress';
@@ -15,9 +16,9 @@ import {
 } from '@/components/ui/table';
 import {
   Search,
+  BookOpen,
   Filter,
   TrendingUp,
-  TrendingDown,
   Award,
   CheckCircle,
   Clock,
@@ -25,174 +26,455 @@ import {
   Play,
   FileText,
   Download,
+  Loader2,
+  VideoIcon
 } from 'lucide-react';
-
-const studentProgress = [
-  { id: 1, name: 'Alex Thompson', batch: 'Python Basics', week: 4, videosCompleted: 14, totalVideos: 20, weeklyTests: 3, avgScore: 82, trend: 'up' },
-  { id: 2, name: 'Maria Garcia', batch: 'Python Basics', week: 5, videosCompleted: 18, totalVideos: 20, weeklyTests: 4, avgScore: 88, trend: 'up' },
-  { id: 3, name: 'John Smith', batch: 'Data Science', week: 3, videosCompleted: 10, totalVideos: 16, weeklyTests: 2, avgScore: 71, trend: 'down' },
-  { id: 4, name: 'Sarah Wilson', batch: 'Web Development', week: 6, videosCompleted: 24, totalVideos: 24, weeklyTests: 6, avgScore: 95, trend: 'up' },
-  { id: 5, name: 'David Brown', batch: 'Python Basics', week: 2, videosCompleted: 6, totalVideos: 20, weeklyTests: 1, avgScore: 65, trend: 'down' },
-];
-
-const weeklyProgress = [
-  { week: 1, isUnlocked: true, videosCompleted: 4, totalVideos: 4, testScore: 85, isPassed: true },
-  { week: 2, isUnlocked: true, videosCompleted: 4, totalVideos: 4, testScore: 78, isPassed: true },
-  { week: 3, isUnlocked: true, videosCompleted: 3, totalVideos: 4, testScore: null, isPassed: false },
-  { week: 4, isUnlocked: false, videosCompleted: 0, totalVideos: 5, testScore: null, isPassed: false },
-  { week: 5, isUnlocked: false, videosCompleted: 0, totalVideos: 4, testScore: null, isPassed: false },
-  { week: 6, isUnlocked: false, videosCompleted: 0, totalVideos: 5, testScore: null, isPassed: false },
-];
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select"
+import { batchApi, batchContentApi, BatchWeek } from '@/lib/batch-api';
+import { useToast } from '@/hooks/use-toast';
+import { useNavigate } from 'react-router-dom';
+import {
+  DropdownMenu,
+  DropdownMenuTrigger,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+} from '@/components/ui/dropdown-menu';
+import * as XLSX from 'xlsx';
+import { cn } from '@/lib/utils';
 
 export default function Progress() {
   const { user } = useAuth();
+  const { toast } = useToast();
+  const navigate = useNavigate();
+  const isStudent = user?.role === 'student';
+
+  const [batches, setBatches] = useState<any[]>([]);
+  const [selectedBatchId, setSelectedBatchId] = useState<number | null>(null);
+  const [selectedBatchName, setSelectedBatchName] = useState('');
+  
+  // Shared loading
+  const [loading, setLoading] = useState(true);
+
+  // --- Admin State ---
+  const [students, setStudents] = useState<any[]>([]);
+  const [search, setSearch] = useState('');
+  const [debouncedSearch, setDebouncedSearch] = useState('');
+  const [currentPage, setCurrentPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
+  const [stats, setStats] = useState<any>(null);
+  const [isExporting, setIsExporting] = useState(false);
+
+  // --- Student State ---
+  const [weeks, setWeeks] = useState<BatchWeek[]>([]);
+  const [studentStats, setStudentStats] = useState({
+    totalVideos: 0,
+    videosWatched: 0,
+    totalTests: 0,
+    testsPassed: 0,
+    avgScore: 0,
+    overallProgress: 0
+  });
+
+  // Handle Search Debounce
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedSearch(search);
+      setCurrentPage(1); // Reset page on search
+    }, 500);
+    return () => clearTimeout(timer);
+  }, [search]);
+
+  // Fetch Batches
+  const fetchBatches = useCallback(async () => {
+    try {
+      const res = await batchApi.getBatches({ paginate: false });
+      if (res.success && Array.isArray(res.data) && res.data.length > 0) {
+        setBatches(res.data);
+        setSelectedBatchId(res.data[0].id);
+        setSelectedBatchName(res.data[0].name);
+      } else {
+        setLoading(false);
+      }
+    } catch (err) {
+      setLoading(false);
+      toast({ title: 'Error', description: 'Failed to fetch batches', variant: 'destructive' });
+    }
+  }, [toast]);
+
+  useEffect(() => {
+    fetchBatches();
+  }, [fetchBatches]);
+
+  // Fetch Students for Admin
+  const fetchAdminData = useCallback(async () => {
+    if (!selectedBatchId) return;
+    setLoading(true);
+    try {
+      const res = await batchApi.getBatchStudents(selectedBatchId, { 
+        page: currentPage, 
+        page_size: 10,
+        search: debouncedSearch
+      });
+      if (res.success) {
+        setStudents(res.data || []);
+        setTotalPages(res.total_pages || 1);
+        setStats(res.stats || null);
+      }
+    } catch (err) {
+      toast({ title: 'Error', description: 'Failed to fetch student progress', variant: 'destructive' });
+    } finally {
+      setLoading(false);
+    }
+  }, [selectedBatchId, currentPage, debouncedSearch, toast]);
+
+  // Fetch Weeks for Student
+  const fetchStudentData = useCallback(async () => {
+    if (!selectedBatchId) return;
+    setLoading(true);
+    try {
+      const res = await batchContentApi.getWeeks(selectedBatchId);
+      if (res.success) {
+        const fetchedWeeks = res.data || [];
+        setWeeks(fetchedWeeks);
+        
+        let tVideos = 0;
+        let vWatched = 0;
+        let tTests = 0;
+        let tPassed = 0;
+        let totalScore = 0;
+        let scoredTests = 0;
+
+        fetchedWeeks.forEach(w => {
+          const sessions = w.class_sessions || [];
+          tVideos += sessions.length;
+          vWatched += sessions.filter(s => s.is_completed).length;
+
+          if (w.weekly_test) {
+            tTests++;
+            if (w.weekly_test.is_passed) tPassed++;
+            const score = w.weekly_test.latest_submission?.score;
+            if (score !== undefined && score !== null) {
+              totalScore += score;
+              scoredTests++;
+            }
+          }
+        });
+
+        const overall = (tVideos + tTests) > 0 
+          ? Math.round(((vWatched + tPassed) / (tVideos + tTests)) * 100) 
+          : 0;
+
+        setStudentStats({
+          totalVideos: tVideos,
+          videosWatched: vWatched,
+          totalTests: tTests,
+          testsPassed: tPassed,
+          avgScore: scoredTests > 0 ? Math.round(totalScore / scoredTests) : 0,
+          overallProgress: overall
+        });
+      }
+    } catch (err) {
+      toast({ title: 'Error', description: 'Failed to fetch your progress', variant: 'destructive' });
+    } finally {
+      setLoading(false);
+    }
+  }, [selectedBatchId, toast]);
+
+  useEffect(() => {
+    if (selectedBatchId) {
+      if (isStudent) {
+        fetchStudentData();
+      } else {
+        fetchAdminData();
+      }
+    }
+  }, [selectedBatchId, isStudent, fetchAdminData, fetchStudentData]);
+
+  // Export full report
+  const handleExportBatchProgress = async (format: 'csv' | 'xlsx') => {
+    if (!selectedBatchId) return;
+    setIsExporting(true);
+    try {
+      // Fetch a large page_size to get all students for export
+      const res = await batchApi.getBatchStudents(selectedBatchId, { 
+        page: 1, 
+        page_size: 10000 
+      });
+      if (res.success && res.data && res.data.length > 0) {
+        const allStudents = res.data;
+        
+        const exportData = allStudents.map((st: any) => ({
+          'Student Name': st.student_name,
+          'Email': st.student_email,
+          'Status': st.status,
+          'Overall Progress %': st.overall_progress || 0,
+          'Tests Passed': st.weekly_tests_submitted || 0,
+          'Total Tests': st.total_weekly_tests || 0,
+          'Videos Watched': st.videos_watched || 0,
+          'Total Videos': st.total_videos || 0,
+          'Enrolled Date': new Date(st.enrolled_at).toLocaleDateString()
+        }));
+
+        const ws = XLSX.utils.json_to_sheet(exportData);
+        const wb = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(wb, ws, "Progress Report");
+
+        if (format === 'csv') {
+          XLSX.writeFile(wb, `batch_progress_${selectedBatchId}.csv`);
+        } else {
+          XLSX.writeFile(wb, `batch_progress_${selectedBatchId}.xlsx`);
+        }
+        
+        toast({ title: 'Success', description: 'Report exported successfully.', variant: 'success' });
+      } else {
+        toast({ title: 'Info', description: 'No students to export.' });
+      }
+    } catch (err) {
+      toast({ title: 'Error', description: 'Failed to export report.', variant: 'destructive' });
+    } finally {
+      setIsExporting(false);
+    }
+  };
 
   const AdminProgress = () => (
     <div className="space-y-6">
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-        <div>
+        <div className="flex-1">
           <h1 className="font-display text-3xl font-bold text-foreground">Student Progress</h1>
           <p className="mt-1 text-muted-foreground">Track student performance across batches</p>
         </div>
-        <Button variant="outline">
-          <Download className="h-4 w-4 mr-2" />
-          Export Report
-        </Button>
+        
+        {/* Export Button */}
+        {students.length > 0 && (
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="outline" disabled={isExporting || loading} className="shrink-0 gap-2">
+                {isExporting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Download className="h-4 w-4" />}
+                Export Report
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              <DropdownMenuItem onClick={() => handleExportBatchProgress('xlsx')}>
+                Download as Excel
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => handleExportBatchProgress('csv')}>
+                Download as CSV
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        )}
       </div>
 
-      {/* Overview Stats */}
-      <div className="grid gap-4 sm:grid-cols-4">
-        <Card className="shadow-card">
-          <CardContent className="p-6">
-            <div className="flex items-center gap-4">
-              <div className="p-3 rounded-xl bg-success/10">
-                <TrendingUp className="h-6 w-6 text-success" />
+      {stats && (
+        <div className="grid gap-4 sm:grid-cols-4">
+          <Card className="shadow-card">
+            <CardContent className="p-6">
+              <div className="flex items-center gap-4">
+                <div className="p-3 rounded-xl bg-primary/10">
+                  <TrendingUp className="h-6 w-6 text-primary" />
+                </div>
+                <div>
+                  <p className="text-2xl font-bold text-foreground">{stats.total}</p>
+                  <p className="text-sm font-medium text-muted-foreground">Total Enrolled</p>
+                </div>
               </div>
-              <div>
-                <p className="text-2xl font-bold text-foreground">76%</p>
-                <p className="text-sm text-muted-foreground">Avg Completion</p>
+            </CardContent>
+          </Card>
+          <Card className="shadow-card">
+            <CardContent className="p-6">
+              <div className="flex items-center gap-4">
+                <div className="p-3 rounded-xl bg-success/10">
+                  <CheckCircle className="h-6 w-6 text-success" />
+                </div>
+                <div>
+                  <p className="text-2xl font-bold text-foreground">{stats.completed}</p>
+                  <p className="text-sm font-medium text-muted-foreground">Completed Course</p>
+                </div>
               </div>
-            </div>
-          </CardContent>
-        </Card>
-        <Card className="shadow-card">
-          <CardContent className="p-6">
-            <div className="flex items-center gap-4">
-              <div className="p-3 rounded-xl bg-primary/10">
-                <Award className="h-6 w-6 text-primary" />
+            </CardContent>
+          </Card>
+          <Card className="shadow-card">
+            <CardContent className="p-6">
+              <div className="flex items-center gap-4">
+                <div className="p-3 rounded-xl bg-info/10">
+                  <Award className="h-6 w-6 text-info" />
+                </div>
+                <div>
+                  <p className="text-2xl font-bold text-foreground">{stats.active}</p>
+                  <p className="text-sm font-medium text-muted-foreground">Active Learners</p>
+                </div>
               </div>
-              <div>
-                <p className="text-2xl font-bold text-foreground">80%</p>
-                <p className="text-sm text-muted-foreground">Avg Test Score</p>
+            </CardContent>
+          </Card>
+          <Card className="shadow-card">
+            <CardContent className="p-6">
+              <div className="flex items-center gap-4">
+                <div className="p-3 rounded-xl bg-destructive/10">
+                  <Clock className="h-6 w-6 text-destructive" />
+                </div>
+                <div>
+                  <p className="text-2xl font-bold text-foreground">{stats.dropped}</p>
+                  <p className="text-sm font-medium text-muted-foreground">Dropped / Pending</p>
+                </div>
               </div>
-            </div>
-          </CardContent>
-        </Card>
-        <Card className="shadow-card">
-          <CardContent className="p-6">
-            <div className="flex items-center gap-4">
-              <div className="p-3 rounded-xl bg-accent/10">
-                <CheckCircle className="h-6 w-6 text-accent" />
-              </div>
-              <div>
-                <p className="text-2xl font-bold text-foreground">68%</p>
-                <p className="text-sm text-muted-foreground">Pass Rate</p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-        <Card className="shadow-card">
-          <CardContent className="p-6">
-            <div className="flex items-center gap-4">
-              <div className="p-3 rounded-xl bg-warning/10">
-                <Clock className="h-6 w-6 text-warning" />
-              </div>
-              <div>
-                <p className="text-2xl font-bold text-foreground">12</p>
-                <p className="text-sm text-muted-foreground">At Risk</p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-      </div>
+            </CardContent>
+          </Card>
+        </div>
+      )}
 
-      {/* Search & Filter */}
+      {/* Search Bar & Filter */}
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div className="relative flex-1">
           <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-          <Input placeholder="Search students..." className="pl-10" />
+          <Input 
+            placeholder="Search students by name or email..." 
+            className="pl-10 h-10"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)} 
+          />
         </div>
-        <Button variant="outline" className="shrink-0 gap-2">
-          <Filter className="h-4 w-4" />
-          Filter by Batch
-        </Button>
+        <div className="w-[220px] shrink-0">
+          <Select 
+            value={selectedBatchId?.toString()} 
+            onValueChange={(val) => {
+              const bId = Number(val);
+              setSelectedBatchId(bId);
+              const selectedBatch = batches.find(b => b.id === bId);
+              if (selectedBatch) {
+                setSelectedBatchName(selectedBatch.name);
+              }
+              setCurrentPage(1);
+              setSearch('');
+            }}
+            disabled={batches.length === 0}
+          >
+            <SelectTrigger className="h-10 border-primary text-primary">
+              <div className="flex items-center">
+                <Filter className="h-4 w-4 mr-2" />
+                <SelectValue placeholder="Filter by Batch" />
+              </div>
+            </SelectTrigger>
+            <SelectContent>
+              {batches.map(batch => (
+                <SelectItem key={batch.id} value={batch.id.toString()}>
+                  {batch.name}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
       </div>
 
       {/* Progress Table */}
-      <Card className="shadow-card">
+      <Card className="shadow-card border-border/50">
         <CardContent className="p-0">
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Student</TableHead>
-                <TableHead>Batch</TableHead>
-                <TableHead>Current Week</TableHead>
-                <TableHead>Videos</TableHead>
-                <TableHead>Tests Passed</TableHead>
-                <TableHead>Avg Score</TableHead>
-                <TableHead>Trend</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {studentProgress.map((student) => (
-                <TableRow key={student.id}>
-                  <TableCell>
-                    <div className="flex items-center gap-3">
-                      <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center">
-                        <span className="text-sm font-semibold text-primary">
-                          {student.name.charAt(0)}
+          <div className="overflow-x-auto">
+            <Table>
+              <TableHeader className="bg-muted/30">
+                <TableRow>
+                  <TableHead className="py-4">Student</TableHead>
+                  <TableHead>Enrollment Status</TableHead>
+                  <TableHead>Videos</TableHead>
+                  <TableHead>Tests Passed</TableHead>
+                  <TableHead>Overall Progress</TableHead>
+                  <TableHead className="text-right">Enrolled At</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {loading ? (
+                   <TableRow>
+                     <TableCell colSpan={6} className="py-12 text-center">
+                       <Loader2 className="h-8 w-8 animate-spin mx-auto text-primary opacity-50 mb-2" />
+                       <p className="text-sm text-muted-foreground">Loading progress...</p>
+                     </TableCell>
+                   </TableRow>
+                ) : students.length === 0 ? (
+                   <TableRow>
+                     <TableCell colSpan={6} className="py-12 text-center text-muted-foreground">
+                       No students found in this batch matching your criteria.
+                     </TableCell>
+                   </TableRow>
+                ) : students.map((enrollment: any) => (
+                  <TableRow key={enrollment.id} className="cursor-pointer hover:bg-muted/30 transition-colors" onClick={() => navigate(`/batches/${selectedBatchId}/students`)}>
+                    <TableCell>
+                      <div className="flex items-center gap-3 py-1">
+                        <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center shrink-0 border border-primary/20">
+                          <span className="text-sm font-bold text-primary">
+                            {enrollment.student_name.charAt(0)}
+                          </span>
+                        </div>
+                        <div className="min-w-0">
+                           <p className="font-bold text-foreground truncate">{enrollment.student_name}</p>
+                           <p className="text-xs text-muted-foreground truncate">{enrollment.student_email}</p>
+                        </div>
+                      </div>
+                    </TableCell>
+                    <TableCell>
+                      <Badge variant="outline" className={cn(
+                        "text-[10px] h-5 py-0 px-2 tracking-wide font-bold capitalize",
+                        enrollment.status === 'active' ? "bg-success/10 text-success border-success/30" : 
+                        enrollment.status === 'completed' ? "bg-primary/10 text-primary border-primary/30" :
+                        enrollment.status === 'dropped' ? "bg-destructive/10 text-destructive border-destructive/30" :
+                        "bg-muted text-muted-foreground border-border"
+                      )}>
+                         {enrollment.status}
+                      </Badge>
+                    </TableCell>
+                    <TableCell>
+                       <span className="font-medium">
+                         {enrollment.videos_watched || 0}
+                       </span>
+                       <span className="text-muted-foreground text-xs ml-1">
+                         / {enrollment.total_videos || 0}
+                       </span>
+                    </TableCell>
+                    <TableCell>
+                       <span className="font-medium">
+                         {enrollment.weekly_tests_submitted || 0}
+                       </span>
+                       <span className="text-muted-foreground text-xs ml-1">
+                         / {enrollment.total_weekly_tests || 0}
+                       </span>
+                    </TableCell>
+                    <TableCell className="w-1/4">
+                      <div className="flex items-center gap-3">
+                        <div className="w-24 h-2 bg-muted rounded-full overflow-hidden shrink-0">
+                          <div
+                            className={`h-full rounded-full ${
+                              enrollment.overall_progress >= 100 ? 'bg-success' : 'bg-primary'
+                            }`}
+                            style={{ width: `${Math.min(100, enrollment.overall_progress || 0)}%` }}
+                          />
+                        </div>
+                        <span className="text-sm font-bold w-12 text-foreground">
+                          {enrollment.overall_progress || 0}%
                         </span>
                       </div>
-                      <span className="font-medium text-foreground">{student.name}</span>
-                    </div>
-                  </TableCell>
-                  <TableCell>
-                    <Badge variant="outline">{student.batch}</Badge>
-                  </TableCell>
-                  <TableCell>Week {student.week}</TableCell>
-                  <TableCell>
-                    <div className="flex items-center gap-2">
-                      <div className="w-16 h-2 bg-muted rounded-full overflow-hidden">
-                        <div
-                          className="h-full bg-primary rounded-full"
-                          style={{ width: `${(student.videosCompleted / student.totalVideos) * 100}%` }}
-                        />
-                      </div>
-                      <span className="text-sm text-muted-foreground">
-                        {student.videosCompleted}/{student.totalVideos}
-                      </span>
-                    </div>
-                  </TableCell>
-                  <TableCell>{student.weeklyTests}</TableCell>
-                  <TableCell>
-                    <span className={`font-semibold ${
-                      student.avgScore >= 80 ? 'text-success' :
-                      student.avgScore >= 70 ? 'text-warning' : 'text-destructive'
-                    }`}>
-                      {student.avgScore}%
-                    </span>
-                  </TableCell>
-                  <TableCell>
-                    {student.trend === 'up' ? (
-                      <TrendingUp className="h-5 w-5 text-success" />
-                    ) : (
-                      <TrendingDown className="h-5 w-5 text-destructive" />
-                    )}
-                  </TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
+                    </TableCell>
+                    <TableCell className="text-right text-muted-foreground text-sm">
+                       {new Date(enrollment.enrolled_at).toLocaleDateString()}
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </div>
+          
+          {/* Pagination */}
+          {!loading && students.length > 0 && totalPages > 1 && (
+            <div className="flex items-center justify-center gap-3 p-4 border-t">
+              <Button variant="outline" size="sm" onClick={() => setCurrentPage(p => Math.max(1, p - 1))} disabled={currentPage === 1}>Previous</Button>
+              <span className="text-sm font-medium text-muted-foreground w-20 text-center">Page {currentPage} of {totalPages}</span>
+              <Button variant="outline" size="sm" onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))} disabled={currentPage === totalPages}>Next</Button>
+            </div>
+          )}
         </CardContent>
       </Card>
     </div>
@@ -200,156 +482,202 @@ export default function Progress() {
 
   const StudentProgress = () => (
     <div className="space-y-6">
-      <div>
-        <h1 className="font-display text-3xl font-bold text-foreground">My Progress</h1>
-        <p className="mt-1 text-muted-foreground">Track your learning journey</p>
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+        <div>
+          <h1 className="font-display text-3xl font-bold text-foreground">My Progress</h1>
+          <p className="mt-1 text-muted-foreground">Track your learning journey for this program</p>
+        </div>
+        <div className="w-[220px] shrink-0">
+          <Select 
+            value={selectedBatchId?.toString()} 
+            onValueChange={(val) => {
+              const bId = Number(val);
+              setSelectedBatchId(bId);
+              const selectedBatch = batches.find(b => b.id === bId);
+              if (selectedBatch) {
+                setSelectedBatchName(selectedBatch.name);
+              }
+            }}
+            disabled={batches.length === 0}
+          >
+            <SelectTrigger className="h-10 border-primary text-primary">
+              <div className="flex items-center">
+                <BookOpen className="h-4 w-4 mr-2" />
+                <SelectValue placeholder="Select course batch" />
+              </div>
+            </SelectTrigger>
+            <SelectContent>
+              {batches.map(batch => (
+                <SelectItem key={batch.id} value={batch.id.toString()}>
+                  {batch.name}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
       </div>
 
-      {/* Overall Stats */}
-      <Card className="shadow-card gradient-primary text-primary-foreground">
-        <CardContent className="p-6">
-          <div className="grid gap-6 sm:grid-cols-4">
-            <div>
-              <p className="text-primary-foreground/80 text-sm">Overall Progress</p>
-              <p className="text-3xl font-bold mt-1">58%</p>
-              <ProgressBar value={58} className="mt-2 h-2 bg-primary-foreground/20" />
-            </div>
-            <div>
-              <p className="text-primary-foreground/80 text-sm">Videos Watched</p>
-              <p className="text-3xl font-bold mt-1">11/26</p>
-            </div>
-            <div>
-              <p className="text-primary-foreground/80 text-sm">Tests Passed</p>
-              <p className="text-3xl font-bold mt-1">2/6</p>
-            </div>
-            <div>
-              <p className="text-primary-foreground/80 text-sm">Average Score</p>
-              <p className="text-3xl font-bold mt-1">82%</p>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
+      {loading ? (
+        <div className="py-20 flex flex-col items-center justify-center gap-4 border rounded-2xl bg-card">
+           <Loader2 className="h-8 w-8 animate-spin text-primary opacity-50" />
+           <p className="text-muted-foreground font-medium">Calculating progress...</p>
+        </div>
+      ) : (
+        <>
+          {/* Overall Stats */}
+          <Card className="shadow-xl bg-gradient-to-br from-[#1a237e] via-[#283593] to-[#3949ab] text-white overflow-hidden border-none rounded-2xl">
+            <CardContent className="p-6 md:p-8 relative">
+              <div className="absolute top-0 right-0 p-8 pointer-events-none opacity-5 hidden md:block">
+                 <TrendingUp className="h-48 w-48" />
+              </div>
+              <div className="grid gap-8 sm:grid-cols-4 relative z-10">
+                <div className="sm:border-r sm:border-white/20 pr-4">
+                  <p className="text-white/70 text-sm font-bold tracking-widest uppercase">Overall Progress</p>
+                  <div className="flex items-end gap-2 mt-2">
+                    <p className="text-4xl md:text-5xl font-black font-display">{studentStats.overallProgress}%</p>
+                  </div>
+                  <ProgressBar value={studentStats.overallProgress} className="mt-4 h-2 bg-white/20" />
+                </div>
+                <div>
+                  <p className="text-white/70 text-sm font-bold tracking-widest uppercase">Videos Watched</p>
+                  <div className="flex items-baseline gap-1 mt-2">
+                     <p className="text-3xl md:text-4xl font-black font-display">{studentStats.videosWatched}</p>
+                     <p className="text-white/70 font-bold">/ {studentStats.totalVideos}</p>
+                  </div>
+                </div>
+                <div>
+                  <p className="text-white/70 text-sm font-bold tracking-widest uppercase">Tests Passed</p>
+                  <div className="flex items-baseline gap-1 mt-2">
+                     <p className="text-3xl md:text-4xl font-black font-display">{studentStats.testsPassed}</p>
+                     <p className="text-white/70 font-bold">/ {studentStats.totalTests}</p>
+                  </div>
+                </div>
+                <div>
+                  <p className="text-white/70 text-sm font-bold tracking-widest uppercase">Average Score</p>
+                  <div className="flex items-baseline gap-1 mt-2">
+                     <p className="text-3xl md:text-4xl font-black font-display">{studentStats.avgScore}%</p>
+                  </div>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
 
-      {/* Weekly Progress */}
-      <Card className="shadow-card">
-        <CardHeader>
-          <CardTitle>Weekly Progress</CardTitle>
-          <CardDescription>Complete each week's content to unlock the next</CardDescription>
-        </CardHeader>
-        <CardContent>
+          {/* Weekly Progress */}
           <div className="space-y-4">
-            {weeklyProgress.map((week) => (
-              <div
-                key={week.week}
-                className={`p-4 rounded-lg border ${
-                  week.isUnlocked ? 'bg-card border-border' : 'bg-muted/50 border-border/50'
-                }`}
-              >
-                <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-                  <div className="flex items-center gap-4">
-                    <div className={`flex h-12 w-12 items-center justify-center rounded-xl ${
-                      week.isPassed ? 'bg-success text-success-foreground' :
-                      week.isUnlocked ? 'bg-primary text-primary-foreground' : 'bg-muted text-muted-foreground'
-                    }`}>
-                      {week.isPassed ? (
-                        <CheckCircle className="h-6 w-6" />
-                      ) : week.isUnlocked ? (
-                        <span className="text-lg font-bold">{week.week}</span>
-                      ) : (
-                        <Lock className="h-6 w-6" />
-                      )}
-                    </div>
-                    <div>
-                      <h3 className={`font-semibold ${week.isUnlocked ? 'text-foreground' : 'text-muted-foreground'}`}>
-                        Week {week.week}
-                      </h3>
-                      <div className="flex items-center gap-4 mt-1 text-sm text-muted-foreground">
-                        <span className="flex items-center gap-1">
-                          <Play className="h-3.5 w-3.5" />
-                          {week.videosCompleted}/{week.totalVideos} videos
-                        </span>
-                        {week.testScore !== null && (
-                          <span className="flex items-center gap-1">
-                            <FileText className="h-3.5 w-3.5" />
-                            Test: {week.testScore}%
-                          </span>
+             <div className="flex items-center gap-3 mb-2">
+                <Award className="h-6 w-6 text-primary" />
+                <h3 className="text-xl font-display font-black">Weekly Breakdown</h3>
+             </div>
+             
+             {weeks.length === 0 ? (
+               <div className="py-12 border-2 border-dashed border-border/50 text-center rounded-2xl bg-card">
+                  <p className="text-muted-foreground">No weeks have been published for this batch yet.</p>
+               </div>
+             ) : (
+               weeks.map((week) => {
+                 const totalWeekVids = week.class_sessions?.length || 0;
+                 const completedWeekVids = week.class_sessions?.filter(s => s.is_completed).length || 0;
+                 const weekTestScore = week.weekly_test?.latest_submission?.score;
+                 const isWeekPassed = week.weekly_test?.is_passed;
+
+                 return (
+                  <div
+                    key={week.id}
+                    className={cn(
+                      "p-5 rounded-2xl border transition-all",
+                      week.is_unlocked 
+                        ? "bg-card border-border shadow-card hover:border-primary/30 hover:shadow-md" 
+                        : "bg-muted/30 border-border/40 opacity-75"
+                    )}
+                  >
+                    <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+                      <div className="flex items-start sm:items-center gap-4">
+                        <div className={cn(
+                          "flex shrink-0 h-14 w-14 items-center justify-center rounded-2xl shadow-sm transition-colors",
+                          isWeekPassed ? 'bg-success/10 text-success' :
+                          week.is_unlocked ? 'bg-primary/10 text-primary' : 'bg-muted border border-border text-muted-foreground'
+                        )}>
+                          {isWeekPassed ? (
+                            <CheckCircle className="h-7 w-7" />
+                          ) : week.is_unlocked ? (
+                            <span className="text-xl font-black font-display">{week.week_number}</span>
+                          ) : (
+                            <Lock className="h-6 w-6" />
+                          )}
+                        </div>
+                        <div>
+                          <div className="flex items-center gap-2 mb-1">
+                            <h3 className={cn("font-bold text-lg", week.is_unlocked ? 'text-foreground' : 'text-muted-foreground')}>
+                              Week {week.week_number}: {week.title}
+                            </h3>
+                            {isWeekPassed && <Badge className="bg-success text-white font-bold h-5 text-[10px]">PASSED</Badge>}
+                          </div>
+                          
+                          <div className="flex flex-wrap items-center gap-3 sm:gap-6 mt-1 text-xs font-bold text-muted-foreground">
+                            <span className="flex items-center gap-1.5">
+                              <VideoIcon className="h-4 w-4 opacity-70" />
+                              <span className={week.is_unlocked ? 'text-foreground' : ''}>{completedWeekVids}/{totalWeekVids}</span> videos watched
+                            </span>
+                            {week.weekly_test && (
+                              <span className="flex items-center gap-1.5">
+                                <FileText className="h-4 w-4 opacity-70" />
+                                Test: {weekTestScore !== undefined && weekTestScore !== null ? (
+                                   <span className={isWeekPassed ? 'text-success' : 'text-warning'}>{weekTestScore}%</span>
+                                ) : 'Not Attempted'}
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                      
+                      <div className="flex items-center gap-4 w-full sm:w-auto mt-2 sm:mt-0 justify-end border-t sm:border-t-0 pt-4 sm:pt-0">
+                        {week.is_unlocked && (
+                          <>
+                            <div className="hidden lg:block w-32 mr-2">
+                              <ProgressBar 
+                                value={totalWeekVids > 0 ? (completedWeekVids / totalWeekVids) * 100 : 0} 
+                                className="h-2"
+                              />
+                            </div>
+                            <Button 
+                              variant={isWeekPassed ? 'outline' : 'gradient'} 
+                              size="sm"
+                              className="w-full sm:w-auto"
+                              onClick={() => navigate(`/batches/${selectedBatchId}`)}
+                            >
+                              {isWeekPassed ? 'Review' : completedWeekVids === totalWeekVids ? 'Take Test' : 'Continue Learning'}
+                            </Button>
+                          </>
+                        )}
+                        {!week.is_unlocked && (
+                          <Badge variant="outline" className="text-muted-foreground bg-muted/50 border-border/50 shadow-sm py-1.5 px-3">
+                            <Lock className="h-3 w-3 mr-1.5" />
+                            Locked
+                          </Badge>
                         )}
                       </div>
                     </div>
                   </div>
-                  
-                  <div className="flex items-center gap-4">
-                    {week.isUnlocked && (
-                      <>
-                        <div className="hidden sm:block w-32">
-                          <ProgressBar 
-                            value={(week.videosCompleted / week.totalVideos) * 100} 
-                            className="h-2"
-                          />
-                        </div>
-                        <Button 
-                          variant={week.isPassed ? 'outline' : 'default'} 
-                          size="sm"
-                        >
-                          {week.isPassed ? 'Review' : week.videosCompleted === week.totalVideos ? 'Take Test' : 'Continue'}
-                        </Button>
-                      </>
-                    )}
-                    {!week.isUnlocked && (
-                      <Badge variant="outline" className="text-muted-foreground">
-                        <Lock className="h-3 w-3 mr-1" />
-                        Locked
-                      </Badge>
-                    )}
-                  </div>
-                </div>
-              </div>
-            ))}
+                 );
+               })
+             )}
           </div>
-        </CardContent>
-      </Card>
-
-      {/* Recent Feedback */}
-      <Card className="shadow-card">
-        <CardHeader>
-          <CardTitle>Recent Feedback</CardTitle>
-          <CardDescription>Feedback from your weekly assessments</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div className="space-y-4">
-            <div className="p-4 rounded-lg bg-success/5 border border-success/20">
-              <div className="flex items-start gap-3">
-                <Award className="h-5 w-5 text-success mt-0.5" />
-                <div>
-                  <h4 className="font-semibold text-foreground">Week 2 Assessment - 78%</h4>
-                  <p className="text-sm text-muted-foreground mt-1">
-                    Good understanding of control flow concepts. Consider reviewing nested loops and 
-                    list comprehensions for better efficiency in your solutions.
-                  </p>
-                </div>
-              </div>
-            </div>
-            <div className="p-4 rounded-lg bg-success/5 border border-success/20">
-              <div className="flex items-start gap-3">
-                <Award className="h-5 w-5 text-success mt-0.5" />
-                <div>
-                  <h4 className="font-semibold text-foreground">Week 1 Assessment - 85%</h4>
-                  <p className="text-sm text-muted-foreground mt-1">
-                    Excellent work on Python basics! Strong grasp of variables and data types. 
-                    Keep up the great work!
-                  </p>
-                </div>
-              </div>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
+        </>
+      )}
     </div>
   );
 
   return (
     <DashboardLayout>
-      {user?.role === 'student' ? <StudentProgress /> : <AdminProgress />}
+      <div className="space-y-6 pb-10">
+         {/* Student-specific Top Control (Wait, they wanted batch selector under My Progress) */}
+         {/* We will handle Student view batch selector inline where the My Progress header is */}
+         
+         {/* Content Layer based on Role */}
+         <div className="animate-in fade-in slide-in-from-bottom-2 duration-500 delay-100">
+           {isStudent ? <StudentProgress /> : <AdminProgress />}
+         </div>
+      </div>
     </DashboardLayout>
   );
 }

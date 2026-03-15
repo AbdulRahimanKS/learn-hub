@@ -123,6 +123,8 @@ class BatchEnrollmentSerializer(serializers.ModelSerializer):
     total_weekly_tests = serializers.SerializerMethodField()
     manual_unlocked_weeks = serializers.SerializerMethodField()
     weeks_access_status = serializers.SerializerMethodField()
+    videos_watched = serializers.SerializerMethodField()
+    total_videos = serializers.SerializerMethodField()
 
     class Meta:
         model = BatchEnrollment
@@ -131,7 +133,8 @@ class BatchEnrollmentSerializer(serializers.ModelSerializer):
             'status', 'notes', 'manual_unlocked_weeks', 'weeks_access_status',
             'enrolled_at', 'created_at',
             'overall_progress', 'weeks_completed', 'total_weeks',
-            'weekly_tests_submitted', 'total_weekly_tests'
+            'weekly_tests_submitted', 'total_weekly_tests',
+            'videos_watched', 'total_videos'
         ]
         read_only_fields = ['id', 'batch', 'enrolled_at', 'created_at', 'student_name', 'student_email']
 
@@ -236,3 +239,11 @@ class BatchEnrollmentSerializer(serializers.ModelSerializer):
     def get_weekly_tests_submitted(self, obj):
         from apps.courses.models import TestSubmission
         return TestSubmission.objects.filter(enrollment=obj, status='published', is_passed=True).count()
+
+    def get_videos_watched(self, obj):
+        from apps.courses.models import StudentSessionView
+        return StudentSessionView.objects.filter(enrollment=obj, is_completed=True).count()
+
+    def get_total_videos(self, obj):
+        from apps.courses.models import BatchClassSession
+        return BatchClassSession.objects.filter(batch_week__batch=obj.batch).count()
