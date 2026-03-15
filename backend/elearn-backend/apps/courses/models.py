@@ -5,7 +5,6 @@ from django.core.exceptions import ValidationError
 from django.utils.translation import gettext_lazy as _
 from django.utils import timezone
 from utils.common import get_current_local_date
-from apps.courses.models import TestSubmission
 
 
 # Tag
