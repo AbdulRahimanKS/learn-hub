@@ -81,6 +81,10 @@ export default function Assessments() {
   const [evaluatingIds, setEvaluatingIds] = useState<number[]>([]);
 
   useEffect(() => {
+    window.scrollTo(0, 0);
+  }, []);
+
+  useEffect(() => {
     fetchBatches();
   }, [user]);
 

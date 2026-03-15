@@ -58,6 +58,7 @@ import {
   DropdownMenuSeparator,
 } from '@/components/ui/dropdown-menu';
 import * as XLSX from 'xlsx';
+import { apiClient } from '@/lib/api';
 import { cn } from '@/lib/utils';
 
 export default function Progress() {
@@ -93,6 +94,8 @@ export default function Progress() {
     avgScore: 0,
     overallProgress: 0
   });
+  const [submissions, setSubmissions] = useState<any[]>([]);
+  const [isSubmissionsLoading, setIsSubmissionsLoading] = useState(false);
 
   // Handle Search Debounce
   useEffect(() => {
@@ -199,15 +202,31 @@ export default function Progress() {
     }
   }, [selectedBatchId, toast]);
 
+  const fetchStudentSubmissions = useCallback(async () => {
+    if (!selectedBatchId) return;
+    setIsSubmissionsLoading(true);
+    try {
+      const res = await apiClient.get(`/api/courses/v1/test-submissions/my-submissions/?batch_id=${selectedBatchId}`);
+      if (res.data?.success) {
+        setSubmissions(res.data.data || []);
+      }
+    } catch (err) {
+      console.error("Failed to fetch student submissions", err);
+    } finally {
+      setIsSubmissionsLoading(false);
+    }
+  }, [selectedBatchId]);
+
   useEffect(() => {
     if (selectedBatchId) {
       if (isStudent) {
         fetchStudentData();
+        fetchStudentSubmissions();
       } else {
         fetchAdminData();
       }
     }
-  }, [selectedBatchId, isStudent, fetchAdminData, fetchStudentData]);
+  }, [selectedBatchId, isStudent, fetchAdminData, fetchStudentData, fetchStudentSubmissions]);
 
   // Export full report
   const handleExportBatchProgress = async (format: 'csv' | 'xlsx') => {
@@ -796,7 +815,14 @@ export default function Progress() {
                     variant="outline" 
                     size="sm"
                     className="shrink-0 gap-1.5 text-primary border-primary/40 hover:bg-primary/5"
-                    onClick={() => navigate(`/batches/${selectedBatchId}`)}
+                    onClick={() => {
+                      const batch = batches.find(b => b.id === selectedBatchId);
+                      if (batch?.course) {
+                        navigate(`/courses/${batch.course}`);
+                      } else {
+                        navigate('/courses');
+                      }
+                    }}
                   >
                     View All
                     <ChevronRight className="h-4 w-4" />
@@ -811,7 +837,7 @@ export default function Progress() {
                 </div>
               ) : (
                 <div className="space-y-2">
-                  {weeks.map((week) => {
+                  {weeks.slice(0, 5).map((week) => {
                     const totalWeekVids = week.class_sessions?.length || 0;
                     const completedWeekVids = week.class_sessions?.filter(s => s.is_completed).length || 0;
                     const weekTestScore = week.weekly_test?.latest_submission?.score;
@@ -892,19 +918,100 @@ export default function Progress() {
                   })}
                 </div>
               )}
+            </CardContent>
+          </Card>
 
-              {/* Bottom View All link */}
-              {weeks.length > 0 && selectedBatchId && (
-                <div className="mt-4 pt-4 border-t text-center">
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    className="text-primary hover:text-primary gap-1.5 font-bold"
-                    onClick={() => navigate(`/batches/${selectedBatchId}`)}
-                  >
-                    Go to Course Content to continue learning
-                    <ChevronRight className="h-4 w-4" />
-                  </Button>
+          {/* Assessment List Card */}
+          <Card className="shadow-card mt-6">
+            <CardHeader className="pb-3">
+              <div className="flex items-center justify-between">
+                <div>
+                  <CardTitle className="flex items-center gap-2 text-xl font-display font-black">
+                    <FileText className="h-5 w-5 text-primary" />
+                    Assessments
+                  </CardTitle>
+                  <CardDescription className="mt-0.5">Review your test submissions and scores</CardDescription>
+                </div>
+                <Button 
+                  variant="outline" 
+                  size="sm"
+                  className="shrink-0 gap-1.5 text-primary border-primary/40 hover:bg-primary/5"
+                  onClick={() => navigate('/assessments')}
+                >
+                  View All
+                  <ChevronRight className="h-4 w-4" />
+                </Button>
+              </div>
+            </CardHeader>
+            <CardContent className="pt-0">
+              {isSubmissionsLoading ? (
+                <div className="py-12 flex flex-col items-center justify-center gap-4">
+                  <Loader2 className="h-6 w-6 animate-spin text-primary opacity-50" />
+                  <p className="text-muted-foreground text-sm">Loading assessments...</p>
+                </div>
+              ) : submissions.length === 0 ? (
+                <div className="py-12 border-2 border-dashed border-border/50 text-center rounded-2xl">
+                  <p className="text-muted-foreground">No assessments found for this batch.</p>
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  {submissions.slice(0, 5).map((assessment) => (
+                    <div
+                      key={assessment.id}
+                      className="flex flex-col md:flex-row md:items-center justify-between p-4 rounded-xl border bg-card hover:border-primary/30 hover:bg-muted/10 transition-all cursor-pointer"
+                      onClick={() => navigate('/assessments')}
+                    >
+                      <div className="flex items-start gap-4">
+                        <div className={cn(
+                          "p-2.5 rounded-xl shrink-0 transition-colors",
+                          assessment.status === 'published' 
+                            ? "bg-success/10 text-success" 
+                            : "bg-warning/10 text-warning"
+                        )}>
+                          {assessment.status === 'published' ? (
+                            <CheckCircle className="h-5 w-5" />
+                          ) : (
+                            <Clock className="h-5 w-5" />
+                          )}
+                        </div>
+                        <div className="space-y-1">
+                          <h3 className="font-bold text-sm text-foreground">{assessment.test_title}</h3>
+                          <div className="flex items-center gap-2">
+                             <Badge variant="outline" className="border-border text-muted-foreground font-bold text-[8px] uppercase tracking-wider px-1.5 h-4">
+                               Week {assessment.week_number}
+                             </Badge>
+                             <span className="text-[10px] text-muted-foreground font-medium uppercase">
+                               Attempt {assessment.attempt_number}
+                             </span>
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="flex items-center gap-6 mt-4 md:mt-0 pt-3 md:pt-0 border-t md:border-t-0 border-border/50">
+                        {assessment.status === 'published' ? (
+                          <div className="flex items-center gap-3">
+                            <div className="text-right">
+                              <p className="text-lg font-black text-foreground">{assessment.marks_obtained}%</p>
+                              <p className="text-[8px] font-bold uppercase tracking-widest text-muted-foreground">Score</p>
+                            </div>
+                            <Badge className={cn(
+                              "font-black uppercase text-[8px] px-1.5 h-4 border-none shrink-0",
+                              assessment.is_passed 
+                                ? "bg-emerald-500/20 text-emerald-600" 
+                                : "bg-rose-500/20 text-rose-600"
+                            )}>
+                              {assessment.is_passed ? 'Passed' : 'Failed'}
+                            </Badge>
+                          </div>
+                        ) : (
+                          <Badge className="bg-warning text-warning-foreground font-bold uppercase text-[9px] h-5 px-2">
+                            {assessment.status.replace('_', ' ')}
+                          </Badge>
+                        )}
+                        <ChevronRight className="h-4 w-4 text-muted-foreground shrink-0" />
+                      </div>
+                    </div>
+                  ))}
                 </div>
               )}
             </CardContent>
