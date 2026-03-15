@@ -7,35 +7,35 @@
 @layer base {
   :root {
     /* Core brand colors - "LaunchHub Enterprise" */
-    --background: 210 40% 98%; /* Slate 50 - Off-white background */
+    --background: 210 55% 97%;
     --foreground: 222 47% 11%;
 
-    --card: 0 0% 100%;
+    --card: 210 60% 99%;
     --card-foreground: 222 47% 11%;
 
-    --popover: 0 0% 100%;
+    --popover: 210 60% 99%;
     --popover-foreground: 222 47% 11%;
 
     /* Primary - Harder Professional Blue (#1e40af - Blue 800-ish) */
     --primary: 222 65% 35%;
     --primary-foreground: 0 0% 100%;
 
-    /* Secondary - Slate 100 */
-    --secondary: 210 40% 96.1%;
+    /* Secondary - blue slate wash */
+    --secondary: 212 58% 95%;
     --secondary-foreground: 222 47% 11.2%;
 
-    --muted: 210 40% 96.1%;
-    --muted-foreground: 215.4 16.3% 46.9%;
+    --muted: 212 48% 94%;
+    --muted-foreground: 216 18% 41%;
 
-    /* Accent - Blue Wash */
-    --accent: 214 60% 95%;
+    /* Accent - stronger blue wash */
+    --accent: 214 75% 92%;
     --accent-foreground: 222 65% 35%;
 
     --destructive: 0 84.2% 60.2%;
     --destructive-foreground: 210 40% 98%;
 
-    --border: 214.3 31.8% 91.4%;
-    --input: 214.3 31.8% 91.4%;
+    --border: 214 34% 84%;
+    --input: 214 30% 82%;
     --ring: 222 65% 35%;
 
     --radius: 1rem;
@@ -50,26 +50,26 @@
 
     /* Gradients */
     --gradient-primary: linear-gradient(135deg, hsl(222 65% 35%) 0%, hsl(222 55% 45%) 100%);
-    --gradient-accent: linear-gradient(135deg, hsl(214 60% 95%) 0%, hsl(210 40% 96%) 100%);
-    --gradient-hero: linear-gradient(180deg, hsl(214 60% 95%) 0%, hsl(0 0% 100%) 100%);
-    --gradient-card: linear-gradient(180deg, hsl(0 0% 100%) 0%, hsl(214 60% 98%) 100%);
-    --gradient-sidebar: linear-gradient(135deg, hsl(222 70% 89%) 0%, hsl(210 40% 98%) 100%);
+    --gradient-accent: linear-gradient(135deg, hsl(214 78% 93%) 0%, hsl(210 62% 96%) 100%);
+    --gradient-hero: linear-gradient(180deg, hsl(214 78% 93%) 0%, hsl(210 60% 98%) 58%, hsl(0 0% 100%) 100%);
+    --gradient-card: linear-gradient(180deg, hsl(0 0% 100%) 0%, hsl(213 100% 98%) 100%);
+    --gradient-sidebar: linear-gradient(180deg, hsl(215 74% 94%) 0%, hsl(210 55% 98%) 100%);
 
     /* Shadows */
-    --shadow-sm: 0 1px 2px 0 rgba(30, 64, 175, 0.05);
-    --shadow-md: 0 4px 6px -1px rgba(30, 64, 175, 0.08), 0 2px 4px -2px rgba(30, 64, 175, 0.08);
-    --shadow-lg: 0 10px 15px -3px rgba(30, 64, 175, 0.08), 0 4px 6px -4px rgba(30, 64, 175, 0.08);
-    --shadow-xl: 0 20px 25px -5px rgba(30, 64, 175, 0.08), 0 8px 10px -6px rgba(30, 64, 175, 0.08);
+    --shadow-sm: 0 1px 2px 0 rgba(30, 64, 175, 0.06);
+    --shadow-md: 0 8px 18px -10px rgba(30, 64, 175, 0.18), 0 4px 10px -6px rgba(15, 23, 42, 0.08);
+    --shadow-lg: 0 18px 32px -18px rgba(30, 64, 175, 0.22), 0 10px 18px -12px rgba(15, 23, 42, 0.08);
+    --shadow-xl: 0 24px 40px -20px rgba(30, 64, 175, 0.24), 0 16px 24px -18px rgba(15, 23, 42, 0.1);
     --shadow-glow: 0 0 20px rgba(30, 64, 175, 0.3);
-    --shadow-card: 0 8px 30px rgba(0, 0, 0, 0.06);
+    --shadow-card: 0 14px 32px -24px rgba(30, 64, 175, 0.3), 0 10px 20px -18px rgba(15, 23, 42, 0.15);
 
-    --sidebar-background: 0 0% 100%;
+    --sidebar-background: 212 65% 98%;
     --sidebar-foreground: 222 47% 11%;
     --sidebar-primary: 221 100% 50%;
     --sidebar-primary-foreground: 0 0% 100%;
-    --sidebar-accent: 214 100% 97%;
+    --sidebar-accent: 214 100% 95%;
     --sidebar-accent-foreground: 221 100% 50%;
-    --sidebar-border: 220 13% 91%;
+    --sidebar-border: 214 32% 84%;
     --sidebar-ring: 221 100% 50%;
   }
 
@@ -136,6 +136,10 @@
   body {
     @apply bg-background text-foreground font-sans antialiased;
     font-family: 'Inter', sans-serif;
+    background-image:
+      radial-gradient(circle at top, hsl(214 85% 92% / 0.65), transparent 32%),
+      linear-gradient(180deg, hsl(var(--background)) 0%, hsl(210 45% 98%) 100%);
+    background-attachment: fixed;
   }
 
   /* Prevent layout shift when Radix UI locks scroll */
