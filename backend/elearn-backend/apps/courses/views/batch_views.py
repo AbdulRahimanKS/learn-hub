@@ -169,6 +169,7 @@ class BatchCreateView(APIView):
 @extend_schema(tags=["Batches"])
 class BatchDetailView(APIView):
     permission_classes = [IsSuperAdminAdminOrTeacher]
+    serializer_class = BatchCreateUpdateSerializer
 
     def get_object(self, pk):
         try:
@@ -320,7 +321,7 @@ class BatchUpdateView(APIView):
 class BatchUpdateStatusView(APIView):
     permission_classes = [IsSuperAdminAdminOrTeacher]
 
-    class InputSerializer(serializers.Serializer):
+    class BatchUpdateStatusRequestSerializer(serializers.Serializer):
         status = serializers.ChoiceField(choices=Batch.Status.choices)
 
     def get_object(self, pk):
@@ -331,7 +332,7 @@ class BatchUpdateStatusView(APIView):
 
     @extend_schema(
         summary="Update batch status (Admin or Assigned Teacher only)",
-        request=InputSerializer,
+        request=BatchUpdateStatusRequestSerializer,
         responses={200: BatchListSerializer},
     )
     def patch(self, request, pk):
@@ -349,7 +350,7 @@ class BatchUpdateStatusView(APIView):
             if not (is_admin or is_assigned_teacher):
                 raise ServiceError(detail="You do not have permission to update this batch.", status_code=status.HTTP_403_FORBIDDEN)
 
-            serializer = self.InputSerializer(data=request.data)
+            serializer = self.BatchUpdateStatusRequestSerializer(data=request.data)
             if not serializer.is_valid():
                 raise ServiceError(detail=handle_serializer_errors(serializer), status_code=status.HTTP_400_BAD_REQUEST)
 
@@ -584,6 +585,7 @@ class BatchStudentListView(APIView):
 @extend_schema(tags=["Batches"])
 class ExtendBatchTimelineView(APIView):
     permission_classes = [IsSuperAdminAdminOrTeacher]
+    serializer_class = BatchListSerializer
 
     @extend_schema(
         summary="Extend batch timeline by adding days to future unlock dates",
@@ -642,12 +644,12 @@ class CloneBatchContentView(APIView):
 class BatchStudentEnrollmentUpdateView(APIView):
     permission_classes = [IsSuperAdminAdminOrTeacher]
 
-    class InputSerializer(serializers.Serializer):
+    class EnrollmentUpdateRequestSerializer(serializers.Serializer):
         status = serializers.ChoiceField(choices=BatchEnrollment.Status.choices, required=False)
 
     @extend_schema(
         summary="Update a student's enrollment status",
-        request=InputSerializer,
+        request=EnrollmentUpdateRequestSerializer,
         responses={200: BatchEnrollmentSerializer},
     )
     def patch(self, request, pk, enrollment_id):
@@ -668,7 +670,7 @@ class BatchStudentEnrollmentUpdateView(APIView):
             if not enrollment:
                 raise ServiceError(detail="Enrollment not found.", status_code=status.HTTP_404_NOT_FOUND)
 
-            serializer = self.InputSerializer(data=request.data)
+            serializer = self.EnrollmentUpdateRequestSerializer(data=request.data)
             if not serializer.is_valid():
                 raise ServiceError(detail=handle_serializer_errors(serializer), status_code=status.HTTP_400_BAD_REQUEST)
 
@@ -706,13 +708,13 @@ class BatchStudentEnrollmentUpdateView(APIView):
 class BatchStudentWeekUnlockToggleView(APIView):
     permission_classes = [IsSuperAdminAdminOrTeacher]
 
-    class InputSerializer(serializers.Serializer):
+    class WeekUnlockToggleRequestSerializer(serializers.Serializer):
         week_number = serializers.IntegerField(required=True, min_value=1)
         action = serializers.ChoiceField(choices=['unlock', 'revoke'], required=True)
 
     @extend_schema(
         summary="Toggle manual unlock for a specific week for a student",
-        request=InputSerializer,
+        request=WeekUnlockToggleRequestSerializer,
         responses={200: BatchEnrollmentSerializer},
     )
     def post(self, request, pk, enrollment_id):
@@ -733,7 +735,7 @@ class BatchStudentWeekUnlockToggleView(APIView):
             if not enrollment:
                 raise ServiceError(detail="Enrollment not found.", status_code=status.HTTP_404_NOT_FOUND)
 
-            serializer = self.InputSerializer(data=request.data)
+            serializer = self.WeekUnlockToggleRequestSerializer(data=request.data)
             if not serializer.is_valid():
                 raise ServiceError(detail=handle_serializer_errors(serializer), status_code=status.HTTP_400_BAD_REQUEST)
 
@@ -795,13 +797,13 @@ class BatchStudentWeekUnlockToggleView(APIView):
 class BatchStudentBulkUpdateView(APIView):
     permission_classes = [IsSuperAdminAdminOrTeacher]
 
-    class InputSerializer(serializers.Serializer):
+    class BulkUpdateRequestSerializer(serializers.Serializer):
         status = serializers.ChoiceField(choices=BatchEnrollment.Status.choices, required=True)
         enrollment_ids = serializers.ListField(child=serializers.IntegerField(), required=False)
 
     @extend_schema(
         summary="Bulk update enrollment status for students in a batch",
-        request=InputSerializer,
+        request=BulkUpdateRequestSerializer,
         responses={200: None},
     )
     def post(self, request, pk):
@@ -818,7 +820,7 @@ class BatchStudentBulkUpdateView(APIView):
             if not (is_admin or is_assigned_teacher):
                 raise ServiceError(detail="You do not have permission to update enrollments in this batch.", status_code=status.HTTP_403_FORBIDDEN)
 
-            serializer = self.InputSerializer(data=request.data)
+            serializer = self.BulkUpdateRequestSerializer(data=request.data)
             if not serializer.is_valid():
                 raise ServiceError(detail=handle_serializer_errors(serializer), status_code=status.HTTP_400_BAD_REQUEST)
 

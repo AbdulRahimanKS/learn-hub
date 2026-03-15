@@ -159,6 +159,7 @@ class BatchChatMessageListCreateView(APIView):
 @extend_schema(tags=["Chat"])
 class ChatMarkReadView(APIView):
     permission_classes = [IsAuthenticated]
+    serializer_class = BatchChatMessageSerializer
 
     @extend_schema(
         summary="Mark batch messages as read",

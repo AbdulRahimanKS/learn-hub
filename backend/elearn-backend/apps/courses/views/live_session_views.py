@@ -102,6 +102,7 @@ class LiveSessionListCreateView(APIView):
 @extend_schema(tags=["Live Sessions"])
 class LiveSessionDetailView(APIView):
     permission_classes = [IsAdminOrTeacher]
+    serializer_class = LiveSessionSerializer
 
     def get_object(self, batch_id, session_id):
         try:

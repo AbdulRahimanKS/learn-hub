@@ -29,8 +29,9 @@ logger = logging.getLogger(__name__)
 @extend_schema(tags=["Batch Content"])
 class BatchWeekListView(APIView):
     permission_classes = [IsAuthenticated]
+    serializer_class = BatchWeekSerializer
 
-    @extend_schema(summary="List weeks for a specific batch")
+    @extend_schema(summary="List weeks for a specific batch", responses={200: BatchWeekSerializer(many=True)})
     def get(self, request, batch_id):
         weeks = BatchWeek.objects.filter(batch_id=batch_id).order_by('week_number')
         
@@ -82,6 +83,7 @@ class BatchWeekListView(APIView):
 @extend_schema(tags=["Batch Content"])
 class BatchWeekDetailView(APIView):
     permission_classes = [IsAdminOrTeacher]
+    serializer_class = BatchWeekSerializer
 
     def get_object(self, batch_id, week_id):
         try:
@@ -129,6 +131,7 @@ class BatchWeekDetailView(APIView):
 class BatchClassSessionListCreateView(APIView):
     permission_classes = [IsAuthenticated]
     parser_classes = [MultiPartParser, FormParser, JSONParser]
+    serializer_class = BatchClassSessionSerializer
 
     def get_week(self, batch_id, week_id):
         try:
@@ -192,6 +195,7 @@ class BatchClassSessionListCreateView(APIView):
 @extend_schema(tags=["Batch Content"])
 class BatchWeeklyTestView(APIView):
     permission_classes = [IsAuthenticated]
+    serializer_class = BatchWeeklyTestSerializer
 
     def get_week(self, batch_id, week_id):
         try:
@@ -215,6 +219,7 @@ class BatchWeeklyTestView(APIView):
 class BatchClassSessionDetailView(APIView):
     permission_classes = [IsAdminOrTeacher]
     parser_classes = [MultiPartParser, FormParser, JSONParser]
+    serializer_class = BatchClassSessionSerializer
 
     def get_object(self, batch_id, week_id, session_id):
         try:
@@ -266,6 +271,7 @@ class BatchClassSessionDetailView(APIView):
 @extend_schema(tags=["Batch Content"])
 class BatchWeeklyTestManageView(APIView):
     permission_classes = [IsAdminOrTeacher]
+    serializer_class = BatchWeeklyTestSerializer
 
     def get_week(self, batch_id, week_id):
         try:
@@ -310,6 +316,7 @@ class BatchWeeklyTestManageView(APIView):
 @extend_schema(tags=["Batch Content"])
 class BatchWeeklyTestQuestionListCreateView(APIView):
     permission_classes = [IsAdminOrTeacher]
+    serializer_class = BatchTestQuestionSerializer
 
     def get_test(self, batch_id, week_id):
         try:
@@ -320,7 +327,7 @@ class BatchWeeklyTestQuestionListCreateView(APIView):
         except BatchWeek.DoesNotExist:
             raise ServiceError(detail="Batch week not found.", status_code=status.HTTP_404_NOT_FOUND)
 
-    @extend_schema(summary="List/Add questions to batch weekly test", request=BatchTestQuestionSerializer)
+    @extend_schema(summary="List/Add questions to batch weekly test", operation_id="batch_weekly_test_question_list", request=BatchTestQuestionSerializer)
     def get(self, request, batch_id, week_id):
         test = self.get_test(batch_id, week_id)
         serializer = BatchTestQuestionSerializer(test.questions.all(), many=True, context={'request': request})
@@ -340,6 +347,7 @@ class BatchWeeklyTestQuestionListCreateView(APIView):
 @extend_schema(tags=["Batch Content"])
 class BatchWeeklyTestQuestionDetailView(APIView):
     permission_classes = [IsAdminOrTeacher]
+    serializer_class = BatchTestQuestionSerializer
 
     def get_object(self, batch_id, week_id, question_id):
         try:
@@ -351,7 +359,7 @@ class BatchWeeklyTestQuestionDetailView(APIView):
         except BatchTestQuestion.DoesNotExist:
             raise ServiceError(detail="Question not found.", status_code=status.HTTP_404_NOT_FOUND)
 
-    @extend_schema(summary="Retrieve/Update/Delete batch test question")
+    @extend_schema(summary="Retrieve/Update/Delete batch test question", operation_id="batch_weekly_test_question_retrieve")
     def get(self, request, batch_id, week_id, question_id):
         question = self.get_object(batch_id, week_id, question_id)
         serializer = BatchTestQuestionSerializer(question, context={'request': request})
@@ -377,6 +385,7 @@ class BatchWeeklyTestQuestionDetailView(APIView):
 class BatchWeeklyTestQuestionAttachmentView(APIView):
     permission_classes = [IsAdminOrTeacher]
     parser_classes = [MultiPartParser, FormParser]
+    serializer_class = BatchTestQuestionAttachmentSerializer
 
     def get_question(self, batch_id, week_id, question_id):
         try:
@@ -408,6 +417,7 @@ class BatchWeeklyTestQuestionAttachmentView(APIView):
 @extend_schema(tags=["Batch Content"])
 class BatchWeeklyTestQuestionAttachmentDetailView(APIView):
     permission_classes = [IsAdminOrTeacher]
+    serializer_class = BatchTestQuestionAttachmentSerializer
 
     def get_object(self, batch_id, week_id, question_id, attachment_id):
         try:
@@ -428,8 +438,9 @@ class BatchWeeklyTestQuestionAttachmentDetailView(APIView):
 @extend_schema(tags=["Batch Content"])
 class BatchClassSessionCompletionView(APIView):
     permission_classes = [IsAuthenticated]
+    serializer_class = BatchClassSessionSerializer
 
-    @extend_schema(summary="Mark a batch session as completed")
+    @extend_schema(summary="Mark a batch session as completed", responses={200: None})
     def post(self, request, batch_id, week_id, session_id):
         try:
             session = BatchClassSession.objects.get(

@@ -1,6 +1,8 @@
 """
 Serializers for the Course models.
 """
+from drf_spectacular.utils import extend_schema_field
+from drf_spectacular.types import OpenApiTypes
 from rest_framework import serializers
 from apps.courses.models import Course, Tag
 from utils.common import ServiceError
@@ -51,6 +53,7 @@ class CourseListSerializer(serializers.ModelSerializer):
         ]
         read_only_fields = ['course_code', 'created_at', 'total_weeks']
 
+    @extend_schema_field(OpenApiTypes.INT)
     def get_batch_id(self, obj):
         user = self.context['request'].user
         if not user.is_authenticated:
@@ -59,6 +62,7 @@ class CourseListSerializer(serializers.ModelSerializer):
         batch = obj.batches.filter(enrollments__student=user).first()
         return batch.id if batch else None
 
+    @extend_schema_field(OpenApiTypes.STR)
     def get_batch_name(self, obj):
         user = self.context['request'].user
         if not user.is_authenticated:
@@ -66,6 +70,7 @@ class CourseListSerializer(serializers.ModelSerializer):
         batch = obj.batches.filter(enrollments__student=user).first()
         return batch.name if batch else None
 
+    @extend_schema_field(OpenApiTypes.STR)
     def get_batch_status(self, obj):
         user = self.context['request'].user
         if not user.is_authenticated:
@@ -74,6 +79,7 @@ class CourseListSerializer(serializers.ModelSerializer):
         enrollment = BatchEnrollment.objects.filter(batch__course=obj, student=user).first()
         return enrollment.status if enrollment else None
 
+    @extend_schema_field(OpenApiTypes.STR)
     def get_learning_status(self, obj):
         user = self.context['request'].user
         if not user.is_authenticated:
@@ -90,6 +96,7 @@ class CourseListSerializer(serializers.ModelSerializer):
             return 'continue_learning'
         return 'start_learning'
 
+    @extend_schema_field(OpenApiTypes.INT)
     def get_progress_percent(self, obj):
         user = self.context['request'].user
         if not user.is_authenticated:
@@ -127,6 +134,7 @@ class CourseDetailSerializer(serializers.ModelSerializer):
     batch_name = serializers.SerializerMethodField()
     batch_status = serializers.SerializerMethodField()
     learning_status = serializers.SerializerMethodField()
+    progress_percent = serializers.SerializerMethodField()
 
     class Meta:
         model = Course
@@ -153,6 +161,7 @@ class CourseDetailSerializer(serializers.ModelSerializer):
         ]
         read_only_fields = ['course_code', 'created_by', 'updated_by', 'created_at', 'updated_at', 'total_weeks']
 
+    @extend_schema_field(OpenApiTypes.INT)
     def get_batch_id(self, obj):
         user = self.context['request'].user
         if not user.is_authenticated:
@@ -160,6 +169,7 @@ class CourseDetailSerializer(serializers.ModelSerializer):
         batch = obj.batches.filter(enrollments__student=user).first()
         return batch.id if batch else None
 
+    @extend_schema_field(OpenApiTypes.STR)
     def get_batch_name(self, obj):
         user = self.context['request'].user
         if not user.is_authenticated:
@@ -167,6 +177,7 @@ class CourseDetailSerializer(serializers.ModelSerializer):
         batch = obj.batches.filter(enrollments__student=user).first()
         return batch.name if batch else None
 
+    @extend_schema_field(OpenApiTypes.STR)
     def get_batch_status(self, obj):
         user = self.context['request'].user
         if not user.is_authenticated:
@@ -175,6 +186,7 @@ class CourseDetailSerializer(serializers.ModelSerializer):
         enrollment = BatchEnrollment.objects.filter(batch__course=obj, student=user).first()
         return enrollment.status if enrollment else None
 
+    @extend_schema_field(OpenApiTypes.STR)
     def get_learning_status(self, obj):
         user = self.context['request'].user
         if not user.is_authenticated:
@@ -191,6 +203,7 @@ class CourseDetailSerializer(serializers.ModelSerializer):
             return 'continue_learning'
         return 'start_learning'
 
+    @extend_schema_field(OpenApiTypes.INT)
     def get_progress_percent(self, obj):
         user = self.context['request'].user
         if not user.is_authenticated:

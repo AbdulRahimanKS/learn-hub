@@ -1,3 +1,5 @@
+from drf_spectacular.utils import extend_schema_field
+from drf_spectacular.types import OpenApiTypes
 from rest_framework import serializers
 from apps.courses.models import (
     CourseWeek, CourseClassSession, BatchClassSession,
@@ -38,6 +40,7 @@ class CourseClassSessionSerializer(serializers.ModelSerializer):
         ]
         read_only_fields = ['uploaded_by', 'updated_by', 'created_at', 'updated_at']
 
+    @extend_schema_field(OpenApiTypes.URI)
     def get_video_presigned_url(self, obj):
         if not obj.video_file:
             return None
@@ -93,6 +96,7 @@ class BatchClassSessionSerializer(serializers.ModelSerializer):
         ]
         read_only_fields = ['uploaded_by', 'updated_by', 'created_at', 'updated_at']
 
+    @extend_schema_field(OpenApiTypes.BOOL)
     def get_is_completed(self, obj):
         request = self.context.get('request')
         if not request or not request.user.is_authenticated:
@@ -106,9 +110,11 @@ class BatchClassSessionSerializer(serializers.ModelSerializer):
         view = StudentSessionView.objects.filter(enrollment=enrollment, batch_session=obj).first()
         return view.is_completed if view else False
 
+    @extend_schema_field(OpenApiTypes.BOOL)
     def get_has_mcq(self, obj):
         return obj.mcq_questions.exists()
 
+    @extend_schema_field(OpenApiTypes.URI)
     def get_video_presigned_url(self, obj):
         if not obj.video_file:
             return None
@@ -148,6 +154,7 @@ class CourseWeekSerializer(serializers.ModelSerializer):
         ]
         read_only_fields = ['created_by', 'updated_by', 'created_at', 'updated_at']
 
+    @extend_schema_field(serializers.DictField(allow_null=True))
     def get_weekly_test(self, obj):
         if hasattr(obj, 'weekly_test') and obj.weekly_test:
             return CourseWeeklyTestSerializer(obj.weekly_test, context=self.context).data
@@ -157,7 +164,8 @@ class CourseWeekSerializer(serializers.ModelSerializer):
 class BatchWeekSerializer(serializers.ModelSerializer):
     class_sessions = BatchClassSessionSerializer(many=True, read_only=True)
     weekly_test = serializers.SerializerMethodField()
-    is_unlocked = serializers.ReadOnlyField()
+    is_unlocked = serializers.SerializerMethodField()
+    can_modify_content = serializers.SerializerMethodField()
     student_lock_status = serializers.SerializerMethodField()
 
     class Meta:
@@ -168,11 +176,21 @@ class BatchWeekSerializer(serializers.ModelSerializer):
             'can_modify_content', 'class_sessions', 'weekly_test', 'created_at', 'updated_at'
         ]
 
+    @extend_schema_field(OpenApiTypes.BOOL)
+    def get_is_unlocked(self, obj):
+        return obj.is_unlocked
+
+    @extend_schema_field(OpenApiTypes.BOOL)
+    def get_can_modify_content(self, obj):
+        return obj.can_modify_content
+
+    @extend_schema_field(serializers.DictField(allow_null=True))
     def get_weekly_test(self, obj):
         if hasattr(obj, 'weekly_test') and obj.weekly_test:
             return BatchWeeklyTestSerializer(obj.weekly_test, context=self.context).data
         return None
 
+    @extend_schema_field(serializers.DictField())
     def get_student_lock_status(self, obj):
         request = self.context.get('request')
         if not request or not request.user.is_authenticated:
@@ -360,6 +378,7 @@ class BatchWeeklyTestSerializer(serializers.ModelSerializer):
         ]
         read_only_fields = ['batch_week', 'created_by', 'updated_by', 'created_at', 'updated_at']
 
+    @extend_schema_field(serializers.DictField(allow_null=True))
     def get_latest_submission(self, obj):
         request = self.context.get('request')
         if not request or not request.user.is_authenticated:
@@ -381,6 +400,7 @@ class BatchWeeklyTestSerializer(serializers.ModelSerializer):
             return TestSubmissionSerializer(submission, context=self.context).data
         return None
 
+    @extend_schema_field(OpenApiTypes.BOOL)
     def get_is_passed(self, obj):
         request = self.context.get('request')
         if not request or not request.user.is_authenticated:
@@ -398,6 +418,7 @@ class BatchWeeklyTestSerializer(serializers.ModelSerializer):
             is_passed=True
         ).exists()
 
+    @extend_schema_field(OpenApiTypes.BOOL)
     def get_has_attempted(self, obj):
         request = self.context.get('request')
         if not request or not request.user.is_authenticated:

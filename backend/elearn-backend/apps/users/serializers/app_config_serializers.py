@@ -4,5 +4,5 @@ from apps.users.models import AppConfiguration
 class AppConfigurationSerializer(serializers.ModelSerializer):
     class Meta:
         model = AppConfiguration
-        fields = ['business_name', 'timezone', 'logo', 'id', 'created_at', 'updated_at', 'openai_api_key', 'groq_api_key', 'openai_model', 'groq_model']
-        read_only_fields = ['id', 'created_at', 'updated_at']
+        fields = ['id', 'business_name', 'timezone', 'logo', 'openai_api_key', 'groq_api_key', 'openai_model', 'groq_model']
+        read_only_fields = ['id']

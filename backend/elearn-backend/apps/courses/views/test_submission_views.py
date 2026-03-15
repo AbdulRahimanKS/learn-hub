@@ -10,7 +10,7 @@ from apps.courses.models import (
     BatchEnrollment, BatchTestQuestion
 )
 from apps.courses.serializers.test_submission_serializers import (
-    TestSubmissionSerializer, TestSubmissionUpdateSerializer
+    TestSubmissionSerializer, TestSubmissionUpdateSerializer, TestSubmissionAnswerSerializer
 )
 from utils.pagination import CustomPageNumberPagination
 from utils.constants import UserTypeConstants
@@ -26,6 +26,7 @@ class TestSubmissionCreateView(APIView):
     - file_q_{id}: File upload for a specific question (optional)
     """
     permission_classes = [IsAuthenticated]
+    serializer_class = TestSubmissionSerializer
 
     def post(self, request, batch_id, week_id):
         user = request.user
@@ -218,6 +219,7 @@ class TriggerAIEvaluationView(APIView):
     Triggers AI Evaluation manually for a specific submission.
     """
     permission_classes = [IsAuthenticated]
+    serializer_class = TestSubmissionSerializer
 
     def post(self, request, pk):
         try:
@@ -285,6 +287,7 @@ class TriggerAnswerAIEvaluationView(APIView):
     Triggers AI Evaluation for a specific answer.
     """
     permission_classes = [IsAuthenticated]
+    serializer_class = TestSubmissionAnswerSerializer
 
     def post(self, request, submission_pk, answer_pk):
         try:
@@ -310,6 +313,7 @@ class SimulateAIEvaluationCompleteView(APIView):
     Moves status from EVALUATING to PENDING_REVIEW.
     """
     permission_classes = [IsAuthenticated]
+    serializer_class = TestSubmissionSerializer
 
     def post(self, request, pk):
         try:

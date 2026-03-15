@@ -668,6 +668,7 @@ class WeeklyTestQuestionAttachmentView(APIView):
     """POST one file to add an attachment to a question."""
     permission_classes = [IsSuperAdminAdminOrTeacher]
     parser_classes = [MultiPartParser, FormParser]
+    serializer_class = CourseTestQuestionAttachmentSerializer
 
     def get_question(self, course_id, week_id, question_id):
         try:
@@ -701,6 +702,7 @@ class WeeklyTestQuestionAttachmentView(APIView):
 class WeeklyTestQuestionAttachmentDetailView(APIView):
     """DELETE a single attachment by its id."""
     permission_classes = [IsSuperAdminAdminOrTeacher]
+    serializer_class = CourseTestQuestionAttachmentSerializer
 
     def get_object(self, course_id, week_id, question_id, attachment_id):
         try:

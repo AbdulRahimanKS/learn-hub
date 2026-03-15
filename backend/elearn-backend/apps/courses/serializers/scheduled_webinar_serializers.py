@@ -1,3 +1,5 @@
+from drf_spectacular.utils import extend_schema_field
+from drf_spectacular.types import OpenApiTypes
 from rest_framework import serializers
 from apps.courses.models import ScheduledWebinar
 from django.utils.translation import gettext_lazy as _
@@ -15,6 +17,7 @@ class ScheduledWebinarSerializer(serializers.ModelSerializer):
         ]
         read_only_fields = ['created_by', 'created_at', 'updated_at', 'batch']
 
+    @extend_schema_field(OpenApiTypes.URI)
     def get_video_presigned_url(self, obj):
         if not obj.video_file:
             return None

@@ -1,3 +1,5 @@
+from drf_spectacular.utils import extend_schema_field
+from drf_spectacular.types import OpenApiTypes
 from rest_framework import serializers
 from apps.courses.models import BatchChatMessage, Batch
 from apps.users.serializers.user_management_serializers import UserManagementSerializer
@@ -15,6 +17,7 @@ class BatchChatMessageSerializer(serializers.ModelSerializer):
         ]
         read_only_fields = ['sender', 'is_edited', 'edited_at', 'sent_at']
 
+    @extend_schema_field(OpenApiTypes.BOOL)
     def get_is_current_user(self, obj):
         request = self.context.get('request')
         if request and request.user.is_authenticated:

@@ -2,6 +2,8 @@
 Serializers for Admin User Management.
 Handles creation and updating of Student and Teacher accounts.
 """
+from drf_spectacular.utils import extend_schema_field
+from drf_spectacular.types import OpenApiTypes
 from rest_framework import serializers
 from rest_framework import status
 from apps.users.models import User, UserType, Profile
@@ -29,9 +31,11 @@ class UserManagementSerializer(serializers.ModelSerializer):
             'created_at',
         ]
 
+    @extend_schema_field(OpenApiTypes.STR)
     def get_role(self, obj):
         return obj.user_type.name if obj.user_type else None
 
+    @extend_schema_field(OpenApiTypes.URI)
     def get_profile_picture(self, obj):
         request = self.context.get('request')
         try:

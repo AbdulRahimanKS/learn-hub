@@ -48,6 +48,7 @@ INSTALLED_APPS = [
     'django.contrib.staticfiles',
     'rest_framework',
     'rest_framework_simplejwt',
+    'rest_framework_simplejwt.token_blacklist',
     'drf_spectacular',
     'apps.users',
     'apps.courses',
@@ -221,8 +222,6 @@ SPECTACULAR_SETTINGS = {
     'ENUM_NAME_OVERRIDES': {
         'BatchStatusEnum': 'apps.courses.models.Batch.Status',
         'BatchEnrollmentStatusEnum': 'apps.courses.models.BatchEnrollment.Status',
-        'ClassSessionStatusEnum': 'apps.courses.models.ClassSession.Status',
-        'LiveSessionStatusEnum': 'apps.courses.models.LiveSession.Status',
         'TestSubmissionStatusEnum': 'apps.courses.models.TestSubmission.Status',
     },
 }

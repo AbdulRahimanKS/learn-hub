@@ -12,6 +12,8 @@ logger = logging.getLogger(__name__)
 
 
 class AppConfigurationView(APIView):
+    serializer_class = AppConfigurationSerializer
+
     def get_permissions(self):
         if self.request.method == 'GET':
             return [AllowAny()]

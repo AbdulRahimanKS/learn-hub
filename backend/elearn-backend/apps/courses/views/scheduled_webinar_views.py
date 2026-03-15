@@ -84,6 +84,7 @@ class ScheduledWebinarListCreateView(APIView):
 class ScheduledWebinarDetailView(APIView):
     permission_classes = [IsAdminOrTeacher]
     parser_classes = [MultiPartParser, FormParser, JSONParser]
+    serializer_class = ScheduledWebinarSerializer
 
     def get_object(self, batch_id, webinar_id):
         try:

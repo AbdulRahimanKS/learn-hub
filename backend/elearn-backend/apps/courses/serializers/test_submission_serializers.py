@@ -1,3 +1,5 @@
+from drf_spectacular.utils import extend_schema_field
+from drf_spectacular.types import OpenApiTypes
 from rest_framework import serializers
 from apps.courses.models import TestSubmission, TestSubmissionAnswer, BatchTestQuestion
 
@@ -17,6 +19,7 @@ class TestSubmissionAnswerSerializer(serializers.ModelSerializer):
         ]
         read_only_fields = ['id', 'ai_score', 'ai_feedback']
 
+    @extend_schema_field(serializers.ListField(child=serializers.DictField()))
     def get_attachments(self, obj):
         from apps.courses.serializers.course_module_serializers import BatchTestQuestionAttachmentSerializer
         return BatchTestQuestionAttachmentSerializer(obj.question.attachments.all(), many=True).data
@@ -40,6 +43,7 @@ class TestSubmissionSerializer(serializers.ModelSerializer):
         ]
         read_only_fields = ['id', 'batch_weekly_test', 'enrollment', 'submitted_at', 'graded_at', 'graded_by']
 
+    @extend_schema_field(serializers.ListField(child=serializers.DictField()))
     def get_answers(self, obj):
         from apps.courses.serializers.course_module_serializers import BatchTestQuestionAttachmentSerializer
         
@@ -74,6 +78,7 @@ class TestSubmissionSerializer(serializers.ModelSerializer):
             results.append(data)
         return results
 
+    @extend_schema_field(OpenApiTypes.INT)
     def get_week_number(self, obj):
         if obj.batch_weekly_test.batch_week:
             return obj.batch_weekly_test.batch_week.week_number
