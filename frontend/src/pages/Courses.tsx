@@ -906,21 +906,21 @@ export default function Courses() {
             {/* MCQ Practice Dialog */}
             <Dialog open={!!activeMcqSession} onOpenChange={open => { if (!open) setActiveMcqSession(null); }}>
               {activeMcqSession && (
-                <DialogContent className="max-w-2xl w-[95vw] p-0 overflow-hidden sm:rounded-2xl border-none shadow-2xl bg-[#0a0f1d] text-white">
-                  <div className="bg-gradient-to-br from-[#1e3a8a] via-[#1e40af] to-[#1e3a8a] p-6 text-white relative">
+                <DialogContent className="max-w-2xl w-[95vw] overflow-hidden border border-border bg-background p-0 shadow-2xl sm:rounded-[26px]">
+                  <div className="relative border-b border-border/60 bg-gradient-to-r from-slate-100 via-white to-blue-50 p-6 dark:from-slate-950 dark:via-slate-900 dark:to-slate-950">
                     <div className="flex items-center gap-3">
-                      <div className="h-9 w-9 rounded-full border-2 border-white/20 flex items-center justify-center">
+                      <div className="flex h-10 w-10 items-center justify-center rounded-2xl border border-primary/15 bg-primary/10 text-primary">
                         <Video className="w-4 h-4" />
                       </div>
                       <div>
-                        <h2 className="text-xl font-bold tracking-tight">
+                        <h2 className="text-xl font-bold tracking-tight text-foreground">
                           {activeMcqSession.title}
                         </h2>
-                        <p className="text-white/60 text-xs font-medium">Practice Quiz</p>
+                        <p className="text-xs font-medium text-muted-foreground">Practice Quiz</p>
                       </div>
                     </div>
                   </div>
-                  <div className="px-5 pb-5 pt-2 bg-transparent">
+                  <div className="bg-background px-5 pb-5 pt-2">
                     <SessionMcqPractice
                       sessionTitle={activeMcqSession.title}
                       questions={activeMcqSession.questions || []}

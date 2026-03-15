@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { CheckCircle2, XCircle, ChevronRight, RotateCcw, Video, HelpCircle } from 'lucide-react';
+import { CheckCircle2, XCircle, ChevronRight, RotateCcw, HelpCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Label } from '@/components/ui/label';
@@ -72,7 +72,7 @@ export function SessionMcqPractice({ sessionTitle, questions, onClose }: Session
 
   if (isFinished) {
     return (
-      <div className="w-full max-w-md mx-auto text-center py-8 px-6">
+      <div className="mx-auto w-full max-w-md px-6 py-8 text-center">
         <div className="mb-4 flex justify-center">
           <div className={cn(
             "p-4 rounded-full",
@@ -85,18 +85,18 @@ export function SessionMcqPractice({ sessionTitle, questions, onClose }: Session
             )}
           </div>
         </div>
-        <h2 className="text-2xl font-bold mb-1 text-white">Practice Complete!</h2>
+        <h2 className="mb-1 text-2xl font-bold text-foreground">Practice Complete!</h2>
         <p className="text-4xl font-black mb-4 text-primary">{score} / {questions.length}</p>
-        <p className="text-white/60 text-sm mb-8 leading-relaxed">
+        <p className="mb-8 text-sm leading-relaxed text-muted-foreground">
           {score === questions.length 
             ? "Excellent! You've successfully completed the practice with a perfect score." 
             : "Great effort! Keep practicing to master all concepts from this session."}
         </p>
         <div className="flex gap-4">
-          <Button variant="outline" size="sm" className="flex-1 bg-transparent border-white/10 hover:bg-white/5 text-white h-10" onClick={handleReset}>
+          <Button variant="outline" size="sm" className="h-10 flex-1" onClick={handleReset}>
             <RotateCcw className="w-3.5 h-3.5 mr-2" /> Try Again
           </Button>
-          <Button size="sm" className="flex-1 bg-primary hover:bg-primary/90 text-white h-10" onClick={onClose}>
+          <Button size="sm" className="h-10 flex-1" onClick={onClose}>
             Close
           </Button>
         </div>
@@ -110,7 +110,7 @@ export function SessionMcqPractice({ sessionTitle, questions, onClose }: Session
     <div className="w-full space-y-6 pt-2">
       {/* Question Header */}
       <div className="space-y-3">
-        <div className="flex justify-between items-center text-white/40">
+        <div className="flex justify-between items-center text-muted-foreground">
           <span className="text-xs font-medium tracking-wide">
             Question {currentIdx + 1} of {questions.length}
           </span>
@@ -121,13 +121,13 @@ export function SessionMcqPractice({ sessionTitle, questions, onClose }: Session
                 className={cn(
                   "w-6 rounded-full transition-all duration-300",
                   i === currentIdx ? "bg-primary h-1 mt-[-1px] w-8" : 
-                  i < currentIdx ? "bg-primary/40" : "bg-white/10"
+                  i < currentIdx ? "bg-primary/40" : "bg-border"
                 )}
               />
             ))}
           </div>
         </div>
-        <h3 className="text-lg md:text-xl font-bold text-white leading-relaxed">
+        <h3 className="text-lg font-bold leading-relaxed text-foreground md:text-xl">
           {currentQuestion.is_fill_in_the_blank 
             ? currentQuestion.text.split('[blank]').map((part, i, arr) => (
                 <span key={i} className="inline">
@@ -139,7 +139,7 @@ export function SessionMcqPractice({ sessionTitle, questions, onClose }: Session
                         ? (currentQuestion.choices.find(c => c.is_correct)?.text.toLowerCase() === fillInBlankAnswer.toLowerCase() 
                             ? "border-emerald-500 text-emerald-400" 
                             : "border-red-500 text-red-400")
-                        : "border-white/40 text-primary"
+                        : "border-primary/40 text-primary"
                     )}>
                       {fillInBlankAnswer || "\u00A0\u00A0\u00A0\u00A0"}
                     </span>
@@ -155,14 +155,14 @@ export function SessionMcqPractice({ sessionTitle, questions, onClose }: Session
         {currentQuestion.is_fill_in_the_blank ? (
           <div className="space-y-5 animate-in fade-in slide-in-from-bottom-4">
             <div className="space-y-2">
-              <Label className="text-white/50 text-xs font-medium ml-1">Type your answer below</Label>
+              <Label className="ml-1 text-xs font-medium text-muted-foreground">Type your answer below</Label>
               <Input
                 autoFocus
                 value={fillInBlankAnswer}
                 onChange={(e) => !showFeedback && setFillInBlankAnswer(e.target.value)}
                 placeholder="Write the answer here..."
                 className={cn(
-                  "h-12 text-base bg-white/5 border-white/10 text-white focus:border-primary/50 focus:ring-primary/20 rounded-xl",
+                  "h-12 rounded-xl border-border bg-background text-base text-foreground focus:border-primary/50 focus:ring-primary/20 dark:bg-slate-950/70",
                   showFeedback && (
                     currentQuestion.choices.find(c => c.is_correct)?.text.toLowerCase() === fillInBlankAnswer.toLowerCase()
                       ? "border-emerald-500/50 bg-emerald-500/10" 
@@ -207,10 +207,11 @@ export function SessionMcqPractice({ sessionTitle, questions, onClose }: Session
               const isCorrect = choice.is_correct;
               
               let statusClass = "border-white/10 bg-white/5 hover:bg-white/[0.08] hover:border-white/20";
+              statusClass = "border-border bg-card hover:bg-accent/40 hover:border-border/80 dark:bg-slate-950/60";
               if (showFeedback) {
                 if (isCorrect) statusClass = "border-emerald-500/50 bg-emerald-500/10 ring-1 ring-emerald-500/20";
                 else if (isSelected) statusClass = "border-red-500/50 bg-red-500/10 ring-1 ring-red-500/20";
-                else statusClass = "opacity-40 border-white/5";
+                else statusClass = "opacity-40 border-border";
               } else if (isSelected) {
                 statusClass = "border-primary bg-primary/10 ring-1 ring-primary/30";
               }
@@ -228,7 +229,7 @@ export function SessionMcqPractice({ sessionTitle, questions, onClose }: Session
                       <RadioGroupItem value={choice.id.toString()} id={choice.id.toString()} className="sr-only" />
                       <div className={cn(
                         "h-4 w-4 rounded-full border-2 transition-all flex items-center justify-center",
-                        isSelected ? "border-primary" : "border-white/20"
+                        isSelected ? "border-primary" : "border-border"
                       )}>
                         {isSelected && <div className="h-2 w-2 rounded-full bg-primary" />}
                       </div>
@@ -236,12 +237,12 @@ export function SessionMcqPractice({ sessionTitle, questions, onClose }: Session
                     
                     <div className={cn(
                       "flex items-center justify-center h-7 w-7 rounded-lg font-bold text-xs shrink-0",
-                      isSelected ? "bg-primary text-white" : "bg-white/10 text-white/60"
+                      isSelected ? "bg-primary text-white" : "bg-muted text-muted-foreground"
                     )}>
                       {alphabet[index]}
                     </div>
 
-                    <span className="text-base font-medium text-white/90">{choice.text}</span>
+                    <span className="text-base font-medium text-foreground">{choice.text}</span>
                     
                     {showFeedback && (
                       <div className="ml-auto">
@@ -258,11 +259,11 @@ export function SessionMcqPractice({ sessionTitle, questions, onClose }: Session
       </div>
 
       {/* Footer Actions */}
-      <div className="pt-4 flex justify-between items-center border-t border-white/10">
+      <div className="flex items-center justify-between border-t border-border pt-4">
         <Button 
           variant="ghost" 
           onClick={handleNext}
-          className="text-white/30 hover:text-white hover:bg-white/5 rounded-xl px-4 h-10 text-xs"
+          className="h-10 rounded-xl px-4 text-xs text-muted-foreground hover:bg-accent hover:text-foreground"
         >
           {showFeedback ? "Continue" : "Skip"}
         </Button>
@@ -304,4 +305,3 @@ const Award = ({ className }: { className?: string }) => (
     <circle cx="12" cy="8" r="6" />
   </svg>
 );
-

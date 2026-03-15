@@ -122,62 +122,34 @@ export function WeeklyTestSubmission({
   const progress = totalQuestions > 0 ? (answeredCount / totalQuestions) * 100 : 0;
   
   const activeQuestion = test.questions[activeQuestionIndex];
+  const unansweredCount = test.questions.filter(q => !answers[q.id]?.trim() && !files[q.id]).length;
 
   return (
     <Dialog open={open} onOpenChange={(v) => !v && !isSubmitting && onClose()}>
       {/* Container is full-width style modal */}
-      <DialogContent className="max-w-[1200px] w-[95vw] h-[90vh] flex flex-col p-0 overflow-hidden border-[#1A1F36] shadow-[0_0_80px_rgba(0,0,0,0.6)] bg-[#0A0D18] text-slate-300">
+      <DialogContent className="max-w-[1200px] w-[95vw] h-[90vh] flex flex-col rounded-[28px] border border-border p-0 overflow-hidden bg-background text-foreground shadow-2xl">
         
         {/* Header Section */}
-        <div className="flex-none pt-8 px-8 pb-4">
+        <div className="flex-none border-b border-border/60 bg-gradient-to-r from-slate-100 via-white to-blue-50 px-6 pb-4 pt-7 dark:from-slate-950 dark:via-slate-900 dark:to-slate-950">
            {/* Top part: Title and global progress */}
-           <div className="flex justify-between items-start mb-6">
+           <div className="mb-6 flex flex-col gap-5">
               <div>
-                 <DialogTitle className="text-2xl font-semibold text-white tracking-wide mb-1.5">{test.title}</DialogTitle>
-                 <DialogDescription className="text-slate-400 text-[15px]">Answer questions by typing or uploading files.</DialogDescription>
-              </div>
-              <div className="flex items-center gap-5">
-                 <span className="text-[13px] font-medium text-indigo-400/80">Answered {answeredCount} / {totalQuestions}</span>
-                 <div className="w-[100px] bg-[#1a1f33] h-1.5 rounded-full overflow-hidden">
-                   <div className="bg-[#4a5ee3] h-full rounded-full transition-all duration-300" style={{ width: `${progress}%` }}></div>
+                 <div className="mb-3 inline-flex items-center gap-2 rounded-full border border-primary/15 bg-primary/8 px-3 py-1 text-[11px] font-bold uppercase tracking-[0.18em] text-primary">
+                   <HelpCircle className="h-3.5 w-3.5" />
+                   Weekly Assessment
                  </div>
-                 <span className="text-[13px] font-medium text-slate-400">{Math.round(progress)}%</span>
-              </div>
-           </div>
-
-           {/* Tabs section */}
-           <div className="flex items-center gap-6 pb-2 border-b border-[#1A1F36]">
-              <div className="bg-[#101423] p-1.5 rounded-[2rem] flex items-center justify-between w-full">
-                 <div className="flex items-center gap-2">
-                    <div className="bg-transparent px-4 py-1.5 rounded-full flex items-center gap-3">
-                       <span className="text-[15px] font-semibold text-white">Questions</span>
-                       <div className="bg-[#1a1f33] text-[11px] font-bold px-2.5 py-1 rounded-full text-slate-300">
-                          {test.questions.reduce((sum, q) => sum + q.marks, 0)} / {totalQuestions}
-                       </div>
-                    </div>
-                    
-                    <div className="w-px h-6 bg-[#1A1F36] mx-1"></div>
-
-                    <div className="flex-1 flex gap-1">
-                       {test.questions.map((q, i) => (
-                          <button
-                            key={q.id}
-                            onClick={() => setActiveQuestionIndex(i)}
-                            className={`px-5 py-2.5 rounded-full text-[13px] font-medium whitespace-nowrap transition-all duration-300 ${
-                              activeQuestionIndex === i 
-                                ? 'bg-[#21295c] text-indigo-300 shadow-[0_0_15px_rgba(65,85,225,0.1)]' 
-                                : 'bg-transparent text-slate-400 hover:text-white hover:bg-[#1a1f33]'
-                            }`}
-                          >
-                            Question {i + 1}
-                          </button>
-                       ))}
-                    </div>
-                 </div>
-                 
-                 <div className="hidden md:flex items-center gap-2 px-5 py-2.5 bg-[#101423] rounded-full text-[13px] font-medium text-slate-400 border border-[#1A1F36]/50">
-                    <CheckCircle className="w-3.5 h-3.5 text-indigo-400/60" /> Test Progress Tracker
-                 </div>
+                 <DialogTitle className="mb-1.5 text-2xl font-bold tracking-tight text-foreground">{test.title}</DialogTitle>
+                 <DialogDescription className="text-[15px] text-muted-foreground">Answer questions by typing or uploading files.</DialogDescription>
+                 {test.instructions?.trim() && (
+                   <div className="mt-4 max-w-4xl border-l-2 border-primary/30 pl-4">
+                     <p className="text-[11px] font-bold uppercase tracking-[0.16em] text-primary/80">
+                       Instructions
+                     </p>
+                     <p className="mt-1 whitespace-pre-line text-sm leading-relaxed text-muted-foreground">
+                       {test.instructions}
+                     </p>
+                   </div>
+                 )}
               </div>
            </div>
         </div>
@@ -186,52 +158,52 @@ export function WeeklyTestSubmission({
         <div className="flex-1 flex overflow-hidden">
            
            {/* Left: Question Area */}
-           <div className="flex-1 overflow-y-auto px-10 py-8 relative [&::-webkit-scrollbar]:w-2 [&::-webkit-scrollbar-thumb]:bg-[#1A1F36] [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-track]:bg-transparent">
+           <div className="relative flex-1 overflow-y-auto bg-background px-10 py-8 [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-border [&::-webkit-scrollbar]:w-2 [&::-webkit-scrollbar-track]:bg-transparent">
               <div className="max-w-[800px] mb-8">
                 
                 {/* Question Info Header */}
-                <div className="flex items-center gap-4 mb-6">
-                  <div className="bg-[#161a33] text-[#6979F8] px-3.5 py-1.5 rounded-md text-[10px] font-bold tracking-widest uppercase">
-                    QUESTION {activeQuestionIndex + 1}
+                <div className="mb-6 flex flex-wrap items-center gap-3">
+                  <div className="rounded-md bg-primary/10 px-3.5 py-1.5 text-[10px] font-bold uppercase tracking-widest text-primary">
+                    Question {activeQuestionIndex + 1} of {totalQuestions}
                   </div>
-                  <div className="text-slate-400 text-[13px] font-medium">
+                  <div className="text-[13px] font-medium text-muted-foreground">
                     {activeQuestion.marks} Marks
                   </div>
                 </div>
 
                 {/* Question Text */}
-                <h2 className="text-[26px] font-bold text-white leading-snug mb-6 whitespace-pre-line">
+                <h2 className="mb-6 whitespace-pre-line text-[26px] font-bold leading-snug text-foreground">
                   {activeQuestion.text}
                 </h2>
 
                 {/* Question Resources (Reference Materials from Admin) */}
                 {(activeQuestion.question_file || activeQuestion.image || (activeQuestion.attachments && activeQuestion.attachments.length > 0)) && (
                   <div className="space-y-3 mb-8">
-                    <Label className="text-[11px] font-bold text-slate-400 uppercase tracking-[0.15em] flex items-center gap-2">
+                    <Label className="flex items-center gap-2 text-[11px] font-bold uppercase tracking-[0.15em] text-muted-foreground">
                       <HelpCircle className="h-4 w-4" /> Reference Files
                     </Label>
                     
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                       {activeQuestion.question_file && (
-                        <div className="flex items-center justify-between p-3 rounded-xl bg-[#0c101d] border border-[#1A1F36] group/file shadow-sm">
+                        <div className="group/file flex items-center justify-between rounded-xl border border-border bg-background p-3 shadow-sm transition-colors hover:bg-accent/30">
                             <div className="flex items-center gap-3 min-w-0">
-                              <div className="h-10 w-10 rounded-lg bg-[#1a1f33] flex items-center justify-center shrink-0">
-                                <FileText className="h-5 w-5 text-indigo-400" />
+                              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-primary/10">
+                                <FileText className="h-5 w-5 text-primary" />
                               </div>
                               <div className="min-w-0">
-                                  <p className="text-[13px] font-semibold text-slate-200 truncate" title={shortName(activeQuestion.question_file)}>
+                                  <p className="truncate text-[13px] font-semibold text-foreground" title={shortName(activeQuestion.question_file)}>
                                     {shortName(activeQuestion.question_file)}
                                   </p>
-                                  <p className="text-[10px] font-medium text-slate-500 uppercase tracking-widest mt-0.5">Question Resource</p>
+                                  <p className="mt-0.5 text-[10px] font-medium uppercase tracking-widest text-muted-foreground">Question Resource</p>
                               </div>
                             </div>
-                            <div className="flex items-center gap-1 opacity-0 group-hover/file:opacity-100 transition-opacity">
-                              <Button variant="ghost" size="icon" className="h-8 w-8 text-slate-400 hover:text-white" asChild>
+                            <div className="flex items-center gap-1 opacity-0 transition-opacity group-hover/file:opacity-100">
+                              <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-foreground" asChild>
                                   <a href={activeQuestion.question_file} target="_blank" rel="noreferrer">
                                     <Eye className="h-4 w-4" />
                                   </a>
                               </Button>
-                              <Button variant="ghost" size="icon" className="h-8 w-8 text-slate-400 hover:text-white" asChild>
+                              <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-foreground" asChild>
                                   <a href={activeQuestion.question_file} download>
                                     <Download className="h-4 w-4" />
                                   </a>
@@ -241,23 +213,23 @@ export function WeeklyTestSubmission({
                       )}
                       
                       {activeQuestion.image && (
-                        <div className="flex items-center justify-between p-3 rounded-xl bg-[#0c101d] border border-[#1A1F36] group/file shadow-sm">
+                        <div className="group/file flex items-center justify-between rounded-xl border border-border bg-background p-3 shadow-sm transition-colors hover:bg-accent/30">
                             <div className="flex items-center gap-3 min-w-0">
-                              <div className="h-10 w-10 rounded-lg bg-[#1a1f33] flex items-center justify-center shrink-0">
-                                <ImageIcon className="h-5 w-5 text-indigo-400" />
+                              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-primary/10">
+                                <ImageIcon className="h-5 w-5 text-primary" />
                               </div>
                               <div className="min-w-0">
-                                  <p className="text-[13px] font-semibold text-slate-200 truncate">Image Preview</p>
-                                  <p className="text-[10px] font-medium text-slate-500 uppercase tracking-widest mt-0.5">Visual Asset</p>
+                                  <p className="text-[13px] font-semibold text-foreground truncate">Image Preview</p>
+                                  <p className="mt-0.5 text-[10px] font-medium uppercase tracking-widest text-muted-foreground">Visual Asset</p>
                               </div>
                             </div>
-                            <div className="flex items-center gap-1 opacity-0 group-hover/file:opacity-100 transition-opacity">
-                              <Button variant="ghost" size="icon" className="h-8 w-8 text-slate-400 hover:text-white" asChild>
+                            <div className="flex items-center gap-1 opacity-0 transition-opacity group-hover/file:opacity-100">
+                              <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-foreground" asChild>
                                   <a href={activeQuestion.image} target="_blank" rel="noreferrer">
                                     <Eye className="h-4 w-4" />
                                   </a>
                               </Button>
-                              <Button variant="ghost" size="icon" className="h-8 w-8 text-slate-400 hover:text-white" asChild>
+                              <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-foreground" asChild>
                                   <a href={activeQuestion.image} download>
                                     <Download className="h-4 w-4" />
                                   </a>
@@ -267,25 +239,25 @@ export function WeeklyTestSubmission({
                       )}
                       
                       {(activeQuestion.attachments || []).map(att => (
-                        <div key={att.id} className="flex items-center justify-between p-3 rounded-xl bg-[#0c101d] border border-[#1A1F36] group/file shadow-sm">
+                        <div key={att.id} className="group/file flex items-center justify-between rounded-xl border border-border bg-background p-3 shadow-sm transition-colors hover:bg-accent/30">
                             <div className="flex items-center gap-3 min-w-0">
-                              <div className="h-10 w-10 rounded-lg bg-[#1a1f33] flex items-center justify-center shrink-0">
-                                <FileText className="h-5 w-5 text-indigo-400" />
+                              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-primary/10">
+                                <FileText className="h-5 w-5 text-primary" />
                               </div>
                               <div className="min-w-0">
-                                  <p className="text-[13px] font-semibold text-slate-200 truncate" title={att.name || att.file}>
+                                  <p className="truncate text-[13px] font-semibold text-foreground" title={att.name || att.file}>
                                     {att.name || shortName(att.file)}
                                   </p>
-                                  <p className="text-[10px] font-medium text-slate-500 uppercase tracking-widest mt-0.5">Additional Resource</p>
+                                  <p className="mt-0.5 text-[10px] font-medium uppercase tracking-widest text-muted-foreground">Additional Resource</p>
                               </div>
                             </div>
-                            <div className="flex items-center gap-1 opacity-0 group-hover/file:opacity-100 transition-opacity">
-                              <Button variant="ghost" size="icon" className="h-8 w-8 text-slate-400 hover:text-white" asChild>
+                            <div className="flex items-center gap-1 opacity-0 transition-opacity group-hover/file:opacity-100">
+                              <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-foreground" asChild>
                                   <a href={att.file} target="_blank" rel="noreferrer">
                                     <Eye className="h-4 w-4" />
                                   </a>
                               </Button>
-                              <Button variant="ghost" size="icon" className="h-8 w-8 text-slate-400 hover:text-white" asChild>
+                              <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-foreground" asChild>
                                   <a href={att.file} download>
                                     <Download className="h-4 w-4" />
                                   </a>
@@ -300,28 +272,28 @@ export function WeeklyTestSubmission({
                 {/* Answer Box */}
                 <div className="space-y-4 mb-10">
                   <div className="flex items-center justify-between">
-                    <h3 className="text-[11px] font-bold text-slate-400 tracking-[0.15em] uppercase">Your Answer</h3>
+                    <h3 className="text-[11px] font-bold uppercase tracking-[0.15em] text-muted-foreground">Your Answer</h3>
                     {answers[activeQuestion.id] && answers[activeQuestion.id].trim() !== '' && (
-                      <div className="flex items-center gap-2 text-[11px] text-[#22c55e] font-medium tracking-wide">
-                        <div className="w-1.5 h-1.5 rounded-full bg-[#22c55e] animate-pulse"></div>
+                      <div className="flex items-center gap-2 text-[11px] font-medium tracking-wide text-success">
+                        <div className="h-1.5 w-1.5 animate-pulse rounded-full bg-success"></div>
                         Draft saved
                       </div>
                     )}
                   </div>
                   
-                  <div className="border border-[#1A1F36] bg-[#0c101d] rounded-2xl overflow-hidden focus-within:border-indigo-500/50 focus-within:ring-1 focus-within:ring-indigo-500/20 transition-all shadow-inner">
+                  <div className="overflow-hidden rounded-2xl border border-border bg-background shadow-inner transition-all focus-within:border-primary/50 focus-within:ring-1 focus-within:ring-primary/20">
                      <Textarea 
                        placeholder="Type your answer here..."
                        value={answers[activeQuestion.id] || ''}
                        onChange={(e) => handleTextChange(activeQuestion.id, e.target.value)}
-                       className="min-h-[200px] w-full bg-transparent border-none text-slate-200 placeholder:text-slate-600 resize-none p-6 focus-visible:ring-0 text-[16px] leading-relaxed focus:outline-none focus-visible:outline-none rounded-none shadow-none"
+                       className="min-h-[200px] w-full resize-none rounded-none border-none bg-transparent p-6 text-[16px] leading-relaxed text-foreground shadow-none placeholder:text-muted-foreground focus:outline-none focus-visible:outline-none focus-visible:ring-0"
                      />
                   </div>
                 </div>
 
                 {/* Upload Solution */}
                 <div className="space-y-4">
-                  <div className="flex items-center gap-2 text-slate-300">
+                  <div className="flex items-center gap-2 text-foreground">
                     <h3 className="text-[13px] font-semibold flex items-center gap-2">
                        <Upload className="w-4 h-4 opacity-50"/> Upload Solution
                     </h3>
@@ -330,7 +302,7 @@ export function WeeklyTestSubmission({
                   {!files[activeQuestion.id] ? (
                     <div 
                       onClick={() => fileInputRefs.current[activeQuestion.id]?.click()}
-                      className="border border-dashed border-[#1A1F36] rounded-xl p-10 bg-[#0c101d]/50 hover:bg-[#0c101d] transition-colors cursor-pointer flex flex-col items-center justify-center group"
+                      className="group flex cursor-pointer flex-col items-center justify-center rounded-xl border border-dashed border-border bg-background/50 p-10 transition-colors hover:bg-accent/40"
                     >
                        <input 
                          type="file"
@@ -338,29 +310,29 @@ export function WeeklyTestSubmission({
                          ref={(el) => (fileInputRefs.current[activeQuestion.id] = el)}
                          onChange={(e) => handleFileChange(activeQuestion.id, e.target.files?.[0] || null)}
                        />
-                       <p className="text-slate-300 text-[15px] mb-2">
-                         <span className="font-semibold text-white">Drag & drop your</span> file here or <span className="text-indigo-400 group-hover:text-indigo-300 transition-colors">Browse</span>
+                       <p className="mb-2 text-[15px] text-muted-foreground">
+                         <span className="font-semibold text-foreground">Drag & drop your</span> file here or <span className="text-primary transition-colors group-hover:text-primary/80">Browse</span>
                        </p>
-                       <p className="text-[11px] text-slate-500 font-medium tracking-wide">Supported: .ipynb, pdf, doc, png</p>
+                       <p className="text-[11px] font-medium tracking-wide text-muted-foreground">Supported: .ipynb, pdf, doc, png</p>
                     </div>
                   ) : (
-                    <div className="flex items-center justify-between p-4 rounded-xl border border-[#1A1F36] bg-[#0c101d]">
+                    <div className="flex items-center justify-between rounded-xl border border-border bg-background p-4">
                        <div className="flex items-center gap-4">
-                          <div className="w-10 h-10 rounded bg-[#22c55e]/10 flex items-center justify-center text-[#22c55e]">
+                          <div className="flex h-10 w-10 items-center justify-center rounded bg-success/10 text-success">
                             <FileText className="w-5 h-5" />
                           </div>
                           <div>
-                            <p className="text-[14px] font-semibold text-slate-200">{files[activeQuestion.id].name}</p>
-                            <p className="text-[11px] text-[#22c55e] font-medium flex items-center gap-1.5 mt-0.5">
-                               <div className="w-1.5 h-1.5 rounded-full bg-[#22c55e]"></div> Uploaded
+                            <p className="text-[14px] font-semibold text-foreground">{files[activeQuestion.id].name}</p>
+                            <p className="mt-0.5 flex items-center gap-1.5 text-[11px] font-medium text-success">
+                               <div className="h-1.5 w-1.5 rounded-full bg-success"></div> Uploaded
                             </p>
                           </div>
                        </div>
                        <div className="flex items-center gap-3">
-                          <Button variant="ghost" size="icon" className="text-slate-400 hover:text-white h-8 w-8"><Copy className="w-4 h-4"/></Button>
-                          <Button variant="ghost" size="icon" className="text-slate-400 hover:text-white h-8 w-8"><Download className="w-4 h-4"/></Button>
-                          <Button variant="ghost" size="icon" className="text-slate-400 hover:text-white h-8 w-8"><MoreHorizontal className="w-4 h-4"/></Button>
-                          <Button variant="ghost" size="icon" className="text-slate-400 hover:text-rose-400 h-8 w-8 ml-2" onClick={() => handleFileChange(activeQuestion.id, null)}><X className="w-4 h-4"/></Button>
+                          <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-foreground"><Copy className="w-4 h-4"/></Button>
+                          <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-foreground"><Download className="w-4 h-4"/></Button>
+                          <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-foreground"><MoreHorizontal className="w-4 h-4"/></Button>
+                          <Button variant="ghost" size="icon" className="ml-2 h-8 w-8 text-muted-foreground hover:text-destructive" onClick={() => handleFileChange(activeQuestion.id, null)}><X className="w-4 h-4"/></Button>
                        </div>
                     </div>
                   )}
@@ -369,20 +341,19 @@ export function WeeklyTestSubmission({
            </div>
 
            {/* Right: Questions Summary List */}
-           <div className="w-[320px] lg:w-[380px] flex-none border-l border-[#1A1F36] bg-[#0A0D18] flex flex-col p-6">
+           <div className="flex w-[320px] flex-none flex-col border-l border-border bg-background/40 p-6 lg:w-[380px]">
               <div className="pb-6">
-                <div className="flex justify-between items-center mb-4">
-                  <span className="text-white font-medium text-[16px]">Answered {answeredCount} / {totalQuestions}</span>
-                  <div className="flex items-center gap-3">
-                     <div className="w-16 bg-[#1a1f33] h-1.5 rounded-full overflow-hidden">
-                       <div className="bg-[#4a5ee3] h-full transition-all duration-300" style={{ width: `${progress}%` }}></div>
-                     </div>
-                     <span className="bg-[#101423] border border-[#1A1F36] text-slate-300 text-[11px] font-bold px-2 py-1 rounded-md">{Math.round(progress)}%</span>
-                  </div>
+                <div className="mb-4">
+                  <span className="text-[16px] font-medium text-foreground">Question Navigator</span>
+                  <p className="mt-1 text-sm text-muted-foreground">Jump between questions and see which ones already have an answer.</p>
+                </div>
+                <div className="inline-flex items-center gap-2 rounded-full border border-border bg-background px-3.5 py-1.5 text-[12px] font-medium text-foreground shadow-sm">
+                  <span className="text-muted-foreground">Total Marks</span>
+                  <span className="font-bold text-primary">{test.questions.reduce((sum, q) => sum + q.marks, 0)}</span>
                 </div>
               </div>
 
-              <div className="flex-1 overflow-y-auto space-y-1 [&::-webkit-scrollbar]:w-1.5 [&::-webkit-scrollbar-thumb]:bg-[#1A1F36] [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-track]:bg-transparent">
+              <div className="flex-1 space-y-1 overflow-y-auto [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-border [&::-webkit-scrollbar]:w-1.5 [&::-webkit-scrollbar-track]:bg-transparent">
                 {test.questions.map((q, i) => {
                   const isAnswered = answers[q.id]?.trim() || files[q.id];
                   const isActive = activeQuestionIndex === i;
@@ -392,15 +363,15 @@ export function WeeklyTestSubmission({
                       onClick={() => setActiveQuestionIndex(i)}
                       className={`w-full text-left px-5 py-4 flex items-center justify-between rounded-lg border-l-[3px] transition-all ${
                         isActive 
-                          ? 'bg-[#151a30] border-[#4a5ee3]' 
-                          : 'border-transparent hover:bg-[#101423]'
+                          ? 'border-primary bg-primary/8 dark:bg-primary/10' 
+                          : 'border-transparent hover:bg-accent/50'
                       }`}
                     >
-                      <span className={`font-semibold text-[15px] ${isActive ? 'text-white' : 'text-slate-400'}`}>Question {i+1}</span>
+                      <span className={`text-[15px] font-semibold ${isActive ? 'text-foreground' : 'text-muted-foreground'}`}>Question {i+1}</span>
                       <div className="flex items-center gap-4">
-                        <span className={`text-[12px] font-medium ${isActive ? 'text-slate-400' : 'text-slate-500'}`}>{q.marks} Marks</span>
+                        <span className={`text-[12px] font-medium ${isActive ? 'text-muted-foreground' : 'text-muted-foreground/80'}`}>{q.marks} Marks</span>
                         {isAnswered ? (
-                           <CheckCircle className={`w-[18px] h-[18px] ${isActive ? 'text-[#22c55e]' : 'text-[#22c55e]/60'}`} />
+                           <CheckCircle className={`h-[18px] w-[18px] ${isActive ? 'text-success' : 'text-success/70'}`} />
                         ) : (
                            <div className="w-[18px] h-[18px]" />
                         )}
@@ -414,28 +385,28 @@ export function WeeklyTestSubmission({
         </div>
 
         {/* Footer Navigation */}
-        <div className="flex-none flex items-center justify-between px-8 py-5 border-t border-[#1A1F36] bg-[#0A0D18]">
+        <div className="flex-none flex items-center justify-between border-t border-border bg-background px-8 py-5">
           <Button 
             variant="ghost" 
-            className="text-slate-300 hover:text-white hover:bg-[#1A1F36] px-5 h-12 rounded-xl bg-[#101423] font-medium text-[14px]"
+            className="h-12 rounded-xl bg-muted px-5 text-[14px] font-medium text-muted-foreground hover:bg-accent hover:text-foreground"
             onClick={() => setActiveQuestionIndex(p => Math.max(0, p - 1))}
             disabled={activeQuestionIndex === 0}
           >
              <ArrowLeft className="w-4 h-4 mr-2"/> Previous
           </Button>
 
-          <div className="flex items-center gap-4 hidden md:flex">
-             <span className="text-[13px] text-slate-400 font-medium">Answered <span className="text-white">{answeredCount}</span> / {totalQuestions}</span>
-             <div className="w-48 bg-[#1a1f33] h-1.5 rounded-full overflow-hidden">
-               <div className="bg-[#4a5ee3] h-full transition-all duration-300" style={{ width: `${progress}%` }}></div>
+          <div className="hidden items-center gap-4 md:flex">
+             <span className="text-[13px] font-medium text-muted-foreground">Answered <span className="text-foreground">{answeredCount}</span> / {totalQuestions}</span>
+             <div className="h-1.5 w-48 overflow-hidden rounded-full bg-muted">
+               <div className="h-full bg-primary transition-all duration-300" style={{ width: `${progress}%` }}></div>
              </div>
-             <span className="text-[13px] text-slate-400 font-medium">{Math.round(progress)}%</span>
+             <span className="text-[13px] font-medium text-muted-foreground">{Math.round(progress)}%</span>
           </div>
 
-          <div className="flex h-12 shadow-lg shadow-indigo-500/10 rounded-xl overflow-hidden">
+          <div className="flex h-12 overflow-hidden rounded-xl shadow-lg shadow-primary/10">
             {activeQuestionIndex < totalQuestions - 1 ? (
                <Button 
-                 className="bg-[#242f6d] hover:bg-[#2e3b8a] text-white px-8 h-full uppercase tracking-wider text-[12px] font-bold rounded-none"
+                 className="h-full rounded-none bg-primary px-8 text-[12px] font-bold uppercase tracking-wider text-primary-foreground hover:bg-primary/90"
                  onClick={() => setActiveQuestionIndex(p => p + 1)}
                >
                  Next Question <ArrowRight className="w-4 h-4 ml-2" />
@@ -443,15 +414,15 @@ export function WeeklyTestSubmission({
             ) : (
                <>
                  <Button 
-                   className="bg-[#242f6d] hover:bg-[#2e3b8a] text-white px-8 h-full rounded-r-none border-r border-[#1a2357] uppercase tracking-wider text-[12px] font-bold shadow-none"
+                   className="h-full rounded-r-none border-r border-primary-foreground/10 bg-primary px-8 text-[12px] font-bold uppercase tracking-wider text-primary-foreground shadow-none hover:bg-primary/90"
                    onClick={validateAndConfirm}
                    disabled={isSubmitting}
                  >
-                   {isSubmitting ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <div className="w-3.5 h-3.5 rounded-full border-[1.5px] border-white/60 mr-2.5" />}
+                   {isSubmitting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <div className="mr-2.5 h-3.5 w-3.5 rounded-full border-[1.5px] border-white/60" />}
                    Submit All Answers ({answeredCount}/{totalQuestions})
                  </Button>
                  <Button 
-                   className="bg-[#242f6d] hover:bg-[#2e3b8a] text-white px-4 h-full rounded-l-none shadow-none text-white/60"
+                   className="h-full rounded-l-none bg-primary px-4 text-white/60 shadow-none hover:bg-primary/90"
                    onClick={() => setActiveQuestionIndex(0)}
                    title="Review from start"
                  >
@@ -465,35 +436,122 @@ export function WeeklyTestSubmission({
       </DialogContent>
 
       <Dialog open={showConfirm} onOpenChange={setShowConfirm}>
-        <DialogContent className="sm:max-w-[420px] rounded-[2rem] p-0 border-[#1A1F36] bg-[#0A0D18] shadow-[0_0_100px_rgba(0,0,0,0.8)] overflow-hidden">
-          <div className="bg-gradient-to-b from-indigo-600/10 to-transparent p-10 flex flex-col items-center text-center">
-            <div className="w-24 h-24 rounded-full bg-[#1a2357] flex items-center justify-center text-indigo-400 mb-8 shadow-2xl border border-indigo-500/20">
-              <HelpCircle className="h-12 w-12 animate-pulse" />
-            </div>
-            
-            <DialogTitle className="text-2xl font-bold tracking-tight text-white mb-3">
-              Ready to Submit?
-            </DialogTitle>
-            <DialogDescription className="text-[15px] font-medium text-slate-400 leading-relaxed mb-8">
-              Once submitted, your answers will be finalized and sent for evaluation. You won't be able to make further changes.
-            </DialogDescription>
-
-            {test.questions.filter(q => !answers[q.id]?.trim() && !files[q.id]).length > 0 && (
-              <div className="w-full p-4 bg-rose-500/5 border border-rose-500/20 rounded-2xl flex items-center gap-4 mb-8">
-                <div className="w-10 h-10 rounded-full bg-rose-500/10 flex items-center justify-center shrink-0">
-                   <AlertCircle className="h-5 w-5 text-rose-500" />
+        <DialogContent className="sm:max-w-[520px] overflow-hidden rounded-[2rem] border border-border bg-background p-0 shadow-2xl">
+          <div className="relative overflow-hidden border-b border-border/60 bg-gradient-to-br from-slate-100 via-white to-blue-50 px-8 pb-7 pt-8 dark:from-slate-950 dark:via-slate-900 dark:to-slate-950">
+            <div className="absolute -right-12 -top-12 h-40 w-40 rounded-full bg-primary/10 blur-3xl" />
+            <div className="absolute -left-8 bottom-0 h-24 w-24 rounded-full bg-primary/5 blur-2xl" />
+            <div className="relative flex items-start justify-between gap-4">
+              <div className="max-w-sm">
+                <div className="mb-3 inline-flex items-center gap-2 rounded-full border border-primary/15 bg-primary/10 px-3 py-1 text-[11px] font-bold uppercase tracking-[0.18em] text-primary">
+                  <HelpCircle className="h-3.5 w-3.5" />
+                  Submission Check
                 </div>
-                <p className="text-[13px] font-semibold text-rose-400 text-left leading-tight">
-                  Heads up! You have {test.questions.filter(q => !answers[q.id]?.trim() && !files[q.id]).length} unanswered questions.
+                <DialogTitle className="mb-2 text-2xl font-bold tracking-tight text-foreground">
+                  Ready to Submit?
+                </DialogTitle>
+                <DialogDescription className="text-[15px] font-medium leading-relaxed text-muted-foreground">
+                  This will lock your responses and send them for evaluation. Take one last glance before you continue.
+                </DialogDescription>
+              </div>
+              <div className="flex h-20 w-20 shrink-0 items-center justify-center rounded-[24px] border border-primary/20 bg-background shadow-lg">
+                <div className="relative flex h-14 w-14 items-center justify-center rounded-full bg-primary/10 text-primary">
+                  <svg className="absolute inset-0 h-full w-full -rotate-90" viewBox="0 0 100 100" aria-hidden="true">
+                    <circle cx="50" cy="50" r="42" stroke="currentColor" strokeWidth="8" className="text-primary/15" fill="none" />
+                    <circle
+                      cx="50"
+                      cy="50"
+                      r="42"
+                      stroke="currentColor"
+                      strokeWidth="8"
+                      strokeLinecap="round"
+                      className="text-primary"
+                      fill="none"
+                      strokeDasharray={264}
+                      strokeDashoffset={264 - (264 * Math.round(progress)) / 100}
+                    />
+                  </svg>
+                  <span className="relative text-sm font-bold">{Math.round(progress)}%</span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div className="p-8">
+            <div className="mb-6 grid grid-cols-3 gap-3">
+              <div className="rounded-2xl border border-border bg-background px-4 py-3 text-left">
+                <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-muted-foreground">Answered</p>
+                <p className="mt-1 text-xl font-bold text-foreground">{answeredCount}</p>
+              </div>
+              <div className="rounded-2xl border border-border bg-background px-4 py-3 text-left">
+                <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-muted-foreground">Remaining</p>
+                <p className="mt-1 text-xl font-bold text-foreground">{unansweredCount}</p>
+              </div>
+              <div className="rounded-2xl border border-border bg-background px-4 py-3 text-left">
+                <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-muted-foreground">Questions</p>
+                <p className="mt-1 text-xl font-bold text-foreground">{totalQuestions}</p>
+              </div>
+            </div>
+
+            <div className="mb-6 rounded-[24px] border border-border bg-background p-5 shadow-sm">
+              <div className="mb-3 flex items-center justify-between">
+                <p className="text-[11px] font-bold uppercase tracking-[0.16em] text-muted-foreground">Submission Summary</p>
+                <span className="text-xs font-semibold text-muted-foreground">{Math.round(progress)}% complete</span>
+              </div>
+              <div className="mb-4 h-2 overflow-hidden rounded-full bg-muted">
+                <div className="h-full rounded-full bg-primary transition-all duration-300" style={{ width: `${progress}%` }} />
+              </div>
+              <div className="grid gap-3 sm:grid-cols-2">
+                <div className="rounded-2xl bg-background/60 px-4 py-3">
+                  <p className="text-xs font-semibold text-foreground">Current question</p>
+                  <p className="mt-1 text-sm text-muted-foreground">Question {activeQuestionIndex + 1} of {totalQuestions}</p>
+                </div>
+                <div className="rounded-2xl bg-background/60 px-4 py-3">
+                  <p className="text-xs font-semibold text-foreground">Status</p>
+                  <p className="mt-1 text-sm text-muted-foreground">
+                    {unansweredCount > 0 ? `${unansweredCount} questions still need attention` : 'Everything has an answer'}
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            <div className={cn(
+              "mb-8 flex w-full items-center gap-4 rounded-2xl border p-4",
+              unansweredCount > 0
+                ? "border-rose-500/20 bg-rose-500/5"
+                : "border-emerald-500/20 bg-emerald-500/5"
+            )}>
+              <div className={cn(
+                "flex h-10 w-10 shrink-0 items-center justify-center rounded-full",
+                unansweredCount > 0 ? "bg-rose-500/10" : "bg-emerald-500/10"
+              )}>
+                {unansweredCount > 0 ? (
+                  <AlertCircle className="h-5 w-5 text-rose-500" />
+                ) : (
+                  <CheckCircle className="h-5 w-5 text-emerald-500" />
+                )}
+              </div>
+              <div className="text-left">
+                <p className={cn(
+                  "text-[13px] font-semibold leading-tight",
+                  unansweredCount > 0 ? "text-rose-500 dark:text-rose-400" : "text-emerald-600 dark:text-emerald-400"
+                )}>
+                  {unansweredCount > 0
+                    ? `You still have ${unansweredCount} unanswered questions.`
+                    : 'Everything is filled in and ready to go.'}
+                </p>
+                <p className="mt-1 text-xs text-muted-foreground">
+                  {unansweredCount > 0
+                    ? 'You can still submit now, or go back and complete the remaining questions first.'
+                    : 'Once you submit, your answers will be finalized and sent for evaluation.'}
                 </p>
               </div>
-            )}
+            </div>
 
             <div className="flex flex-col w-full gap-3">
               <Button 
                 onClick={handleSubmit} 
                 disabled={isSubmitting} 
-                className="w-full h-14 rounded-2xl bg-indigo-600 hover:bg-indigo-700 text-white font-bold uppercase tracking-[0.1em] text-[13px] shadow-lg shadow-indigo-600/20 transition-all active:scale-95"
+                className="h-14 w-full rounded-2xl bg-primary text-[13px] font-bold uppercase tracking-[0.1em] text-primary-foreground shadow-lg shadow-primary/20 transition-all hover:bg-primary/90 active:scale-95"
               >
                 {isSubmitting ? <Loader2 className="h-5 w-5 animate-spin mr-2" /> : null}
                 Finalize & Submit
@@ -501,7 +559,7 @@ export function WeeklyTestSubmission({
               <Button 
                 variant="ghost" 
                 onClick={() => setShowConfirm(false)} 
-                className="w-full h-14 rounded-2xl font-bold text-[13px] text-slate-400 hover:text-white hover:bg-[#1A1F36] transition-all"
+                className="h-14 w-full rounded-2xl text-[13px] font-bold text-muted-foreground transition-all hover:bg-accent hover:text-foreground"
               >
                 Wait, I need to check
               </Button>

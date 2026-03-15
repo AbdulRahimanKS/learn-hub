@@ -60,13 +60,13 @@ export function WeeklyTestResults({
 
   return (
     <Dialog open={open} onOpenChange={(v) => !v && onClose()}>
-      <DialogContent className="sm:max-w-3xl max-h-[92vh] flex flex-col p-0 overflow-hidden border-none shadow-2xl bg-white dark:bg-[#0a0f1d] text-slate-900 dark:text-white">
+      <DialogContent className="sm:max-w-3xl max-h-[92vh] flex flex-col overflow-hidden border border-border bg-background p-0 text-slate-900 shadow-2xl dark:text-white">
         {/* Header Section */}
         <div className={cn(
           "p-4 md:p-6 text-white shrink-0 relative overflow-hidden border-b border-black/5 dark:border-white/5",
           isPublished 
-            ? "bg-gradient-to-br from-[#112240] via-[#0a192f] to-[#0a0f1d]" 
-            : "bg-gradient-to-br from-[#1a237e] via-[#283593] to-[#3949ab]"
+            ? "bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 dark:from-slate-950 dark:via-slate-900 dark:to-slate-950" 
+            : "bg-gradient-to-br from-primary via-blue-700 to-primary dark:from-slate-900 dark:via-primary/80 dark:to-slate-900"
         )}>
           {/* Decorative Background Icons */}
           {isPublished ? (
@@ -332,7 +332,7 @@ export function WeeklyTestResults({
           </div>
         </div>
 
-        <DialogFooter className="p-4 md:p-6 border-t border-slate-100 dark:border-white/5 bg-slate-50 dark:bg-[#0a0f1d] shrink-0 flex flex-col sm:flex-row gap-4 items-center justify-between">
+        <DialogFooter className="shrink-0 items-center justify-between gap-4 border-t border-slate-100 bg-background p-4 dark:border-white/5 md:p-6 sm:flex-row">
           <div className="w-full sm:w-auto order-2 sm:order-1">
             {isPublished && (
               <Button 
@@ -376,7 +376,7 @@ Feedback: ${ans.grader_remarks || ans.ai_feedback || 'No specific feedback.'}
           <div className="flex items-center gap-3 w-full sm:w-auto order-1 sm:order-2">
             <Button 
               onClick={onClose} 
-              className="flex-1 sm:flex-none bg-indigo-600 dark:bg-[#283593] hover:bg-indigo-700 dark:hover:bg-[#1a237e] text-white font-black px-10 h-10 rounded-xl uppercase text-[10px] tracking-[0.2em] shadow-xl shadow-indigo-200 dark:shadow-blue-900/20 transition-all active:scale-[0.98] group"
+              className="group h-10 flex-1 rounded-xl bg-primary px-10 text-[10px] font-black uppercase tracking-[0.2em] text-white shadow-xl shadow-primary/20 transition-all hover:bg-primary/90 active:scale-[0.98] sm:flex-none"
             >
               Done
               <CheckCircle className="ml-2 h-3.5 w-3.5 opacity-50 group-hover:opacity-100 transition-opacity" />
