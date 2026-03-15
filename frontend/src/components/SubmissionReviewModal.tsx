@@ -305,73 +305,54 @@ export function SubmissionReviewModal({
                             </div>
                           </div>
                         </div>
-                        <div className="grid gap-5 p-6 lg:grid-cols-[minmax(0,1fr)_320px]">
-                          <div className="space-y-5">
-                            <div className="flex flex-col gap-2">
-                              <Label className="text-[10px] font-black uppercase tracking-widest text-primary/70">Student Response</Label>
-                              {answer.is_attended ? (
-                                answer.answer_text ? (
-                                  <div className="whitespace-pre-wrap text-[15px] text-foreground leading-relaxed font-medium bg-background p-4 rounded-2xl border border-dashed border-border">
-                                    {answer.answer_text}
-                                  </div>
-                                ) : (
-                                  <div className="text-sm text-muted-foreground italic bg-background p-4 rounded-2xl border border-dashed border-border">No text response provided.</div>
-                                )
+                        <div className="space-y-5 p-6">
+                          <div className="flex flex-col gap-2">
+                            <Label className="text-[10px] font-black uppercase tracking-widest text-primary/70">Student Response</Label>
+                            {answer.is_attended ? (
+                              answer.answer_text ? (
+                                <div className="whitespace-pre-wrap text-[15px] text-foreground leading-relaxed font-medium bg-background p-4 rounded-2xl border border-dashed border-border">
+                                  {answer.answer_text}
+                                </div>
                               ) : (
-                                <div className="text-sm text-red-500 font-bold uppercase tracking-wider bg-red-500/5 p-4 rounded-2xl border border-dashed border-red-500/20">
-                                  Question not attended by student
-                                </div>
-                              )}
-                            </div>
-                            {answer.ai_feedback && (
-                              <div className="rounded-2xl border border-primary/15 bg-primary/[0.04] p-4">
-                                <div className="mb-2 flex items-center gap-2">
-                                  <span className="inline-flex items-center gap-1 rounded-full bg-primary px-2 py-1 text-[9px] font-black uppercase tracking-widest text-primary-foreground">
-                                    <Zap className="h-3 w-3 fill-current" />
-                                    AI Insight
-                                  </span>
-                                  <span className="text-xs font-semibold text-muted-foreground">
-                                    {answer.ai_score}/{answer.max_marks}
-                                  </span>
-                                </div>
-                                <p className="text-sm leading-relaxed text-foreground/90 italic">"{answer.ai_feedback}"</p>
+                                <div className="text-sm text-muted-foreground italic bg-background p-4 rounded-2xl border border-dashed border-border">No text response provided.</div>
+                              )
+                            ) : (
+                              <div className="rounded-2xl border border-dashed border-red-500/20 bg-red-500/5 p-4">
+                                <p className="text-sm font-semibold text-red-600 dark:text-red-400">
+                                  This question was not answered by the student.
+                                </p>
                               </div>
                             )}
                           </div>
-                          <div className="space-y-4">
-                            <div className="rounded-2xl border border-border bg-muted/30 p-4">
-                              <p className="text-[10px] font-black uppercase tracking-[0.18em] text-muted-foreground">Review Snapshot</p>
-                              <div className="mt-3 space-y-3 text-sm">
-                                <div className="flex items-center justify-between">
-                                  <span className="text-muted-foreground">Question</span>
-                                  <span className="font-semibold text-foreground">{answer.question_order || index + 1}</span>
+                          {answer.answer_file && (
+                            <div className="pt-1">
+                              <Label className="text-[10px] font-black uppercase tracking-widest text-primary/70 mb-2 block">Attachment</Label>
+                              <a href={answer.answer_file} target="_blank" rel="noreferrer" className="flex items-center gap-4 px-4 py-3 rounded-2xl bg-background border border-border group/file hover:border-primary/50 transition-all shadow-sm">
+                                <div className="h-10 w-10 rounded-xl bg-primary/10 flex items-center justify-center text-primary transition-transform group-hover/file:scale-110">
+                                  <Paperclip className="h-5 w-5" />
                                 </div>
-                                <div className="flex items-center justify-between">
-                                  <span className="text-muted-foreground">Marks awarded</span>
-                                  <span className="font-semibold text-foreground">{qMarks[answer.id] || '0'} / {answer.max_marks}</span>
+                                <div className="flex-1 min-w-0">
+                                  <p className="text-sm font-bold text-foreground truncate">{shortName(answer.answer_file)}</p>
+                                  <p className="text-[10px] text-muted-foreground font-medium">Open submission file</p>
                                 </div>
-                                <div className="flex items-center justify-between">
-                                  <span className="text-muted-foreground">Attachment</span>
-                                  <span className="font-semibold text-foreground">{answer.answer_file ? 'Yes' : 'No'}</span>
-                                </div>
-                              </div>
+                                <ExternalLink className="h-4 w-4 text-muted-foreground group-hover/file:text-primary transition-colors" />
+                              </a>
                             </div>
-                            {answer.answer_file && (
-                              <div className="pt-1">
-                                <Label className="text-[10px] font-black uppercase tracking-widest text-primary/70 mb-2 block">Attachment</Label>
-                                <a href={answer.answer_file} target="_blank" rel="noreferrer" className="flex items-center gap-4 px-4 py-3 rounded-2xl bg-background border border-border group/file hover:border-primary/50 transition-all shadow-sm">
-                                  <div className="h-10 w-10 rounded-xl bg-primary/10 flex items-center justify-center text-primary transition-transform group-hover/file:scale-110">
-                                    <Paperclip className="h-5 w-5" />
-                                  </div>
-                                  <div className="flex-1 min-w-0">
-                                    <p className="text-sm font-bold text-foreground truncate">{shortName(answer.answer_file)}</p>
-                                    <p className="text-[10px] text-muted-foreground font-medium">Open submission file</p>
-                                  </div>
-                                  <ExternalLink className="h-4 w-4 text-muted-foreground group-hover/file:text-primary transition-colors" />
-                                </a>
+                          )}
+                          {answer.ai_feedback && (
+                            <div className="rounded-2xl border border-primary/15 bg-primary/[0.04] p-4">
+                              <div className="mb-2 flex items-center gap-2">
+                                <span className="inline-flex items-center gap-1 rounded-full bg-primary px-2 py-1 text-[9px] font-black uppercase tracking-widest text-primary-foreground">
+                                  <Zap className="h-3 w-3 fill-current" />
+                                  AI Insight
+                                </span>
+                                <span className="text-xs font-semibold text-muted-foreground">
+                                  {answer.ai_score}/{answer.max_marks}
+                                </span>
                               </div>
-                            )}
-                          </div>
+                              <p className="text-sm leading-relaxed text-foreground/90 italic">"{answer.ai_feedback}"</p>
+                            </div>
+                          )}
                         </div>
                       </CardContent>
                     </Card>
