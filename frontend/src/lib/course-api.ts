@@ -46,9 +46,9 @@ export const courseApi = {
     return response.data;
   },
 
-  // Get a single course by ID
-  getCourse: async (id: number) => {
-    const response = await apiClient.get<{ data: Course, success: boolean, message: string }>(`/api/courses/v1/courses/${id}/`);
+  // Get a single course by ID (optional batch_id for students with multiple enrollments)
+  getCourse: async (id: number, params?: { batch_id?: number }) => {
+    const response = await apiClient.get<{ data: Course, success: boolean, message: string }>(`/api/courses/v1/courses/${id}/`, { params });
     return response.data;
   },
 

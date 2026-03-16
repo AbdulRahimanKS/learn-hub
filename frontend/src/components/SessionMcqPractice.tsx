@@ -6,7 +6,7 @@ import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
 import { cn } from '@/lib/utils';
 
-interface Question {
+export interface McqPracticeQuestion {
   id: number;
   text: string;
   is_fill_in_the_blank: boolean;
@@ -19,7 +19,7 @@ interface Question {
 
 interface SessionMcqPracticeProps {
   sessionTitle: string;
-  questions: Question[];
+  questions: McqPracticeQuestion[];
   onClose: () => void;
 }
 

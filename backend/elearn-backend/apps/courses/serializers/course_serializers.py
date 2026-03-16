@@ -4,7 +4,7 @@ Serializers for the Course models.
 from drf_spectacular.utils import extend_schema_field
 from drf_spectacular.types import OpenApiTypes
 from rest_framework import serializers
-from apps.courses.models import Course, Tag
+from apps.courses.models import Course, Tag, BatchEnrollment, BatchClassSession, StudentSessionView, BatchWeeklyTest, TestSubmission
 from utils.common import ServiceError
 from rest_framework import status
 
@@ -53,44 +53,38 @@ class CourseListSerializer(serializers.ModelSerializer):
         ]
         read_only_fields = ['course_code', 'created_at', 'total_weeks']
 
-    @extend_schema_field(OpenApiTypes.INT)
-    def get_batch_id(self, obj):
+    def _get_enrollment(self, obj):
+        """Return the enrollment to use: from context (student list) or first match (teachers/admins)."""
+        enrollment = self.context.get('enrollment')
+        if enrollment is not None:
+            return enrollment
         user = self.context['request'].user
         if not user.is_authenticated:
             return None
-        # Find the batch the student is enrolled in for this course
-        batch = obj.batches.filter(enrollments__student=user).first()
-        return batch.id if batch else None
+        return BatchEnrollment.objects.filter(batch__course=obj, student=user).first()
+
+    @extend_schema_field(OpenApiTypes.INT)
+    def get_batch_id(self, obj):
+        enrollment = self._get_enrollment(obj)
+        return enrollment.batch_id if enrollment else None
 
     @extend_schema_field(OpenApiTypes.STR)
     def get_batch_name(self, obj):
-        user = self.context['request'].user
-        if not user.is_authenticated:
-            return None
-        batch = obj.batches.filter(enrollments__student=user).first()
-        return batch.name if batch else None
+        enrollment = self._get_enrollment(obj)
+        return enrollment.batch.name if enrollment else None
 
     @extend_schema_field(OpenApiTypes.STR)
     def get_batch_status(self, obj):
-        user = self.context['request'].user
-        if not user.is_authenticated:
-            return None
-        from apps.courses.models import BatchEnrollment
-        enrollment = BatchEnrollment.objects.filter(batch__course=obj, student=user).first()
+        enrollment = self._get_enrollment(obj)
         return enrollment.status if enrollment else None
 
     @extend_schema_field(OpenApiTypes.STR)
     def get_learning_status(self, obj):
-        user = self.context['request'].user
-        if not user.is_authenticated:
-            return 'start_learning'
-        from apps.courses.models import BatchEnrollment, BatchClassSession, StudentSessionView
-        enrollment = BatchEnrollment.objects.filter(batch__course=obj, student=user).first()
+        enrollment = self._get_enrollment(obj)
         if not enrollment:
             return 'start_learning'
-        if enrollment.status == 'completed':
+        if enrollment.status == BatchEnrollment.Status.COMPLETED:
             return 'review'
-        
         completed_sessions = StudentSessionView.objects.filter(enrollment=enrollment, is_completed=True).count()
         if completed_sessions > 0:
             return 'continue_learning'
@@ -98,26 +92,17 @@ class CourseListSerializer(serializers.ModelSerializer):
 
     @extend_schema_field(OpenApiTypes.INT)
     def get_progress_percent(self, obj):
-        user = self.context['request'].user
-        if not user.is_authenticated:
-            return 0
-        from apps.courses.models import BatchEnrollment, BatchClassSession, StudentSessionView, BatchWeeklyTest, TestSubmission
-        enrollment = BatchEnrollment.objects.filter(batch__course=obj, student=user).first()
+        enrollment = self._get_enrollment(obj)
         if not enrollment:
             return 0
-            
         total_sessions = BatchClassSession.objects.filter(batch_week__batch=enrollment.batch).count()
         total_tests = BatchWeeklyTest.objects.filter(batch_week__batch=enrollment.batch).count()
         total_items = total_sessions + total_tests
-        
         if total_items == 0:
             return 0
-            
         completed_sessions = StudentSessionView.objects.filter(enrollment=enrollment, is_completed=True).count()
-        completed_tests = TestSubmission.objects.filter(enrollment=enrollment, is_passed=True, status='published').count()
+        completed_tests = TestSubmission.objects.filter(enrollment=enrollment, is_passed=True, status=TestSubmission.Status.PUBLISHED).count()
         completed_items = completed_sessions + completed_tests
-        
-        # Don't exceed 100 in odd test edge cases
         return min(100, round((completed_items / total_items) * 100))
 
 
@@ -161,43 +146,42 @@ class CourseDetailSerializer(serializers.ModelSerializer):
         ]
         read_only_fields = ['course_code', 'created_by', 'updated_by', 'created_at', 'updated_at', 'total_weeks']
 
-    @extend_schema_field(OpenApiTypes.INT)
-    def get_batch_id(self, obj):
+    def _get_enrollment(self, obj):
+        """
+        Return the enrollment to use for detail view.
+        If an explicit enrollment is provided in context, use that; otherwise
+        fall back to the first enrollment for this user and course.
+        """
+        enrollment = self.context.get('enrollment')
+        if enrollment is not None:
+            return enrollment
         user = self.context['request'].user
         if not user.is_authenticated:
             return None
-        batch = obj.batches.filter(enrollments__student=user).first()
-        return batch.id if batch else None
+        return BatchEnrollment.objects.filter(batch__course=obj, student=user).first()
+
+    @extend_schema_field(OpenApiTypes.INT)
+    def get_batch_id(self, obj):
+        enrollment = self._get_enrollment(obj)
+        return enrollment.batch_id if enrollment else None
 
     @extend_schema_field(OpenApiTypes.STR)
     def get_batch_name(self, obj):
-        user = self.context['request'].user
-        if not user.is_authenticated:
-            return None
-        batch = obj.batches.filter(enrollments__student=user).first()
-        return batch.name if batch else None
+        enrollment = self._get_enrollment(obj)
+        return enrollment.batch.name if enrollment else None
 
     @extend_schema_field(OpenApiTypes.STR)
     def get_batch_status(self, obj):
-        user = self.context['request'].user
-        if not user.is_authenticated:
-            return None
-        from apps.courses.models import BatchEnrollment
-        enrollment = BatchEnrollment.objects.filter(batch__course=obj, student=user).first()
+        enrollment = self._get_enrollment(obj)
         return enrollment.status if enrollment else None
 
     @extend_schema_field(OpenApiTypes.STR)
     def get_learning_status(self, obj):
-        user = self.context['request'].user
-        if not user.is_authenticated:
-            return 'start_learning'
-        from apps.courses.models import BatchEnrollment, BatchClassSession, StudentSessionView
-        enrollment = BatchEnrollment.objects.filter(batch__course=obj, student=user).first()
+        enrollment = self._get_enrollment(obj)
         if not enrollment:
             return 'start_learning'
-        if enrollment.status == 'completed':
+        if enrollment.status == BatchEnrollment.Status.COMPLETED:
             return 'review'
-        
         completed_sessions = StudentSessionView.objects.filter(enrollment=enrollment, is_completed=True).count()
         if completed_sessions > 0:
             return 'continue_learning'
@@ -205,26 +189,17 @@ class CourseDetailSerializer(serializers.ModelSerializer):
 
     @extend_schema_field(OpenApiTypes.INT)
     def get_progress_percent(self, obj):
-        user = self.context['request'].user
-        if not user.is_authenticated:
-            return 0
-        from apps.courses.models import BatchEnrollment, BatchClassSession, StudentSessionView, BatchWeeklyTest, TestSubmission
-        enrollment = BatchEnrollment.objects.filter(batch__course=obj, student=user).first()
+        enrollment = self._get_enrollment(obj)
         if not enrollment:
             return 0
-            
         total_sessions = BatchClassSession.objects.filter(batch_week__batch=enrollment.batch).count()
         total_tests = BatchWeeklyTest.objects.filter(batch_week__batch=enrollment.batch).count()
         total_items = total_sessions + total_tests
-        
         if total_items == 0:
             return 0
-            
         completed_sessions = StudentSessionView.objects.filter(enrollment=enrollment, is_completed=True).count()
-        completed_tests = TestSubmission.objects.filter(enrollment=enrollment, is_passed=True, status='published').count()
+        completed_tests = TestSubmission.objects.filter(enrollment=enrollment, is_passed=True, status=TestSubmission.Status.PUBLISHED).count()
         completed_items = completed_sessions + completed_tests
-        
-        # Don't exceed 100 in odd test edge cases
         return min(100, round((completed_items / total_items) * 100))
 
 

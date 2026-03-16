@@ -5,7 +5,6 @@ from datetime import timedelta
 from django.conf import settings
 from apps.courses.models import (
     Batch, BatchWeek, BatchClassSession, CourseClassSession, CourseWeek,
-    CourseWeeklyTest, CourseTestQuestion,
     BatchWeeklyTest, BatchTestQuestion, BatchTestQuestionAttachment,
     BatchPostSessionQuestion, BatchPostSessionChoice
 )
@@ -13,35 +12,6 @@ from apps.courses.views.upload_views import get_s3_client
 
 logger = logging.getLogger(__name__)
 
-def initialize_batch_weeks(batch):
-    """
-    Initializes BatchWeeks based on CourseWeeks of the related course.
-    Calculates unlock dates based on batch start_date.
-    """
-    if not batch.start_date or not batch.course:
-        return
-
-    course_weeks = CourseWeek.objects.filter(course=batch.course).order_by('week_number')
-    
-    for cw in course_weeks:
-        # Calculate Monday of that week
-        # Assuming start_date is the start of Week 1
-        # If start_date is Monday, Week 2 unlock is start_date + 7 days
-        days_to_add = (cw.week_number - 1) * 7
-        unlock_date = timezone.make_aware(
-            timezone.datetime.combine(batch.start_date + timedelta(days=days_to_add), timezone.datetime.min.time())
-        )
-        
-        BatchWeek.objects.get_or_create(
-            batch=batch,
-            week_number=cw.week_number,
-            defaults={
-                'title': cw.title,
-                'description': cw.description,
-                'unlock_date': unlock_date,
-                'is_published': cw.is_published
-            }
-        )
 
 @transaction.atomic
 def push_content_to_batch(source_batch_id=None, source_course_id=None, target_batch_id=None):

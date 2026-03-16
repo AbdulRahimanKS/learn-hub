@@ -26,7 +26,7 @@ from utils.common import (
 )
 from utils.pagination import CustomPageNumberPagination
 from utils.constants import UserTypeConstants
-from apps.courses.services import initialize_batch_weeks, push_content_to_batch, extend_batch_timeline
+from apps.courses.services import push_content_to_batch, extend_batch_timeline
 
 logger = logging.getLogger(__name__)
 

@@ -225,13 +225,13 @@ export default function AdminCourses() {
     if (course) {
       setEditCourseId(course.id);
       setFormData({
-        title: course.title,
-        description: course.description || '',
-        difficulty: course.difficulty_level,
-        tags: course.tags.map(t => t.name).join(', '),
-        isActive: course.is_active,
+        title: course.title ?? '',
+        description: course.description ?? '',
+        difficulty: course.difficulty_level ?? 'beginner',
+        tags: Array.isArray(course.tags) ? course.tags.map(t => t.name).join(', ') : '',
+        isActive: course.is_active ?? true,
       });
-      setImagePreview(course.thumbnail);
+      setImagePreview(course.thumbnail ?? null);
     } else {
       resetForm();
     }
@@ -339,17 +339,18 @@ export default function AdminCourses() {
             <h1 className="font-display text-3xl font-bold text-foreground">Course Management</h1>
             <p className="mt-1 text-muted-foreground">Add, edit and manage your platform's courses</p>
           </div>
-          {user?.role === 'admin' && (
-            <Dialog open={isModalOpen} onOpenChange={(open) => {
-              setIsModalOpen(open);
-              if (!open) resetForm();
-            }}>
+          <Dialog open={isModalOpen} onOpenChange={(open) => {
+            setIsModalOpen(open);
+            if (!open) resetForm();
+          }}>
+            {user?.role === 'admin' && (
               <DialogTrigger asChild>
                 <Button variant="gradient" onClick={() => handleOpenModal()}>
                   <Plus className="h-4 w-4 mr-2" />
                   Add Course
                 </Button>
               </DialogTrigger>
+            )}
             <DialogContent className="sm:max-w-lg max-h-[90vh] overflow-y-auto" onOpenAutoFocus={(e) => e.preventDefault()}>
               <DialogHeader>
                 <DialogTitle>{editCourseId ? 'Edit Course' : 'Add New Course'}</DialogTitle>
@@ -490,7 +491,6 @@ export default function AdminCourses() {
               </div>
             </DialogContent>
           </Dialog>
-          )}
         </div>
 
         {/* Search & Filter */}
@@ -524,11 +524,19 @@ export default function AdminCourses() {
            <div className="text-center py-12 text-muted-foreground border-2 border-dashed border-muted-foreground/30 rounded-xl">
               <BookOpen className="h-12 w-12 mx-auto mb-4 opacity-50" />
               <h3 className="text-lg font-medium mb-1">
-                {searchQuery ? "No matching courses" : "No courses yet"}
+                {searchQuery
+                  ? `No courses matching "${searchQuery}"`
+                  : statusFilter !== 'all'
+                  ? `No ${statusFilter} courses`
+                  : 'No courses yet'}
               </h3>
-              <p>
-                {searchQuery 
-                  ? "We couldn't find any courses matching your search. Try different keywords."
+              <p className="max-w-sm mx-auto">
+                {searchQuery
+                  ? `We couldn't find any courses matching your search. Try different keywords.`
+                  : statusFilter === 'active'
+                  ? 'There are no active courses at the moment.'
+                  : statusFilter === 'inactive'
+                  ? 'There are no inactive courses at the moment.'
                   : "You haven't added any courses. Click 'Add Course' to get started."}
               </p>
            </div>

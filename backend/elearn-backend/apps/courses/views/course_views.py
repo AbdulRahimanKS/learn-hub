@@ -36,19 +36,60 @@ class CourseListView(APIView):
         responses={200: CourseListSerializer(many=True)},
     )
     def get(self, request):
-        qs = Course.objects.prefetch_related('tags').order_by('-created_at')
-
         user = request.user
+        is_student = (
+            getattr(user, 'user_type', None) and
+            user.user_type.name == UserTypeConstants.STUDENT
+        )
+
+        if is_student:
+            # One list item per enrollment so the same course can appear twice (e.g. completed + active).
+            enrollments = (
+                BatchEnrollment.objects
+                .filter(
+                    student=user,
+                    status__in=[BatchEnrollment.Status.ACTIVE, BatchEnrollment.Status.COMPLETED]
+                )
+                .select_related('batch', 'batch__course')
+                .prefetch_related('batch__course__tags')
+                .order_by('-enrolled_at')
+            )
+            is_active_param = request.query_params.get('is_active')
+            if is_active_param is not None:
+                if is_active_param.lower() == 'true':
+                    enrollments = enrollments.filter(batch__course__is_active=True)
+                else:
+                    enrollments = enrollments.filter(batch__course__is_active=False)
+            search = request.query_params.get('search', '').strip()
+            if search:
+                enrollments = enrollments.filter(
+                    Q(batch__course__title__icontains=search) |
+                    Q(batch__course__description__icontains=search)
+                )
+            pairs = [(e.batch.course, e) for e in enrollments]
+
+            paginate_param = request.query_params.get('paginate', 'true').strip().lower()
+            if paginate_param != 'false':
+                paginator = CustomPageNumberPagination()
+                page = paginator.paginate_queryset(pairs, request)
+                data = [
+                    CourseListSerializer(course, context={'request': request, 'enrollment': enrollment}).data
+                    for course, enrollment in page
+                ]
+                return paginator.get_paginated_response(data, message="Courses retrieved successfully")
+
+            data = [
+                CourseListSerializer(course, context={'request': request, 'enrollment': enrollment}).data
+                for course, enrollment in pairs
+            ]
+            return format_success_response(message="Courses retrieved successfully", data=data)
+
+        qs = Course.objects.prefetch_related('tags').order_by('-created_at')
         if getattr(user, 'user_type', None):
             if user.user_type.name == UserTypeConstants.TEACHER:
                 qs = qs.filter(
-                    Q(batches__teacher=user) | 
+                    Q(batches__teacher=user) |
                     Q(batches__co_teachers=user)
-                ).distinct()
-            elif user.user_type.name == UserTypeConstants.STUDENT:
-                qs = qs.filter(
-                    batches__enrollments__student=user,
-                    batches__enrollments__status=BatchEnrollment.Status.ACTIVE
                 ).distinct()
 
         is_active_param = request.query_params.get('is_active')
@@ -124,7 +165,7 @@ class CourseDetailView(APIView):
                 elif user.user_type.name == UserTypeConstants.STUDENT:
                     qs = qs.filter(
                         batches__enrollments__student=user,
-                        batches__enrollments__status=BatchEnrollment.Status.ACTIVE
+                        batches__enrollments__status__in=[BatchEnrollment.Status.ACTIVE, BatchEnrollment.Status.COMPLETED]
                     ).distinct()
 
             return qs.prefetch_related('tags').get(pk=pk)
@@ -133,11 +174,28 @@ class CourseDetailView(APIView):
 
     @extend_schema(
         summary="Retrieve a course",
+        parameters=[
+            OpenApiParameter("batch_id", OpenApiTypes.INT, description="Optional. For students with multiple enrollments, return data for this batch."),
+        ],
         responses={200: CourseDetailSerializer},
     )
     def get(self, request, pk):
         course = self.get_object(request, pk)
-        serializer = CourseDetailSerializer(course, context={'request': request})
+        context = {'request': request}
+        batch_id_param = request.query_params.get('batch_id')
+        if batch_id_param and request.user.is_authenticated:
+            try:
+                batch_id = int(batch_id_param)
+                enrollment = BatchEnrollment.objects.filter(
+                    batch__course=course,
+                    batch_id=batch_id,
+                    student=request.user,
+                ).select_related('batch').first()
+                if enrollment:
+                    context['enrollment'] = enrollment
+            except (TypeError, ValueError):
+                pass
+        serializer = CourseDetailSerializer(course, context=context)
         return format_success_response(message="Course retrieved successfully", data=serializer.data)
 
     @extend_schema(
@@ -148,7 +206,7 @@ class CourseDetailView(APIView):
         try:
             user = request.user
             if getattr(user, 'user_type', None) and user.user_type.name not in [UserTypeConstants.ADMIN, UserTypeConstants.SUPERADMIN]:
-                raise ServiceError(detail="You do not have permission to perform this action.", status_code=status.HTTP_403_FORBIDDEN)
+                raise ServiceError(detail="You do not have permission to perform this action.", status_code=status.HTTP_401_UNAUTHORIZED)
 
             course = self.get_object(request, pk)
 

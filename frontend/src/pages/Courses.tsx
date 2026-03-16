@@ -1,5 +1,5 @@
-import { useState, useEffect } from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
+import { useState, useEffect, useCallback } from 'react';
+import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { DashboardLayout } from '@/components/layout/DashboardLayout';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -35,7 +35,7 @@ import { courseModuleApi, CourseWeek, ClassSession } from '@/lib/course-module-a
 import { batchContentApi } from '@/lib/batch-api';
 import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
-import { SessionMcqPractice } from '@/components/SessionMcqPractice';
+import { SessionMcqPractice, McqPracticeQuestion } from '@/components/SessionMcqPractice';
 import { WeeklyTestSubmission } from '@/components/WeeklyTestSubmission';
 import { WeeklyTestResults } from '@/components/WeeklyTestResults';
 import { WeeklyTest } from '@/components/WeeklyTestManager';
@@ -44,8 +44,13 @@ export default function Courses() {
   const { toast } = useToast();
   const navigate = useNavigate();
   const { courseId } = useParams();
+  const [searchParams] = useSearchParams();
+  const batchIdFromUrl = searchParams.get('batch_id');
   const [courses, setCourses] = useState<Course[]>([]);
   const [loadingCourses, setLoadingCourses] = useState(true);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
+  const COURSE_PAGE_SIZE = 9;
 
   const [selectedCourse, setSelectedCourse] = useState<Course | null>(null);
   const [weeks, setWeeks] = useState<CourseWeek[]>([]);
@@ -58,7 +63,7 @@ export default function Courses() {
   const [playingSession, setPlayingSession] = useState<{ weekId: number; sessionId: number } | null>(null);
 
   // State for MCQ practice
-  const [activeMcqSession, setActiveMcqSession] = useState<{ title: string; questions: any[] } | null>(null);
+  const [activeMcqSession, setActiveMcqSession] = useState<{ title: string; questions: McqPracticeQuestion[] } | null>(null);
 
   // State for locally tracking viewed sessions in this component session
   const [viewedSessions, setViewedSessions] = useState<string[]>([]);
@@ -70,55 +75,35 @@ export default function Courses() {
   const [activeTestWeek, setActiveTestWeek] = useState<number | null>(null);
 
   useEffect(() => {
-    fetchCourses();
-  }, []);
-
-  useEffect(() => {
-    if (!loadingCourses) {
-      if (courseId) {
-        const course = courses.find(c => c.id.toString() === courseId);
-        if (course) {
-          loadCourseContent(course);
-        } else if (courses.length > 0) {
-          toast({
-            title: 'Course Not Found',
-            description: 'The requested course does not exist or you do not have access.',
-            variant: 'destructive',
-          });
-          navigate('/courses', { replace: true });
-        }
-      } else {
-        // Reset everything when on the list page
-        setSelectedCourse(null);
-        setWeeks([]);
-        setActiveVideoUrl(null);
-        setPlayingSession(null);
-        setActiveMcqSession(null);
-        setActiveWeekId(null);
-        setExpandedWeeks(new Set());
-      }
-    }
-  }, [courseId, courses, loadingCourses]);
-
-  const fetchCourses = async () => {
-    try {
+    const load = async () => {
       setLoadingCourses(true);
-      const res = await courseApi.getCourses({ paginate: false, is_active: true });
-      if (res.success) {
-        setCourses((res as any).data);
+      try {
+        const res = await courseApi.getCourses({
+          paginate: true,
+          is_active: true,
+          page: currentPage,
+          page_size: COURSE_PAGE_SIZE,
+        });
+        const paginated = res as { success: boolean; data: Course[]; total_pages?: number; current_page?: number };
+        if (paginated.success && Array.isArray(paginated.data)) {
+          setCourses(paginated.data);
+          setTotalPages(paginated.total_pages ?? 1);
+        } else {
+          setCourses([]);
+          setTotalPages(1);
+        }
+      } catch {
+        toast({ title: 'Error', description: 'Failed to load your courses', variant: 'destructive' });
+        setCourses([]);
+        setTotalPages(1);
+      } finally {
+        setLoadingCourses(false);
       }
-    } catch (err) {
-      toast({ title: 'Error', description: 'Failed to load your courses', variant: 'destructive' });
-    } finally {
-      setLoadingCourses(false);
-    }
-  };
+    };
+    load();
+  }, [currentPage, toast]);
 
-  const handleSelectCourse = (course: Course) => {
-    navigate(`/courses/${course.id}`);
-  };
-
-  const loadCourseContent = async (course: Course) => {
+  const loadCourseContent = useCallback(async (course: Course) => {
     setSelectedCourse(course);
     setLoadingWeeks(true);
     setActiveVideoUrl(null);
@@ -135,7 +120,6 @@ export default function Courses() {
       if (res.success) {
         setWeeks(res.data);
         if (res.data.length > 0) {
-          // Auto-expand first unlocked week
           const firstUnlocked = res.data.find((w: CourseWeek) => !getWeekLockInfoFromData(w, course).is_locked);
           const target = firstUnlocked || res.data[0];
           setActiveWeekId(target.id);
@@ -147,6 +131,62 @@ export default function Courses() {
     } finally {
       setLoadingWeeks(false);
     }
+  }, [toast]);
+
+  useEffect(() => {
+    if (!loadingCourses) {
+      if (courseId) {
+        const course = courses.find(
+          c => c.id.toString() === courseId &&
+            (batchIdFromUrl == null || c.batch_id?.toString() === batchIdFromUrl)
+        );
+        if (course) {
+          loadCourseContent(course);
+        } else if (!selectedCourse) {
+          const id = parseInt(courseId, 10);
+          if (Number.isNaN(id)) {
+            navigate('/courses', { replace: true });
+            return;
+          }
+          const batchId = batchIdFromUrl ? parseInt(batchIdFromUrl, 10) : undefined;
+          courseApi
+            .getCourse(id, batchId ? { batch_id: batchId } : undefined)
+            .then(res => {
+              if (res.data) {
+                loadCourseContent(res.data);
+              } else {
+                toast({
+                  title: 'Course Not Found',
+                  description: 'The requested course does not exist or you do not have access.',
+                  variant: 'destructive',
+                });
+                navigate('/courses', { replace: true });
+              }
+            })
+            .catch(() => {
+              toast({
+                title: 'Course Not Found',
+                description: 'The requested course does not exist or you do not have access.',
+                variant: 'destructive',
+              });
+              navigate('/courses', { replace: true });
+            });
+        }
+      } else {
+        setSelectedCourse(null);
+        setWeeks([]);
+        setActiveVideoUrl(null);
+        setPlayingSession(null);
+        setActiveMcqSession(null);
+        setActiveWeekId(null);
+        setExpandedWeeks(new Set());
+      }
+    }
+  }, [courseId, batchIdFromUrl, courses, loadingCourses, loadCourseContent, navigate, toast, selectedCourse]);
+
+  const handleSelectCourse = (course: Course) => {
+    const query = course.batch_id != null ? `?batch_id=${course.batch_id}` : '';
+    navigate(`/courses/${course.id}${query}`);
   };
 
   const handleBack = () => {
@@ -205,8 +245,8 @@ export default function Courses() {
     for (let i = 0; i < weeks.length; i++) {
       const lockInfo = getWeekLockInfo(weeks[i]);
       if (!lockInfo.is_locked) {
-        const sessions = weeks[i].class_sessions || [];
-        const incompleteSession = sessions.find((s: any) => !s.is_completed);
+        const sessions: ClassSession[] = weeks[i].class_sessions || [];
+        const incompleteSession = sessions.find((s) => !s.is_completed);
         if (incompleteSession) {
           setActiveWeekId(weeks[i].id);
           setExpandedWeeks(new Set([weeks[i].id]));
@@ -232,7 +272,7 @@ export default function Courses() {
             if (w.id === weekId) {
               return {
                 ...w,
-                class_sessions: w.class_sessions?.map((s: any) => {
+                class_sessions: w.class_sessions?.map((s: ClassSession) => {
                   if (s.id === sessionId) {
                     return { ...s, is_completed: res.data.is_completed };
                   }
@@ -258,21 +298,25 @@ export default function Courses() {
   }, 0);
 
   const completedSessions = weeks.reduce((acc, w) => {
-    const completedSessionCount = w.class_sessions?.filter((s: any) => s.is_completed).length || 0;
-    const completedTestCount = (w.weekly_test as any)?.is_passed ? 1 : 0;
+    const completedSessionCount =
+      (w.class_sessions ?? []).filter((s: ClassSession) => s.is_completed).length;
+    const completedTestCount =
+      w.weekly_test && 'is_passed' in w.weekly_test && w.weekly_test.is_passed ? 1 : 0;
     return acc + completedSessionCount + completedTestCount;
   }, 0);
 
   const inProgressWeek = weeks.find(w => {
     const lockInfo = getWeekLockInfo(w);
     if (lockInfo.is_locked) return false;
-    const sessions = w.class_sessions || [];
-    return sessions.some((s: any) => !s.is_completed) || sessions.length === 0;
+    const sessions: ClassSession[] = w.class_sessions || [];
+    return sessions.some(s => !s.is_completed) || sessions.length === 0;
   });
 
   const firstWeekLockInfo = weeks.length > 0 ? getWeekLockInfo(weeks[0]) : null;
   const isBatchNotStarted = firstWeekLockInfo?.is_locked && firstWeekLockInfo?.reason === 'date_locked';
-  const batchUnlockDate = isBatchNotStarted ? (firstWeekLockInfo as any).unlock_date : null;
+  const batchUnlockDate = isBatchNotStarted && firstWeekLockInfo && 'unlock_date' in firstWeekLockInfo
+    ? (firstWeekLockInfo as { unlock_date: string }).unlock_date
+    : null;
   
   const isUpToDate = totalSessions > 0 && completedSessions === totalSessions;
 
@@ -398,6 +442,29 @@ export default function Courses() {
                     </div>
                   </Card>
                 ))}
+              </div>
+            )}
+            {!loadingCourses && courses.length > 0 && totalPages > 1 && (
+              <div className="flex items-center justify-center gap-2 mt-8">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                  disabled={currentPage === 1}
+                >
+                  Previous
+                </Button>
+                <div className="text-sm font-medium text-muted-foreground px-4">
+                  Page {currentPage} of {totalPages}
+                </div>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+                  disabled={currentPage === totalPages}
+                >
+                  Next
+                </Button>
               </div>
             )}
           </>
@@ -555,10 +622,11 @@ export default function Courses() {
                       return (a.session_number || 0) - (b.session_number || 0);
                     });
                     
-                    const completedCount = sessions.filter((s: any) => s.is_completed).length;
+                    const completedCount = sessions.filter((s: ClassSession) => s.is_completed).length;
                     const allDone = sessions.length > 0 && completedCount === sessions.length;
                     const progressPct = sessions.length > 0 ? (completedCount / sessions.length) * 100 : 0;
-                    const isPass = (week.weekly_test as any)?.is_passed;
+                    const weeklyTestWithPass = week.weekly_test as { is_passed?: boolean } | null | undefined;
+                    const isPass = weeklyTestWithPass?.is_passed;
 
                     return (
                       <div key={week.id} className="rounded-xl border border-border/60 bg-card overflow-hidden shadow-sm">
@@ -621,11 +689,16 @@ export default function Courses() {
                             )}
                             {locked && (
                               <p className="text-[10px] text-muted-foreground font-medium uppercase tracking-wider mt-0.5">
-                                {lockInfo.reason === 'date_locked' 
-                                  ? `Unlocks ${new Date((lockInfo as any).unlock_date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}`
+                                {lockInfo.reason === 'date_locked'
+                                  ? (() => {
+                                      const unlockDate = (lockInfo as { unlock_date?: string }).unlock_date;
+                                      return unlockDate
+                                        ? `Unlocks ${new Date(unlockDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}`
+                                        : 'Locked';
+                                    })()
                                   : lockInfo.reason === 'previous_test_not_passed'
-                                  ? 'Pass previous assessment to unlock'
-                                  : 'Locked'}
+                                    ? 'Pass previous assessment to unlock'
+                                    : 'Locked'}
                               </p>
                             )}
                           </div>
@@ -656,7 +729,7 @@ export default function Courses() {
                               </div>
                             ) : (
                               <div className="divide-y divide-border/30">
-                                {sessions.map((session: any) => {
+                                {sessions.map((session: ClassSession) => {
                                   const isPlaying =
                                     playingSession?.weekId === week.id && playingSession?.sessionId === session.id;
                                   const completed = session.is_completed;
@@ -801,91 +874,145 @@ export default function Courses() {
                                         {week.weekly_test.title || 'Weekly Assessment'}
                                       </p>
                                       <p className="text-xs text-muted-foreground mt-0.5 flex items-center gap-2">
-                                        {locked 
+                                        {locked
                                           ? lockInfo.reason === 'date_locked'
-                                            ? `Unlocks on ${new Date((lockInfo as any).unlock_date).toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric' })}`
+                                            ? (() => {
+                                                const unlockDate = (lockInfo as { unlock_date?: string }).unlock_date;
+                                                return unlockDate
+                                                  ? `Unlocks on ${new Date(unlockDate).toLocaleDateString('en-US', {
+                                                      weekday: 'long',
+                                                      month: 'short',
+                                                      day: 'numeric',
+                                                    })}`
+                                                  : 'Unlocks soon';
+                                              })()
                                             : 'Pass previous assessment to unlock'
-                                          : 'Test your understanding of this week\'s lessons'}
+                                          : "Test your understanding of this week's lessons"}
                                         {isPass ? (
                                           <Badge className="bg-emerald-500/20 text-emerald-400 border-emerald-500/30 text-[10px] h-5 px-2 font-black uppercase tracking-wider shadow-[0_0_10px_rgba(16,185,129,0.1)]">
                                             Passed
                                           </Badge>
-                                        ) : (week.weekly_test as any).latest_submission?.status === 'published' ? (
-                                          <Badge className="bg-rose-500/20 text-rose-400 border-rose-500/30 text-[10px] h-5 px-2 font-black uppercase tracking-wider shadow-[0_0_10px_rgba(244,63,94,0.1)]">
-                                            Failed
-                                          </Badge>
-                                        ) : (week.weekly_test as any).latest_submission && (
-                                          <Badge className="bg-blue-500/10 text-blue-500 border-blue-500/20 text-[10px] h-5 px-2 font-black uppercase tracking-wider shadow-[0_0_10px_rgba(59,130,246,0.05)]">
-                                            {(week.weekly_test as any).latest_submission.status.replace('_', ' ')}
-                                          </Badge>
-                                        )}
+                                        ) : (() => {
+                                          const weeklyTest = week.weekly_test as
+                                            | { latest_submission?: { status: string; marks_obtained?: number } }
+                                            | null
+                                            | undefined;
+                                          const latest = weeklyTest?.latest_submission;
+                                          if (!latest) return null;
+                                          if (latest.status === 'published' && !isPass) {
+                                            return (
+                                              <Badge className="bg-rose-500/20 text-rose-400 border-rose-500/30 text-[10px] h-5 px-2 font-black uppercase tracking-wider shadow-[0_0_10px_rgba(244,63,94,0.1)]">
+                                                Failed
+                                              </Badge>
+                                            );
+                                          }
+                                          if (latest.status !== 'published') {
+                                            return (
+                                              <Badge className="bg-blue-500/10 text-blue-500 border-blue-500/20 text-[10px] h-5 px-2 font-black uppercase tracking-wider shadow-[0_0_10px_rgba(59,130,246,0.05)]">
+                                                {latest.status.replace('_', ' ')}
+                                              </Badge>
+                                            );
+                                          }
+                                          return null;
+                                        })()}
                                         
-                                        {(week.weekly_test as any).latest_submission?.status === 'published' && (
-                                          <span className="text-[10px] font-bold text-foreground">
-                                            Score: {(week.weekly_test as any).latest_submission.marks_obtained}%
-                                          </span>
-                                        )}
+                                        {(() => {
+                                          const weeklyTest = week.weekly_test as
+                                            | { latest_submission?: { status: string; marks_obtained?: number } }
+                                            | null
+                                            | undefined;
+                                          const latest = weeklyTest?.latest_submission;
+                                          if (latest?.status === 'published' && typeof latest.marks_obtained === 'number') {
+                                            return (
+                                              <span className="text-[10px] font-bold text-foreground">
+                                                Score: {latest.marks_obtained}%
+                                              </span>
+                                            );
+                                          }
+                                          return null;
+                                        })()}
                                       </p>
                                     </div>
                                   </div>
                                   <div className="flex items-center gap-2">
-                                    {(week.weekly_test as any).has_attempted && (week.weekly_test as any).latest_submission?.status === 'published' && (
-                                      <Button
-                                        size="sm"
-                                        variant="outline"
-                                        className="font-bold rounded-full h-9 px-4 text-xs"
-                                        onClick={(e) => {
-                                          e.stopPropagation();
-                                          setActiveTest(week.weekly_test as any);
-                                          setActiveTestWeek(week.id);
-                                          setIsResultsOpen(true);
-                                        }}
-                                      >
-                                        View Results
-                                      </Button>
-                                    )}
-                                    {!isPass && (
-                                      <Button
-                                        size="sm"
-                                        disabled={locked || (!sessions.every((s: any) => s.is_completed) && !(week.weekly_test as any).has_attempted)}
-                                      className={cn(
-                                        'font-bold rounded-full h-9 px-6 text-xs transition-all',
-                                        locked || (!sessions.every((s: any) => s.is_completed) && !(week.weekly_test as any).has_attempted)
-                                          ? 'bg-muted text-muted-foreground cursor-not-allowed border'
-                                          : (week.weekly_test as any).has_attempted 
-                                            ? 'bg-[#283593] hover:bg-[#1a237e] text-white shadow-md'
-                                            : 'bg-[#283593] hover:bg-[#1a237e] text-white shadow-md'
-                                      )}
-                                    onClick={(e) => {
-                                      e.stopPropagation();
-                                      setActiveTest(week.weekly_test as any);
-                                      setActiveTestWeek(week.id);
-                                      if ((week.weekly_test as any).has_attempted) {
-                                        const status = (week.weekly_test as any).latest_submission?.status;
-                                        if (!isPass && (status === 'published' || status === 'returned')) {
-                                          setIsTestSubmissionOpen(true);
-                                        } else {
-                                          setIsResultsOpen(true);
-                                        }
-                                      } else {
-                                        setIsTestSubmissionOpen(true);
+                                    {(() => {
+                                      const weeklyTest = week.weekly_test as (WeeklyTest & {
+                                        has_attempted?: boolean;
+                                        latest_submission?: { status: string };
+                                      }) | null | undefined;
+                                      if (!weeklyTest?.has_attempted || weeklyTest.latest_submission?.status !== 'published') {
+                                        return null;
                                       }
-                                    }}
-                                  >
-                                    {locked
-                                      ? 'Locked'
-                                      : (week.weekly_test as any).has_attempted
-                                      ? isPass
-                                        ? 'Passed'
-                                        : ((week.weekly_test as any).latest_submission?.status === 'published' || (week.weekly_test as any).latest_submission?.status === 'returned')
-                                          ? 'Retake Test'
-                                          : 'View Submission'
-                                      : !sessions.every((s: any) => s.is_completed)
-                                      ? 'Complete Lessons'
-                                      : 'Take Test'}
-                                  </Button>
-                                    )}
-                                </div>
+                                      return (
+                                        <Button
+                                          size="sm"
+                                          variant="outline"
+                                          className="font-bold rounded-full h-9 px-4 text-xs"
+                                          onClick={(e) => {
+                                            e.stopPropagation();
+                                            setActiveTest(weeklyTest);
+                                            setActiveTestWeek(week.id);
+                                            setIsResultsOpen(true);
+                                          }}
+                                        >
+                                          View Results
+                                        </Button>
+                                      );
+                                    })()}
+                                    {!isPass &&
+                                      (() => {
+                                        const weeklyTest = week.weekly_test as (WeeklyTest & {
+                                          has_attempted?: boolean;
+                                          latest_submission?: { status: string };
+                                        }) | null | undefined;
+                                        const allSessionsCompleted = sessions.every((s: ClassSession) => s.is_completed);
+                                        const hasAttempted = !!weeklyTest?.has_attempted;
+                                        const latestStatus = weeklyTest?.latest_submission?.status;
+                                        const disabled = locked || (!allSessionsCompleted && !hasAttempted);
+
+                                        const label = locked
+                                          ? 'Locked'
+                                          : hasAttempted
+                                            ? isPass
+                                              ? 'Passed'
+                                              : latestStatus === 'published' || latestStatus === 'returned'
+                                                ? 'Retake Test'
+                                                : 'View Submission'
+                                            : !allSessionsCompleted
+                                              ? 'Complete Lessons'
+                                              : 'Take Test';
+
+                                        return (
+                                          <Button
+                                            size="sm"
+                                            disabled={disabled}
+                                            className={cn(
+                                              'font-bold rounded-full h-9 px-6 text-xs transition-all',
+                                              disabled
+                                                ? 'bg-muted text-muted-foreground cursor-not-allowed border'
+                                                : 'bg-[#283593] hover:bg-[#1a237e] text-white shadow-md',
+                                            )}
+                                            onClick={(e) => {
+                                              e.stopPropagation();
+                                              if (!weeklyTest) return;
+                                              setActiveTest(weeklyTest);
+                                              setActiveTestWeek(week.id);
+                                              if (hasAttempted) {
+                                                if (!isPass && (latestStatus === 'published' || latestStatus === 'returned')) {
+                                                  setIsTestSubmissionOpen(true);
+                                                } else {
+                                                  setIsResultsOpen(true);
+                                                }
+                                              } else {
+                                                setIsTestSubmissionOpen(true);
+                                              }
+                                            }}
+                                          >
+                                            {label}
+                                          </Button>
+                                        );
+                                      })()}
+                                  </div>
                                 </div>
                               ) : (
                                 <div className="flex items-center gap-3 rounded-xl bg-muted/20 border border-dashed border-border/50 px-5 py-4 text-muted-foreground">
@@ -950,18 +1077,23 @@ export default function Courses() {
             )}
 
             {/* Student Weekly Test Results */}
-            {activeTest && (activeTest as any).latest_submission && (
-              <WeeklyTestResults
-                open={isResultsOpen}
-                onClose={() => {
-                  setIsResultsOpen(false);
-                  setActiveTest(null);
-                  setActiveTestWeek(null);
-                }}
-                submission={(activeTest as any).latest_submission}
-                testTitle={activeTest.title}
-              />
-            )}
+            {(() => {
+              type TestWithSubmission = WeeklyTest & { latest_submission?: { status: string } };
+              const testWithSubmission = activeTest as TestWithSubmission | null;
+              if (!testWithSubmission?.latest_submission) return null;
+              return (
+                <WeeklyTestResults
+                  open={isResultsOpen}
+                  onClose={() => {
+                    setIsResultsOpen(false);
+                    setActiveTest(null);
+                    setActiveTestWeek(null);
+                  }}
+                  submission={testWithSubmission.latest_submission}
+                  testTitle={testWithSubmission.title}
+                />
+              );
+            })()}
           </>
         )}
       </div>

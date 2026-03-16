@@ -224,29 +224,6 @@ class BatchEnrollment(models.Model):
         return f"{self.student.fullname} → {self.batch.name} [{self.status}]"
 
 
-# StudentProgress
-class StudentProgress(models.Model):
-    enrollment = models.OneToOneField(
-        BatchEnrollment, on_delete=models.CASCADE, related_name='progress'
-    )
-
-    tests_attempted  = models.PositiveSmallIntegerField(default=0)
-    tests_passed     = models.PositiveSmallIntegerField(default=0)
-
-    last_activity_at  = models.DateTimeField(null=True, blank=True)
-
-    teacher_remarks   = models.TextField(blank=True)
-
-    updated_at        = models.DateTimeField(auto_now=True)
-
-    class Meta:
-        verbose_name        = _('Student Progress')
-        verbose_name_plural = _('Student Progress Records')
-
-    def __str__(self):
-        return f"{self.enrollment.student.fullname} Progress"
-
-
 # StudentSessionView
 class StudentSessionView(models.Model):
     enrollment   = models.ForeignKey(
