@@ -1,5 +1,6 @@
 from .course_views import (
     CourseListView,
+    CourseMySummaryView,
     CourseCreateView,
     CourseDetailView,
     CourseUpdateView,
@@ -73,6 +74,7 @@ from .live_session_views import (
 
 __all__ = [
     'CourseListView',
+    'CourseMySummaryView',
     'CourseCreateView',
     'CourseDetailView',
     'CourseUpdateView',

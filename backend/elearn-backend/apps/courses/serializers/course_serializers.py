@@ -4,7 +4,7 @@ Serializers for the Course models.
 from drf_spectacular.utils import extend_schema_field
 from drf_spectacular.types import OpenApiTypes
 from rest_framework import serializers
-from apps.courses.models import Course, Tag, BatchEnrollment, BatchClassSession, StudentSessionView, BatchWeeklyTest, TestSubmission
+from apps.courses.models import Course, Tag, BatchEnrollment, BatchClassSession, StudentSessionView, BatchWeeklyTest, TestSubmission, BatchWeek
 from utils.common import ServiceError
 from rest_framework import status
 
@@ -24,10 +24,13 @@ class CourseListSerializer(serializers.ModelSerializer):
     difficulty_display = serializers.CharField(
         source='get_difficulty_level_display', read_only=True
     )
-    total_weeks = serializers.IntegerField(read_only=True)
+    total_weeks = serializers.SerializerMethodField()
     batch_id = serializers.SerializerMethodField()
     batch_name = serializers.SerializerMethodField()
     batch_status = serializers.SerializerMethodField()
+    batch_student_count = serializers.SerializerMethodField()
+    batch_start_date = serializers.SerializerMethodField()
+    batch_teacher_name = serializers.SerializerMethodField()
     learning_status = serializers.SerializerMethodField()
     progress_percent = serializers.SerializerMethodField()
 
@@ -48,10 +51,24 @@ class CourseListSerializer(serializers.ModelSerializer):
             'batch_id',
             'batch_name',
             'batch_status',
+            'batch_student_count',
+            'batch_start_date',
+            'batch_teacher_name',
             'learning_status',
             'progress_percent',
         ]
         read_only_fields = ['course_code', 'created_at', 'total_weeks']
+    @extend_schema_field(OpenApiTypes.INT)
+    def get_total_weeks(self, obj):
+        """
+        For student list items, use the enrolled batch's weeks count.
+        Fallback to course template weeks for admin/teacher contexts.
+        """
+        enrollment = self._get_enrollment(obj)
+        if enrollment:
+            return BatchWeek.objects.filter(batch=enrollment.batch).count()
+        return getattr(obj, 'total_weeks', 0) or 0
+
 
     def _get_enrollment(self, obj):
         """Return the enrollment to use: from context (student list) or first match (teachers/admins)."""
@@ -77,6 +94,30 @@ class CourseListSerializer(serializers.ModelSerializer):
     def get_batch_status(self, obj):
         enrollment = self._get_enrollment(obj)
         return enrollment.status if enrollment else None
+
+    @extend_schema_field(OpenApiTypes.INT)
+    def get_batch_student_count(self, obj):
+        enrollment = self._get_enrollment(obj)
+        if not enrollment:
+            return None
+        return getattr(enrollment.batch, 'enrolled_count', None)
+
+    @extend_schema_field(OpenApiTypes.DATE)
+    def get_batch_start_date(self, obj):
+        enrollment = self._get_enrollment(obj)
+        if not enrollment:
+            return None
+        return getattr(enrollment.batch, 'start_date', None)
+
+    @extend_schema_field(OpenApiTypes.STR)
+    def get_batch_teacher_name(self, obj):
+        enrollment = self._get_enrollment(obj)
+        if not enrollment:
+            return None
+        teacher = getattr(enrollment.batch, 'teacher', None)
+        if not teacher:
+            return None
+        return getattr(teacher, 'fullname', None) or getattr(teacher, 'get_full_name', lambda: None)() or str(teacher)
 
     @extend_schema_field(OpenApiTypes.STR)
     def get_learning_status(self, obj):

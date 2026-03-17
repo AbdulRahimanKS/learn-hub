@@ -28,6 +28,7 @@ class CourseListView(APIView):
         summary="List all courses",
         parameters=[
             OpenApiParameter("search", OpenApiTypes.STR, description="Search by title or description"),
+            OpenApiParameter("enrollment_status", OpenApiTypes.STR, description="For students: 'active', 'completed', or omit for all"),
             OpenApiParameter("is_active", OpenApiTypes.BOOL, description="Filter by active status"),
             OpenApiParameter("paginate", OpenApiTypes.BOOL, description="Set to false to return all results without pagination (default: true)"),
             OpenApiParameter("page", OpenApiTypes.INT, description="Page number (when paginated)"),
@@ -54,6 +55,11 @@ class CourseListView(APIView):
                 .prefetch_related('batch__course__tags')
                 .order_by('-enrolled_at')
             )
+            enrollment_status = request.query_params.get('enrollment_status', '').strip().lower()
+            if enrollment_status == 'active':
+                enrollments = enrollments.filter(status=BatchEnrollment.Status.ACTIVE)
+            elif enrollment_status == 'completed':
+                enrollments = enrollments.filter(status=BatchEnrollment.Status.COMPLETED)
             is_active_param = request.query_params.get('is_active')
             if is_active_param is not None:
                 if is_active_param.lower() == 'true':
@@ -270,6 +276,34 @@ class CourseUpdateView(APIView):
             logger.error(f"Error updating course: {str(e)}")
             raise ServiceError(detail=str(e), status_code=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
+
+
+@extend_schema(tags=["Courses"])
+class CourseMySummaryView(APIView):
+    """Summary stats for the current student's enrollments (active count, completed count)."""
+    permission_classes = [IsAuthenticated]
+
+    @extend_schema(
+        summary="My courses summary (student)",
+        responses={200: None},
+    )
+    def get(self, request):
+        user = request.user
+        if not getattr(user, 'user_type', None) or user.user_type.name != UserTypeConstants.STUDENT:
+            return format_success_response(
+                data={'active_count': 0, 'completed_count': 0},
+                message="Summary retrieved",
+            )
+        enrollments = BatchEnrollment.objects.filter(
+            student=user,
+            status__in=[BatchEnrollment.Status.ACTIVE, BatchEnrollment.Status.COMPLETED],
+        )
+        active_count = enrollments.filter(status=BatchEnrollment.Status.ACTIVE).count()
+        completed_count = enrollments.filter(status=BatchEnrollment.Status.COMPLETED).count()
+        return format_success_response(
+            data={'active_count': active_count, 'completed_count': completed_count},
+            message="Summary retrieved",
+        )
 
 
 @extend_schema(tags=["Courses"])

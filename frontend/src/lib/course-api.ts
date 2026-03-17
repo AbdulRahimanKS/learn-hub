@@ -13,6 +13,9 @@ export interface Course {
   batch_id?: number | null;
   batch_name?: string | null;
   batch_status?: 'active' | 'completed' | 'dropped' | null;
+  batch_student_count?: number | null;
+  batch_start_date?: string | null;
+  batch_teacher_name?: string | null;
   learning_status?: 'start_learning' | 'continue_learning' | 'review';
   progress_percent?: number;
   created_at: string;
@@ -37,12 +40,24 @@ export interface CourseListParams {
   page?: number;
   page_size?: number;
   paginate?: boolean;
+  /** For students: 'active' | 'completed' or omit for all */
+  enrollment_status?: string;
+}
+
+export interface CourseMySummary {
+  active_count: number;
+  completed_count: number;
 }
 
 export const courseApi = {
   // Get list of courses (paginated or all)
   getCourses: async (params?: CourseListParams) => {
-    const response = await apiClient.get<PaginatedResponse<Course> | { data: Course[], success: boolean, message: string }>('/api/courses/v1/courses/', { params });
+    const response = await apiClient.get<PaginatedResponse<Course> | { data: Course[]; success: boolean; message: string }>('/api/courses/v1/courses/', { params });
+    return response.data;
+  },
+
+  getMySummary: async () => {
+    const response = await apiClient.get<{ data: CourseMySummary; success: boolean; message: string }>('/api/courses/v1/courses/my-summary/');
     return response.data;
   },
 

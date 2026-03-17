@@ -29,8 +29,20 @@ import {
   Calendar,
   Monitor,
   X,
+  Search,
+  Filter,
+  Layers,
+  GraduationCap,
 } from 'lucide-react';
-import { courseApi, Course } from '@/lib/course-api';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
+import { Input } from '@/components/ui/input';
+import { courseApi, Course, CourseMySummary } from '@/lib/course-api';
 import { courseModuleApi, CourseWeek, ClassSession } from '@/lib/course-module-api';
 import { batchContentApi } from '@/lib/batch-api';
 import { useToast } from '@/hooks/use-toast';
@@ -39,6 +51,15 @@ import { SessionMcqPractice, McqPracticeQuestion } from '@/components/SessionMcq
 import { WeeklyTestSubmission } from '@/components/WeeklyTestSubmission';
 import { WeeklyTestResults } from '@/components/WeeklyTestResults';
 import { WeeklyTest } from '@/components/WeeklyTestManager';
+
+function useDebounce<T>(value: T, delay: number): T {
+  const [debouncedValue, setDebouncedValue] = useState<T>(value);
+  useEffect(() => {
+    const timer = setTimeout(() => setDebouncedValue(value), delay);
+    return () => clearTimeout(timer);
+  }, [value, delay]);
+  return debouncedValue;
+}
 
 export default function Courses() {
   const { toast } = useToast();
@@ -50,7 +71,11 @@ export default function Courses() {
   const [loadingCourses, setLoadingCourses] = useState(true);
   const [currentPage, setCurrentPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
-  const COURSE_PAGE_SIZE = 9;
+  const [searchQuery, setSearchQuery] = useState('');
+  const [statusFilter, setStatusFilter] = useState<'all' | 'active' | 'completed'>('all');
+  const [summary, setSummary] = useState<CourseMySummary>({ active_count: 0, completed_count: 0 });
+  const debouncedSearch = useDebounce(searchQuery, 500);
+  const COURSE_PAGE_SIZE = 6;
 
   const [selectedCourse, setSelectedCourse] = useState<Course | null>(null);
   const [weeks, setWeeks] = useState<CourseWeek[]>([]);
@@ -74,24 +99,44 @@ export default function Courses() {
   const [activeTest, setActiveTest] = useState<WeeklyTest | null>(null);
   const [activeTestWeek, setActiveTestWeek] = useState<number | null>(null);
 
+  // Reset to page 1 when search or filter changes
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [debouncedSearch, statusFilter]);
+
   useEffect(() => {
     const load = async () => {
       setLoadingCourses(true);
       try {
-        const res = await courseApi.getCourses({
+        const params: Parameters<typeof courseApi.getCourses>[0] = {
           paginate: true,
           is_active: true,
           page: currentPage,
           page_size: COURSE_PAGE_SIZE,
-        });
-        const paginated = res as { success: boolean; data: Course[]; total_pages?: number; current_page?: number };
-        if (paginated.success && Array.isArray(paginated.data)) {
-          setCourses(paginated.data);
-          setTotalPages(paginated.total_pages ?? 1);
-        } else {
-          setCourses([]);
-          setTotalPages(1);
-        }
+        };
+        if (debouncedSearch.trim()) params.search = debouncedSearch.trim();
+        if (statusFilter !== 'all') params.enrollment_status = statusFilter;
+        const res = await courseApi.getCourses(params);
+        const paginated = res as {
+          success?: boolean;
+          data?: Course[];
+          total_pages?: number;
+          current_page?: number;
+          total_items?: number;
+          page_size?: number;
+        };
+        const list = Array.isArray(paginated?.data) ? paginated.data : [];
+        const totalPagesFromApi = paginated?.total_pages;
+        const totalItems = paginated?.total_items;
+        const pageSize = paginated?.page_size || COURSE_PAGE_SIZE;
+        const computedTotalPages =
+          totalPagesFromApi != null
+            ? totalPagesFromApi
+            : totalItems != null && pageSize > 0
+              ? Math.max(1, Math.ceil(totalItems / pageSize))
+              : 1;
+        setCourses(list);
+        setTotalPages(computedTotalPages);
       } catch {
         toast({ title: 'Error', description: 'Failed to load your courses', variant: 'destructive' });
         setCourses([]);
@@ -101,7 +146,15 @@ export default function Courses() {
       }
     };
     load();
-  }, [currentPage, toast]);
+  }, [currentPage, debouncedSearch, statusFilter, toast]);
+
+  // Fetch summary when on list view (no courseId)
+  useEffect(() => {
+    if (courseId) return;
+    courseApi.getMySummary().then((res) => {
+      if (res.success && res.data) setSummary(res.data);
+    }).catch(() => {});
+  }, [courseId]);
 
   const loadCourseContent = useCallback(async (course: Course) => {
     setSelectedCourse(course);
@@ -334,9 +387,87 @@ export default function Courses() {
         {!selectedCourse ? (
           // ===== COURSE LIST =====
           <>
-            <div>
-              <h1 className="font-display text-3xl font-bold text-foreground">My Courses</h1>
-              <p className="mt-1 text-muted-foreground">Continue learning and tracking your subjects</p>
+            <div className="flex items-start justify-between gap-4">
+              <div>
+                <h1 className="font-display text-3xl font-bold text-foreground">My Courses</h1>
+                <p className="mt-1 text-muted-foreground">Continue learning and tracking your subjects</p>
+              </div>
+              {loadingCourses && (
+                <div className="flex items-center text-muted-foreground mt-1">
+                  <Loader2 className="h-4 w-4 animate-spin text-primary" />
+                </div>
+              )}
+            </div>
+
+            {/* Summary cards */}
+            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+              <Card className="shadow-card">
+                <CardContent className="p-6">
+                  <div className="flex items-center gap-4">
+                    <div className="p-3 rounded-xl bg-success/10">
+                      <BookOpen className="h-6 w-6 text-success" />
+                    </div>
+                    <div>
+                      <p className="text-2xl font-bold text-foreground">{summary.active_count}</p>
+                      <p className="text-sm text-muted-foreground">Active Courses</p>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+              <Card className="shadow-card">
+                <CardContent className="p-6">
+                  <div className="flex items-center gap-4">
+                    <div className="p-3 rounded-xl bg-primary/10">
+                      <Award className="h-6 w-6 text-primary" />
+                    </div>
+                    <div>
+                      <p className="text-2xl font-bold text-foreground">{summary.completed_count}</p>
+                      <p className="text-sm text-muted-foreground">Completed</p>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+              <Card className="shadow-card">
+                <CardContent className="p-6">
+                  <div className="flex items-center gap-4">
+                    <div className="p-3 rounded-xl bg-info/10">
+                      <LayoutGrid className="h-6 w-6 text-info" />
+                    </div>
+                    <div>
+                      <p className="text-2xl font-bold text-foreground">
+                        {summary.active_count + summary.completed_count}
+                      </p>
+                      <p className="text-sm text-muted-foreground">Total Courses</p>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
+
+            {/* Search & Filter */}
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+              <div className="relative flex-1">
+                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                <Input
+                  placeholder="Search courses..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="pl-10"
+                />
+              </div>
+              <div className="w-[180px] shrink-0">
+                <Select value={statusFilter} onValueChange={(v: 'all' | 'active' | 'completed') => setStatusFilter(v)}>
+                  <SelectTrigger className="border-primary text-primary">
+                    <Filter className="h-4 w-4 mr-2" />
+                    <SelectValue placeholder="Filter by status" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Enrollments</SelectItem>
+                    <SelectItem value="active">Active Only</SelectItem>
+                    <SelectItem value="completed">Completed Only</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
             </div>
 
             {loadingCourses ? (
@@ -346,122 +477,181 @@ export default function Courses() {
             ) : courses.length === 0 ? (
               <div className="text-center py-12 text-muted-foreground border-2 border-dashed border-muted-foreground/30 rounded-xl">
                 <BookOpen className="h-12 w-12 mx-auto mb-4 opacity-50" />
-                <h3 className="text-lg font-medium mb-1">No courses yet</h3>
-                <p>You haven't been enrolled in any courses yet.</p>
+                <h3 className="text-lg font-medium mb-1">
+                  {searchQuery
+                    ? `No courses matching "${searchQuery}"`
+                    : statusFilter === 'active'
+                    ? 'No active courses'
+                    : statusFilter === 'completed'
+                    ? 'No completed courses'
+                    : 'You haven\'t been enrolled in any courses yet'}
+                </h3>
+                <p className="max-w-sm mx-auto">
+                  {searchQuery
+                    ? 'We couldn\'t find any courses matching your search. Try different keywords.'
+                    : statusFilter === 'active'
+                    ? "You don't have any active enrollments at the moment."
+                    : statusFilter === 'completed'
+                    ? "You don't have any completed courses yet."
+                    : "Contact your admin to get enrolled in courses."}
+                </p>
               </div>
             ) : (
               <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
-                {courses.map(course => (
-                  <Card
-                    key={course.id}
-                    className="flex flex-col shadow-card hover:shadow-lg transition-all duration-300 cursor-pointer"
-                    onClick={() => handleSelectCourse(course)}
-                  >
-                    <div className="relative aspect-video w-full overflow-hidden rounded-t-xl group bg-muted flex items-center justify-center">
-                      {course.thumbnail ? (
-                        <img
-                          src={course.thumbnail}
-                          alt={course.title}
-                          className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
-                        />
-                      ) : (
-                        <ImageIcon className="h-12 w-12 text-muted-foreground/50" />
-                      )}
-                      <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent opacity-60" />
-                      {course.batch_status && (
-                        <div className="absolute top-3 left-3 flex gap-2">
-                          <Badge
-                            variant="outline"
-                            className={cn(
-                              'backdrop-blur-md font-bold border-none text-[10px] uppercase tracking-wider px-2 h-5 flex items-center shadow-lg',
-                              course.batch_status === 'active'
-                                ? 'bg-success/90 text-white'
-                                : course.batch_status === 'completed'
-                                ? 'bg-primary/90 text-white'
-                                : 'bg-destructive/90 text-white'
+                {courses.map(course => {
+                  const totalWeeks = typeof course.total_weeks === 'number' ? course.total_weeks : 0;
+                  const progress = course.progress_percent ?? 0;
+                  return (
+                    <Card
+                      key={course.id}
+                      className="flex flex-col shadow-card hover:shadow-lg transition-all duration-300 cursor-pointer group"
+                      onClick={() => handleSelectCourse(course)}
+                    >
+                      <div className="relative aspect-video w-full overflow-hidden rounded-t-xl bg-muted flex items-center justify-center">
+                        {course.thumbnail ? (
+                          <img
+                            src={course.thumbnail}
+                            alt={course.title}
+                            className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+                          />
+                        ) : (
+                          <ImageIcon className="h-12 w-12 text-muted-foreground/50" />
+                        )}
+                        <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent opacity-60" />
+                      </div>
+
+                      <div className="flex-1 px-5 pt-3 pb-2">
+                        <div className="flex items-start justify-between gap-3">
+                          <h3 className="text-xl line-clamp-1 font-bold leading-tight flex-1 min-w-0" title={course.title}>
+                            {course.title}
+                          </h3>
+                          {course.batch_status && (
+                            <Badge
+                              className={cn(
+                                'shrink-0 font-semibold text-[9px] uppercase tracking-wider px-2 h-5 border-none',
+                                course.batch_status === 'active'
+                                  ? 'bg-success text-white'
+                                  : course.batch_status === 'completed'
+                                  ? 'bg-primary text-primary-foreground'
+                                  : 'bg-destructive text-destructive-foreground'
+                              )}
+                            >
+                              {course.batch_status}
+                            </Badge>
+                          )}
+                        </div>
+                        {course.batch_name && (
+                          <p className="mt-1 text-base text-muted-foreground flex items-center gap-1.5">
+                            <Layers className="h-4 w-4 text-primary/70 shrink-0" />
+                            <span className="truncate font-medium">{course.batch_name}</span>
+                          </p>
+                        )}
+                        {course.description && (
+                          <p className="mt-1 line-clamp-2 text-sm text-muted-foreground" title={course.description}>
+                            {course.description}
+                          </p>
+                        )}
+                        {Array.isArray(course.tags) && course.tags.length > 0 && (
+                          <div className="mt-3 flex gap-2 flex-wrap mb-1 max-h-16 overflow-hidden">
+                            {course.tags.slice(0, 8).map((tag, idx) => (
+                              <Badge
+                                key={idx}
+                                variant="secondary"
+                                className="text-xs capitalize"
+                              >
+                                {tag.name}
+                              </Badge>
+                            ))}
+                            {course.tags.length > 8 && (
+                              <Badge variant="secondary" className="text-xs">
+                                +{course.tags.length - 8}
+                              </Badge>
                             )}
-                          >
-                            {course.batch_status}
-                          </Badge>
-                        </div>
-                      )}
-                    </div>
-
-                    <div className="flex-1 px-5 pt-4 pb-2">
-                      {course.batch_name ? (
-                        <div className="flex items-center gap-1.5 text-primary mb-1">
-                          <Users className="w-3.5 h-3.5" />
-                          <span className="text-[11px] font-bold uppercase tracking-tight">{course.batch_name}</span>
-                        </div>
-                      ) : (
-                        <div className="h-4" />
-                      )}
-                      <h3 className="text-lg line-clamp-1 font-bold leading-tight" title={course.title}>
-                        {course.title}
-                      </h3>
-                      {course.description && (
-                        <p className="mt-1.5 line-clamp-2 text-xs leading-relaxed text-muted-foreground" title={course.description}>
-                          {course.description}
-                        </p>
-                      )}
-                    </div>
-
-                    <div className="px-5 pb-5 pt-3">
-                      <div className="flex flex-col gap-2 text-sm text-muted-foreground bg-muted/40 p-3 rounded-lg border border-border/40 mb-4">
-                        <div className="flex items-center justify-between font-medium">
-                          <div className="flex items-center gap-1.5">
-                            <BookOpen className="h-4 w-4 text-primary/70" />
-                            <span className="capitalize">{course.difficulty_level}</span>
                           </div>
-                          <div className="flex items-center gap-1.5">
-                            <span className="text-foreground/80">{course.total_weeks || 0}</span>
-                            <span className="text-muted-foreground font-normal">Weeks</span>
+                        )}
+                      </div>
+
+                      <div className="px-5 pt-2 pb-2">
+                        <div className="bg-muted/30 border border-border/50 rounded-xl px-3 py-2">
+                          <div className="flex items-center justify-between gap-3 text-sm text-muted-foreground">
+                            <div className="flex items-center gap-1.5 min-w-0">
+                              <BookOpen className="h-4 w-4 text-primary/70 shrink-0" />
+                              <span className="capitalize truncate">{course.difficulty_level}</span>
+                            </div>
+                            <div className="flex items-center gap-1.5 min-w-0">
+                              <Calendar className="h-4 w-4 text-primary/70 shrink-0" />
+                              <span className="truncate">{totalWeeks} Weeks</span>
+                            </div>
+                            <div className="flex items-center gap-1.5 min-w-0 justify-end">
+                              <Calendar className="h-4 w-4 text-primary/70 shrink-0" />
+                              <span className="truncate">
+                                {course.batch_start_date
+                                  ? new Date(course.batch_start_date).toLocaleDateString('en-US', {
+                                      day: 'numeric',
+                                      month: 'short',
+                                      year: 'numeric',
+                                    })
+                                  : '—'}
+                              </span>
+                            </div>
                           </div>
                         </div>
                       </div>
 
-                      <Button 
-                        variant={course.learning_status === 'review' ? 'outline' : 'default'} 
-                        className={cn(
-                          "w-full font-bold h-10 transition-all duration-300 relative overflow-hidden",
-                          course.learning_status !== 'review' && "shadow-md group-hover:shadow-lg group-hover:bg-primary/90"
-                        )}
-                      >
-
-                        <span className="relative z-10 flex items-center">
-                          {course.learning_status === 'review' 
-                            ? 'Review Course' 
-                            : course.learning_status === 'continue_learning' 
-                              ? `Continue Learning (${course.progress_percent || 0}%)` 
-                              : 'Start Learning'}
-                          {course.learning_status !== 'review' && (
-                            <Play className="h-4 w-4 ml-2 fill-current opacity-70 group-hover:translate-x-1 transition-transform" />
+                      <div className="px-5 pb-4 pt-2">
+                        <div className="flex items-center justify-between text-sm mb-1">
+                          <span className="font-medium text-muted-foreground">Progress</span>
+                          <span className="font-bold text-foreground">{progress}%</span>
+                        </div>
+                        <div className="h-2 w-full bg-muted rounded-full overflow-hidden mb-3">
+                          <div
+                            className="h-full bg-gradient-to-r from-primary to-primary/80 rounded-full transition-all duration-500"
+                            style={{ width: `${progress}%` }}
+                          />
+                        </div>
+                        <Button
+                          variant={course.learning_status === 'review' ? 'outline' : 'default'}
+                          className={cn(
+                            'w-full font-bold h-10 transition-all duration-300',
+                            course.learning_status !== 'review' && 'shadow-md group-hover:shadow-lg'
                           )}
-                        </span>
-                      </Button>
-                    </div>
-                  </Card>
-                ))}
+                        >
+                          <span className="flex items-center">
+                            {course.learning_status === 'review'
+                              ? 'Review Course'
+                              : course.learning_status === 'continue_learning'
+                              ? 'Continue Learning'
+                              : 'Start Learning'}
+                            {course.learning_status !== 'review' && (
+                              <Play className="h-4 w-4 ml-2 fill-current opacity-80" />
+                            )}
+                          </span>
+                        </Button>
+                      </div>
+                    </Card>
+                  );
+                })}
               </div>
             )}
+
             {!loadingCourses && courses.length > 0 && totalPages > 1 && (
               <div className="flex items-center justify-center gap-2 mt-8">
                 <Button
                   variant="outline"
                   size="sm"
-                  onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
-                  disabled={currentPage === 1}
+                  onClick={(e) => { e.stopPropagation(); setCurrentPage(p => Math.max(1, p - 1)); }}
+                  disabled={loadingCourses || currentPage <= 1}
                 >
                   Previous
                 </Button>
                 <div className="text-sm font-medium text-muted-foreground px-4">
-                  Page {currentPage} of {totalPages}
+                  Page {currentPage} of {Math.max(1, totalPages)}
                 </div>
                 <Button
                   variant="outline"
                   size="sm"
-                  onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
-                  disabled={currentPage === totalPages}
+                  onClick={(e) => { e.stopPropagation(); setCurrentPage(p => Math.min(Math.max(1, totalPages), p + 1)); }}
+                  disabled={loadingCourses || currentPage >= Math.max(1, totalPages)}
                 >
                   Next
                 </Button>
