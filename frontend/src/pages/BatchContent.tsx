@@ -465,7 +465,11 @@ export default function BatchContent() {
                   variant="outline" 
                   size="icon" 
                   className="h-8 w-8 rounded-full border-primary/30 hover:bg-primary/10 hover:text-primary transition-colors"
-                  onClick={() => setIsExtendOpen(true)}
+                  disabled={weeks.length === 0}
+                  onClick={() => {
+                    if (weeks.length === 0) return;
+                    setIsExtendOpen(true);
+                  }}
                   title="Extend Program Timeline"
                 >
                   <Clock className="h-4 w-4" />
