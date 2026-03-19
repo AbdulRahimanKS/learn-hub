@@ -610,9 +610,9 @@ export default function Courses() {
                           />
                         </div>
                         <Button
-                          variant={course.learning_status === 'review' ? 'outline' : 'default'}
+                          variant={course.learning_status === 'review' ? 'outline' : 'gradient'}
                           className={cn(
-                            'w-full font-bold h-10 transition-all duration-300',
+                            'w-full font-bold h-10 transition-all duration-300 rounded-xl',
                             course.learning_status !== 'review' && 'shadow-md group-hover:shadow-lg'
                           )}
                         >
@@ -694,7 +694,7 @@ export default function Courses() {
             </Dialog>
 
             {/* ===== HEADER BANNER WITH OVERALL PROGRESS ===== */}
-            <div className="rounded-2xl overflow-hidden bg-gradient-to-br from-[#1a237e] via-[#283593] to-[#3949ab] text-white p-5 md:p-8 relative shadow-lg">
+            <div className="rounded-2xl overflow-hidden gradient-primary text-primary-foreground p-5 md:p-8 relative shadow-card border border-primary/20">
               {/* Decorative gradients */}
               <div className="absolute inset-0 overflow-hidden pointer-events-none">
                 <div className="absolute top-0 right-0 w-64 h-64 bg-white/5 rounded-full blur-3xl" />
@@ -709,7 +709,7 @@ export default function Courses() {
                   </h1>
                   
                   {selectedCourse.batch_name && (
-                    <p className="mt-2 text-white/80 text-xs md:text-sm font-medium flex items-center gap-2">
+                    <p className="mt-2 text-primary-foreground/80 text-xs md:text-sm font-medium flex items-center gap-2">
                        <Users className="w-3.5 h-3.5 md:w-4 md:h-4" />
                        <span className="truncate">Batch: {selectedCourse.batch_name}</span>
                     </p>
@@ -727,10 +727,10 @@ export default function Courses() {
                   </div>
                 </div>
 
-                <div className="w-full lg:w-80 shrink-0 bg-white/10 backdrop-blur-md border border-white/20 rounded-2xl p-5 md:p-6 shadow-xl">
+                  <div className="w-full lg:w-80 shrink-0 bg-white/10 backdrop-blur-md border border-white/20 rounded-2xl p-5 md:p-6 shadow-xl">
                   <div className="flex items-center justify-between mb-2">
-                    <span className="text-[10px] font-black uppercase tracking-[0.2em] text-white/50">Overall Progress</span>
-                    <span className="text-lg md:text-xl font-black text-white">{totalSessions > 0 ? Math.round((completedSessions / totalSessions) * 100) : 0}%</span>
+                    <span className="text-[10px] font-black uppercase tracking-[0.2em] text-primary-foreground/50">Overall Progress</span>
+                    <span className="text-lg md:text-xl font-black text-primary-foreground">{totalSessions > 0 ? Math.round((completedSessions / totalSessions) * 100) : 0}%</span>
                   </div>
                   <div className="h-2 w-full bg-white/10 rounded-full overflow-hidden border border-white/5">
                     <div 
@@ -741,21 +741,19 @@ export default function Courses() {
                   <div className="flex items-center gap-4 mt-3">
                     <div className="flex items-center gap-1.5">
                       <div className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
-                      <span className="text-[9px] md:text-[10px] font-bold text-white/50 uppercase tracking-wider">{completedSessions} DONE</span>
+                      <span className="text-[9px] md:text-[10px] font-bold text-primary-foreground/50 uppercase tracking-wider">{completedSessions} DONE</span>
                     </div>
                     <div className="flex items-center gap-1.5">
                       <div className="w-1.5 h-1.5 rounded-full bg-white/20" />
-                      <span className="text-[9px] md:text-[10px] font-bold text-white/50 uppercase tracking-wider">{totalSessions - completedSessions} LEFT</span>
+                      <span className="text-[9px] md:text-[10px] font-bold text-primary-foreground/50 uppercase tracking-wider">{totalSessions - completedSessions} LEFT</span>
                     </div>
                   </div>
                   <Button
                     onClick={handleStartLearning}
                     disabled={isBatchNotStarted}
+                    variant={isBatchNotStarted ? 'hero-outline' : 'gradient'}
                     className={cn(
-                      "w-full mt-4 md:mt-5 font-black h-10 md:h-11 rounded-xl shadow-lg transition-all text-xs md:text-sm",
-                      isBatchNotStarted
-                        ? "bg-white/20 text-white/50 cursor-not-allowed border border-white/10"
-                        : "bg-white text-[#1a237e] hover:bg-white/90"
+                      "w-full mt-4 md:mt-5 font-black h-10 md:h-11 rounded-xl shadow-lg transition-all text-xs md:text-sm"
                     )}
                   >
                     {isBatchNotStarted ? (
@@ -770,7 +768,7 @@ export default function Courses() {
                       </>
                     ) : (
                       <>
-                        <Play className="w-3.5 h-3.5 mr-2 fill-[#1a237e]" />
+                        <Play className="w-3.5 h-3.5 mr-2 fill-current" />
                         {completedSessions === 0 ? 'Start Learning' : 'Continue Journey'}
                       </>
                     )}
