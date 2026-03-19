@@ -677,9 +677,9 @@ export default function BatchContent() {
                            <p className="text-xs font-bold text-muted-foreground uppercase tracking-wider">Syncing Sessions...</p>
                         </div>
                       ) : sessions.length === 0 ? (
-                        <div className="py-16 text-center bg-primary/[0.02] border-2 border-dashed border-primary/30 rounded-3xl">
+                        <div className="py-16 text-center bg-card border-2 border-dashed border-muted-foreground/30 rounded-xl">
                           <VideoIcon className="h-12 w-12 mx-auto mb-4 text-muted-foreground/30" />
-                          <h4 className="text-lg font-display font-bold text-foreground">No sessions yet</h4>
+                          <h4 className="text-lg font-display font-semibold text-foreground">No sessions yet</h4>
                           <p className="text-sm text-muted-foreground max-w-xs mx-auto mb-6">
                             Start adding video sessions to this week. You can reorder them by weekday and session number.
                           </p>
@@ -811,9 +811,9 @@ export default function BatchContent() {
                            </div>
                         </Card>
                       ) : (
-                        <div className="border-2 border-dashed border-primary/30 rounded-3xl p-12 text-center bg-primary/[0.02]">
-                          <FileText className="h-12 w-12 text-indigo-300 mx-auto mb-4" />
-                          <h4 className="text-lg font-display font-bold text-foreground">Assessment Required</h4>
+                        <div className="border-2 border-dashed border-muted-foreground/30 rounded-xl p-12 text-center bg-card">
+                          <FileText className="h-12 w-12 text-primary/40 mx-auto mb-4 opacity-50" />
+                          <h4 className="text-lg font-display font-semibold">Assessment Required</h4>
                           <p className="text-sm text-muted-foreground mb-8 max-w-sm mx-auto">
                             Add a validation test for this week. Students cannot move forward or "Graduate" without passing this assessment.
                           </p>
