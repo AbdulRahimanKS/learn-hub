@@ -488,8 +488,8 @@ export default function AdminBatches() {
         {/* Header */}
         <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           <div>
-            <h1 className="font-display text-3xl font-bold text-foreground">Batches</h1>
-            <p className="mt-1 text-muted-foreground">Manage student batches</p>
+            <h1 className="font-display text-3xl font-bold text-foreground">Batch Management</h1>
+            <p className="mt-1 text-muted-foreground">Add, edit and manage student batches</p>
           </div>
           <Button variant="gradient" onClick={() => handleOpenModal()}>
             <Plus className="h-4 w-4" />

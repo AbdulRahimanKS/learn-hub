@@ -594,7 +594,7 @@ export default function Content() {
                 </Button>
                 <div>
                   <h1 className="font-display text-lg sm:text-xl font-bold text-foreground">Course Content</h1>
-                  <p className="text-[9px] sm:text-[10px] text-muted-foreground uppercase tracking-widest font-black">Template Editor</p>
+                  <p className="text-[10px] text-muted-foreground uppercase tracking-wide font-semibold">Template Editor</p>
                 </div>
               </div>
               <Button 
@@ -682,7 +682,7 @@ export default function Content() {
               return (
                 <div className="space-y-6 animate-in fade-in slide-in-from-bottom-2 duration-500">
                   {/* Phase 1: Header Banner */}
-                  <div className="relative rounded-xl md:rounded-3xl overflow-hidden bg-gradient-to-br from-[#1a237e] via-[#283593] to-[#3949ab] p-6 text-white shadow-lg">
+                  <div className="relative rounded-2xl overflow-hidden gradient-primary p-6 text-primary-foreground shadow-card border border-primary/20">
                     <div className="absolute top-0 right-0 p-8 pointer-events-none opacity-10 hidden md:block">
                        <BookOpen className="h-32 w-32 rotate-12" />
                     </div>
@@ -691,12 +691,12 @@ export default function Content() {
                       <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6">
                         <div className="space-y-2">
                           <div className="flex items-center gap-3">
-                            <Badge className="bg-white/10 text-white backdrop-blur-md border-none font-black text-[10px] h-6 px-3">
+                            <Badge className="bg-white/15 text-primary-foreground backdrop-blur-md border-none font-semibold text-[10px] h-6 px-3">
                               CURRICULUM BASE
                             </Badge>
                           </div>
-                          <h2 className="text-2xl md:text-3xl lg:text-4xl font-display font-black tracking-tight leading-tight">Week {week.week_number}: {week.title}</h2>
-                          <p className="text-white/60 max-w-xl text-xs md:text-sm leading-relaxed">
+                          <h2 className="text-2xl md:text-3xl font-display font-bold tracking-tight leading-tight">Week {week.week_number}: {week.title}</h2>
+                          <p className="text-primary-foreground/80 max-w-xl text-sm leading-relaxed">
                             {week.description || 'This module template will be inherited by all batches associated with this course.'}
                           </p>
                         </div>
@@ -737,10 +737,10 @@ export default function Content() {
                   <div className="space-y-4">
                     <div className="flex items-center justify-between px-2">
                       <div className="flex items-center gap-3">
-                         <div className="h-10 w-10 rounded-2xl bg-primary/10 text-primary flex items-center justify-center border border-primary/30">
+                        <div className="h-10 w-10 rounded-xl bg-primary/10 text-primary flex items-center justify-center border border-primary/20">
                             <VideoIcon className="h-5 w-5" />
                          </div>
-                         <h3 className="text-xl font-display font-black text-foreground">Lecture Templates</h3>
+                         <h3 className="text-xl font-display font-bold text-foreground">Lecture Templates</h3>
                       </div>
                       <Button variant="gradient" className="rounded-xl px-6" onClick={handleOpenAddVideo}>
                         <Upload className="h-4 w-4 mr-2" />
@@ -763,9 +763,9 @@ export default function Content() {
                           ))}
                       </div>
                     ) : (
-                      <div className="py-20 text-center bg-primary/[0.02] border-2 border-dashed border-primary/30 rounded-[2rem]">
+                      <div className="py-16 text-center bg-card border-2 border-dashed border-muted-foreground/30 rounded-xl">
                         <VideoIcon className="h-12 w-12 mx-auto mb-4 text-muted-foreground/30" />
-                        <h4 className="text-lg font-display font-bold text-foreground">No templates added</h4>
+                        <h4 className="text-lg font-display font-semibold text-foreground">No templates added</h4>
                         <p className="text-sm text-muted-foreground max-w-xs mx-auto mb-6">
                           Define standard videos for this course. They will be copied to all new batches automatically.
                         </p>
@@ -777,29 +777,29 @@ export default function Content() {
 
                     {/* Weekly Assessment Milestone */}
                     <div className="mt-12 space-y-4">
-                      <div className="flex items-center gap-3 px-2 pt-8 border-t border-border/50">
-                        <div className="h-10 w-10 rounded-2xl bg-primary/10 text-primary flex items-center justify-center border border-primary/30">
+                      <div className="flex items-center gap-3 px-2 pt-8">
+                        <div className="h-10 w-10 rounded-xl bg-primary/10 text-primary flex items-center justify-center border border-primary/20">
                           <CheckCircle className="h-5 w-5" />
                         </div>
-                        <h3 className="text-xl font-display font-black text-foreground">Module Test Blueprint</h3>
+                        <h3 className="text-xl font-display font-bold text-foreground">Module Test Blueprint</h3>
                       </div>
 
                       {week.weekly_test ? (
-                        <Card className="w-full rounded-2xl border-border/50 shadow-card border-l-4 border-l-primary/40 overflow-hidden bg-card transition-all hover:shadow-md">
+                        <Card className="w-full rounded-2xl border-border/50 shadow-card overflow-hidden bg-card transition-all hover:shadow-md">
                           <div className="flex flex-col sm:flex-row items-center p-6 gap-6">
                              <div className="h-14 w-14 rounded-xl bg-primary/10 flex items-center justify-center text-primary shrink-0">
                                 <ClipboardList className="h-7 w-7" />
                              </div>
                              <div className="flex-1 text-center sm:text-left min-w-0">
-                                <h4 className="text-xl font-black font-display font-bold text-foreground truncate">{week.weekly_test.title}</h4>
-                                <div className="flex items-center justify-center sm:justify-start gap-5 text-xs font-bold text-muted-foreground uppercase tracking-tight">
+                                <h4 className="text-xl font-display font-semibold text-foreground truncate">{week.weekly_test.title}</h4>
+                                <div className="flex items-center justify-center sm:justify-start gap-5 text-xs font-semibold text-muted-foreground tracking-tight mt-1">
                                    <span className="flex items-center gap-1.5"><HelpCircle className="h-3 w-3" /> {week.weekly_test.questions?.length || 0} Questions</span>
                                    <span className="flex items-center gap-1.5 text-primary"><Award className="h-3 w-3" /> {week.weekly_test.pass_percentage ?? 70}% Mastery Level</span>
                                 </div>
                              </div>
                              <Button 
                                variant="outline" size="sm" 
-                               className="rounded-xl px-8 h-11 font-black uppercase text-xs tracking-widest border-primary/30 text-primary hover:bg-primary/5"
+                               className="rounded-xl px-8 h-11 font-semibold text-xs tracking-wide border-primary/30 text-primary hover:bg-primary/5"
                                onClick={() => handleOpenTestManager(week)}
                              >
                                Manage Blueprint
@@ -807,9 +807,9 @@ export default function Content() {
                           </div>
                         </Card>
                       ) : (
-                        <div className="border-2 border-dashed border-indigo-500/10 rounded-[2rem] p-12 text-center bg-primary/[0.02]">
+                        <div className="border-2 border-dashed border-muted-foreground/30 rounded-xl p-12 text-center bg-card">
                           <FileText className="h-12 w-12 text-primary/40 mx-auto mb-4 opacity-50" />
-                          <h4 className="text-lg font-display font-bold">No Test Configured</h4>
+                          <h4 className="text-lg font-display font-semibold">No Test Configured</h4>
                           <p className="text-sm text-muted-foreground mb-6">Create a template assessment that will be given to students at the end of this module.</p>
                           <Button 
                             variant="outline" 
@@ -826,12 +826,12 @@ export default function Content() {
               );
             })()
           ) : (
-            <div className="h-full min-h-[400px] flex flex-col items-center justify-center text-center p-12 border-2 border-dashed border-border rounded-[2.5rem] bg-card/30">
-               <div className="h-20 w-20 rounded-3xl bg-primary/10 text-primary flex items-center justify-center mb-6">
-                 <LayoutGrid className="h-10 w-10 opacity-40" />
+            <div className="h-full min-h-[400px] text-center py-12 text-muted-foreground border-2 border-dashed border-muted-foreground/30 rounded-xl flex flex-col items-center justify-center px-6">
+               <div className="h-14 w-14 rounded-full bg-primary/10 text-primary flex items-center justify-center mb-4">
+                 <LayoutGrid className="h-7 w-7 opacity-60" />
                </div>
-               <h3 className="text-2xl font-display font-bold text-foreground mb-2">Workspace Empty</h3>
-               <p className="text-sm text-muted-foreground max-w-sm leading-relaxed mb-8 italic">
+               <h3 className="text-lg font-semibold text-foreground mb-1">Workspace Empty</h3>
+               <p className="text-sm text-muted-foreground max-w-sm leading-relaxed mb-6">
                  {weeks.length === 0 
                    ? "You haven't defined any curriculum weeks yet. Start by defining 'Week 1'." 
                    : "Select a week module from the sidebar to edit its lecture set and base assessment."}

@@ -781,28 +781,28 @@ export default function BatchContent() {
                     {/* WEEKLY ASSESSMENT SECTION */}
                     <div className="space-y-4 pt-6">
                       <div className="flex items-center gap-3 px-2">
-                        <div className="h-10 w-10 rounded-2xl bg-primary/10 text-primary flex items-center justify-center border border-primary/30">
+                        <div className="h-10 w-10 rounded-xl bg-primary/10 text-primary flex items-center justify-center border border-primary/20">
                           <CheckCircle className="h-5 w-5" />
                         </div>
-                        <h3 className="text-xl font-display font-black text-foreground">Weekly Graduation Assessment</h3>
+                        <h3 className="text-xl font-display font-bold text-foreground">Weekly Graduation Assessment</h3>
                       </div>
 
                       {weeklyTest ? (
-                        <Card className="w-full rounded-2xl border-border/50 shadow-card overflow-hidden bg-card hover:shadow-lg transition-all border-l-4 border-l-primary/40">
+                        <Card className="w-full rounded-2xl border-border/50 shadow-card overflow-hidden bg-card hover:shadow-lg transition-all">
                            <div className="flex flex-col sm:flex-row items-center p-6 gap-6">
                              <div className="h-14 w-14 rounded-2xl bg-primary/10 flex items-center justify-center text-primary shrink-0 shadow-sm">
                                 <ClipboardList className="h-7 w-7" />
                              </div>
                              <div className="flex-1 text-center sm:text-left min-w-0">
-                                <h4 className="text-xl font-display font-black text-foreground mb-1 truncate">{weeklyTest.title}</h4>
-                                <div className="flex items-center justify-center sm:justify-start gap-5 text-xs font-bold text-muted-foreground tracking-tight">
+                                <h4 className="text-xl font-display font-semibold text-foreground mb-1 truncate">{weeklyTest.title}</h4>
+                                <div className="flex items-center justify-center sm:justify-start gap-5 text-xs font-semibold text-muted-foreground tracking-tight">
                                   <span className="flex items-center gap-1.5"><HelpCircle className="h-4 w-4 opacity-70" /> {weeklyTest.questions?.length || 0} Questions</span>
                                   <span className="flex items-center gap-1.5 text-primary"><Award className="h-4 w-4" /> {weeklyTest.pass_percentage ?? 70}% Mastery Level</span>
                                 </div>
                              </div>
                              <Button 
                                 variant="outline" 
-                                className="rounded-xl px-8 h-11 font-black uppercase text-xs tracking-widest border-primary/30 text-primary hover:bg-primary/5 shadow-sm"
+                                className="rounded-xl px-8 h-11 font-semibold text-xs tracking-wide border-primary/30 text-primary hover:bg-primary/5 shadow-sm"
                                 onClick={() => handleOpenTestManager(week)}
                                 disabled={week.is_unlocked}
                               >
@@ -833,12 +833,12 @@ export default function BatchContent() {
               );
             })()
           ) : (
-            <div className="h-full min-h-[400px] flex flex-col items-center justify-center text-center p-12 border-2 border-dashed border-border rounded-[2.5rem] bg-card/30">
-               <div className="h-20 w-20 rounded-3xl bg-primary/10 text-primary flex items-center justify-center mb-6">
-                 <LayoutGrid className="h-10 w-10 opacity-40" />
+            <div className="h-full min-h-[400px] text-center py-12 text-muted-foreground border-2 border-dashed border-muted-foreground/30 rounded-xl flex flex-col items-center justify-center px-6">
+               <div className="h-14 w-14 rounded-full bg-primary/10 text-primary flex items-center justify-center mb-4">
+                 <LayoutGrid className="h-7 w-7 opacity-60" />
                </div>
-               <h3 className="text-2xl font-display font-bold text-foreground mb-2">Workspace Empty</h3>
-               <p className="text-sm text-muted-foreground max-w-sm leading-relaxed mb-8 italic">
+               <h3 className="text-lg font-semibold text-foreground mb-1">Workspace Empty</h3>
+               <p className="text-sm text-muted-foreground max-w-sm leading-relaxed mb-6">
                  {weeks.length === 0 
                    ? "You haven't defined any curriculum weeks yet. Start by defining 'Week 1'." 
                    : "Select a week from the sidebar to begin managing its content and assessments."}
