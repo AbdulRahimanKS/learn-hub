@@ -312,17 +312,17 @@ class ClassSessionDetailView(APIView):
         responses={200: CourseClassSessionSerializer}
     )
     def patch(self, request, course_id, week_id, session_id):
-        user = request.user
-        if getattr(user, 'user_type', None) and user.user_type.name not in [UserTypeConstants.ADMIN, UserTypeConstants.SUPERADMIN, UserTypeConstants.TEACHER]:
-            raise ServiceError(detail="You do not have permission to perform this action.", status_code=status.HTTP_403_FORBIDDEN)
-
-        session = self.get_object(course_id, week_id, session_id)
-        serializer = CourseClassSessionCreateUpdateSerializer(session, data=request.data, partial=True, context={'request': request})
-        if not serializer.is_valid():
-            error_str = handle_serializer_errors(serializer)
-            raise ServiceError(detail=error_str, status_code=status.HTTP_400_BAD_REQUEST)
-
         try:
+            user = request.user
+            if getattr(user, 'user_type', None) and user.user_type.name not in [UserTypeConstants.ADMIN, UserTypeConstants.SUPERADMIN, UserTypeConstants.TEACHER]:
+                raise ServiceError(detail="You do not have permission to perform this action.", status_code=status.HTTP_403_FORBIDDEN)
+
+            session = self.get_object(course_id, week_id, session_id)
+            serializer = CourseClassSessionCreateUpdateSerializer(session, data=request.data, partial=True, context={'request': request})
+            if not serializer.is_valid():
+                error_str = handle_serializer_errors(serializer)
+                raise ServiceError(detail=error_str, status_code=status.HTTP_400_BAD_REQUEST)
+
             new_session_number = serializer.validated_data.get('session_number')
             old_session_number = session.session_number
             new_weekday = serializer.validated_data.get('weekday')
@@ -334,8 +334,16 @@ class ClassSessionDetailView(APIView):
             if (new_session_number and new_session_number != old_session_number) or (new_weekday and new_weekday != old_weekday):
                 max_existing = CourseClassSession.objects.filter(course_week=session.course_week, weekday=final_weekday).exclude(id=session.id).count()
                 if new_session_number and (new_session_number > max_existing + 1 or new_session_number < 1):
+                    allowed_max = max_existing + 1
+                    if allowed_max == 1:
+                        message = (
+                            f"Only Session 1 exists for {final_weekday.capitalize()}. "
+                            "Create more sessions before moving to a higher session number."
+                        )
+                    else:
+                        message = f"Session number must be between 1 and {allowed_max} for {final_weekday.capitalize()}."
                     raise ServiceError(
-                        detail=f"Session number must be between 1 and {max_existing + 1} for {final_weekday.capitalize()}.",
+                        detail=message,
                         status_code=status.HTTP_400_BAD_REQUEST
                     )
                 try:
@@ -354,11 +362,6 @@ class ClassSessionDetailView(APIView):
 
             for attr, value in serializer.validated_data.items():
                 setattr(session, attr, value)
-                
-            if request.data.get('remove_thumbnail') == 'true':
-                if session.thumbnail:
-                    session.thumbnail.delete(save=False)
-                session.thumbnail = None
                 
             session.save()
 

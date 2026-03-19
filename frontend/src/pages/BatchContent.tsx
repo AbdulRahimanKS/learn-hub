@@ -1068,7 +1068,7 @@ export default function BatchContent() {
             <div className="grid gap-2">
                 <Label>Video File</Label>
                 <div 
-                  className={`border-2 border-dashed rounded-lg p-4 text-center cursor-pointer transition-colors ${videoFormErrors.video_file ? 'border-destructive/50 bg-destructive/5' : 'hover:bg-muted/50'} ${videoFile || (editingSession && editingSession.video_file) ? 'bg-primary/5 border-primary/30' : ''}`}
+                  className={`border-2 border-dashed rounded-lg p-4 text-center cursor-pointer transition-colors ${videoFormErrors.video_file ? 'border-destructive bg-destructive/5' : (videoFile || (editingSession && editingSession.video_file)) ? 'bg-primary/5 border-primary/30' : 'hover:bg-muted/50 border-border'}`}
                   onClick={() => fileInputRef.current?.click()}
                 >
                   <input
@@ -1086,28 +1086,28 @@ export default function BatchContent() {
                   <div className="flex flex-col items-center justify-center space-y-2">
                     {videoFile ? (
                       <>
-                        <div className="p-2 bg-primary/10 rounded-full">
-                          <CheckCircle className="h-6 w-6 text-primary" />
+                        <div className={`p-2 rounded-full ${videoFormErrors.video_file ? 'bg-destructive/10' : 'bg-primary/10'}`}>
+                          <CheckCircle className={`h-6 w-6 ${videoFormErrors.video_file ? 'text-destructive' : 'text-primary'}`} />
                         </div>
-                        <div className="text-sm font-medium text-primary line-clamp-1 px-4">{videoFile.name}</div>
+                        <div className={`text-sm font-medium line-clamp-1 px-4 ${videoFormErrors.video_file ? 'text-destructive' : 'text-foreground'}`}>{videoFile.name}</div>
                         <div className="text-xs text-muted-foreground">
                           {(videoFile.size / (1024 * 1024)).toFixed(2)} MB
                         </div>
                       </>
                     ) : editingSession && editingSession.video_file ? (
                       <>
-                        <div className="p-2 bg-primary/10 rounded-full">
-                          <CheckCircle className="h-6 w-6 text-primary" />
+                        <div className={`p-2 rounded-full ${videoFormErrors.video_file ? 'bg-destructive/10' : 'bg-primary/10'}`}>
+                          <CheckCircle className={`h-6 w-6 ${videoFormErrors.video_file ? 'text-destructive' : 'text-primary'}`} />
                         </div>
-                        <div className="text-sm font-medium text-primary">Video Uploaded</div>
+                        <div className={`text-sm font-medium ${videoFormErrors.video_file ? 'text-destructive' : 'text-foreground'}`}>Video Uploaded</div>
                         <div className="text-xs text-muted-foreground mt-1 px-2">Click to replace existing video file</div>
                       </>
                     ) : (
                       <>
                         <div className="p-2 bg-muted rounded-full">
-                          <Upload className="h-6 w-6 text-muted-foreground" />
+                          <Upload className={`h-6 w-6 ${videoFormErrors.video_file ? 'text-destructive' : 'text-muted-foreground'}`} />
                         </div>
-                        <div className="text-sm font-medium">Click to upload video</div>
+                        <div className={`text-sm font-medium ${videoFormErrors.video_file ? 'text-destructive' : 'text-foreground'}`}>Click to upload video</div>
                         <div className="text-xs text-muted-foreground">MP4, WebM (Max 5GB)</div>
                       </>
                     )}

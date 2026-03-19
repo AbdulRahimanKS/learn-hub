@@ -1021,7 +1021,7 @@ export default function Content() {
                     <p className={`text-sm ${videoFormErrors.video_file ? 'text-destructive' : 'text-muted-foreground'}`}>
                       Drag and drop or click to upload
                     </p>
-                    <p className="text-xs text-muted-foreground mt-1 text-primary">
+                    <p className={`text-xs mt-1 ${videoFormErrors.video_file ? 'text-destructive' : 'text-muted-foreground'}`}>
                       MP4 videos only
                     </p>
                   </>
