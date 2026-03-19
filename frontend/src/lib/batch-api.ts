@@ -31,6 +31,7 @@ export interface Batch {
   name: string;
   description: string;
   course: number | null;
+  course_title?: string | null;
   teacher: number | null;
   teacher_name: string | null;
   max_students: number;

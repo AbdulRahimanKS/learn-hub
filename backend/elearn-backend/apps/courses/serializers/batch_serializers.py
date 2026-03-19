@@ -15,6 +15,7 @@ class BatchListSerializer(serializers.ModelSerializer):
     Lightweight serializer for listing batches.
     """
     teacher_name = serializers.CharField(source='teacher.fullname', read_only=True)
+    course_title = serializers.CharField(source='course.title', read_only=True)
     enrolled_count = serializers.IntegerField(read_only=True)
     is_full = serializers.BooleanField(read_only=True)
     progress_percent = serializers.SerializerMethodField()
@@ -25,7 +26,7 @@ class BatchListSerializer(serializers.ModelSerializer):
         model = Batch
         fields = [
             'id', 'batch_code', 'name', 'description', 'course',
-            'teacher', 'teacher_name', 'max_students', 'enrolled_count', 'is_full',
+            'course_title', 'teacher', 'teacher_name', 'max_students', 'enrolled_count', 'is_full',
             'start_date', 'status', 'progress_percent', 'weeks_count', 'unread_count', 'created_at', 'updated_at'
         ]
 
@@ -34,26 +35,51 @@ class BatchListSerializer(serializers.ModelSerializer):
         request = self.context.get('request')
         if not request or not request.user.is_authenticated:
             return 0.0
-        
-        enrollment = self.context.get('enrollment')
-        if not enrollment:
-            enrollment = BE.objects.filter(
-                batch=obj, 
-                student=request.user, 
-                status__in=[BE.Status.ACTIVE, BE.Status.COMPLETED]
-            ).first()
-            
-        if not enrollment:
-            return 0.0
-        
+
         total_sessions = BatchClassSession.objects.filter(batch_week__batch=obj).count()
         total_tests = BatchWeeklyTest.objects.filter(batch_week__batch=obj).count()
         total_items = total_sessions + total_tests
         if total_items == 0:
             return 0.0
-        completed_sessions = StudentSessionView.objects.filter(enrollment=enrollment, is_completed=True).count()
-        completed_tests = TestSubmission.objects.filter(enrollment=enrollment, is_passed=True, status=TestSubmission.Status.PUBLISHED).count()
-        return min(100.0, round((completed_sessions + completed_tests) / total_items * 100, 1))
+
+        enrollment = self.context.get('enrollment')
+        if not enrollment:
+            enrollment = BE.objects.filter(
+                batch=obj,
+                student=request.user,
+                status__in=[BE.Status.ACTIVE, BE.Status.COMPLETED]
+            ).first()
+
+        # Student view: show that student's own progress in the batch.
+        if enrollment:
+            completed_sessions = StudentSessionView.objects.filter(enrollment=enrollment, is_completed=True).count()
+            completed_tests = TestSubmission.objects.filter(
+                enrollment=enrollment,
+                is_passed=True,
+                status=TestSubmission.Status.PUBLISHED
+            ).count()
+            return min(100.0, round((completed_sessions + completed_tests) / total_items * 100, 1))
+
+        # Admin/teacher view: show aggregate progress across active + completed students.
+        relevant_enrollments = BE.objects.filter(
+            batch=obj,
+            status__in=[BE.Status.ACTIVE, BE.Status.COMPLETED]
+        )
+        relevant_count = relevant_enrollments.count()
+        if relevant_count == 0:
+            return 0.0
+
+        completed_sessions = StudentSessionView.objects.filter(
+            enrollment__in=relevant_enrollments,
+            is_completed=True
+        ).count()
+        completed_tests = TestSubmission.objects.filter(
+            enrollment__in=relevant_enrollments,
+            is_passed=True,
+            status=TestSubmission.Status.PUBLISHED
+        ).count()
+        total_possible_completions = total_items * relevant_count
+        return min(100.0, round((completed_sessions + completed_tests) / total_possible_completions * 100, 1))
 
     @extend_schema_field(OpenApiTypes.INT)
     def get_weeks_count(self, obj):

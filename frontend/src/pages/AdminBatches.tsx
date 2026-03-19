@@ -589,12 +589,12 @@ export default function AdminBatches() {
                 <CardContent className="flex-1 flex flex-col p-0">
                   <div className="space-y-4 flex-1 flex flex-col justify-between p-6 pt-0">
                     <div className="space-y-3">
-                      {/* Teacher */}
+                      {/* Course */}
                       <div className="flex items-center gap-3">
                         <div className="h-8 w-8 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
-                          <GraduationCap className="h-4 w-4 text-primary" />
+                          <BookOpen className="h-4 w-4 text-primary" />
                         </div>
-                        <span className="text-sm text-foreground truncate">{batch.teacher_name ?? 'No teacher assigned'}</span>
+                        <span className="text-sm text-foreground truncate">{batch.course_title ?? 'No course linked'}</span>
                       </div>
 
                       {/* Progress */}
