@@ -84,6 +84,8 @@ export default function BatchContent() {
   // Edit Week Modal
   const [editWeek, setEditWeek] = useState<BatchWeek | null>(null);
   const [isEditOpen, setIsEditOpen] = useState(false);
+  const [editWeekNumber, setEditWeekNumber] = useState<number | ''>('');
+  const [editWeekNumberError, setEditWeekNumberError] = useState('');
   const [editTitle, setEditTitle] = useState('');
   const [editDesc, setEditDesc] = useState('');
   const [editUnlockDate, setEditUnlockDate] = useState('');
@@ -215,6 +217,8 @@ export default function BatchContent() {
 
   const handleOpenEdit = (week: BatchWeek) => {
     setEditWeek(week);
+    setEditWeekNumber(week.week_number);
+    setEditWeekNumberError('');
     setEditTitle(week.title);
     setEditDesc(week.description || '');
     setEditUnlockDate(week.unlock_date ? week.unlock_date.split('T')[0] : '');
@@ -223,9 +227,16 @@ export default function BatchContent() {
 
   const handleSaveWeek = async () => {
     if (!batchId || !editWeek) return;
+
+    if (editWeekNumber === '' || editWeekNumber <= 0) {
+      setEditWeekNumberError('Week number must be a valid number greater than 0');
+      return;
+    }
+
     setIsSaving(true);
     try {
       await batchContentApi.updateWeek(parseInt(batchId), editWeek.id, {
+        week_number: Number(editWeekNumber),
         title: editTitle,
         description: editDesc,
       });
@@ -440,7 +451,7 @@ export default function BatchContent() {
       <div className="flex flex-col lg:flex-row gap-8 items-start">
         
         {/* ── BATCH CURRICULUM NAVIGATION ───────────────────── */}
-        <aside className="w-full lg:w-80 shrink-0 lg:sticky lg:top-[5.5rem] z-20 bg-background/95 backdrop-blur-md lg:bg-transparent px-4 py-2 lg:mx-0 lg:px-0 lg:py-0 border-b lg:border-none lg:max-h-[calc(100vh-8rem)] lg:overflow-y-auto lg:scrollbar-none">
+        <aside className="w-full lg:w-80 shrink-0 lg:sticky lg:top-[5.5rem] z-20 bg-background/95 backdrop-blur-md lg:bg-transparent px-4 py-2 lg:mx-0 lg:px-0 lg:py-0 border-b lg:border-none">
           <div className="flex flex-col gap-4">
             <div className="flex items-center justify-between px-2">
               <div className="flex items-center gap-3">
@@ -509,56 +520,58 @@ export default function BatchContent() {
               })}
             </div>
 
-            {/* Desktop: Vertical list card */}
-            <Card className="hidden lg:block border-border/50 shadow-card overflow-hidden bg-card/50 backdrop-blur-sm">
-              <div className="p-2 space-y-1">
+            {/* Desktop: Vertical list card (only this area scrolls) */}
+            <div className="hidden lg:block max-h-[calc(100vh-11rem)] overflow-y-auto overscroll-contain scrollbar-none pb-2">
+              <Card className="border-border/50 shadow-card overflow-hidden bg-card/50 backdrop-blur-sm">
+                <div className="p-2 space-y-1">
 
-                {loading ? (
-                  <div className="py-12 flex justify-center"><Loader2 className="h-6 w-6 animate-spin text-primary/40" /></div>
-                ) : weeks.length === 0 ? (
-                  <div className="p-4 text-center text-xs text-muted-foreground">No weeks found.</div>
-                ) : (
-                  weeks.map(week => {
-                    const isActive = activeTab === week.id.toString();
-                    return (
-                      <button
-                        key={week.id}
-                        onClick={() => setActiveTab(week.id.toString())}
-                        className={cn(
-                          "w-full text-left px-4 py-4 rounded-xl transition-all flex items-center gap-3 group",
-                          isActive 
-                            ? "gradient-primary text-white shadow-sm border border-primary/30" 
-                            : "hover:bg-muted/80 text-muted-foreground"
-                        )}
-                      >
-                        <div className={cn(
-                          "h-10 w-10 rounded-xl flex items-center justify-center font-extrabold text-sm shrink-0 transition-colors relative",
-                          isActive ? "bg-white/20 text-white" : "bg-muted text-foreground"
-                        )}>
-                          {week.week_number}
-                          {!week.is_unlocked && (
-                            <div className="absolute -top-1 -right-1 bg-background border border-border shadow-sm rounded-full p-0.5" title="Locked">
-                               <LockIcon className="h-2 w-2 text-muted-foreground" />
-                            </div>
+                  {loading ? (
+                    <div className="py-12 flex justify-center"><Loader2 className="h-6 w-6 animate-spin text-primary/40" /></div>
+                  ) : weeks.length === 0 ? (
+                    <div className="p-4 text-center text-xs text-muted-foreground">No weeks found.</div>
+                  ) : (
+                    weeks.map(week => {
+                      const isActive = activeTab === week.id.toString();
+                      return (
+                        <button
+                          key={week.id}
+                          onClick={() => setActiveTab(week.id.toString())}
+                          className={cn(
+                            "w-full text-left px-4 py-4 rounded-xl transition-all flex items-center gap-3 group",
+                            isActive
+                              ? "gradient-primary text-white shadow-sm border border-primary/30"
+                              : "hover:bg-muted/80 text-muted-foreground"
                           )}
-                        </div>
-                        <div className="flex-1 min-w-0">
-                          <p className={cn("text-sm font-bold truncate", isActive ? "text-white" : "text-foreground")}>
-                            {week.title}
-                          </p>
-                          <p className={cn("text-[10px] flex items-center gap-1 mt-0.5", isActive ? "text-white/70" : "text-muted-foreground")}>
-                            <VideoIcon className="h-2.5 w-2.5" />
-                            {week.class_sessions?.length || 0} Sessions
-                          </p>
-                        </div>
-                        {isActive && <div className="h-1.5 w-1.5 rounded-full bg-white animate-pulse shadow-card" />}
-                      </button>
-                    );
-                  })
-                )}
-              </div>
+                        >
+                          <div className={cn(
+                            "h-10 w-10 rounded-xl flex items-center justify-center font-extrabold text-sm shrink-0 transition-colors relative",
+                            isActive ? "bg-white/20 text-white" : "bg-muted text-foreground"
+                          )}>
+                            {week.week_number}
+                            {!week.is_unlocked && (
+                              <div className="absolute -top-1 -right-1 bg-background border border-border shadow-sm rounded-full p-0.5" title="Locked">
+                                 <LockIcon className="h-2 w-2 text-muted-foreground" />
+                              </div>
+                            )}
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <p className={cn("text-sm font-bold truncate", isActive ? "text-white" : "text-foreground")}>
+                              {week.title}
+                            </p>
+                            <p className={cn("text-[10px] flex items-center gap-1 mt-0.5", isActive ? "text-white/70" : "text-muted-foreground")}>
+                              <VideoIcon className="h-2.5 w-2.5" />
+                              {week.class_sessions?.length || 0} Sessions
+                            </p>
+                          </div>
+                          {isActive && <div className="h-1.5 w-1.5 rounded-full bg-white animate-pulse shadow-card" />}
+                        </button>
+                      );
+                    })
+                  )}
+                </div>
 
-            </Card>
+              </Card>
+            </div>
           </div>
         </aside>
 
@@ -587,9 +600,11 @@ export default function BatchContent() {
                             )}
                           </div>
                           <h2 className="text-2xl md:text-3xl lg:text-4xl font-display font-bold tracking-tight leading-tight">{week.title}</h2>
-                          <p className="text-primary-foreground/80 max-w-xl text-xs md:text-sm leading-relaxed">
-                            {week.description || 'Manage materials and assessments for this stage.'}
-                          </p>
+                          {week.description && (
+                            <p className="text-primary-foreground/80 max-w-xl text-xs md:text-sm leading-relaxed">
+                              {week.description}
+                            </p>
+                          )}
                         </div>
 
                         <div className="flex flex-col sm:flex-row md:flex-wrap gap-2 w-full lg:w-auto">
@@ -864,6 +879,21 @@ export default function BatchContent() {
             <DialogDescription>Modify title and description for this batch week.</DialogDescription>
           </DialogHeader>
           <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label htmlFor="editBatchWeekNumber">Week Number <span className="text-destructive">*</span></Label>
+              <Input
+                id="editBatchWeekNumber"
+                type="number"
+                min="1"
+                value={editWeekNumber}
+                onChange={(e) => {
+                  setEditWeekNumber(e.target.value === '' ? '' : parseInt(e.target.value, 10));
+                  if (editWeekNumberError) setEditWeekNumberError('');
+                }}
+                className={editWeekNumberError ? 'border-destructive focus-visible:ring-destructive' : ''}
+              />
+              {editWeekNumberError && <p className="text-sm text-destructive mt-1">{editWeekNumberError}</p>}
+            </div>
             <div className="space-y-2">
               <Label>Week Title</Label>
               <Input value={editTitle} onChange={e => setEditTitle(e.target.value)} />
