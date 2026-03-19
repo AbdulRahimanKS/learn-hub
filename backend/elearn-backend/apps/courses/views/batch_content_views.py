@@ -1,6 +1,5 @@
 import logging
 from django.db import IntegrityError, transaction
-from django.db.models import F
 from rest_framework import status
 from rest_framework.views import APIView
 from rest_framework.parsers import MultiPartParser, FormParser, JSONParser
@@ -116,22 +115,26 @@ class BatchWeekDetailView(APIView):
                     status_code=status.HTTP_400_BAD_REQUEST
                 )
 
-            # Move semantics: insert into new position and shift others.
+            # Move semantics with collision-safe ordered updates.
             with transaction.atomic():
                 weeks_qs = BatchWeek.objects.select_for_update().filter(batch=week.batch)
                 safe_temp = total_weeks + 1000
                 weeks_qs.filter(id=week.id).update(week_number=safe_temp)
 
                 if new_week_number < old_week_number:
-                    weeks_qs.filter(
+                    affected_weeks = weeks_qs.filter(
                         week_number__gte=new_week_number,
                         week_number__lt=old_week_number
-                    ).update(week_number=F('week_number') + 1)
+                    ).order_by('-week_number')
+                    for affected_week in affected_weeks:
+                        weeks_qs.filter(id=affected_week.id).update(week_number=affected_week.week_number + 1)
                 else:
-                    weeks_qs.filter(
+                    affected_weeks = weeks_qs.filter(
                         week_number__gt=old_week_number,
                         week_number__lte=new_week_number
-                    ).update(week_number=F('week_number') - 1)
+                    ).order_by('week_number')
+                    for affected_week in affected_weeks:
+                        weeks_qs.filter(id=affected_week.id).update(week_number=affected_week.week_number - 1)
 
                 weeks_qs.filter(id=week.id).update(week_number=new_week_number)
                 week.week_number = new_week_number
