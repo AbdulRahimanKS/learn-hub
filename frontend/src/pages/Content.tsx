@@ -510,7 +510,7 @@ export default function Content() {
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const VideoCard = ({ video }: { video: any }) => (
-    <Card className="shadow-card overflow-hidden group hover:shadow-md transition-all duration-300 bg-card border border-border/50">
+    <Card className="shadow-card overflow-hidden group hover:shadow-sm hover:bg-muted/30 transition-all duration-300 bg-muted/40 border border-border/60">
       <div className="flex flex-col sm:flex-row items-center p-4 gap-4">
         {/* Left: Icon/Play & Info Block */}
         <div className="flex items-center w-full sm:w-auto gap-4">
@@ -772,19 +772,21 @@ export default function Content() {
                     </div>
 
                     {week.class_sessions.length > 0 ? (
-                      <div className="grid grid-cols-1 gap-3">
-                        {[...week.class_sessions]
-                          .sort((a, b) => {
-                            const days: Record<string, number> = { monday: 1, tuesday: 2, wednesday: 3, thursday: 4, friday: 5, saturday: 6, sunday: 7 };
-                            const dayA = days[a.weekday?.toLowerCase()] || 8;
-                            const dayB = days[b.weekday?.toLowerCase()] || 8;
-                            if (dayA !== dayB) return dayA - dayB;
-                            return (a.session_number || 0) - (b.session_number || 0);
-                          })
-                          .map((video) => (
-                            <VideoCard key={video.id} video={video} />
-                          ))}
-                      </div>
+                      <Card className="rounded-2xl border-border/50 bg-card shadow-card p-3 sm:p-4">
+                        <div className="grid grid-cols-1 gap-3">
+                          {[...week.class_sessions]
+                            .sort((a, b) => {
+                              const days: Record<string, number> = { monday: 1, tuesday: 2, wednesday: 3, thursday: 4, friday: 5, saturday: 6, sunday: 7 };
+                              const dayA = days[a.weekday?.toLowerCase()] || 8;
+                              const dayB = days[b.weekday?.toLowerCase()] || 8;
+                              if (dayA !== dayB) return dayA - dayB;
+                              return (a.session_number || 0) - (b.session_number || 0);
+                            })
+                            .map((video) => (
+                              <VideoCard key={video.id} video={video} />
+                            ))}
+                        </div>
+                      </Card>
                     ) : (
                       <div className="py-16 text-center bg-card border-2 border-dashed border-muted-foreground/30 rounded-xl">
                         <VideoIcon className="h-12 w-12 mx-auto mb-4 text-muted-foreground/30" />

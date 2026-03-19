@@ -706,18 +706,19 @@ export default function BatchContent() {
                           </Button>
                         </div>
                       ) : (
-                        <div className="grid grid-cols-1 gap-3">
-                          {[...sessions]
-                            .sort((a, b) => {
-                              const days: Record<string, number> = { monday: 1, tuesday: 2, wednesday: 3, thursday: 4, friday: 5, saturday: 6, sunday: 7 };
-                              const dayA = days[a.weekday?.toLowerCase()] || 8;
-                              const dayB = days[b.weekday?.toLowerCase()] || 8;
-                              if (dayA !== dayB) return dayA - dayB;
-                              return (a.session_number || 0) - (b.session_number || 0);
-                            })
-                            .map((session) => (
-                               <Card key={session.id} className="group overflow-hidden bg-card transition-all hover:shadow-md hover:border-primary/30 rounded-2xl border-border/50 shadow-card">
-                                <div className="flex flex-col sm:flex-row items-center p-4 gap-4">
+                        <Card className="rounded-2xl border-border/50 bg-card shadow-card p-3 sm:p-4">
+                          <div className="grid grid-cols-1 gap-3">
+                            {[...sessions]
+                              .sort((a, b) => {
+                                const days: Record<string, number> = { monday: 1, tuesday: 2, wednesday: 3, thursday: 4, friday: 5, saturday: 6, sunday: 7 };
+                                const dayA = days[a.weekday?.toLowerCase()] || 8;
+                                const dayB = days[b.weekday?.toLowerCase()] || 8;
+                                if (dayA !== dayB) return dayA - dayB;
+                                return (a.session_number || 0) - (b.session_number || 0);
+                              })
+                              .map((session) => (
+                                <Card key={session.id} className="group overflow-hidden bg-muted/40 transition-all hover:shadow-sm hover:bg-muted/30 rounded-2xl border-border/60 shadow-card">
+                                  <div className="flex flex-col sm:flex-row items-center p-4 gap-4">
                                   {/* Left Section: Icon and Title for Mobile */}
                                   <div className="flex items-center w-full sm:w-auto gap-4">
                                     <div className="shrink-0">
@@ -789,10 +790,11 @@ export default function BatchContent() {
                                       </Button>
                                     </div>
                                   </div>
-                                </div>
-                              </Card>
-                            ))}
-                        </div>
+                                  </div>
+                                </Card>
+                              ))}
+                          </div>
+                        </Card>
                       )}
                     </div>
 
