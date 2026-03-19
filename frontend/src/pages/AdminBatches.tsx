@@ -543,12 +543,22 @@ export default function AdminBatches() {
           <div className="text-center py-12 text-muted-foreground border-2 border-dashed border-muted-foreground/30 rounded-xl">
             <GraduationCap className="h-12 w-12 mx-auto mb-4 opacity-50" />
             <h3 className="text-lg font-medium mb-1">
-              {searchQuery ? 'No matching batches' : 'No batches yet'}
+              {searchQuery
+                ? 'No batches matching your search'
+                : statusFilter === 'ACTIVE'
+                  ? 'No active batches'
+                  : statusFilter === 'COMPLETED'
+                    ? 'No completed batches'
+                    : 'No batches yet'}
             </h3>
             <p>
               {searchQuery
                 ? "We couldn't find any batches matching your search. Try different keywords."
-                : "You haven't created any batches. Click 'Create Batch' to get started."}
+                : statusFilter === 'ACTIVE'
+                  ? "You don't have any active batches at the moment."
+                  : statusFilter === 'COMPLETED'
+                    ? "You don't have any completed batches yet."
+                    : "You haven't created any batches. Click 'Create Batch' to get started."}
             </p>
           </div>
         ) : (
