@@ -65,6 +65,7 @@ import axios from 'axios';
 import getBlobDuration from 'get-blob-duration';
 import { WeeklyTestManager } from '@/components/WeeklyTestManager';
 import { SessionMcqManager } from '@/components/SessionMcqManager';
+import { courseApi } from '@/lib/course-api';
 
 export default function Content() {
   const { courseId } = useParams<{ courseId: string }>();
@@ -86,6 +87,7 @@ export default function Content() {
 
   // Backend state
   const [weeks, setWeeks] = useState<CourseWeek[]>([]);
+  const [courseTitle, setCourseTitle] = useState('');
 
   const [isLoading, setIsLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<string>('');
@@ -149,6 +151,24 @@ export default function Content() {
 
   useEffect(() => {
     fetchWeeks();
+  }, [courseId]);
+
+  useEffect(() => {
+    if (!courseId) return;
+    let isMounted = true;
+    (async () => {
+      try {
+        const res = await courseApi.getCourse(parseInt(courseId, 10));
+        if (isMounted && res?.data?.title) {
+          setCourseTitle(res.data.title);
+        }
+      } catch (_) {
+        // Keep header fallback if course detail fetch fails.
+      }
+    })();
+    return () => {
+      isMounted = false;
+    };
   }, [courseId]);
 
   useEffect(() => {
@@ -593,7 +613,9 @@ export default function Content() {
                 </Button>
                 <div>
                   <h1 className="font-display text-lg sm:text-xl font-bold text-foreground">Course Content</h1>
-                  <p className="text-[11px] sm:text-[12px] text-muted-foreground tracking-wide font-bold">Template Editor</p>
+                  <p className="text-[11px] sm:text-[12px] text-muted-foreground tracking-wide font-bold max-w-[180px] sm:max-w-[220px] truncate">
+                    {courseTitle || `Course #${courseId}`}
+                  </p>
                 </div>
               </div>
               <Button 

@@ -454,8 +454,8 @@ export default function BatchContent() {
                 </Button>
                 <div>
                   <h1 className="font-display text-lg sm:text-xl font-bold text-foreground">Batch Content</h1>
-                  <p className="text-[11px] sm:text-[12px] text-muted-foreground tracking-wide font-bold">
-                    Content Editor
+                  <p className="text-[11px] sm:text-[12px] text-muted-foreground tracking-wide font-bold max-w-[180px] sm:max-w-[220px] truncate">
+                    {batchName || `Batch #${batchId}`}
                   </p>
                 </div>
               </div>
