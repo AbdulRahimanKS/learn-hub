@@ -45,7 +45,6 @@ import {
   Image as ImageIcon,
   CheckCircle,
   Loader2,
-  Settings,
   HelpCircle,
   X,
   Video as VideoIcon,
@@ -455,25 +454,23 @@ export default function BatchContent() {
                 </Button>
                 <div>
                   <h1 className="font-display text-lg sm:text-xl font-bold text-foreground">Batch Content</h1>
-                  <p className="text-[9px] sm:text-[10px] text-muted-foreground uppercase tracking-widest font-black truncate max-w-[120px] sm:max-w-none">
-                    {batchName || 'Loading...'}
+                  <p className="text-[11px] sm:text-[12px] text-muted-foreground tracking-wide font-bold">
+                    Content Editor
                   </p>
                 </div>
               </div>
               <div className="flex gap-1.5 sm:gap-2">
-                <Button 
-                  variant="outline" 
-                  size="icon" 
-                  className="h-8 w-8 rounded-full border-primary/30 hover:bg-primary/10 hover:text-primary transition-colors"
-                  disabled={weeks.length === 0}
-                  onClick={() => {
-                    if (weeks.length === 0) return;
-                    setIsExtendOpen(true);
-                  }}
-                  title="Extend Program Timeline"
-                >
-                  <Clock className="h-4 w-4" />
-                </Button>
+                {weeks.length > 0 && (
+                  <Button 
+                    variant="outline" 
+                    size="icon" 
+                    className="h-8 w-8 rounded-full border-primary/30 hover:bg-primary/10 hover:text-primary transition-colors"
+                    onClick={() => setIsExtendOpen(true)}
+                    title="Extend Program Timeline"
+                  >
+                    <Clock className="h-4 w-4" />
+                  </Button>
+                )}
                 <Button 
                   variant="outline" 
                   size="icon" 
@@ -495,14 +492,18 @@ export default function BatchContent() {
                     key={week.id}
                     onClick={() => setActiveTab(week.id.toString())}
                     className={cn(
-                      "flex-shrink-0 px-4 py-2 rounded-full text-xs font-bold transition-all border flex items-center gap-2",
+                      "flex-shrink-0 relative px-4 py-2 rounded-full text-xs font-bold transition-all border flex items-center gap-2",
                       isActive 
-                        ? "bg-primary text-white border-primary shadow-md" 
+                        ? "gradient-primary text-white border-primary/30 shadow-sm" 
                         : "bg-muted text-muted-foreground border-border/50"
                     )}
                   >
-                    {!week.is_unlocked && <LockIcon className="h-3 w-3" />}
                     Week {week.week_number}
+                    {!week.is_unlocked && (
+                      <div className="absolute -top-1 -right-1 bg-background border border-border shadow-sm rounded-full p-0.5" title="Locked">
+                        <LockIcon className="h-2 w-2 text-muted-foreground" />
+                      </div>
+                    )}
                   </button>
                 );
               })}
@@ -526,13 +527,13 @@ export default function BatchContent() {
                         className={cn(
                           "w-full text-left px-4 py-4 rounded-xl transition-all flex items-center gap-3 group",
                           isActive 
-                            ? "bg-primary text-white shadow-lg shadow-primary/20" 
+                            ? "gradient-primary text-white shadow-sm border border-primary/30" 
                             : "hover:bg-muted/80 text-muted-foreground"
                         )}
                       >
                         <div className={cn(
                           "h-10 w-10 rounded-xl flex items-center justify-center font-extrabold text-sm shrink-0 transition-colors relative",
-                          isActive ? "bg-white/20" : "bg-muted text-foreground"
+                          isActive ? "bg-white/20 text-white" : "bg-muted text-foreground"
                         )}>
                           {week.week_number}
                           {!week.is_unlocked && (
@@ -569,16 +570,14 @@ export default function BatchContent() {
               return (
                 <div className="space-y-6">
                    {/* Phase 1: Header Banner */}
-                  <div className="relative rounded-xl md:rounded-3xl overflow-hidden bg-gradient-to-br from-[#1a237e] via-[#283593] to-[#3949ab] p-6 text-white shadow-lg">
-                    <div className="absolute top-0 right-0 p-8 pointer-events-none opacity-10 hidden md:block">
-                       <Settings className="h-32 w-32 rotate-12" />
-                    </div>
+                  <div className="relative rounded-2xl md:rounded-3xl overflow-hidden gradient-primary p-6 text-primary-foreground shadow-card border border-primary/20">
+                    {/* decorative background icon intentionally removed */}
                     
                     <div className="relative z-10">
                       <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6">
                         <div className="space-y-2">
                           <div className="flex items-center gap-3">
-                            <Badge className="bg-white/20 text-white backdrop-blur-md border-none font-black text-[10px] h-6 px-3">
+                            <Badge className="bg-white/15 text-primary-foreground backdrop-blur-md border-none font-semibold text-[10px] h-6 px-3">
                               WEEK {week.week_number}
                             </Badge>
                             {week.is_unlocked && (
@@ -587,8 +586,8 @@ export default function BatchContent() {
                               </Badge>
                             )}
                           </div>
-                          <h2 className="text-2xl md:text-3xl lg:text-4xl font-display font-black tracking-tight leading-tight">{week.title}</h2>
-                          <p className="text-white/70 max-w-xl text-xs md:text-sm leading-relaxed">
+                          <h2 className="text-2xl md:text-3xl lg:text-4xl font-display font-bold tracking-tight leading-tight">{week.title}</h2>
+                          <p className="text-primary-foreground/80 max-w-xl text-xs md:text-sm leading-relaxed">
                             {week.description || 'Manage materials and assessments for this stage.'}
                           </p>
                         </div>
@@ -596,12 +595,12 @@ export default function BatchContent() {
                         <div className="flex flex-col sm:flex-row md:flex-wrap gap-2 w-full lg:w-auto">
                           <Button 
                             variant="secondary" 
-                            className="bg-white text-primary hover:bg-white/90 font-bold shadow-md rounded-xl h-10 px-4"
+                            className="bg-white/10 text-white hover:bg-white/20 font-bold shadow-md rounded-xl h-10 px-4"
                             onClick={() => handleOpenTestManager(week)}
                             disabled={week.is_unlocked}
                           >
                             <FileText className="h-4 w-4 mr-2 hidden sm:inline" />
-                            {weeklyTest ? 'Manage Test' : 'Setup Test'}
+                            {weeklyTest ? 'Manage Assessment' : 'Setup Assessment'}
                           </Button>
                           <div className="flex gap-1 w-full sm:w-auto">
                             <Button 
@@ -616,7 +615,7 @@ export default function BatchContent() {
                             <Button 
                               variant="secondary" 
                               size="icon" 
-                              className="bg-white/10 text-destructive hover:bg-destructive/20 backdrop-blur-md rounded-xl h-10 w-10 flex-1 sm:flex-none"
+                              className="bg-white/10 text-white hover:bg-white/20 backdrop-blur-md rounded-xl h-10 w-10 flex-1 sm:flex-none"
                               onClick={() => setDeleteWeekId(week.id)}
                               disabled={week.is_unlocked}
                             >
@@ -661,7 +660,7 @@ export default function BatchContent() {
                           <div className="h-10 w-10 rounded-2xl bg-primary/10 text-primary flex items-center justify-center border border-primary/30">
                             <VideoIcon className="h-5 w-5" />
                           </div>
-                          <h3 className="text-xl font-display font-black text-foreground">Lecture Sessions</h3>
+                          <h3 className="text-xl font-display font-black text-foreground">Video Sessions</h3>
                         </div>
                         <Button 
                           variant="gradient" 
@@ -683,12 +682,12 @@ export default function BatchContent() {
                       ) : sessions.length === 0 ? (
                         <div className="py-16 text-center bg-card border-2 border-dashed border-muted-foreground/30 rounded-xl">
                           <VideoIcon className="h-12 w-12 mx-auto mb-4 text-muted-foreground/30" />
-                          <h4 className="text-lg font-display font-semibold text-foreground">No sessions yet</h4>
+                          <h4 className="text-lg font-display font-semibold text-foreground">No video sessions yet</h4>
                           <p className="text-sm text-muted-foreground max-w-xs mx-auto mb-6">
                             Start adding video sessions to this week. You can reorder them by weekday and session number.
                           </p>
                           <Button variant="outline" className="rounded-xl" onClick={() => handleOpenSessionModal()}>
-                             <Plus className="h-4 w-4 mr-2" /> Add First Session
+                             <Plus className="h-4 w-4 mr-2" /> Add First Video Session
                           </Button>
                         </div>
                       ) : (
@@ -788,7 +787,7 @@ export default function BatchContent() {
                         <div className="h-10 w-10 rounded-xl bg-primary/10 text-primary flex items-center justify-center border border-primary/20">
                           <CheckCircle className="h-5 w-5" />
                         </div>
-                        <h3 className="text-xl font-display font-bold text-foreground">Weekly Graduation Assessment</h3>
+                        <h3 className="text-xl font-display font-bold text-foreground">Weekly Assessment</h3>
                       </div>
 
                       {weeklyTest ? (

@@ -51,7 +51,6 @@ import {
   FileText,
   Image as ImageIcon,
   CheckCircle,
-  BookOpen,
   Loader2,
   X,
   HelpCircle,
@@ -594,7 +593,7 @@ export default function Content() {
                 </Button>
                 <div>
                   <h1 className="font-display text-lg sm:text-xl font-bold text-foreground">Course Content</h1>
-                  <p className="text-[10px] text-muted-foreground uppercase tracking-wide font-semibold">Template Editor</p>
+                  <p className="text-[11px] sm:text-[12px] text-muted-foreground tracking-wide font-bold">Template Editor</p>
                 </div>
               </div>
               <Button 
@@ -618,7 +617,7 @@ export default function Content() {
                     className={cn(
                       "flex-shrink-0 px-4 py-2 rounded-full text-xs font-bold transition-all border",
                       isActive 
-                        ? "bg-primary text-white border-primary shadow-md" 
+                      ? "gradient-primary text-white border-primary/30 shadow-sm" 
                         : "bg-muted text-muted-foreground border-border/50"
                     )}
                   >
@@ -645,18 +644,18 @@ export default function Content() {
                         className={cn(
                           "w-full text-left px-4 py-4 rounded-xl transition-all flex items-center gap-3 group",
                           isActive 
-                            ? "bg-primary text-white shadow-lg shadow-primary/20" 
+                          ? "gradient-primary text-white shadow-sm border border-primary/30" 
                             : "hover:bg-muted/80 text-muted-foreground"
                         )}
                       >
                         <div className={cn(
                           "h-10 w-10 rounded-xl flex items-center justify-center font-bold text-sm shrink-0 transition-colors",
-                          isActive ? "bg-white/20" : "bg-muted text-foreground"
+                        isActive ? "bg-white/20 text-white" : "bg-muted text-foreground"
                         )}>
                           {week.week_number}
                         </div>
                         <div className="flex-1 min-w-0">
-                          <p className={cn("text-sm font-bold truncate", isActive ? "text-white" : "text-foreground")}>
+                        <p className={cn("text-sm font-bold truncate", isActive ? "text-white" : "text-foreground")}>
                             {week.title}
                           </p>
                           <p className="text-[10px] opacity-70 flex items-center gap-1 mt-0.5">
@@ -664,7 +663,7 @@ export default function Content() {
                             {week.class_sessions?.length || 0} Sessions
                           </p>
                         </div>
-                        {isActive && <div className="h-1.5 w-1.5 rounded-full bg-white animate-pulse" />}
+                      {isActive && <div className="h-1.5 w-1.5 rounded-full bg-white animate-pulse" />}
                       </button>
                     );
                   })
@@ -683,9 +682,7 @@ export default function Content() {
                 <div className="space-y-6 animate-in fade-in slide-in-from-bottom-2 duration-500">
                   {/* Phase 1: Header Banner */}
                   <div className="relative rounded-2xl overflow-hidden gradient-primary p-6 text-primary-foreground shadow-card border border-primary/20">
-                    <div className="absolute top-0 right-0 p-8 pointer-events-none opacity-10 hidden md:block">
-                       <BookOpen className="h-32 w-32 rotate-12" />
-                    </div>
+                    {/* decorative background icon intentionally removed */}
                     
                     <div className="relative z-10">
                       <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6">
@@ -704,11 +701,11 @@ export default function Content() {
                         <div className="flex flex-col sm:flex-row md:flex-wrap gap-2 w-full lg:w-auto">
                           <Button 
                             variant="secondary" 
-                            className="bg-white text-slate-900 hover:bg-white/90 font-bold shadow-md rounded-xl h-10 px-4"
+                            className="bg-white/10 text-white hover:bg-white/20 font-bold shadow-md rounded-xl h-10 px-4"
                             onClick={() => handleOpenTestManager(week)}
                           >
                             <FileText className="h-4 w-4 mr-2 hidden sm:inline" />
-                            {week.weekly_test ? 'Edit Test' : 'Setup Base Test'}
+                            {week.weekly_test ? 'Edit Assessment' : 'Setup Base Assessment'}
                           </Button>
                           <div className="flex gap-1 w-full sm:w-auto">
                             <Button 
@@ -722,7 +719,7 @@ export default function Content() {
                             <Button 
                               variant="secondary" 
                               size="icon" 
-                              className="bg-white/10 text-primary hover:bg-primary/20 backdrop-blur-md rounded-xl h-10 w-10 flex-1 sm:flex-none"
+                              className="bg-white/10 text-white hover:bg-white/20 backdrop-blur-md rounded-xl h-10 w-10 flex-1 sm:flex-none"
                               onClick={() => setDeleteWeekId(week.id)}
                             >
                               <Trash2 className="h-4 w-4" />
@@ -740,11 +737,11 @@ export default function Content() {
                         <div className="h-10 w-10 rounded-xl bg-primary/10 text-primary flex items-center justify-center border border-primary/20">
                             <VideoIcon className="h-5 w-5" />
                          </div>
-                         <h3 className="text-xl font-display font-bold text-foreground">Lecture Templates</h3>
+                         <h3 className="text-xl font-display font-bold text-foreground">Video Sessions</h3>
                       </div>
                       <Button variant="gradient" className="rounded-xl px-6" onClick={handleOpenAddVideo}>
                         <Upload className="h-4 w-4 mr-2" />
-                        Upload Template Video
+                        Upload Video Session
                       </Button>
                     </div>
 
@@ -765,12 +762,12 @@ export default function Content() {
                     ) : (
                       <div className="py-16 text-center bg-card border-2 border-dashed border-muted-foreground/30 rounded-xl">
                         <VideoIcon className="h-12 w-12 mx-auto mb-4 text-muted-foreground/30" />
-                        <h4 className="text-lg font-display font-semibold text-foreground">No templates added</h4>
+                        <h4 className="text-lg font-display font-semibold text-foreground">No video sessions added</h4>
                         <p className="text-sm text-muted-foreground max-w-xs mx-auto mb-6">
                           Define standard videos for this course. They will be copied to all new batches automatically.
                         </p>
                         <Button variant="outline" className="rounded-xl" onClick={handleOpenAddVideo}>
-                           <Plus className="h-4 w-4 mr-2" /> Add First Video
+                           <Plus className="h-4 w-4 mr-2" /> Add First Video Session
                         </Button>
                       </div>
                     )}
@@ -781,7 +778,7 @@ export default function Content() {
                         <div className="h-10 w-10 rounded-xl bg-primary/10 text-primary flex items-center justify-center border border-primary/20">
                           <CheckCircle className="h-5 w-5" />
                         </div>
-                        <h3 className="text-xl font-display font-bold text-foreground">Module Test Blueprint</h3>
+                          <h3 className="text-xl font-display font-bold text-foreground">Weekly Assessment Blueprint</h3>
                       </div>
 
                       {week.weekly_test ? (
@@ -802,21 +799,23 @@ export default function Content() {
                                className="rounded-xl px-8 h-11 font-semibold text-xs tracking-wide border-primary/30 text-primary hover:bg-primary/5"
                                onClick={() => handleOpenTestManager(week)}
                              >
-                               Manage Blueprint
+                               Manage Assessment
                              </Button>
                           </div>
                         </Card>
                       ) : (
                         <div className="border-2 border-dashed border-muted-foreground/30 rounded-xl p-12 text-center bg-card">
                           <FileText className="h-12 w-12 text-primary/40 mx-auto mb-4 opacity-50" />
-                          <h4 className="text-lg font-display font-semibold">No Test Configured</h4>
-                          <p className="text-sm text-muted-foreground mb-6">Create a template assessment that will be given to students at the end of this module.</p>
+                          <h4 className="text-lg font-display font-semibold">No Weekly Assessment Configured</h4>
+                          <p className="text-sm text-muted-foreground mb-6">
+                            Create a weekly assessment blueprint for this week. Students will take it at the end of the week.
+                          </p>
                           <Button 
                             variant="outline" 
                             className="rounded-xl border-primary/30 text-primary"
                             onClick={() => handleOpenTestManager(week)}
                           >
-                            <Plus className="h-4 w-4 mr-2" /> Create Test Blueprint
+                            <Plus className="h-4 w-4 mr-2" /> Create Assessment Blueprint
                           </Button>
                         </div>
                       )}
