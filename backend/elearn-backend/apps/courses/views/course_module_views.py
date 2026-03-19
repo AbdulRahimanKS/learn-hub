@@ -3,7 +3,8 @@ from rest_framework import status
 from rest_framework.views import APIView
 from rest_framework.parsers import MultiPartParser, FormParser, JSONParser
 from drf_spectacular.utils import extend_schema
-from django.db import IntegrityError
+from django.db import IntegrityError, transaction
+from django.db.models import F
 
 from apps.courses.models import Course, CourseWeek, CourseClassSession, CourseWeeklyTest, CourseTestQuestion, CourseTestQuestionAttachment, BatchEnrollment
 from apps.courses.serializers.course_module_serializers import (
@@ -52,17 +53,17 @@ class CourseWeekListCreateView(APIView):
         responses={201: CourseWeekSerializer}
     )
     def post(self, request, course_id):
-        user = request.user
-        if getattr(user, 'user_type', None) and user.user_type.name not in [UserTypeConstants.ADMIN, UserTypeConstants.SUPERADMIN, UserTypeConstants.TEACHER]:
-            raise ServiceError(detail="You do not have permission to perform this action.", status_code=status.HTTP_403_FORBIDDEN)
-
-        course = self.get_course(course_id)
-        serializer = CourseWeekCreateUpdateSerializer(data=request.data, context={'request': request})
-        if not serializer.is_valid():
-            error_str = handle_serializer_errors(serializer)
-            raise ServiceError(detail=error_str, status_code=status.HTTP_400_BAD_REQUEST)
-
         try:
+            user = request.user
+            if getattr(user, 'user_type', None) and user.user_type.name not in [UserTypeConstants.ADMIN, UserTypeConstants.SUPERADMIN, UserTypeConstants.TEACHER]:
+                raise ServiceError(detail="You do not have permission to perform this action.", status_code=status.HTTP_403_FORBIDDEN)
+
+            course = self.get_course(course_id)
+            serializer = CourseWeekCreateUpdateSerializer(data=request.data, context={'request': request})
+            if not serializer.is_valid():
+                error_str = handle_serializer_errors(serializer)
+                raise ServiceError(detail=error_str, status_code=status.HTTP_400_BAD_REQUEST)
+
             week_number = serializer.validated_data.get('week_number')
             if week_number:
                 # Sequential validation: all weeks 1..N-1 must exist
@@ -111,51 +112,52 @@ class CourseWeekDetailView(APIView):
         responses={200: CourseWeekSerializer}
     )
     def patch(self, request, course_id, week_id):
-        week = self.get_object(course_id, week_id)
-        serializer = CourseWeekCreateUpdateSerializer(week, data=request.data, partial=True, context={'request': request})
-        if not serializer.is_valid():
-            error_str = handle_serializer_errors(serializer)
-            raise ServiceError(detail=error_str, status_code=status.HTTP_400_BAD_REQUEST)
-
         try:
-            # Smart reorder by swap when week_number is being changed
-            new_week_number = serializer.validated_data.get('week_number')
-            old_week_number = week.week_number
-            occupying_week = None
+            week = self.get_object(course_id, week_id)
+            serializer = CourseWeekCreateUpdateSerializer(week, data=request.data, partial=True, context={'request': request})
+            if not serializer.is_valid():
+                error_str = handle_serializer_errors(serializer)
+                raise ServiceError(detail=error_str, status_code=status.HTTP_400_BAD_REQUEST)
 
-            if new_week_number and new_week_number != old_week_number:
-                max_existing = CourseWeek.objects.filter(course=week.course).exclude(id=week.id).count()
-                # The new number must be within 1..max_existing to stay sequential (or max+1 if the week is the last one)
-                if new_week_number > max_existing + 1 or new_week_number < 1:
+            update_data = dict(serializer.validated_data)
+            new_week_number = update_data.pop('week_number', None)
+            old_week_number = week.week_number
+            if new_week_number is not None and new_week_number != old_week_number:
+                total_weeks = CourseWeek.objects.filter(course=week.course).count()
+                if new_week_number < 1 or new_week_number > total_weeks:
+                    if total_weeks == 1:
+                        message = "Only Week 1 exists. Create more weeks before moving to a higher week number."
+                    else:
+                        message = f"Week number must be between 1 and {total_weeks}."
                     raise ServiceError(
-                        detail=f"Week number must be between 1 and {max_existing + 1}.",
+                        detail=message,
                         status_code=status.HTTP_400_BAD_REQUEST
                     )
-                # Park the occupying week at a safe temp number before the swap.
-                # Use queryset update() to bypass PositiveSmallIntegerField validation.
-                # Temp = current max week_number + 9999, guaranteed to not conflict.
-                try:
-                    occupying_week = CourseWeek.objects.get(
-                        course=week.course,
-                        week_number=new_week_number
-                    )
-                    from django.db.models import Max as _Max
-                    current_max = CourseWeek.objects.filter(course=week.course).aggregate(m=_Max('week_number'))['m'] or 0
-                    safe_temp = current_max + 9999
-                    # Step 1: park occupying_week at safe_temp to free the target slot
-                    CourseWeek.objects.filter(id=occupying_week.id).update(week_number=safe_temp)
-                except CourseWeek.DoesNotExist:
-                    pass  # Target slot is free — no swap needed
 
-            # Step 2: save the main week to its new number (target slot is now free)
-            for attr, value in serializer.validated_data.items():
+                # Move semantics: insert into new position and shift others.
+                with transaction.atomic():
+                    weeks_qs = CourseWeek.objects.select_for_update().filter(course=week.course)
+                    safe_temp = total_weeks + 1000
+                    weeks_qs.filter(id=week.id).update(week_number=safe_temp)
+
+                    if new_week_number < old_week_number:
+                        weeks_qs.filter(
+                            week_number__gte=new_week_number,
+                            week_number__lt=old_week_number
+                        ).update(week_number=F('week_number') + 1)
+                    else:
+                        weeks_qs.filter(
+                            week_number__gt=old_week_number,
+                            week_number__lte=new_week_number
+                        ).update(week_number=F('week_number') - 1)
+
+                    weeks_qs.filter(id=week.id).update(week_number=new_week_number)
+                    week.week_number = new_week_number
+
+            for attr, value in update_data.items():
                 setattr(week, attr, value)
             week.updated_by = request.user
             week.save()
-
-            # Step 3: move the displaced week into the old slot
-            if occupying_week is not None:
-                CourseWeek.objects.filter(id=occupying_week.id).update(week_number=old_week_number)
             
             return format_success_response(message="Course week updated successfully", data=None)
         except IntegrityError:

@@ -1,5 +1,6 @@
 import logging
-from django.db import IntegrityError
+from django.db import IntegrityError, transaction
+from django.db.models import F
 from rest_framework import status
 from rest_framework.views import APIView
 from rest_framework.parsers import MultiPartParser, FormParser, JSONParser
@@ -98,8 +99,46 @@ class BatchWeekDetailView(APIView):
         if not serializer.is_valid():
             error_str = handle_serializer_errors(serializer)
             raise ServiceError(detail=error_str, status_code=status.HTTP_400_BAD_REQUEST)
-        
-        serializer.save()
+
+        update_data = dict(serializer.validated_data)
+        new_week_number = update_data.pop('week_number', None)
+        old_week_number = week.week_number
+
+        if new_week_number is not None and new_week_number != old_week_number:
+            total_weeks = BatchWeek.objects.filter(batch=week.batch).count()
+            if new_week_number < 1 or new_week_number > total_weeks:
+                if total_weeks == 1:
+                    message = "Only Week 1 exists. Create more weeks before moving to a higher week number."
+                else:
+                    message = f"Week number must be between 1 and {total_weeks}."
+                raise ServiceError(
+                    detail=message,
+                    status_code=status.HTTP_400_BAD_REQUEST
+                )
+
+            # Move semantics: insert into new position and shift others.
+            with transaction.atomic():
+                weeks_qs = BatchWeek.objects.select_for_update().filter(batch=week.batch)
+                safe_temp = total_weeks + 1000
+                weeks_qs.filter(id=week.id).update(week_number=safe_temp)
+
+                if new_week_number < old_week_number:
+                    weeks_qs.filter(
+                        week_number__gte=new_week_number,
+                        week_number__lt=old_week_number
+                    ).update(week_number=F('week_number') + 1)
+                else:
+                    weeks_qs.filter(
+                        week_number__gt=old_week_number,
+                        week_number__lte=new_week_number
+                    ).update(week_number=F('week_number') - 1)
+
+                weeks_qs.filter(id=week.id).update(week_number=new_week_number)
+                week.week_number = new_week_number
+
+        for attr, value in update_data.items():
+            setattr(week, attr, value)
+        week.save()
         return format_success_response(message="Batch week updated successfully")
 
     @extend_schema(summary="Delete a batch week")
