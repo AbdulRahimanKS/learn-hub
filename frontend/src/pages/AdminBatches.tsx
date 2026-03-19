@@ -392,8 +392,16 @@ export default function AdminBatches() {
       fetchSummary();
     } catch (err: any) {
       const msg = err.response?.data?.detail || 'Failed to save batch';
-      setFormErrors({ server: msg });
-      toast({ title: 'Submission Error', description: msg, variant: 'destructive' });
+      const statusCode = err.response?.status;
+
+      // For validation/business-rule errors, show inline form error only.
+      if (statusCode && statusCode >= 400 && statusCode < 500) {
+        setFormErrors({ server: msg });
+      } else {
+        // For unexpected/server errors, use toast feedback.
+        setFormErrors({});
+        toast({ title: 'Submission Error', description: msg, variant: 'destructive' });
+      }
     } finally {
       setIsSubmitting(false);
     }
@@ -569,9 +577,14 @@ export default function AdminBatches() {
                   <div className="flex items-start justify-between gap-4">
                     <div className="space-y-1 flex-1 min-w-0">
                       <CardTitle className="text-lg leading-tight truncate">{batch.name}</CardTitle>
-                      {batch.description && (
-                        <p className="text-sm text-muted-foreground line-clamp-2">{batch.description}</p>
-                      )}
+                      <p
+                        className={cn(
+                          "text-sm text-muted-foreground line-clamp-2 min-h-[40px]",
+                          !batch.description && "invisible"
+                        )}
+                      >
+                        {batch.description || "No description"}
+                      </p>
                     </div>
                     {/* Status badge top-right of card header */}
                     <Badge
@@ -610,7 +623,7 @@ export default function AdminBatches() {
                       </div>
 
                       {/* Stats row: enrolled + date */}
-                      <div className="flex items-center justify-between text-sm pt-2 border-t border-border mt-2">
+                      <div className="flex items-center justify-between text-sm pt-2 mt-2">
                         <div className="flex items-center gap-1 text-muted-foreground">
                           <Users className="h-4 w-4" />
                           <span>{batch.enrolled_count}/{batch.max_students}</span>

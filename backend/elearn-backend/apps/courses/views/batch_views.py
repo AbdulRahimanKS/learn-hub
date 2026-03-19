@@ -311,9 +311,6 @@ class BatchUpdateView(APIView):
                     today = get_current_local_date()
                     if batch.start_date <= today:
                         raise ServiceError(detail="Cannot edit the start date of a batch that has already started.", status_code=status.HTTP_400_BAD_REQUEST)
-                    
-                    if BatchWeek.objects.filter(batch=batch).exists():
-                        raise ServiceError(detail="Cannot edit the start date of a batch that already has content weeks added.", status_code=status.HTTP_400_BAD_REQUEST)
 
             old_teacher_id = batch.teacher_id if batch.teacher else None
             old_co_teachers = set(batch.co_teachers.values_list('id', flat=True)) if batch.pk else set()
