@@ -7,6 +7,7 @@ from utils.common import ServiceError
 from rest_framework import serializers
 from apps.courses.models import Course, Batch, BatchEnrollment
 from rest_framework import status
+from apps.courses.models import BatchEnrollment as BE, StudentSessionView, BatchWeeklyTest, TestSubmission, BatchClassSession
 
 
 class BatchListSerializer(serializers.ModelSerializer):
@@ -33,18 +34,25 @@ class BatchListSerializer(serializers.ModelSerializer):
         request = self.context.get('request')
         if not request or not request.user.is_authenticated:
             return 0.0
-        from apps.courses.models import BatchEnrollment as BE, StudentSessionView, BatchWeeklyTest, TestSubmission
-        enrollment = BE.objects.filter(batch=obj, student=request.user, status=BE.Status.ACTIVE).first()
+        
+        enrollment = self.context.get('enrollment')
+        if not enrollment:
+            enrollment = BE.objects.filter(
+                batch=obj, 
+                student=request.user, 
+                status__in=[BE.Status.ACTIVE, BE.Status.COMPLETED]
+            ).first()
+            
         if not enrollment:
             return 0.0
-        from apps.courses.models import BatchClassSession
+        
         total_sessions = BatchClassSession.objects.filter(batch_week__batch=obj).count()
         total_tests = BatchWeeklyTest.objects.filter(batch_week__batch=obj).count()
         total_items = total_sessions + total_tests
         if total_items == 0:
             return 0.0
         completed_sessions = StudentSessionView.objects.filter(enrollment=enrollment, is_completed=True).count()
-        completed_tests = TestSubmission.objects.filter(enrollment=enrollment, is_passed=True, status='published').count()
+        completed_tests = TestSubmission.objects.filter(enrollment=enrollment, is_passed=True, status=TestSubmission.Status.PUBLISHED).count()
         return min(100.0, round((completed_sessions + completed_tests) / total_items * 100, 1))
 
     @extend_schema_field(OpenApiTypes.INT)
@@ -59,10 +67,8 @@ class BatchListSerializer(serializers.ModelSerializer):
             
         user = request.user
         
-        # Get the latest read receipt for this user in this batch
         last_receipt = obj.read_receipts.filter(user=user).first()
         
-        # Count messages sent by others after the last read receipt
         qs = obj.chat_messages.exclude(sender=user)
         if last_receipt:
             qs = qs.filter(sent_at__gt=last_receipt.last_read_at)

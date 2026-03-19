@@ -68,7 +68,6 @@ class BatchSummaryView(APIView):
         )
 
 
-
 @extend_schema(tags=["Batches"])
 class BatchListView(APIView):
     permission_classes = [IsAuthenticated]
@@ -85,19 +84,57 @@ class BatchListView(APIView):
         responses={200: BatchListSerializer(many=True)},
     )
     def get(self, request):
+        user = request.user
+        is_student = (
+            getattr(user, 'user_type', None) and
+            user.user_type.name == UserTypeConstants.STUDENT
+        )
+
+        if is_student:
+            enrollments = (
+                BatchEnrollment.objects
+                .filter(
+                    student=user,
+                    status__in=[BatchEnrollment.Status.ACTIVE, BatchEnrollment.Status.COMPLETED]
+                )
+                .select_related('batch', 'batch__teacher', 'batch__course')
+                .order_by('-enrolled_at')
+            )
+            
+            status_param = request.query_params.get('status')
+            if status_param:
+                enrollments = enrollments.filter(batch__status=status_param.upper())
+
+            search = request.query_params.get('search', '').strip()
+            if search:
+                enrollments = enrollments.filter(batch__name__icontains=search)
+
+            paginate_param = request.query_params.get('paginate', 'true').lower() == 'true'
+            if paginate_param:
+                paginator = CustomPageNumberPagination()
+                page = paginator.paginate_queryset(enrollments, request)
+                data = [
+                    BatchListSerializer(e.batch, context={'request': request, 'enrollment': e}).data
+                    for e in page
+                ]
+                return paginator.get_paginated_response(data, message="Batches retrieved successfully")
+
+            data = [
+                BatchListSerializer(e.batch, context={'request': request, 'enrollment': e}).data
+                for e in enrollments
+            ]
+            return format_success_response(
+                message="Batches retrieved successfully",
+                data=data
+            )
+
         qs = Batch.objects.select_related('teacher', 'course').order_by('-created_at')
 
-        user = request.user
         if getattr(user, 'user_type', None):
             if user.user_type.name == UserTypeConstants.TEACHER:
                 qs = qs.filter(
                     Q(teacher=user) | 
                     Q(co_teachers=user)
-                ).distinct()
-            elif user.user_type.name == UserTypeConstants.STUDENT:
-                qs = qs.filter(
-                    enrollments__student=user,
-                    enrollments__status=BatchEnrollment.Status.ACTIVE
                 ).distinct()
 
         status_param = request.query_params.get('status')
@@ -114,15 +151,14 @@ class BatchListView(APIView):
         if paginate_param:
             paginator = CustomPageNumberPagination()
             paginated_qs = paginator.paginate_queryset(qs, request)
-            serializer = BatchListSerializer(paginated_qs, many=True)
+            serializer = BatchListSerializer(paginated_qs, many=True, context={'request': request})
             return paginator.get_paginated_response(serializer.data, message="Batches retrieved successfully")
 
-        serializer = BatchListSerializer(qs, many=True)
+        serializer = BatchListSerializer(qs, many=True, context={'request': request})
         return format_success_response(
             message="Batches retrieved successfully",
             data=serializer.data
         )
-
 
 
 @extend_schema(tags=["Batches"])
@@ -153,6 +189,21 @@ class BatchCreateView(APIView):
                     activate_user_and_send_welcome_email(co_teacher, request.user)
                 create_notification(list(batch.co_teachers.all()), title="New Batch Assignment", message=f"You have been assigned as a Co-Teacher for the batch '{batch.name}'.", notification_type="info")
 
+            if request.user.user_type and request.user.user_type.name == UserTypeConstants.TEACHER:
+                admins = User.objects.filter(
+                    user_type__name__in=[UserTypeConstants.ADMIN, UserTypeConstants.SUPERADMIN],
+                    is_active=True,
+                    is_deleted=False
+                ).exclude(id=request.user.id)
+                if admins.exists():
+                    create_notification(
+                        user_or_users=list(admins),
+                        title="New Batch Created by Teacher",
+                        message=f"Teacher {request.user.fullname} has created a new batch: '{batch.name}'.",
+                        notification_type="info",
+                        content_object=batch
+                    )
+
             return format_success_response(
                 message="Batch created successfully",
                 data=None,
@@ -163,7 +214,6 @@ class BatchCreateView(APIView):
         except Exception as e:
             logger.error(f"Error creating batch: {str(e)}")
             raise ServiceError(detail=str(e), status_code=status.HTTP_500_INTERNAL_SERVER_ERROR)
-
 
 
 @extend_schema(tags=["Batches"])
@@ -222,7 +272,6 @@ class BatchDetailView(APIView):
         except Exception as e:
             logger.error(f"Error deleting batch {pk}: {str(e)}")
             raise ServiceError(detail=str(e), status_code=status.HTTP_500_INTERNAL_SERVER_ERROR)
-
 
 
 @extend_schema(tags=["Batches"])
@@ -314,7 +363,6 @@ class BatchUpdateView(APIView):
         except Exception as e:
             logger.error(f"Error updating batch {pk}: {str(e)}")
             raise ServiceError(detail=str(e), status_code=status.HTTP_500_INTERNAL_SERVER_ERROR)
-
 
 
 @extend_schema(tags=["Batches"])
@@ -606,6 +654,7 @@ class ExtendBatchTimelineView(APIView):
             logger.error(f"Error extending timeline: {str(e)}")
             raise ServiceError(detail=str(e), status_code=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
+
 @extend_schema(tags=["Batches"])
 class CloneBatchContentView(APIView):
     permission_classes = [IsSuperAdminAdminOrTeacher]
@@ -639,6 +688,7 @@ class CloneBatchContentView(APIView):
         except Exception as e:
             logger.error(f"Error cloning content: {str(e)}")
             raise ServiceError(detail=str(e), status_code=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
 
 @extend_schema(tags=["Batches"])
 class BatchStudentEnrollmentUpdateView(APIView):
@@ -703,6 +753,7 @@ class BatchStudentEnrollmentUpdateView(APIView):
         except Exception as e:
             logger.error(f"Error updating enrollment {enrollment_id}: {str(e)}")
             raise ServiceError(detail=str(e), status_code=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
 
 @extend_schema(tags=["Batches"])
 class BatchStudentWeekUnlockToggleView(APIView):
@@ -792,6 +843,7 @@ class BatchStudentWeekUnlockToggleView(APIView):
         except Exception as e:
             logger.error(f"Error toggling manual unlock: {str(e)}")
             raise ServiceError(detail=str(e), status_code=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
 
 @extend_schema(tags=["Batches"])
 class BatchStudentBulkUpdateView(APIView):
