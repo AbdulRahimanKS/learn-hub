@@ -754,7 +754,7 @@ export function WeeklyTestManager({
         onOpenChange={v => { if (!v) { setIsQuestionModalOpen(false); setQuestionErrors({}); } }}
       >
         <DialogContent
-          className="sm:max-w-lg"
+          className="sm:max-w-xl"
           onOpenAutoFocus={(e) => e.preventDefault()}
         >
           <DialogHeader>
@@ -763,15 +763,7 @@ export function WeeklyTestManager({
           </DialogHeader>
 
           {/* Scrollable body — fixed max height so dialog stays compact */}
-          <div className="max-h-[60vh] overflow-y-auto space-y-5 px-2 py-1 scrollbar-hide">
-
-            {/* Content error banner */}
-            {questionErrors.content && (
-              <div className="flex items-start gap-2 rounded-md bg-destructive/10 border border-destructive/30 px-3 py-2">
-                <AlertCircle className="h-4 w-4 text-destructive flex-shrink-0 mt-0.5" />
-                <p className="text-sm text-destructive">{questionErrors.content}</p>
-              </div>
-            )}
+          <div className="max-h-[62vh] overflow-y-auto space-y-4 px-1 py-1 scrollbar-hide">
 
             {/* Question text */}
             <div className="space-y-1.5">
@@ -790,9 +782,10 @@ export function WeeklyTestManager({
                 rows={3}
                 className={cn(
                   "bg-background/50 border-border focus:border-primary/50 transition-all resize-none",
-                  questionErrors.content && "border-destructive focus:ring-destructive"
+                  questionErrors.content && "focus-visible:ring-destructive/40"
                 )}
               />
+              <FieldError msg={questionErrors.content} />
             </div>
 
             {/* Marks */}
@@ -812,38 +805,54 @@ export function WeeklyTestManager({
                 }}
                 className={cn(
                   "w-32 bg-background/50 border-border focus:border-primary/50 transition-all",
-                  questionErrors.marks && "border-destructive focus:ring-destructive"
+                  questionErrors.marks && "focus-visible:ring-destructive/40"
                 )}
               />
               <FieldError msg={questionErrors.marks} />
             </div>
 
-            <div className="border-t border-border/60 pt-3 space-y-3">
+            <div className="border-t border-border/60 pt-3 space-y-2.5">
               <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Attachments</p>
 
               {/* Question file (single, replaces) */}
               <div className="space-y-1">
                 <Label className="text-xs">Question File <span className="text-muted-foreground font-normal">(.ipynb / .pdf / .doc / .docx)</span></Label>
-                <div className="flex items-center gap-2 flex-wrap">
+                <div className="flex items-center gap-3 p-1 rounded-lg border border-border bg-background/30 h-10 w-full">
                   <Button
-                    type="button" variant="outline" size="sm"
-                    className={`gap-1.5 h-8 text-xs ${questionErrors.content && !editingQuestion.question_file && !editingQuestion.question_file_url ? 'border-destructive' : ''}`}
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    className="h-8 hover:bg-muted text-xs px-3 gap-1.5"
                     onClick={() => questionFileRef.current?.click()}
                   >
                     <Paperclip className="h-3.5 w-3.5" />
-                    {editingQuestion.question_file ? editingQuestion.question_file.name : 'Choose File'}
+                    Choose File
                   </Button>
+                  <span className="text-[11px] text-muted-foreground truncate flex-1 px-1">
+                    {editingQuestion.question_file
+                      ? editingQuestion.question_file.name
+                      : (editingQuestion.question_file_url ? shortName(editingQuestion.question_file_url) : 'No file chosen')}
+                  </span>
                   {editingQuestion.question_file && (
-                    <button type="button" className="text-muted-foreground hover:text-destructive"
-                      onClick={() => setEditingQuestion(prev => ({ ...prev, question_file: null }))}>
-                      <X className="h-3.5 w-3.5" />
-                    </button>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon"
+                      className="h-6 w-6 text-muted-foreground"
+                      onClick={() => setEditingQuestion(prev => ({ ...prev, question_file: null }))}
+                    >
+                      <X className="h-3 w-3" />
+                    </Button>
                   )}
                   {!editingQuestion.question_file && editingQuestion.question_file_url && (
-                    <a href={editingQuestion.question_file_url} target="_blank" rel="noreferrer"
-                      className="flex items-center gap-1 text-xs text-primary hover:underline max-w-[180px] truncate">
-                      <ExternalLink className="h-3 w-3 flex-shrink-0" />
-                      {shortName(editingQuestion.question_file_url)}
+                    <a
+                      href={editingQuestion.question_file_url}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="inline-flex h-6 w-6 items-center justify-center rounded-md text-muted-foreground hover:text-primary hover:bg-muted"
+                      title="Open existing file"
+                    >
+                      <ExternalLink className="h-3 w-3" />
                     </a>
                   )}
                 </div>
@@ -857,24 +866,43 @@ export function WeeklyTestManager({
               {/* Image (single, replaces) */}
               <div className="space-y-1">
                 <Label className="text-xs">Image <span className="text-muted-foreground font-normal">(.jpg / .png)</span></Label>
-                <div className="flex items-center gap-2 flex-wrap">
+                <div className="flex items-center gap-3 p-1 rounded-lg border border-border bg-background/30 h-10 w-full">
                   <Button
-                    type="button" variant="outline" size="sm"
-                    className={`gap-1.5 h-8 text-xs ${questionErrors.content && !editingQuestion.image && !editingQuestion.image_url ? 'border-destructive' : ''}`}
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    className="h-8 hover:bg-muted text-xs px-3 gap-1.5"
                     onClick={() => questionImageRef.current?.click()}
                   >
                     <ImageIcon className="h-3.5 w-3.5" />
-                    {editingQuestion.image ? editingQuestion.image.name : 'Choose Image'}
+                    Choose Image
                   </Button>
+                  <span className="text-[11px] text-muted-foreground truncate flex-1 px-1">
+                    {editingQuestion.image
+                      ? editingQuestion.image.name
+                      : (editingQuestion.image_url ? shortName(editingQuestion.image_url) : 'No image chosen')}
+                  </span>
                   {editingQuestion.image && (
-                    <button type="button" className="text-muted-foreground hover:text-destructive"
-                      onClick={() => setEditingQuestion(prev => ({ ...prev, image: null }))}>
-                      <X className="h-3.5 w-3.5" />
-                    </button>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon"
+                      className="h-6 w-6 text-muted-foreground"
+                      onClick={() => setEditingQuestion(prev => ({ ...prev, image: null }))}
+                    >
+                      <X className="h-3 w-3" />
+                    </Button>
                   )}
                   {!editingQuestion.image && editingQuestion.image_url && (
-                    <img src={editingQuestion.image_url} alt="current"
-                      className="h-8 w-8 object-cover rounded border border-border" />
+                    <a
+                      href={editingQuestion.image_url}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="inline-flex h-6 w-6 items-center justify-center rounded-md text-muted-foreground hover:text-primary hover:bg-muted"
+                      title="Open existing image"
+                    >
+                      <ExternalLink className="h-3 w-3" />
+                    </a>
                   )}
                 </div>
                 <input ref={questionImageRef} type="file" accept="image/jpeg,image/png" className="hidden"
@@ -893,9 +921,9 @@ export function WeeklyTestManager({
 
                 {/* Existing saved attachments */}
                 {(editingQuestion.existingAttachments.length > 0 || editingQuestion.newAttachmentFiles.length > 0) && (
-                  <div className="grid grid-cols-1 gap-2">
+                  <div className="grid grid-cols-1 gap-1.5">
                     {editingQuestion.existingAttachments.map(att => (
-                      <div key={att.id} className="group relative flex items-center gap-3 bg-background border border-border rounded-xl p-3 transition-all hover:border-primary/50 hover:shadow-md">
+                      <div key={att.id} className="group relative flex items-center gap-3 bg-background border border-border rounded-xl p-2.5 transition-all hover:border-primary/40">
                         <div className="flex-shrink-0 w-10 h-10 rounded-lg bg-primary/5 flex items-center justify-center border border-primary/10">
                           <FilePlus2 className="h-5 w-5 text-primary" />
                         </div>
@@ -921,7 +949,7 @@ export function WeeklyTestManager({
 
                     {/* New queued attachments */}
                     {editingQuestion.newAttachmentFiles.map((file, idx) => (
-                      <div key={idx} className="group relative flex items-center gap-3 bg-primary/[0.02] border border-primary/20 border-dashed rounded-xl p-3 transition-all hover:bg-primary/[0.04]">
+                      <div key={idx} className="group relative flex items-center gap-3 bg-primary/[0.02] border border-primary/20 border-dashed rounded-xl p-2.5 transition-all hover:bg-primary/[0.04]">
                         <div className="flex-shrink-0 w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center border border-primary/20">
                           <UploadCloud className="h-5 w-5 text-primary" />
                         </div>
@@ -945,14 +973,14 @@ export function WeeklyTestManager({
                 )}
 
                 {/* Styled Upload Area */}
-                <div 
-                  className="group relative border-2 border-dashed border-muted-foreground/20 rounded-xl p-6 text-center transition-all hover:border-primary/50 hover:bg-primary/[0.02] cursor-pointer"
+                <div
+                  className="group relative border-2 border-dashed border-muted-foreground/20 rounded-xl p-4 text-center transition-all hover:border-primary/40 hover:bg-primary/[0.02] cursor-pointer"
                   onClick={() => attachmentFileRef.current?.click()}
                 >
-                  <div className="w-12 h-12 rounded-full bg-muted/50 flex items-center justify-center mx-auto mb-3 group-hover:bg-primary/10 group-hover:scale-110 transition-all">
-                    <Paperclip className="h-6 w-6 text-muted-foreground group-hover:text-primary" />
+                  <div className="w-10 h-10 rounded-full bg-muted/50 flex items-center justify-center mx-auto mb-2 group-hover:bg-primary/10 transition-all">
+                    <Paperclip className="h-5 w-5 text-muted-foreground group-hover:text-primary" />
                   </div>
-                  <div className="space-y-1">
+                  <div className="space-y-0.5">
                     <p className="text-sm font-semibold text-foreground group-hover:text-primary transition-colors">Click to add extra materials</p>
                     <p className="text-xs text-muted-foreground">Support for .pdf, .ipynb, .xlsx, etc.</p>
                   </div>

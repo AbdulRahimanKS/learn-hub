@@ -486,22 +486,22 @@ class WeeklyTestView(APIView):
         responses={200: CourseWeeklyTestSerializer}
     )
     def patch(self, request, course_id, week_id):
-        user = request.user
-        if getattr(user, 'user_type', None) and user.user_type.name not in [UserTypeConstants.ADMIN, UserTypeConstants.SUPERADMIN, UserTypeConstants.TEACHER]:
-            raise ServiceError(detail="You do not have permission to perform this action.", status_code=status.HTTP_403_FORBIDDEN)
-
-        week = self.get_week(course_id, week_id)
-        
-        if not hasattr(week, 'weekly_test'):
-            raise ServiceError(detail="No test configured for this week.", status_code=status.HTTP_404_NOT_FOUND)
-            
-        test = week.weekly_test
-        serializer = CourseWeeklyTestCreateUpdateSerializer(test, data=request.data, partial=True, context={'request': request})
-        if not serializer.is_valid():
-            error_str = handle_serializer_errors(serializer)
-            raise ServiceError(detail=error_str, status_code=status.HTTP_400_BAD_REQUEST)
-
         try:
+            user = request.user
+            if getattr(user, 'user_type', None) and user.user_type.name not in [UserTypeConstants.ADMIN, UserTypeConstants.SUPERADMIN, UserTypeConstants.TEACHER]:
+                raise ServiceError(detail="You do not have permission to perform this action.", status_code=status.HTTP_403_FORBIDDEN)
+
+            week = self.get_week(course_id, week_id)
+            
+            if not hasattr(week, 'weekly_test'):
+                raise ServiceError(detail="No test configured for this week.", status_code=status.HTTP_404_NOT_FOUND)
+                
+            test = week.weekly_test
+            serializer = CourseWeeklyTestCreateUpdateSerializer(test, data=request.data, partial=True, context={'request': request})
+            if not serializer.is_valid():
+                error_str = handle_serializer_errors(serializer)
+                raise ServiceError(detail=error_str, status_code=status.HTTP_400_BAD_REQUEST)
+
             for attr, value in serializer.validated_data.items():
                 setattr(test, attr, value)
             test.updated_by = user
@@ -516,15 +516,15 @@ class WeeklyTestView(APIView):
 
     @extend_schema(summary="Delete a weekly test (Admin/Teacher only)", responses={200: None})
     def delete(self, request, course_id, week_id):
-        user = request.user
-        if getattr(user, 'user_type', None) and user.user_type.name not in [UserTypeConstants.ADMIN, UserTypeConstants.SUPERADMIN, UserTypeConstants.TEACHER]:
-            raise ServiceError(detail="You do not have permission to perform this action.", status_code=status.HTTP_403_FORBIDDEN)
-
-        week = self.get_week(course_id, week_id)
-        if not hasattr(week, 'weekly_test'):
-            raise ServiceError(detail="No test configured for this week.", status_code=status.HTTP_404_NOT_FOUND)
-            
         try:
+            user = request.user
+            if getattr(user, 'user_type', None) and user.user_type.name not in [UserTypeConstants.ADMIN, UserTypeConstants.SUPERADMIN, UserTypeConstants.TEACHER]:
+                raise ServiceError(detail="You do not have permission to perform this action.", status_code=status.HTTP_403_FORBIDDEN)
+
+            week = self.get_week(course_id, week_id)
+            if not hasattr(week, 'weekly_test'):
+                raise ServiceError(detail="No test configured for this week.", status_code=status.HTTP_404_NOT_FOUND)
+            
             week.weekly_test.delete()
             return format_success_response(message="Weekly test deleted successfully")
         except ServiceError:
@@ -567,18 +567,18 @@ class WeeklyTestQuestionListCreateView(APIView):
         responses={201: CourseTestQuestionSerializer}
     )
     def post(self, request, course_id, week_id):
-        user = request.user
-        if getattr(user, 'user_type', None) and user.user_type.name not in [UserTypeConstants.ADMIN, UserTypeConstants.SUPERADMIN, UserTypeConstants.TEACHER]:
-            raise ServiceError(detail="You do not have permission to perform this action.", status_code=status.HTTP_403_FORBIDDEN)
-
-        test = self.get_test(course_id, week_id)
-        serializer = CourseTestQuestionSerializer(data=request.data, context={'request': request})
-        
-        if not serializer.is_valid():
-            error_str = handle_serializer_errors(serializer)
-            raise ServiceError(detail=error_str, status_code=status.HTTP_400_BAD_REQUEST)
-
         try:
+            user = request.user
+            if getattr(user, 'user_type', None) and user.user_type.name not in [UserTypeConstants.ADMIN, UserTypeConstants.SUPERADMIN, UserTypeConstants.TEACHER]:
+                raise ServiceError(detail="You do not have permission to perform this action.", status_code=status.HTTP_403_FORBIDDEN)
+
+            test = self.get_test(course_id, week_id)
+            serializer = CourseTestQuestionSerializer(data=request.data, context={'request': request})
+            
+            if not serializer.is_valid():
+                error_str = handle_serializer_errors(serializer)
+                raise ServiceError(detail=error_str, status_code=status.HTTP_400_BAD_REQUEST)
+
             question = CourseTestQuestion.objects.create(
                 test=test,
                 **serializer.validated_data
@@ -629,18 +629,18 @@ class WeeklyTestQuestionDetailView(APIView):
         responses={200: CourseTestQuestionSerializer}
     )
     def patch(self, request, course_id, week_id, question_id):
-        user = request.user
-        if getattr(user, 'user_type', None) and user.user_type.name not in [UserTypeConstants.ADMIN, UserTypeConstants.SUPERADMIN, UserTypeConstants.TEACHER]:
-            raise ServiceError(detail="You do not have permission to perform this action.", status_code=status.HTTP_403_FORBIDDEN)
-
-        question = self.get_object(course_id, week_id, question_id)
-        serializer = CourseTestQuestionSerializer(question, data=request.data, partial=True, context={'request': request})
-        
-        if not serializer.is_valid():
-            error_str = handle_serializer_errors(serializer)
-            raise ServiceError(detail=error_str, status_code=status.HTTP_400_BAD_REQUEST)
-
         try:
+            user = request.user
+            if getattr(user, 'user_type', None) and user.user_type.name not in [UserTypeConstants.ADMIN, UserTypeConstants.SUPERADMIN, UserTypeConstants.TEACHER]:
+                raise ServiceError(detail="You do not have permission to perform this action.", status_code=status.HTTP_403_FORBIDDEN)
+
+            question = self.get_object(course_id, week_id, question_id)
+            serializer = CourseTestQuestionSerializer(question, data=request.data, partial=True, context={'request': request})
+            
+            if not serializer.is_valid():
+                error_str = handle_serializer_errors(serializer)
+                raise ServiceError(detail=error_str, status_code=status.HTTP_400_BAD_REQUEST)
+
             for attr, value in serializer.validated_data.items():
                 setattr(question, attr, value)
             question.save()
@@ -655,13 +655,13 @@ class WeeklyTestQuestionDetailView(APIView):
 
     @extend_schema(summary="Delete a question (Admin/Teacher only)", responses={200: None})
     def delete(self, request, course_id, week_id, question_id):
-        user = request.user
-        if getattr(user, 'user_type', None) and user.user_type.name not in [UserTypeConstants.ADMIN, UserTypeConstants.SUPERADMIN, UserTypeConstants.TEACHER]:
-            raise ServiceError(detail="You do not have permission to perform this action.", status_code=status.HTTP_403_FORBIDDEN)
-
-        question = self.get_object(course_id, week_id, question_id)
-        
         try:
+            user = request.user
+            if getattr(user, 'user_type', None) and user.user_type.name not in [UserTypeConstants.ADMIN, UserTypeConstants.SUPERADMIN, UserTypeConstants.TEACHER]:
+                raise ServiceError(detail="You do not have permission to perform this action.", status_code=status.HTTP_403_FORBIDDEN)
+
+            question = self.get_object(course_id, week_id, question_id)
+        
             question.delete()
             return format_success_response(message="Question deleted successfully")
         except ServiceError:
@@ -690,20 +690,26 @@ class WeeklyTestQuestionAttachmentView(APIView):
 
     @extend_schema(summary="Add an attachment to a question")
     def post(self, request, course_id, week_id, question_id):
-        question = self.get_question(course_id, week_id, question_id)
-        file = request.FILES.get('file')
-        if not file:
-            raise ServiceError(detail="No file provided.", status_code=status.HTTP_400_BAD_REQUEST)
-        name = request.data.get('name', file.name)
-        attachment = CourseTestQuestionAttachment.objects.create(
-            question=question, file=file, name=name
-        )
-        serializer = CourseTestQuestionAttachmentSerializer(attachment, context={'request': request})
-        return format_success_response(
-            message="Attachment added successfully",
-            data=serializer.data,
-            status_code=status.HTTP_201_CREATED
-        )
+        try:
+            question = self.get_question(course_id, week_id, question_id)
+            file = request.FILES.get('file')
+            if not file:
+                raise ServiceError(detail="No file provided.", status_code=status.HTTP_400_BAD_REQUEST)
+            name = request.data.get('name', file.name)
+            attachment = CourseTestQuestionAttachment.objects.create(
+                question=question, file=file, name=name
+            )
+            serializer = CourseTestQuestionAttachmentSerializer(attachment, context={'request': request})
+            return format_success_response(
+                message="Attachment added successfully",
+                data=serializer.data,
+                status_code=status.HTTP_201_CREATED
+            )
+        except ServiceError:
+            raise
+        except Exception as e:
+            logger.error(f"Error adding attachment: {str(e)}")
+            raise ServiceError(detail="An error occurred while adding the attachment.", status_code=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
 @extend_schema(tags=["Weekly Tests"])
@@ -725,10 +731,12 @@ class WeeklyTestQuestionAttachmentDetailView(APIView):
 
     @extend_schema(summary="Delete a question attachment")
     def delete(self, request, course_id, week_id, question_id, attachment_id):
-        attachment = self.get_object(course_id, week_id, question_id, attachment_id)
         try:
+            attachment = self.get_object(course_id, week_id, question_id, attachment_id)
             attachment.delete()
             return format_success_response(message="Attachment deleted successfully")
+        except ServiceError:
+            raise
         except Exception as e:
             logger.error(f"Error deleting attachment: {str(e)}")
             raise ServiceError(detail="An error occurred while deleting the attachment.", status_code=status.HTTP_500_INTERNAL_SERVER_ERROR)
