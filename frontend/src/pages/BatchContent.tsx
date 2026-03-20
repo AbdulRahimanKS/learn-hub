@@ -821,12 +821,12 @@ export default function BatchContent() {
                                 </div>
                              </div>
                              <Button 
-                                variant="outline" 
-                                className="rounded-xl px-8 h-11 font-semibold text-xs tracking-wide border-primary/30 text-primary hover:bg-primary/5 shadow-sm"
+                               variant="gradient"
+                               className="rounded-xl px-8 h-11 font-bold text-xs tracking-wide shadow-sm"
                                 onClick={() => handleOpenTestManager(week)}
                                 disabled={week.is_unlocked}
                               >
-                                Manage Logic
+                               Manage Assessment
                              </Button>
                            </div>
                         </Card>

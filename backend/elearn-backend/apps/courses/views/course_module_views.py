@@ -449,21 +449,21 @@ class WeeklyTestView(APIView):
         responses={201: CourseWeeklyTestSerializer}
     )
     def post(self, request, course_id, week_id):
-        user = request.user
-        if getattr(user, 'user_type', None) and user.user_type.name not in [UserTypeConstants.ADMIN, UserTypeConstants.SUPERADMIN, UserTypeConstants.TEACHER]:
-            raise ServiceError(detail="You do not have permission to perform this action.", status_code=status.HTTP_403_FORBIDDEN)
-
-        week = self.get_week(course_id, week_id)
-        
-        if hasattr(week, 'weekly_test'):
-            raise ServiceError(detail="A test already exists for this week.", status_code=status.HTTP_400_BAD_REQUEST)
-
-        serializer = CourseWeeklyTestCreateUpdateSerializer(data=request.data, context={'request': request})
-        if not serializer.is_valid():
-            error_str = handle_serializer_errors(serializer)
-            raise ServiceError(detail=error_str, status_code=status.HTTP_400_BAD_REQUEST)
-
         try:
+            user = request.user
+            if getattr(user, 'user_type', None) and user.user_type.name not in [UserTypeConstants.ADMIN, UserTypeConstants.SUPERADMIN, UserTypeConstants.TEACHER]:
+                raise ServiceError(detail="You do not have permission to perform this action.", status_code=status.HTTP_403_FORBIDDEN)
+
+            week = self.get_week(course_id, week_id)
+            
+            if hasattr(week, 'weekly_test'):
+                raise ServiceError(detail="A test already exists for this week.", status_code=status.HTTP_400_BAD_REQUEST)
+
+            serializer = CourseWeeklyTestCreateUpdateSerializer(data=request.data, context={'request': request})
+            if not serializer.is_valid():
+                error_str = handle_serializer_errors(serializer)
+                raise ServiceError(detail=error_str, status_code=status.HTTP_400_BAD_REQUEST)
+
             test = CourseWeeklyTest.objects.create(
                 course_week=week,
                 created_by=user,

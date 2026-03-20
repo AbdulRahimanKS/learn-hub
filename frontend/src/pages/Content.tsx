@@ -823,8 +823,9 @@ export default function Content() {
                                 </div>
                              </div>
                              <Button 
-                               variant="outline" size="sm" 
-                               className="rounded-xl px-8 h-11 font-semibold text-xs tracking-wide border-primary/30 text-primary hover:bg-primary/5"
+                              variant="gradient"
+                              size="sm"
+                              className="rounded-xl px-8 h-11 font-bold text-xs tracking-wide"
                                onClick={() => handleOpenTestManager(week)}
                              >
                                Manage Assessment
