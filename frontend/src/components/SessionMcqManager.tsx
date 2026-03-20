@@ -136,8 +136,11 @@ export function SessionMcqManager({
     if (!editingQuestion.is_fill_in_the_blank) {
       if (validChoices.length < 2) {
         errs.choices = 'Provide at least two valid options.';
-      } else if (!validChoices.some(c => c.is_correct)) {
-        errs.choices = 'At least one option must be marked as correct.';
+      } else {
+        const correctCount = validChoices.filter(c => c.is_correct).length;
+        if (correctCount !== 1) {
+          errs.choices = 'Exactly one option must be marked as correct.';
+        }
       }
     } else {
       if (validChoices.length < 1) {
@@ -233,7 +236,14 @@ export function SessionMcqManager({
 
   const updateChoice = (idx: number, updates: Partial<ChoiceFormState>) => {
     const updated = [...editingQuestion.choices];
-    updated[idx] = { ...updated[idx], ...updates };
+    if (!editingQuestion.is_fill_in_the_blank && updates.is_correct === true) {
+      // MCQ mode supports exactly one correct option.
+      for (let i = 0; i < updated.length; i++) {
+        updated[i] = { ...updated[i], is_correct: i === idx };
+      }
+    } else {
+      updated[idx] = { ...updated[idx], ...updates };
+    }
     setEditingQuestion(p => ({ ...p, choices: updated }));
     if (errors.choices) setErrors(e => ({ ...e, choices: undefined }));
   };
