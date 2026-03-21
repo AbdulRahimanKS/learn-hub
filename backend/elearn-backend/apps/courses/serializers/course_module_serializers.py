@@ -7,9 +7,13 @@ from apps.courses.models import (
     BatchWeeklyTest, BatchTestQuestion, BatchTestQuestionAttachment,
     BatchWeek,
     CoursePostSessionQuestion, CoursePostSessionChoice,
-    BatchPostSessionQuestion, BatchPostSessionChoice
+    BatchPostSessionQuestion, BatchPostSessionChoice,
+    BatchEnrollment, StudentSessionView,
+    TestSubmission, ManualStudentWeekUnlock
 )
+from apps.courses.serializers.test_submission_serializers import TestSubmissionSerializer
 from utils.common import ServiceError
+from utils.constants import UserTypeConstants
 from rest_framework import status
 
 ALLOWED_ANSWER_KEY_EXTENSIONS = ('.pdf', '.ipynb')
@@ -104,7 +108,6 @@ class BatchClassSessionSerializer(serializers.ModelSerializer):
         if not request or not request.user.is_authenticated:
             return False
         
-        from apps.courses.models import BatchEnrollment, StudentSessionView
         enrollment = BatchEnrollment.objects.filter(student=request.user, batch=obj.batch_week.batch).first()
         if not enrollment:
             return False
@@ -197,12 +200,9 @@ class BatchWeekSerializer(serializers.ModelSerializer):
         request = self.context.get('request')
         if not request or not request.user.is_authenticated:
             return {'is_locked': True, 'reason': 'authentication_required'}
-            
-        from apps.users.models import User
-        from apps.courses.models import BatchEnrollment, TestSubmission
         
-        # Admin or Teacher can see everything
-        if request.user.user_type.name in ('ADMIN', 'TEACHER'):
+        # Admin, SuperAdmin or Teacher can see everything
+        if request.user.user_type.name in (UserTypeConstants.ADMIN, UserTypeConstants.SUPERADMIN, UserTypeConstants.TEACHER):
             return {'is_locked': False, 'reason': None}
 
         enrollment = BatchEnrollment.objects.filter(student=request.user, batch=obj.batch).first()
@@ -211,7 +211,6 @@ class BatchWeekSerializer(serializers.ModelSerializer):
 
         # 1. Manual Unlock Override
         # Check if this specific week is manually unlocked for this student
-        from apps.courses.models import ManualStudentWeekUnlock
         if ManualStudentWeekUnlock.objects.filter(enrollment=enrollment, batch_week=obj).exists():
             return {'is_locked': False, 'reason': 'manual_unlock'}
 
@@ -225,8 +224,6 @@ class BatchWeekSerializer(serializers.ModelSerializer):
             prev_weeks = obj.batch.batch_weeks.filter(
                 week_number__lt=obj.week_number
             ).order_by('week_number')
-            
-            from apps.courses.models import BatchClassSession, StudentSessionView
             
             for pw in prev_weeks:
                 # A. Check Video Sessions
@@ -246,7 +243,7 @@ class BatchWeekSerializer(serializers.ModelSerializer):
                     passed = TestSubmission.objects.filter(
                         enrollment=enrollment,
                         batch_weekly_test=pw.weekly_test,
-                        status='published',
+                        status=TestSubmission.Status.PUBLISHED,
                         is_passed=True
                     ).exists()
                     
@@ -262,6 +259,11 @@ class BatchWeekCreateUpdateSerializer(serializers.ModelSerializer):
         fields = [
             'id', 'week_number', 'title', 'description', 'unlock_date', 'is_extended'
         ]
+
+    def validate_week_number(self, value):
+        if value <= 0:
+            raise ServiceError(detail="Week number must be greater than 0.", status_code=status.HTTP_400_BAD_REQUEST)
+        return value
 
 
 class CourseWeekCreateUpdateSerializer(serializers.ModelSerializer):
@@ -395,9 +397,6 @@ class BatchWeeklyTestSerializer(serializers.ModelSerializer):
         request = self.context.get('request')
         if not request or not request.user.is_authenticated:
             return None
-            
-        from apps.courses.models import BatchEnrollment, TestSubmission
-        from apps.courses.serializers.test_submission_serializers import TestSubmissionSerializer
 
         enrollment = BatchEnrollment.objects.filter(student=request.user, batch=obj.batch_week.batch).first()
         if not enrollment:
@@ -417,8 +416,7 @@ class BatchWeeklyTestSerializer(serializers.ModelSerializer):
         request = self.context.get('request')
         if not request or not request.user.is_authenticated:
             return False
-        
-        from apps.courses.models import BatchEnrollment, TestSubmission
+
         enrollment = BatchEnrollment.objects.filter(student=request.user, batch=obj.batch_week.batch).first()
         if not enrollment:
             return False
@@ -426,7 +424,7 @@ class BatchWeeklyTestSerializer(serializers.ModelSerializer):
         return TestSubmission.objects.filter(
             enrollment=enrollment,
             batch_weekly_test=obj,
-            status='published',
+            status=TestSubmission.Status.PUBLISHED,
             is_passed=True
         ).exists()
 
@@ -436,7 +434,6 @@ class BatchWeeklyTestSerializer(serializers.ModelSerializer):
         if not request or not request.user.is_authenticated:
             return False
         
-        from apps.courses.models import BatchEnrollment, TestSubmission
         enrollment = BatchEnrollment.objects.filter(student=request.user, batch=obj.batch_week.batch).first()
         if not enrollment:
             return False
