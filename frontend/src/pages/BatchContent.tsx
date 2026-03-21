@@ -95,11 +95,6 @@ export default function BatchContent() {
   const [extendDays, setExtendDays] = useState(7);
   const [isExtending, setIsExtending] = useState(false);
 
-  // Content State
-  const [sessions, setSessions] = useState<any[]>([]);
-  const [weeklyTest, setWeeklyTest] = useState<any>(null);
-  const [loadingContent, setLoadingContent] = useState(false);
-
   // Session Modal
   const [isSessionModalOpen, setIsSessionModalOpen] = useState(false);
   const [editingSession, setEditingSession] = useState<any>(null);
@@ -157,9 +152,9 @@ export default function BatchContent() {
     } catch (err) {}
   };
 
-  const fetchWeeks = async () => {
+  const fetchWeeks = async (showLoader = true) => {
     if (!batchId) return;
-    setLoading(true);
+    if (showLoader) setLoading(true);
     try {
       const res = await batchContentApi.getWeeks(parseInt(batchId));
       if (res.success) {
@@ -171,26 +166,7 @@ export default function BatchContent() {
     } catch (error) {
       toast({ title: 'Error', description: 'Failed to load batch content', variant: 'destructive' });
     } finally {
-      setLoading(false);
-    }
-  };
-
-  const fetchContent = async (weekId: number) => {
-    if (!batchId) return;
-    setLoadingContent(true);
-    try {
-      const [sessRes, testRes] = await Promise.all([
-        batchContentApi.getSessions(parseInt(batchId), weekId),
-        batchContentApi.getWeeklyTest(parseInt(batchId), weekId).catch(() => ({ success: false, data: null }))
-      ]);
-      
-      if (sessRes.success) setSessions(sessRes.data);
-      if (testRes.success) setWeeklyTest(testRes.data);
-      else setWeeklyTest(null);
-    } catch (err) {
-      console.error(err);
-    } finally {
-      setLoadingContent(false);
+      if (showLoader) setLoading(false);
     }
   };
 
@@ -208,12 +184,6 @@ export default function BatchContent() {
     fetchBatchInfo();
     fetchWeeks();
   }, [batchId]);
-
-  useEffect(() => {
-    if (activeTab) {
-      fetchContent(parseInt(activeTab));
-    }
-  }, [activeTab]);
 
   const handleOpenEdit = (week: BatchWeek) => {
     setEditWeek(week);
@@ -242,7 +212,7 @@ export default function BatchContent() {
       });
       toast({ title: 'Success', description: 'Week updated successfully', variant: 'success' });
       setIsEditOpen(false);
-      fetchWeeks();
+      fetchWeeks(false);
     } catch (err) {
       toast({ title: 'Error', description: 'Failed to update week', variant: 'destructive' });
     } finally {
@@ -259,7 +229,7 @@ export default function BatchContent() {
       setDeleteWeekId(null);
       // If we deleted the active tab, reset
       if (activeTab === deleteWeekId.toString()) setActiveTab('');
-      await fetchWeeks();
+      await fetchWeeks(false);
     } catch (err: any) {
       const msg = err.response?.data?.detail || 'Failed to delete week';
       toast({ title: 'Error', description: msg, variant: 'destructive' });
@@ -295,7 +265,7 @@ export default function BatchContent() {
       toast({ title: 'Success', description: 'Week added successfully', variant: 'success' });
       setIsAddWeekOpen(false);
       setNewWeekTitle('');
-      await fetchWeeks();
+      await fetchWeeks(false);
     } catch (err: any) {
       const msg = err.response?.data?.detail || 'Failed to add week';
       toast({ title: 'Error', description: msg, variant: 'destructive' });
@@ -311,7 +281,7 @@ export default function BatchContent() {
       await batchApi.extendTimeline(parseInt(batchId), extendDays);
       toast({ title: 'Success', description: `Program extended by ${extendDays} days` });
       setIsExtendOpen(false);
-      fetchWeeks();
+      fetchWeeks(false);
     } catch (err) {
       toast({ title: 'Error', description: 'Failed to extend program', variant: 'destructive' });
     } finally {
@@ -415,7 +385,7 @@ export default function BatchContent() {
       
       toast({ title: 'Success', description: editingSession ? 'Session updated' : 'Session created' });
       setIsSessionModalOpen(false);
-      fetchContent(parseInt(activeTab));
+      await fetchWeeks(false);
     } catch (err: any) {
       toast({ title: 'Error', description: err?.message || 'Failed to save session', variant: 'destructive' });
     } finally {
@@ -431,7 +401,7 @@ export default function BatchContent() {
       await batchContentApi.deleteSession(parseInt(batchId), parseInt(activeTab), deleteSessionId);
       toast({ title: 'Success', description: 'Session deleted' });
       setDeleteSessionId(null);
-      fetchContent(parseInt(activeTab));
+      await fetchWeeks(false);
     } catch (err: any) {
       const msg = err.response?.data?.detail || 'Failed to delete session';
       toast({ title: 'Error', description: msg, variant: 'destructive' });
@@ -580,6 +550,8 @@ export default function BatchContent() {
           {activeTab && weeks.find(w => w.id.toString() === activeTab) ? (
             (() => {
               const week = weeks.find(w => w.id.toString() === activeTab)!;
+              const sessions = week.class_sessions || [];
+              const weeklyTest = week.weekly_test || null;
               return (
                 <div className="space-y-6">
                    {/* Phase 1: Header Banner */}
@@ -689,7 +661,7 @@ export default function BatchContent() {
                         </Button>
                       </div>
 
-                      {loadingContent ? (
+                      {loading ? (
                         <div className="flex flex-col items-center justify-center py-20 gap-4">
                            <Loader2 className="h-10 w-10 animate-spin text-primary/30" />
                         </div>
@@ -1184,10 +1156,10 @@ export default function BatchContent() {
         <WeeklyTestManager
           open={isTestModalOpen}
           onClose={() => { setIsTestModalOpen(false); setTestWeek(null); }}
-          existingTest={weeklyTest ?? null}
+          existingTest={weeks.find(w => w.id === testWeek.id)?.weekly_test ?? null}
           weekLabel={`Week ${testWeek.week_number}: ${testWeek.title}`}
           testApiBase={`/api/courses/v1/batches/${batchId}/weeks/${testWeek.id}/test/manage`}
-          onSaved={() => fetchContent(parseInt(activeTab))}
+          onSaved={() => fetchWeeks(false)}
         />
       )}
 
@@ -1197,7 +1169,7 @@ export default function BatchContent() {
         onClose={() => setIsMcqOpen(false)}
         session={mcqSession}
         apiBaseUrl={mcqApiUrl}
-        onSaved={() => fetchContent(parseInt(activeTab))}
+        onSaved={() => fetchWeeks(false)}
       />
 
       {/* Delete Session Confirmation */}
