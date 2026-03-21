@@ -265,6 +265,7 @@ export function WeeklyTestManager({
           description: 'The test configuration has been successfully saved.', 
           variant: 'success' 
         });
+        onClose();
       } else {
         const res = await apiClient.post(`${testApiBase}/`, formData, {
           headers: { 'Content-Type': 'multipart/form-data' },

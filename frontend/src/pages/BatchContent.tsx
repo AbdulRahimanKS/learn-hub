@@ -356,13 +356,13 @@ export default function BatchContent() {
     if (Object.keys(errors).length > 0) return;
 
     setIsSavingSession(true);
-    setUploadProgress(0);
+    setUploadProgress(editingSession ? -1 : 0);
 
     try {
       let finalVideoKey = '';
       let actualDurationSeconds = 0;
 
-      if (videoFile) {
+      if (videoFile && !editingSession) {
         try {
           const durationS = await getBlobDuration(videoFile);
           actualDurationSeconds = Math.round(durationS);
@@ -418,7 +418,7 @@ export default function BatchContent() {
         await batchContentApi.createSession(parseInt(batchId as string), parseInt(targetWeekId), formData);
       }
       
-      toast({ title: 'Success', description: editingSession ? 'Session updated' : 'Session created' });
+      toast({ title: 'Success', description: editingSession ? 'Session updated' : 'Session created', variant: 'success' });
       setIsSessionModalOpen(false);
       await fetchWeeks(false);
     } catch (err: any) {
@@ -440,7 +440,7 @@ export default function BatchContent() {
     setIsDeletingSession(true);
     try {
       await batchContentApi.deleteSession(parseInt(batchId), parseInt(activeTab), deleteSessionId);
-      toast({ title: 'Success', description: 'Session deleted' });
+      toast({ title: 'Success', description: 'Session deleted', variant: 'success' });
       setDeleteSessionId(null);
       await fetchWeeks(false);
     } catch (err: any) {
@@ -1168,6 +1168,7 @@ export default function BatchContent() {
               </div>
             </div>
 
+            {!editingSession && (
             <div className="grid gap-2">
                 <Label>Video File {!editingSession && <span className="text-destructive">*</span>}</Label>
                 <input
@@ -1228,9 +1229,10 @@ export default function BatchContent() {
                 </div>
                 {videoFormErrors.video_file && <p className="text-xs text-destructive">{videoFormErrors.video_file}</p>}
             </div>
+            )}
 
             {/* Upload Progress Bar */}
-            {uploadProgress >= 0 && (
+            {!editingSession && uploadProgress >= 0 && (
               <div className="space-y-2 mt-2">
                 <div className="flex items-center justify-between text-xs">
                   <span className="font-medium text-foreground">
@@ -1255,7 +1257,7 @@ export default function BatchContent() {
               {isSavingSession ? (
                 <>
                   <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                  {uploadProgress >= 0 ? 'Uploading...' : 'Saving...'}
+                  {!editingSession && uploadProgress >= 0 ? 'Uploading...' : 'Saving...'}
                 </>
               ) : (
                 editingSession ? 'Update Session' : 'Save Session'

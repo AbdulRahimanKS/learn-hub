@@ -578,6 +578,36 @@ class BatchWeeklyTestManageView(APIView):
             logger.error(f"Error deleting weekly test: {str(e)}")
             raise ServiceError(detail="An error occurred while deleting the weekly test.", status_code=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
+    @extend_schema(summary="Update batch weekly test", request=BatchWeeklyTestCreateUpdateSerializer)
+    def patch(self, request, batch_id, week_id):
+        try:
+            user = request.user
+            if getattr(user, 'user_type', None) and user.user_type.name not in [UserTypeConstants.ADMIN, UserTypeConstants.SUPERADMIN, UserTypeConstants.TEACHER]:
+                raise ServiceError(detail="You do not have permission to perform this action.", status_code=status.HTTP_403_FORBIDDEN)
+
+            week = self.get_week(batch_id, week_id)
+            ensure_week_is_modifiable(week, "update weekly test")
+            if not hasattr(week, 'weekly_test'):
+                raise ServiceError(detail="No test found.", status_code=status.HTTP_404_NOT_FOUND)
+
+            serializer = BatchWeeklyTestCreateUpdateSerializer(
+                week.weekly_test,
+                data=request.data,
+                partial=True,
+                context={'request': request}
+            )
+            if not serializer.is_valid():
+                error_str = handle_serializer_errors(serializer)
+                raise ServiceError(detail=error_str, status_code=status.HTTP_400_BAD_REQUEST)
+
+            serializer.save(updated_by=user)
+            return format_success_response(message="Batch test updated successfully", data=None, status_code=status.HTTP_200_OK)
+        except ServiceError:
+            raise
+        except Exception as e:
+            logger.error(f"Error updating weekly test: {str(e)}")
+            raise ServiceError(detail="An error occurred while updating the weekly test.", status_code=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
 
 @extend_schema(tags=["Batch Content"])
 class BatchWeeklyTestQuestionListCreateView(APIView):
