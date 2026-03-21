@@ -44,8 +44,7 @@ import {
   Filter,
   Activity,
 } from 'lucide-react';
-import { Alert, AlertDescription } from '@/components/ui/alert';
-import { batchApi, Batch, BatchUser } from '@/lib/batch-api';
+import { batchApi, Batch, BatchUser, BatchWeek, batchContentApi } from '@/lib/batch-api';
 import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
 import { Progress } from '@/components/ui/progress';
@@ -67,6 +66,19 @@ import {
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
 import { Checkbox } from '@/components/ui/checkbox';
+
+/** True when today's local calendar date is strictly before batch start (YYYY-MM-DD). */
+function canRemoveEnrollmentBeforeStart(startDate: string | null | undefined): boolean {
+  if (!startDate) return false;
+  const dayPart = startDate.split('T')[0];
+  const parts = dayPart.split('-').map(Number);
+  if (parts.length !== 3 || parts.some((n) => Number.isNaN(n))) return false;
+  const [y, m, d] = parts;
+  const start = new Date(y, m - 1, d);
+  const now = new Date();
+  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  return today < start;
+}
 
 export default function AdminBatchStudents() {
   const { batchId } = useParams<{ batchId: string }>();
@@ -92,16 +104,21 @@ export default function AdminBatchStudents() {
   const [isBulkUpdating, setIsBulkUpdating] = useState(false);
   const [individualConfirm, setIndividualConfirm] = useState<{ isOpen: boolean; enrollmentId: number; status: string } | null>(null);
   const [individualLoading, setIndividualLoading] = useState<number | null>(null);
+  const [deleteEnrollmentConfirm, setDeleteEnrollmentConfirm] = useState<{ id: number; name: string } | null>(null);
+  const [deletingEnrollmentId, setDeletingEnrollmentId] = useState<number | null>(null);
 
   // Pagination for enrolled students
   const [currentPage, setCurrentPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
   const pageSize = 5;
 
-  // Pagination for available students
+  // Pagination for available students (add-students modal only — separate from enrolled list page size)
   const [availableCurrentPage, setAvailableCurrentPage] = useState(1);
   const [totalAvailablePages, setTotalAvailablePages] = useState(1);
-  const availablePageSize = 5;
+  const [totalAvailableItems, setTotalAvailableItems] = useState(0);
+  const availablePageSize = 6;
+
+  const [batchWeeks, setBatchWeeks] = useState<BatchWeek[]>([]);
 
   const fetchBatchDetails = useCallback(async () => {
     if (!batchId) return;
@@ -109,8 +126,16 @@ export default function AdminBatchStudents() {
       const res = await batchApi.getBatches({ paginate: false });
       const allBatches = (res as any).data || res;
       const found = allBatches.find((b: Batch) => b.id === parseInt(batchId));
-      if (found) setBatch(found);
-      else {
+      if (found) {
+        setBatch(found);
+        try {
+          const wr = await batchContentApi.getWeeks(parseInt(batchId, 10));
+          if (wr.success && Array.isArray(wr.data)) setBatchWeeks(wr.data);
+          else setBatchWeeks([]);
+        } catch {
+          setBatchWeeks([]);
+        }
+      } else {
         toast({ title: 'Error', description: 'Batch not found', variant: 'destructive' });
         navigate('/batches');
       }
@@ -147,28 +172,33 @@ export default function AdminBatchStudents() {
   }, [batchId, toast, pageSize]);
 
   const fetchAvailableStudents = useCallback(async (search?: string, page: number = 1) => {
+    if (!batchId) return;
     try {
       setAvailableLoading(true);
       const res = await batchApi.getAvailableStudents({
         search,
         page,
         page_size: availablePageSize,
+        batch_id: parseInt(batchId, 10),
       });
       if ('current_page' in res) {
         setAvailableStudents(res.data || []);
         setAvailableCurrentPage(res.current_page);
         setTotalAvailablePages(res.total_pages);
+        setTotalAvailableItems(typeof res.total_items === 'number' ? res.total_items : (res.data || []).length);
       } else {
-        setAvailableStudents(res.data || []);
+        const list = res.data || [];
+        setAvailableStudents(list);
         setTotalAvailablePages(1);
         setAvailableCurrentPage(1);
+        setTotalAvailableItems(list.length);
       }
     } catch (err) {
       toast({ title: 'Error', description: 'Failed to fetch available students', variant: 'destructive' });
     } finally {
       setAvailableLoading(false);
     }
-  }, [availablePageSize, toast]);
+  }, [availablePageSize, toast, batchId]);
 
   useEffect(() => {
     fetchBatchDetails();
@@ -184,6 +214,28 @@ export default function AdminBatchStudents() {
       fetchAvailableStudents(studentSearch, availableCurrentPage);
     }
   }, [isAddModalOpen, fetchAvailableStudents, availableCurrentPage]);
+
+  const allowRemoveFromRoster = canShowRosterDeleteTrash(batch?.start_date ?? undefined, batchWeeks);
+
+  const handleRemoveEnrollment = async () => {
+    if (!batchId || !deleteEnrollmentConfirm) return;
+    try {
+      setDeletingEnrollmentId(deleteEnrollmentConfirm.id);
+      await batchApi.removeStudentEnrollment(parseInt(batchId), deleteEnrollmentConfirm.id);
+      toast({ title: 'Removed', description: `${deleteEnrollmentConfirm.name} was removed from this batch.`, variant: 'success' });
+      setDeleteEnrollmentConfirm(null);
+      await fetchEnrolledStudents(currentPage, enrolledSearch, statusFilter);
+      await fetchBatchDetails();
+    } catch (err: any) {
+      toast({
+        title: 'Cannot remove',
+        description: err.response?.data?.detail || 'Failed to remove student from batch',
+        variant: 'destructive',
+      });
+    } finally {
+      setDeletingEnrollmentId(null);
+    }
+  };
 
   const handleAddStudent = async (studentId: number) => {
     if (!batchId) return;
@@ -226,9 +278,12 @@ export default function AdminBatchStudents() {
   const handleUpdateEnrollment = async (enrollmentId: number, data: { status?: string }) => {
     if (!batchId) return;
     
-    // If setting to completed, show confirmation first
-    if (data.status === 'completed' && !individualConfirm?.isOpen) {
-      setIndividualConfirm({ isOpen: true, enrollmentId, status: data.status });
+    // Irreversible statuses: confirm before completing or dropping
+    if (
+      (data.status === 'completed' || data.status === 'dropped') &&
+      !individualConfirm?.isOpen
+    ) {
+      setIndividualConfirm({ isOpen: true, enrollmentId, status: data.status! });
       return;
     }
 
@@ -349,7 +404,15 @@ export default function AdminBatchStudents() {
                 </span>
               </Button>
             )}
-            <Dialog open={isAddModalOpen} onOpenChange={setIsAddModalOpen}>
+            <Dialog
+              open={isAddModalOpen}
+              onOpenChange={(open) => {
+                setIsAddModalOpen(open);
+                if (open) {
+                  setAvailableCurrentPage(1);
+                }
+              }}
+            >
               <DialogTrigger asChild>
                 <Button variant="gradient">
                   <Plus className="h-4 w-4" />
@@ -360,7 +423,8 @@ export default function AdminBatchStudents() {
               <DialogHeader>
                 <DialogTitle>Add Students to Batch</DialogTitle>
                 <DialogDescription>
-                  Select from available students who are not currently assigned to any active batch.
+                  Students already on this roster (any status) and anyone in another active batch are hidden.
+                  Paginated ({availablePageSize} per page) when needed.
                 </DialogDescription>
               </DialogHeader>
 
@@ -381,8 +445,10 @@ export default function AdminBatchStudents() {
                     className="pl-10"
                     value={studentSearch}
                     onChange={(e) => {
-                      setStudentSearch(e.target.value);
-                      fetchAvailableStudents(e.target.value, 1);
+                      const q = e.target.value;
+                      setStudentSearch(q);
+                      setAvailableCurrentPage(1);
+                      fetchAvailableStudents(q, 1);
                     }}
                   />
                 </div>
@@ -392,8 +458,26 @@ export default function AdminBatchStudents() {
                       <Loader2 className="h-6 w-6 animate-spin text-primary" />
                     </div>
                   ) : availableStudents.length === 0 ? (
-                    <div className="text-center py-12 text-muted-foreground">
-                      <p>{studentSearch ? 'No matching students found.' : 'No available students found.'}</p>
+                    <div className="text-center py-12 text-muted-foreground px-4">
+                      {totalAvailableItems > 0 ? (
+                        <>
+                          <p className="font-medium text-foreground">No students on this page</p>
+                          <p className="text-sm mt-1">
+                            {totalAvailableItems} student{totalAvailableItems !== 1 ? 's' : ''} match — try another page
+                            or go back to the first page.
+                          </p>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="mt-4"
+                            onClick={() => setAvailableCurrentPage(1)}
+                          >
+                            First page
+                          </Button>
+                        </>
+                      ) : (
+                        <p>{studentSearch ? 'No matching students found.' : 'No available students found.'}</p>
+                      )}
                     </div>
                   ) : (
                     <>
@@ -584,13 +668,45 @@ export default function AdminBatchStudents() {
               <div className="flex items-center justify-center py-20">
                 <Loader2 className="h-8 w-8 animate-spin text-primary" />
               </div>
-            ) : enrolledStudents.length === 0 ? (
+            ) : !loading && stats.total === 0 ? (
               <div className="py-20 text-center text-muted-foreground">
                 <Users className="h-12 w-12 mx-auto mb-4 opacity-20" />
                 <p>No students enrolled in this batch yet.</p>
                 <Button variant="link" className="text-primary mt-2" onClick={() => setIsAddModalOpen(true)}>
                   Add your first student
                 </Button>
+              </div>
+            ) : !loading && stats.total > 0 && enrolledStudents.length === 0 ? (
+              <div className="py-20 text-center text-muted-foreground px-4">
+                <Search className="h-12 w-12 mx-auto mb-4 opacity-20" />
+                <p className="font-medium text-foreground">No students on this page</p>
+                <p className="text-sm mt-1 max-w-md mx-auto">
+                  Your search, status filter, or page number doesn&apos;t match any enrollments. The batch still has{' '}
+                  <span className="font-semibold text-foreground">{stats.total}</span> student
+                  {stats.total !== 1 ? 's' : ''} in total.
+                </p>
+                <div className="flex flex-wrap gap-2 justify-center mt-6">
+                  {(enrolledSearch || statusFilter !== 'all') && (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => {
+                        setEnrolledSearch('');
+                        setStatusFilter('all');
+                      }}
+                    >
+                      Clear search &amp; filters
+                    </Button>
+                  )}
+                  {currentPage > 1 && (
+                    <Button variant="outline" size="sm" onClick={() => fetchEnrolledStudents(1, enrolledSearch, statusFilter)}>
+                      Go to first page
+                    </Button>
+                  )}
+                  <Button variant="link" className="text-primary" onClick={() => setIsAddModalOpen(true)}>
+                    Add another student
+                  </Button>
+                </div>
               </div>
             ) : (
               <div className="flex flex-col divide-y divide-border/40">
@@ -605,7 +721,7 @@ export default function AdminBatchStudents() {
                       onClick={() => setExpandedStudentId(isExpanded ? null : enrollment.id)}
                     >
                       <div className="flex items-center gap-4 flex-1">
-                        <div className="flex items-center gap-3" onClick={(e) => e.stopPropagation()}>
+                        <div className="flex items-center gap-2 sm:gap-3" onClick={(e) => e.stopPropagation()}>
                           <Checkbox 
                             checked={selectedEnrollments.includes(enrollment.id)}
                             onCheckedChange={(checked) => toggleSelect(enrollment.id, !!checked)}
@@ -663,42 +779,77 @@ export default function AdminBatchStudents() {
                         </div>
                       </div>
                       
-                      <div className="hidden md:flex flex-shrink-0 ml-4 items-center justify-center p-2 rounded-lg transition-colors mr-2 relative z-10" onClick={(e) => { e.stopPropagation(); }}>
-                        {individualLoading === enrollment.id ? (
-                          <div className="h-9 w-[100px] flex items-center justify-center text-muted-foreground">
-                            <Loader2 className="h-4 w-4 animate-spin" />
-                          </div>
-                        ) : (
-                          <Select
-                            value={enrollment.status}
-                            onValueChange={(val) => handleUpdateEnrollment(enrollment.id, { status: val })}
-                            disabled={enrollment.status === 'completed'}
-                          >
-                            <SelectTrigger className={cn(
-                              "h-9 px-4 text-xs font-semibold rounded-lg border border-border shadow-sm",
-                              enrollment.status === 'active' ? "bg-success/5 text-success border-success/20 hover:bg-success/10" : 
+                      <div
+                        className="flex flex-shrink-0 items-center justify-end gap-2 w-full md:w-auto mt-3 md:mt-0 md:ml-4 md:mr-2 relative z-10"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                        }}
+                      >
+                        <div className="hidden md:block min-w-[100px]">
+                          {individualLoading === enrollment.id ? (
+                            <div className="h-9 flex items-center justify-center text-muted-foreground">
+                              <Loader2 className="h-4 w-4 animate-spin" />
+                            </div>
+                          ) : (
+                            <Select
+                              value={enrollment.status}
+                              onValueChange={(val) => handleUpdateEnrollment(enrollment.id, { status: val })}
+                              disabled={enrollment.status === 'completed' || enrollment.status === 'dropped'}
+                            >
+                              <SelectTrigger className={cn(
+                                "h-9 px-4 text-xs font-semibold rounded-lg border border-border shadow-sm",
+                                enrollment.status === 'active' ? "bg-success/5 text-success border-success/20 hover:bg-success/10" : 
                               enrollment.status === 'completed' ? "bg-primary/5 text-primary border-primary/20 hover:bg-primary/10 opacity-80" :
-                              enrollment.status === 'dropped' ? "bg-destructive/5 text-destructive border-destructive/20 hover:bg-destructive/10" :
-                              "bg-muted text-muted-foreground border-border hover:bg-muted/80"
-                            )}>
-                              <SelectValue />
-                            </SelectTrigger>
-                            <SelectContent>
-                              <SelectItem value="active" className="text-xs font-medium">Active</SelectItem>
-                              <SelectItem 
-                                value="completed" 
+                              enrollment.status === 'dropped' ? "bg-destructive/5 text-destructive border-destructive/20 hover:bg-destructive/10 opacity-80" :
+                                "bg-muted text-muted-foreground border-border hover:bg-muted/80"
+                              )}>
+                                <SelectValue />
+                              </SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="active" className="text-xs font-medium">Active</SelectItem>
+                                <SelectItem 
+                                  value="completed" 
+                                  className="text-xs font-medium"
+                                  disabled={enrollment.status !== 'active' && enrollment.status !== 'completed'}
+                                >
+                                  Completed {enrollment.status === 'dropped' && "(Active status required)"}
+                                </SelectItem>
+                                <SelectItem
+                                value="dropped"
                                 className="text-xs font-medium"
-                                disabled={enrollment.status !== 'active' && enrollment.status !== 'completed'}
+                                disabled={enrollment.status !== 'active' && enrollment.status !== 'dropped'}
                               >
-                                Completed {enrollment.status === 'dropped' && "(Active status required)"}
+                                Dropped {enrollment.status === 'completed' && '(Active status required)'}
                               </SelectItem>
-                              <SelectItem value="dropped" className="text-xs font-medium">Dropped</SelectItem>
-                            </SelectContent>
-                          </Select>
+                              </SelectContent>
+                            </Select>
+                          )}
+                        </div>
+                        {allowRemoveFromRoster && (
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="icon"
+                            className="h-9 w-9 shrink-0 text-muted-foreground hover:text-destructive hover:bg-destructive/10"
+                            title="Remove from roster (only before batch start and first week unlock)"
+                            onClick={() =>
+                              setDeleteEnrollmentConfirm({
+                                id: enrollment.id,
+                                name: enrollment.student_name,
+                              })
+                            }
+                            disabled={deletingEnrollmentId === enrollment.id}
+                          >
+                            {deletingEnrollmentId === enrollment.id ? (
+                              <Loader2 className="h-4 w-4 animate-spin" />
+                            ) : (
+                              <Trash2 className="h-4 w-4" />
+                            )}
+                          </Button>
                         )}
                       </div>
 
-                      <div className="hidden md:flex flex-shrink-0 ml-2 items-center justify-center p-2 rounded-lg bg-muted/50 text-muted-foreground hover:bg-muted hover:text-foreground transition-colors">
+                      <div className="hidden md:flex flex-shrink-0 ml-0 items-center justify-center p-2 rounded-lg bg-muted/50 text-muted-foreground hover:bg-muted hover:text-foreground transition-colors">
                         {isExpanded ? <ChevronUp className="h-5 w-5" /> : <ChevronDown className="h-5 w-5" />}
                       </div>
                     </div>
@@ -924,20 +1075,65 @@ export default function AdminBatchStudents() {
           </AlertDialogContent>
         </AlertDialog>
 
-        {/* Individual Status Change Confirmation */}
+        {/* Remove enrollment (before batch start only) */}
+        <AlertDialog
+          open={!!deleteEnrollmentConfirm}
+          onOpenChange={(open) => !open && setDeleteEnrollmentConfirm(null)}
+        >
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>Remove from batch?</AlertDialogTitle>
+              <AlertDialogDescription className="space-y-3 pt-2">
+                <p>
+                  This will delete <strong>{deleteEnrollmentConfirm?.name}</strong>&apos;s enrollment for this batch. They
+                  can be added again from the available students list.
+                </p>
+                <div className="p-3 bg-muted rounded-lg text-xs text-muted-foreground">
+                  Only before the batch start day ({batch?.start_date}) and before the first week&apos;s unlock time. After
+                  that, use <strong>Dropped</strong> instead.
+                </div>
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel disabled={deletingEnrollmentId !== null}>Cancel</AlertDialogCancel>
+              <AlertDialogAction
+                className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                onClick={(e) => {
+                  e.preventDefault();
+                  handleRemoveEnrollment();
+                }}
+                disabled={deletingEnrollmentId !== null}
+              >
+                {deletingEnrollmentId !== null && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                Remove from batch
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
+
+        {/* Individual Status Change Confirmation (completed / dropped — one-way) */}
         <AlertDialog 
           open={!!individualConfirm} 
           onOpenChange={(open) => !open && setIndividualConfirm(null)}
         >
           <AlertDialogContent>
             <AlertDialogHeader>
-              <AlertDialogTitle>Mark student as completed?</AlertDialogTitle>
+              <AlertDialogTitle>
+                {individualConfirm?.status === 'dropped'
+                  ? 'Mark student as dropped?'
+                  : 'Mark student as completed?'}
+              </AlertDialogTitle>
               <AlertDialogDescription className="space-y-3 pt-2">
                 <div className="p-3 bg-warning/10 border border-warning/20 rounded-lg text-warning-foreground text-xs leading-relaxed">
-                  <strong>Warning:</strong> This action is <strong>irreversible</strong>. Once a student is marked as completed, their status cannot be changed back to active or dropped.
+                  <strong>Warning:</strong> This action is <strong>irreversible</strong>.{' '}
+                  {individualConfirm?.status === 'dropped'
+                    ? 'Once dropped, status cannot be changed back to active or completed.'
+                    : 'Once completed, status cannot be changed back to active or dropped.'}
                 </div>
                 <p>
-                  Are you sure you want to mark this student as 'Completed'?
+                  {individualConfirm?.status === 'dropped'
+                    ? "Are you sure you want to mark this student as 'Dropped'?"
+                    : "Are you sure you want to mark this student as 'Completed'?"}
                 </p>
               </AlertDialogDescription>
             </AlertDialogHeader>
@@ -949,9 +1145,13 @@ export default function AdminBatchStudents() {
                     handleUpdateEnrollment(individualConfirm.enrollmentId, { status: individualConfirm.status });
                   }
                 }}
-                className="bg-primary hover:bg-primary/90"
+                className={
+                  individualConfirm?.status === 'dropped'
+                    ? 'bg-destructive text-destructive-foreground hover:bg-destructive/90'
+                    : 'bg-primary hover:bg-primary/90'
+                }
               >
-                Mark as Completed
+                {individualConfirm?.status === 'dropped' ? 'Mark as Dropped' : 'Mark as Completed'}
               </AlertDialogAction>
             </AlertDialogFooter>
           </AlertDialogContent>

@@ -157,7 +157,14 @@ export const batchApi = {
     return response.data;
   },
 
-  getAvailableStudents: async (params?: { search?: string; page?: number; page_size?: number; paginate?: boolean }) => {
+  getAvailableStudents: async (params?: {
+    search?: string;
+    page?: number;
+    page_size?: number;
+    paginate?: boolean;
+    /** Excludes students already enrolled in this batch (any status). */
+    batch_id?: number;
+  }) => {
     const response = await apiClient.get<PaginatedUserResponse | { data: BatchUser[]; success: boolean; message: string }>(
       '/api/courses/v1/batches/available-students/',
       { params: { ...params, paginate: params?.paginate ?? true } }
@@ -183,6 +190,14 @@ export const batchApi = {
   updateStudentEnrollment: async (batchId: number, enrollmentId: number, data: { status?: string }) => {
     const response = await apiClient.patch<{ data: any; success: boolean; message: string }>(
       `/api/courses/v1/batches/${batchId}/students/${enrollmentId}/`, data
+    );
+    return response.data;
+  },
+
+  /** Allowed by API only before batch start_date; after that use dropped status. */
+  removeStudentEnrollment: async (batchId: number, enrollmentId: number) => {
+    const response = await apiClient.delete<{ success: boolean; message: string }>(
+      `/api/courses/v1/batches/${batchId}/students/${enrollmentId}/`
     );
     return response.data;
   },

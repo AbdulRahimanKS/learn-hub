@@ -31,6 +31,25 @@ from apps.courses.services import push_content_to_batch, extend_batch_timeline
 logger = logging.getLogger(__name__)
 
 
+def batch_roster_delete_window_closed(batch):
+    """
+    Removing an enrollment row (vs marking dropped) is only allowed before the batch is live:
+    - local calendar date is on/after batch.start_date, OR
+    - current time is on/after the earliest configured week unlock_date (by week_number).
+    """
+    if get_current_local_date() >= batch.start_date:
+        return True
+    first_with_unlock = (
+        BatchWeek.objects.filter(batch=batch)
+        .exclude(unlock_date__isnull=True)
+        .order_by('week_number')
+        .first()
+    )
+    if first_with_unlock and timezone.now() >= first_with_unlock.unlock_date:
+        return True
+    return False
+
+
 @extend_schema(tags=["Batches"])
 class BatchSummaryView(APIView):
     permission_classes = [IsSuperAdminAdminOrTeacher]
@@ -527,19 +546,60 @@ class AvailableStudentListView(APIView):
             OpenApiParameter("paginate", OpenApiTypes.BOOL, description="Set to false to return all results without pagination (default: true)"),
             OpenApiParameter("page", OpenApiTypes.INT, description="Page number (when paginated)"),
             OpenApiParameter("page_size", OpenApiTypes.INT, description="Results per page, default 10, max 100 (when paginated)"),
+            OpenApiParameter(
+                "batch_id",
+                OpenApiTypes.INT,
+                description=(
+                    "When set, also excludes students who already have any enrollment in this batch "
+                    "(active, dropped, or completed) to avoid duplicate adds. Caller must be allowed to manage the batch."
+                ),
+            ),
         ],
         responses={200: UserManagementSerializer(many=True)},
     )
     def get(self, request):
-        # Students who are not in any ACTIVE enrollment
-        enrolled_student_ids = BatchEnrollment.objects.filter(
-            status=BatchEnrollment.Status.ACTIVE
-        ).values_list('student_id', flat=True)
+        # Students who are not in any ACTIVE enrollment (any batch)
+        active_student_ids = set(
+            BatchEnrollment.objects.filter(status=BatchEnrollment.Status.ACTIVE).values_list(
+                'student_id', flat=True
+            )
+        )
+        exclude_ids = set(active_student_ids)
+
+        batch_id_raw = request.query_params.get('batch_id', '').strip()
+        if batch_id_raw:
+            try:
+                bid = int(batch_id_raw)
+            except (TypeError, ValueError):
+                raise ServiceError(detail="Invalid batch_id.", status_code=status.HTTP_400_BAD_REQUEST)
+            try:
+                batch = Batch.objects.get(pk=bid)
+            except Batch.DoesNotExist:
+                raise ServiceError(detail="Batch not found.", status_code=status.HTTP_404_NOT_FOUND)
+
+            user = request.user
+            is_admin = getattr(user, 'user_type', None) and user.user_type.name in [
+                UserTypeConstants.ADMIN,
+                UserTypeConstants.SUPERADMIN,
+            ]
+            is_assigned_teacher = (
+                getattr(user, 'user_type', None)
+                and user.user_type.name == UserTypeConstants.TEACHER
+                and (batch.teacher == user or batch.co_teachers.filter(pk=user.pk).exists())
+            )
+            if not (is_admin or is_assigned_teacher):
+                raise ServiceError(
+                    detail="You do not have permission to list available students for this batch.",
+                    status_code=status.HTTP_403_FORBIDDEN,
+                )
+
+            in_this_batch = BatchEnrollment.objects.filter(batch_id=bid).values_list('student_id', flat=True)
+            exclude_ids.update(in_this_batch)
 
         qs = User.objects.filter(
             user_type__name=UserTypeConstants.STUDENT,
             is_deleted=False
-        ).exclude(id__in=enrolled_student_ids).order_by('fullname')
+        ).exclude(id__in=exclude_ids).order_by('fullname')
 
         search = request.query_params.get('search', '').strip()
         if search:
@@ -750,13 +810,17 @@ class BatchStudentEnrollmentUpdateView(APIView):
             if 'status' in data:
                 new_status = data['status']
                 
-                # Check irreversibility
+                # Terminal statuses: cannot change away from completed or dropped
                 if enrollment.status == BatchEnrollment.Status.COMPLETED and new_status != BatchEnrollment.Status.COMPLETED:
                     raise ServiceError(detail="Once a student's status is marked as 'completed', it cannot be changed.", status_code=status.HTTP_400_BAD_REQUEST)
-                
-                # Rule: Only ACTIVE students can be marked COMPLETED
+                if enrollment.status == BatchEnrollment.Status.DROPPED and new_status != BatchEnrollment.Status.DROPPED:
+                    raise ServiceError(detail="Once a student's status is marked as 'dropped', it cannot be changed.", status_code=status.HTTP_400_BAD_REQUEST)
+
+                # One-way transitions into terminal states: only from ACTIVE
                 if new_status == BatchEnrollment.Status.COMPLETED and enrollment.status != BatchEnrollment.Status.ACTIVE:
                     raise ServiceError(detail="Only active students can be marked as completed. Please move the student to 'Active' status first if you wish to mark them as completed.", status_code=status.HTTP_400_BAD_REQUEST)
+                if new_status == BatchEnrollment.Status.DROPPED and enrollment.status != BatchEnrollment.Status.ACTIVE:
+                    raise ServiceError(detail="Only active students can be marked as dropped.", status_code=status.HTTP_400_BAD_REQUEST)
 
                 # Handle completed_at
                 if new_status == BatchEnrollment.Status.COMPLETED and enrollment.status != BatchEnrollment.Status.COMPLETED:
@@ -774,6 +838,57 @@ class BatchStudentEnrollmentUpdateView(APIView):
             raise
         except Exception as e:
             logger.error(f"Error updating enrollment {enrollment_id}: {str(e)}")
+            raise ServiceError(detail=str(e), status_code=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+    @extend_schema(
+        summary="Remove student from batch (only before batch start date)",
+        description=(
+            "Deletes the enrollment record only before the batch start date (local) and before the first "
+            "week's unlock time. After either applies, use status 'dropped' instead."
+        ),
+        responses={200: None},
+    )
+    def delete(self, request, pk, enrollment_id):
+        try:
+            batch = Batch.objects.get(pk=pk)
+            user = request.user
+            is_admin = getattr(user, 'user_type', None) and user.user_type.name in [
+                UserTypeConstants.ADMIN,
+                UserTypeConstants.SUPERADMIN,
+            ]
+            is_assigned_teacher = (
+                getattr(user, 'user_type', None)
+                and user.user_type.name == UserTypeConstants.TEACHER
+                and (batch.teacher == user or batch.co_teachers.filter(pk=user.pk).exists())
+            )
+
+            if not (is_admin or is_assigned_teacher):
+                raise ServiceError(
+                    detail="You do not have permission to remove enrollments in this batch.",
+                    status_code=status.HTTP_403_FORBIDDEN,
+                )
+
+            if batch_roster_delete_window_closed(batch):
+                raise ServiceError(
+                    detail=(
+                        "Enrollments can only be removed before the batch start date and before any week "
+                        "content has unlocked. After that, mark the student as dropped instead."
+                    ),
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                )
+
+            enrollment = BatchEnrollment.objects.filter(batch=batch, pk=enrollment_id).first()
+            if not enrollment:
+                raise ServiceError(detail="Enrollment not found.", status_code=status.HTTP_404_NOT_FOUND)
+
+            enrollment.delete()
+            return format_success_response(message="Student removed from batch.")
+        except Batch.DoesNotExist:
+            raise ServiceError(detail="Batch not found.", status_code=status.HTTP_404_NOT_FOUND)
+        except ServiceError:
+            raise
+        except Exception as e:
+            logger.error(f"Error deleting enrollment {enrollment_id}: {str(e)}")
             raise ServiceError(detail=str(e), status_code=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
@@ -900,7 +1015,13 @@ class BatchStudentBulkUpdateView(APIView):
 
             target_status = serializer.validated_data['status']
             enrollment_ids = serializer.validated_data.get('enrollment_ids')
-            
+
+            if target_status != BatchEnrollment.Status.COMPLETED:
+                raise ServiceError(
+                    detail="Bulk update only supports marking active students as completed. Use individual enrollment update to mark a student as dropped.",
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                )
+
             # Start with base queryset for the batch
             enrollments = BatchEnrollment.objects.filter(batch=batch)
             
@@ -912,18 +1033,11 @@ class BatchStudentBulkUpdateView(APIView):
             # Students already COMPLETED or DROPPED should not be updated in bulk
             active_enrollments = enrollments.filter(status=BatchEnrollment.Status.ACTIVE)
             
-            if target_status == BatchEnrollment.Status.COMPLETED:
-                 updated_count = active_enrollments.update(
-                     status=target_status, 
-                     completed_at=timezone.now(),
-                     updated_at=timezone.now()
-                 )
-            else:
-                updated_count = active_enrollments.update(
-                    status=target_status,
-                    completed_at=None,
-                    updated_at=timezone.now()
-                )
+            updated_count = active_enrollments.update(
+                status=target_status,
+                completed_at=timezone.now(),
+                updated_at=timezone.now(),
+            )
 
             return format_success_response(message=f"Successfully updated {updated_count} active students to {target_status.lower()}.")
         except Batch.DoesNotExist:
