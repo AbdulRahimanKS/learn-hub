@@ -26,6 +26,7 @@ import {
   Plus,
   Trash2,
   Edit,
+  Eye,
   Loader2,
   CheckCircle,
   HelpCircle,
@@ -240,6 +241,24 @@ export function SessionMcqManager({
     setIsQuestionModalOpen(true);
   };
 
+  const openViewQuestion = (q: PostSessionQuestion) => {
+    const defaultChoices: ChoiceFormState[] = [...q.choices];
+    while (defaultChoices.length < 4) {
+      defaultChoices.push(emptyChoice());
+    }
+
+    setEditingQuestion({
+      id: q.id,
+      text: q.text,
+      is_fill_in_the_blank: q.is_fill_in_the_blank,
+      order: String(q.order),
+      choices: defaultChoices,
+    });
+    setEditingQuestionId(q.id);
+    setErrors({});
+    setIsQuestionModalOpen(true);
+  };
+
   const updateChoice = (idx: number, updates: Partial<ChoiceFormState>) => {
     const updated = [...editingQuestion.choices];
     if (!editingQuestion.is_fill_in_the_blank && updates.is_correct === true) {
@@ -271,13 +290,15 @@ export function SessionMcqManager({
                 <h3 className="font-semibold text-base">Questions ({questions.length})</h3>
                 <p className="text-xs text-muted-foreground">Optional queries shown after this video snippet</p>
                 {readOnly && (
-                  <p className="text-xs text-amber-600 mt-1">Week is unlocked. Editing is disabled.</p>
+                  <p className="text-xs text-muted-foreground mt-1">View-only mode for released week.</p>
                 )}
               </div>
-              <Button variant="outline" size="sm" onClick={openAddQuestion} disabled={readOnly}>
-                <Plus className="h-4 w-4 mr-1.5" />
-                Add Question
-              </Button>
+              {!readOnly && (
+                <Button variant="outline" size="sm" onClick={openAddQuestion}>
+                  <Plus className="h-4 w-4 mr-1.5" />
+                  Add Question
+                </Button>
+              )}
             </div>
 
             {isLoading ? (
@@ -287,7 +308,11 @@ export function SessionMcqManager({
             ) : questions.length === 0 ? (
               <div className="border border-dashed border-border rounded-xl p-8 text-center bg-muted/10">
                 <HelpCircle className="h-10 w-10 text-muted-foreground/40 mx-auto mb-3" />
-                <p className="text-sm text-muted-foreground">No MCQs added yet. Consider adding a few self-practice questions.</p>
+                <p className="text-sm text-muted-foreground">
+                  {readOnly
+                    ? 'No MCQs are configured for this session.'
+                    : 'No MCQs added yet. Consider adding a few self-practice questions.'}
+                </p>
               </div>
             ) : (
               <div className="space-y-3">
@@ -314,14 +339,22 @@ export function SessionMcqManager({
                           )}
                         </div>
                       </div>
-                      <div className="flex flex-col gap-1">
-                        <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => openEditQuestion(q)} disabled={readOnly}>
-                          <Edit className="h-3.5 w-3.5" />
-                        </Button>
-                        <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => setDeleteQuestionId(q.id)} disabled={readOnly}>
-                          <Trash2 className="h-3.5 w-3.5" />
-                        </Button>
-                      </div>
+                      {readOnly ? (
+                        <div className="flex flex-col gap-1">
+                          <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => openViewQuestion(q)}>
+                            <Eye className="h-3.5 w-3.5" />
+                          </Button>
+                        </div>
+                      ) : (
+                        <div className="flex flex-col gap-1">
+                          <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => openEditQuestion(q)}>
+                            <Edit className="h-3.5 w-3.5" />
+                          </Button>
+                          <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => setDeleteQuestionId(q.id)}>
+                            <Trash2 className="h-3.5 w-3.5" />
+                          </Button>
+                        </div>
+                      )}
                     </CardContent>
                   </Card>
                 ))}
@@ -338,8 +371,10 @@ export function SessionMcqManager({
       <Dialog open={isQuestionModalOpen} onOpenChange={v => { if (!v) setIsQuestionModalOpen(false) }}>
         <DialogContent className="sm:max-w-md" onOpenAutoFocus={(e) => e.preventDefault()}>
           <DialogHeader>
-            <DialogTitle>{editingQuestionId ? 'Edit Question' : 'Add Question'}</DialogTitle>
-            <DialogDescription>Define an MCQ or fill-in-the-blank question.</DialogDescription>
+            <DialogTitle>{readOnly ? 'View Question' : (editingQuestionId ? 'Edit Question' : 'Add Question')}</DialogTitle>
+            <DialogDescription>
+              {readOnly ? 'Review question details in view-only mode.' : 'Define an MCQ or fill-in-the-blank question.'}
+            </DialogDescription>
           </DialogHeader>
           <div className="space-y-5 px-1 py-3">
             <div className="space-y-1.5">
@@ -434,10 +469,12 @@ export function SessionMcqManager({
           </div>
           <div className="pt-3 border-t flex justify-end gap-2">
             <Button variant="ghost" onClick={() => setIsQuestionModalOpen(false)}>Cancel</Button>
-            <Button variant="gradient" disabled={isSavingQuestion || readOnly} onClick={handleSaveQuestion}>
-              {isSavingQuestion && <Loader2 className="h-4 w-4 animate-spin mr-2" />}
-              {readOnly ? 'Read Only' : 'Save Question'}
-            </Button>
+            {!readOnly && (
+              <Button variant="gradient" disabled={isSavingQuestion} onClick={handleSaveQuestion}>
+                {isSavingQuestion && <Loader2 className="h-4 w-4 animate-spin mr-2" />}
+                Save Question
+              </Button>
+            )}
           </div>
         </DialogContent>
       </Dialog>

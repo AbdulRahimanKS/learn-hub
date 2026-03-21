@@ -38,6 +38,7 @@ import {
   AlertCircle,
   FilePlus2,
   ExternalLink,
+  Eye,
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { apiClient } from '@/lib/api';
@@ -358,11 +359,8 @@ export function WeeklyTestManager({
     setIsQuestionModalOpen(true);
   };
 
-  const openEditQuestion = (q: TestQuestion) => {
-    if (readOnly) return;
-    // Ensure existingAttachments is extracted safely
+  const openViewQuestion = (q: TestQuestion) => {
     const existingAtts = Array.isArray(q.attachments) ? q.attachments : [];
-    
     setEditingQuestion({
       id: q.id,
       text: q.text,
@@ -379,6 +377,11 @@ export function WeeklyTestManager({
     setEditingQuestionId(q.id);
     setQuestionErrors({});
     setIsQuestionModalOpen(true);
+  };
+
+  const openEditQuestion = (q: TestQuestion) => {
+    if (readOnly) return;
+    openViewQuestion(q);
   };
 
   const handleSaveQuestion = async () => {
@@ -535,13 +538,15 @@ export function WeeklyTestManager({
         >
           <DialogHeader>
             <DialogTitle className="text-2xl font-bold text-foreground tracking-tight">
-              Weekly Test Configuration
+              {readOnly ? 'Weekly Assessment' : 'Weekly Test Configuration'}
             </DialogTitle>
             <DialogDescription className="text-muted-foreground/80">
-              {weekLabel} — Configure the core settings for this week's assessment.
+              {readOnly
+                ? `${weekLabel} — View assessment settings and questions (read-only).`
+                : `${weekLabel} — Configure the core settings for this week's assessment.`}
             </DialogDescription>
             {readOnly && (
-              <p className="text-xs text-amber-600 mt-1">Week is unlocked. Assessment is view-only.</p>
+              <p className="text-xs text-muted-foreground mt-1">Released or live week — you can review configuration only.</p>
             )}
           </DialogHeader>
 
@@ -613,6 +618,23 @@ export function WeeklyTestManager({
                   <Label className="text-sm font-semibold text-foreground/90 flex items-center gap-2">
                     Answer Key <span className="text-xs text-muted-foreground font-normal">(.pdf or .ipynb only)</span>
                   </Label>
+                  {readOnly ? (
+                    <div className="flex items-center gap-2 rounded-lg border border-border bg-muted/20 px-3 py-2 text-sm text-muted-foreground">
+                      {existingTest?.answer_key ? (
+                        <a
+                          href={existingTest.answer_key}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="inline-flex items-center gap-1.5 text-primary hover:underline font-medium"
+                        >
+                          <Paperclip className="h-3.5 w-3.5 shrink-0" />
+                          {shortName(existingTest.answer_key)}
+                        </a>
+                      ) : (
+                        <span>No answer key file uploaded.</span>
+                      )}
+                    </div>
+                  ) : (
                   <div className="flex items-center gap-3 p-1 rounded-lg border border-border bg-background/30 h-10 w-full">
                     <Button
                       type="button"
@@ -620,7 +642,6 @@ export function WeeklyTestManager({
                       size="sm"
                       className="h-8 hover:bg-muted text-xs px-3"
                       onClick={() => answerKeyRef.current?.click()}
-                      disabled={readOnly}
                     >
                       Choose File
                     </Button>
@@ -628,23 +649,26 @@ export function WeeklyTestManager({
                       {answerKeyFile ? answerKeyFile.name : (existingTest?.answer_key ? shortName(existingTest.answer_key) : 'No file chosen')}
                     </span>
                     {answerKeyFile && (
-                      <Button variant="ghost" size="icon" className="h-6 w-6 text-muted-foreground" onClick={() => setAnswerKeyFile(null)} disabled={readOnly}>
+                      <Button variant="ghost" size="icon" className="h-6 w-6 text-muted-foreground" onClick={() => setAnswerKeyFile(null)}>
                         <X className="h-3 w-3" />
                       </Button>
                     )}
                   </div>
+                  )}
                   <FieldError msg={headerErrors.answer_key} />
-                  <p className="text-[11px] text-muted-foreground">
-                    Include both questions and solutions in one file. Need a template?{' '}
-                    <a
-                      href="/samples/answer-key-template.ipynb"
-                      download="answer-key-template.ipynb"
-                      className="text-primary hover:underline"
-                    >
-                      Download sample answer key
-                    </a>
-                    .
-                  </p>
+                  {!readOnly && (
+                    <>
+                    <p className="text-[11px] text-muted-foreground">
+                      Include both questions and solutions in one file. Need a template?{' '}
+                      <a
+                        href="/samples/answer-key-template.ipynb"
+                        download="answer-key-template.ipynb"
+                        className="text-primary hover:underline"
+                      >
+                        Download sample answer key
+                      </a>
+                      .
+                    </p>
                   <input 
                     ref={answerKeyRef} 
                     type="file" 
@@ -669,15 +693,19 @@ export function WeeklyTestManager({
                       if (headerErrors.answer_key) setHeaderErrors(p => ({ ...p, answer_key: undefined }));
                     }} 
                   />
+                    </>
+                  )}
                 </div>
               </div>
 
-              <div className="flex justify-end pt-2">
-                <Button id="wt-save-btn" variant="gradient" size="sm" onClick={handleSaveHeader} disabled={isSavingHeader}>
-                  {isSavingHeader ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Save className="h-4 w-4 mr-2" />}
-                  {readOnly ? 'Read Only' : (testId ? 'Update Configuration' : 'Save & Add Questions')}
-                </Button>
-              </div>
+              {!readOnly && (
+                <div className="flex justify-end pt-2">
+                  <Button id="wt-save-btn" variant="gradient" size="sm" onClick={handleSaveHeader} disabled={isSavingHeader}>
+                    {isSavingHeader ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Save className="h-4 w-4 mr-2" />}
+                    {testId ? 'Update Configuration' : 'Save & Add Questions'}
+                  </Button>
+                </div>
+              )}
             </div>
 
             {/* ── Questions ────────────────────────────────────────────────── */}
@@ -690,16 +718,22 @@ export function WeeklyTestManager({
                       {questions.length} question{questions.length !== 1 ? 's' : ''} · {totalMarks} total marks
                     </p>
                   </div>
-                  <Button id="wt-add-question" variant="outline" size="sm" onClick={openAddQuestion} disabled={readOnly}>
-                    <Plus className="h-4 w-4 mr-1.5" />
-                    Add Question
-                  </Button>
+                  {!readOnly && (
+                    <Button id="wt-add-question" variant="outline" size="sm" onClick={openAddQuestion}>
+                      <Plus className="h-4 w-4 mr-1.5" />
+                      Add Question
+                    </Button>
+                  )}
                 </div>
 
                 {questions.length === 0 ? (
                   <div className="border-2 border-dashed border-foreground/15 rounded-xl p-10 text-center bg-muted/10">
                     <FileText className="h-10 w-10 text-muted-foreground/40 mx-auto mb-3" />
-                    <p className="text-sm text-muted-foreground">No questions yet. Click "Add Question" to start.</p>
+                    <p className="text-sm text-muted-foreground">
+                      {readOnly
+                        ? 'No questions were added to this weekly assessment.'
+                        : 'No questions yet. Click "Add Question" to start.'}
+                    </p>
                   </div>
                 ) : (
                   <div className="space-y-3">
@@ -757,24 +791,36 @@ export function WeeklyTestManager({
                               </div>
                             </div>
                             <div className="flex-shrink-0 flex gap-1">
-                              <Button
-                                variant="ghost"
-                                size="icon"
-                                className="h-7 w-7"
-                                onClick={() => openEditQuestion(q)}
-                                disabled={readOnly}
-                              >
-                                <Edit className="h-3.5 w-3.5" />
-                              </Button>
-                              <Button
-                                variant="ghost"
-                                size="icon"
-                                className="h-7 w-7"
-                                onClick={() => setDeleteQuestionId(q.id)}
-                                disabled={readOnly}
-                              >
-                                <Trash2 className="h-3.5 w-3.5" />
-                              </Button>
+                              {readOnly ? (
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  className="h-7 w-7"
+                                  title="View question"
+                                  onClick={() => openViewQuestion(q)}
+                                >
+                                  <Eye className="h-3.5 w-3.5" />
+                                </Button>
+                              ) : (
+                                <>
+                                  <Button
+                                    variant="ghost"
+                                    size="icon"
+                                    className="h-7 w-7"
+                                    onClick={() => openEditQuestion(q)}
+                                  >
+                                    <Edit className="h-3.5 w-3.5" />
+                                  </Button>
+                                  <Button
+                                    variant="ghost"
+                                    size="icon"
+                                    className="h-7 w-7"
+                                    onClick={() => setDeleteQuestionId(q.id)}
+                                  >
+                                    <Trash2 className="h-3.5 w-3.5" />
+                                  </Button>
+                                </>
+                              )}
                             </div>
                           </div>
                         </CardContent>
@@ -787,7 +833,9 @@ export function WeeklyTestManager({
 
             {!testId && (
               <p className="text-xs text-muted-foreground text-center py-2">
-                Save the test settings first, then you can add questions.
+                {readOnly
+                  ? 'No weekly assessment record exists for this week.'
+                  : 'Save the test settings first, then you can add questions.'}
               </p>
             )}
           </div>
@@ -795,13 +843,12 @@ export function WeeklyTestManager({
           {/* Footer */}
           <div className="pt-4 border-t flex justify-between items-center">
             <div className="flex items-center gap-2">
-              {testId && (
+              {testId && !readOnly && (
                 <Button
                   variant="outline"
                   size="sm"
                   className="text-destructive border-destructive/40 hover:bg-destructive/10 hover:text-destructive"
                   onClick={() => setIsDeleteTestOpen(true)}
-                  disabled={readOnly}
                 >
                   <Trash2 className="h-3.5 w-3.5 mr-1.5" />
                   Delete Assessment
@@ -829,8 +876,14 @@ export function WeeklyTestManager({
           onOpenAutoFocus={(e) => e.preventDefault()}
         >
           <DialogHeader>
-            <DialogTitle>{editingQuestionId ? 'Edit Question' : 'Add Question'}</DialogTitle>
-            <DialogDescription>Fill in the question details and optionally attach files.</DialogDescription>
+            <DialogTitle>
+              {readOnly ? 'View Question' : editingQuestionId ? 'Edit Question' : 'Add Question'}
+            </DialogTitle>
+            <DialogDescription>
+              {readOnly
+                ? 'Review question details and attachments (read-only).'
+                : 'Fill in the question details and optionally attach files.'}
+            </DialogDescription>
           </DialogHeader>
 
           {/* Scrollable body — fixed max height so dialog stays compact */}
@@ -890,6 +943,23 @@ export function WeeklyTestManager({
               {/* Question file (single, replaces) */}
               <div className="space-y-1">
                 <Label className="text-xs">Question File <span className="text-muted-foreground font-normal">(.ipynb / .pdf / .xlsx / .xls / .csv / .doc / .docx / .txt)</span></Label>
+                {readOnly ? (
+                  <div className="rounded-lg border border-border bg-muted/20 px-3 py-2 text-sm text-muted-foreground">
+                    {editingQuestion.question_file_url ? (
+                      <a
+                        href={editingQuestion.question_file_url}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="text-primary hover:underline font-medium inline-flex items-center gap-1.5"
+                      >
+                        <Paperclip className="h-3.5 w-3.5 shrink-0" />
+                        {shortName(editingQuestion.question_file_url)}
+                      </a>
+                    ) : (
+                      <span>No question file attached.</span>
+                    )}
+                  </div>
+                ) : (
                 <div className="flex items-center gap-3 p-1 rounded-lg border border-border bg-background/30 h-10 w-full">
                   <Button
                     type="button"
@@ -897,7 +967,6 @@ export function WeeklyTestManager({
                     size="sm"
                     className="h-8 hover:bg-muted text-xs px-3 gap-1.5"
                     onClick={() => questionFileRef.current?.click()}
-                    disabled={readOnly}
                   >
                     <Paperclip className="h-3.5 w-3.5" />
                     Choose File
@@ -914,7 +983,6 @@ export function WeeklyTestManager({
                       size="icon"
                       className="h-6 w-6 text-muted-foreground"
                       onClick={() => setEditingQuestion(prev => ({ ...prev, question_file: null }))}
-                      disabled={readOnly}
                     >
                       <X className="h-3 w-3" />
                     </Button>
@@ -943,13 +1011,14 @@ export function WeeklyTestManager({
                             remove_question_file: editingQuestionId != null,
                           }))
                         }
-                        disabled={readOnly}
                       >
                         <X className="h-3 w-3" />
                       </Button>
                     </>
                   )}
                 </div>
+                )}
+                {!readOnly && (
                 <input ref={questionFileRef} type="file" accept=".ipynb,.pdf,.xlsx,.xls,.csv,.doc,.docx,.txt" className="hidden"
                   onChange={e => {
                     setEditingQuestion(prev => ({
@@ -959,11 +1028,29 @@ export function WeeklyTestManager({
                     }));
                     if (questionErrors.content) setQuestionErrors(p => ({ ...p, content: undefined }));
                   }} />
+                )}
               </div>
 
               {/* Image (single, replaces) */}
               <div className="space-y-1">
                 <Label className="text-xs">Image <span className="text-muted-foreground font-normal">(.jpg / .jpeg / .png)</span></Label>
+                {readOnly ? (
+                  <div className="rounded-lg border border-border bg-muted/20 px-3 py-2 text-sm text-muted-foreground">
+                    {editingQuestion.image_url ? (
+                      <a
+                        href={editingQuestion.image_url}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="text-primary hover:underline font-medium inline-flex items-center gap-1.5"
+                      >
+                        <ImageIcon className="h-3.5 w-3.5 shrink-0" />
+                        {shortName(editingQuestion.image_url)}
+                      </a>
+                    ) : (
+                      <span>No image attached.</span>
+                    )}
+                  </div>
+                ) : (
                 <div className="flex items-center gap-3 p-1 rounded-lg border border-border bg-background/30 h-10 w-full">
                   <Button
                     type="button"
@@ -971,7 +1058,6 @@ export function WeeklyTestManager({
                     size="sm"
                     className="h-8 hover:bg-muted text-xs px-3 gap-1.5"
                     onClick={() => questionImageRef.current?.click()}
-                    disabled={readOnly}
                   >
                     <ImageIcon className="h-3.5 w-3.5" />
                     Choose Image
@@ -988,7 +1074,6 @@ export function WeeklyTestManager({
                       size="icon"
                       className="h-6 w-6 text-muted-foreground"
                       onClick={() => setEditingQuestion(prev => ({ ...prev, image: null }))}
-                      disabled={readOnly}
                     >
                       <X className="h-3 w-3" />
                     </Button>
@@ -1017,13 +1102,14 @@ export function WeeklyTestManager({
                             remove_image: editingQuestionId != null,
                           }))
                         }
-                        disabled={readOnly}
                       >
                         <X className="h-3 w-3" />
                       </Button>
                     </>
                   )}
                 </div>
+                )}
+                {!readOnly && (
                 <input ref={questionImageRef} type="file" accept=".jpg,.jpeg,.png,image/jpeg,image/png" className="hidden"
                   onChange={e => {
                     setEditingQuestion(prev => ({
@@ -1033,6 +1119,7 @@ export function WeeklyTestManager({
                     }));
                     if (questionErrors.content) setQuestionErrors(p => ({ ...p, content: undefined }));
                   }} />
+                )}
               </div>
 
               {/* Multiple extra attachments */}
@@ -1054,22 +1141,23 @@ export function WeeklyTestManager({
                           </a>
                           <p className="text-[10px] text-muted-foreground uppercase tracking-tight font-medium">Existing Attachment</p>
                         </div>
+                        {!readOnly && (
                         <button
                           type="button"
                           className="flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors disabled:opacity-50"
                           disabled={deletingAttachmentIds.has(att.id)}
-                          aria-disabled={readOnly}
                           onClick={() => handleDeleteExistingAttachment(att.id)}
                         >
                           {deletingAttachmentIds.has(att.id)
                             ? <Loader2 className="h-4 w-4 animate-spin" />
                             : <X className="h-4 w-4" />}
                         </button>
+                        )}
                       </div>
                     ))}
 
                     {/* New queued attachments */}
-                    {editingQuestion.newAttachmentFiles.map((file, idx) => (
+                    {!readOnly && editingQuestion.newAttachmentFiles.map((file, idx) => (
                       <div key={idx} className="group relative flex items-center gap-3 bg-primary/[0.02] border border-primary/20 border-dashed rounded-xl p-2.5 transition-all hover:bg-primary/[0.04]">
                         <div className="flex-shrink-0 w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center border border-primary/20">
                           <UploadCloud className="h-5 w-5 text-primary" />
@@ -1085,7 +1173,6 @@ export function WeeklyTestManager({
                           type="button"
                           className="flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors p-0.5"
                           onClick={() => handleRemoveNewAttachment(idx)}
-                          disabled={readOnly}
                         >
                           <X className="h-4 w-4" />
                         </button>
@@ -1093,12 +1180,17 @@ export function WeeklyTestManager({
                     ))}
                   </div>
                 )}
+                {readOnly &&
+                  editingQuestion.existingAttachments.length === 0 &&
+                  editingQuestion.newAttachmentFiles.length === 0 && (
+                    <p className="text-xs text-muted-foreground py-1">No extra attachments.</p>
+                  )}
 
-                {/* Styled Upload Area */}
+                {!readOnly && (
+                <>
                 <div
                   className="group relative border-2 border-dashed border-muted-foreground/20 rounded-xl p-4 text-center transition-all hover:border-primary/40 hover:bg-primary/[0.02] cursor-pointer"
                   onClick={() => attachmentFileRef.current?.click()}
-                  aria-disabled={readOnly}
                 >
                   <div className="w-10 h-10 rounded-full bg-muted/50 flex items-center justify-center mx-auto mb-2 group-hover:bg-primary/10 transition-all">
                     <Paperclip className="h-5 w-5 text-muted-foreground group-hover:text-primary" />
@@ -1120,6 +1212,8 @@ export function WeeklyTestManager({
                     e.target.value = '';
                   }}
                 />
+                </>
+                )}
               </div>
             </div>
           </div>
@@ -1129,17 +1223,19 @@ export function WeeklyTestManager({
               variant="outline"
               onClick={() => { setIsQuestionModalOpen(false); setQuestionErrors({}); }}
             >
-              Cancel
+              {readOnly ? 'Close' : 'Cancel'}
             </Button>
-            <Button
-              id="q-save-btn"
-              variant="gradient"
-              onClick={handleSaveQuestion}
-              disabled={isSavingQuestion || readOnly}
-            >
-              {isSavingQuestion && <Loader2 className="h-4 w-4 animate-spin mr-2" />}
-              {readOnly ? 'Read Only' : (editingQuestionId ? 'Update Question' : 'Add Question')}
-            </Button>
+            {!readOnly && (
+              <Button
+                id="q-save-btn"
+                variant="gradient"
+                onClick={handleSaveQuestion}
+                disabled={isSavingQuestion}
+              >
+                {isSavingQuestion && <Loader2 className="h-4 w-4 animate-spin mr-2" />}
+                {editingQuestionId ? 'Update Question' : 'Add Question'}
+              </Button>
+            )}
           </div>
         </DialogContent>
       </Dialog>

@@ -51,6 +51,7 @@ import {
   ClipboardList,
   Award,
   LayoutGrid,
+  Eye,
 } from 'lucide-react';
 import { batchApi, batchContentApi, BatchWeek } from '@/lib/batch-api';
 import { useToast } from '@/hooks/use-toast';
@@ -616,6 +617,18 @@ export default function BatchContent() {
                           )}
                         </div>
 
+                        {(week.is_unlocked && weeklyTest) && (
+                          <div className="flex flex-col sm:flex-row gap-2 w-full lg:w-auto">
+                            <Button
+                              variant="secondary"
+                              className="bg-white/10 text-white hover:bg-white/20 font-bold shadow-md rounded-xl h-10 px-4"
+                              onClick={() => handleOpenTestManager(week)}
+                            >
+                              <Eye className="h-4 w-4 mr-2 hidden sm:inline" />
+                              View Assessment
+                            </Button>
+                          </div>
+                        )}
                         {!week.is_unlocked && (
                           <div className="flex flex-col sm:flex-row md:flex-wrap gap-2 w-full lg:w-auto">
                             <Button 
@@ -862,14 +875,25 @@ export default function BatchContent() {
                                   <span className="flex items-center gap-1.5 text-primary"><Award className="h-4 w-4" /> {weeklyTest.pass_percentage ?? 70}% Mastery Level</span>
                                 </div>
                              </div>
-                             {!week.is_unlocked && (
-                               <Button 
-                                 variant="gradient"
-                                 className="rounded-xl px-8 h-11 font-bold text-xs tracking-wide shadow-sm"
-                                  onClick={() => handleOpenTestManager(week)}
-                                >
-                                 Edit Assessment
-                               </Button>
+                             {weeklyTest && (
+                               week.is_unlocked ? (
+                                 <Button
+                                   variant="outline"
+                                   className="rounded-xl px-8 h-11 font-bold text-xs tracking-wide border-primary/40 text-primary hover:bg-primary/10"
+                                   onClick={() => handleOpenTestManager(week)}
+                                 >
+                                   <Eye className="h-4 w-4 mr-2" />
+                                   View Assessment
+                                 </Button>
+                               ) : (
+                                 <Button
+                                   variant="gradient"
+                                   className="rounded-xl px-8 h-11 font-bold text-xs tracking-wide shadow-sm"
+                                   onClick={() => handleOpenTestManager(week)}
+                                 >
+                                   Edit Assessment
+                                 </Button>
+                               )
                              )}
                            </div>
                         </Card>
@@ -879,9 +903,9 @@ export default function BatchContent() {
                           <h4 className="text-lg font-display font-semibold">
                             {week.is_unlocked ? 'No assessment configured' : 'Assessment Required'}
                           </h4>
-                          <p className="text-sm text-muted-foreground mb-8 max-w-sm mx-auto">
+                          <p className="text-sm text-muted-foreground mb-8 max-w-md mx-auto leading-relaxed">
                             {week.is_unlocked
-                              ? 'This released week is read-only. Assessments must be configured before release.'
+                              ? 'This week is live or already released, so you can’t add an assessment here. If nothing shows above, no weekly test was configured before release—students won’t have a gated test for this week.'
                               : 'Add a validation test for this week. Students cannot move forward or "Graduate" without passing this assessment.'}
                           </p>
                           {!week.is_unlocked && (
