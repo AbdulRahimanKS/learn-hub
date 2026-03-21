@@ -169,6 +169,7 @@ class BatchEnrollmentSerializer(serializers.ModelSerializer):
     """
     student_name = serializers.CharField(source='student.fullname', read_only=True)
     student_email = serializers.EmailField(source='student.email', read_only=True)
+    profile_picture = serializers.SerializerMethodField()
 
     # Progress fields (Mocked for now, to be implemented with real logic)
     overall_progress = serializers.SerializerMethodField()
@@ -185,14 +186,28 @@ class BatchEnrollmentSerializer(serializers.ModelSerializer):
     class Meta:
         model = BatchEnrollment
         fields = [
-            'id', 'batch', 'student', 'student_name', 'student_email',
+            'id', 'batch', 'student', 'student_name', 'student_email', 'profile_picture',
             'status', 'notes', 'manual_unlocked_weeks', 'weeks_access_status',
             'enrolled_at', 'created_at',
             'overall_progress', 'weeks_completed', 'total_weeks',
             'weekly_tests_submitted', 'total_weekly_tests',
             'videos_watched', 'total_videos', 'week_details'
         ]
-        read_only_fields = ['id', 'batch', 'enrolled_at', 'created_at', 'student_name', 'student_email']
+        read_only_fields = [
+            'id', 'batch', 'enrolled_at', 'created_at',
+            'student_name', 'student_email', 'profile_picture',
+        ]
+
+    @extend_schema_field(OpenApiTypes.URI)
+    def get_profile_picture(self, obj):
+        request = self.context.get('request')
+        try:
+            pic = obj.student.profile.profile_picture
+            if pic and request:
+                return request.build_absolute_uri(pic.url)
+        except Exception:
+            pass
+        return None
 
     @extend_schema_field(serializers.ListField(child=serializers.IntegerField()))
     def get_manual_unlocked_weeks(self, obj):

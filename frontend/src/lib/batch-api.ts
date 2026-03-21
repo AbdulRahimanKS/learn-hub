@@ -6,6 +6,8 @@ export interface BatchUser {
   email: string;
   user_code: string;
   role: string | null;
+  /** Absolute URL when set (same shape as user management list). */
+  profile_picture?: string | null;
 }
 
 export interface PaginatedUserResponse {

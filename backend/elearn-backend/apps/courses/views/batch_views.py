@@ -15,7 +15,7 @@ from apps.courses.serializers import (
     BatchEnrollmentSerializer,
 )
 from apps.users.serializers.user_management_serializers import UserManagementSerializer
-from apps.users.models import User
+from apps.users.models import Notification, User
 from apps.courses.models import BatchWeek
 
 from utils.permissions import IsAuthenticated, IsSuperAdminAdminOrTeacher
@@ -523,6 +523,19 @@ class BatchAddStudentView(APIView):
                     student.status = 'ACTIVE'
                     student.save(update_fields=['is_active', 'status'])
 
+            try:
+                create_notification(
+                    student,
+                    title="Enrolled in a batch",
+                    message=(
+                        f'You have been added to the batch "{batch.name}". '
+                        f'If you received login credentials by email, use them to sign in and open your courses.'
+                    ),
+                    notification_type="success",
+                )
+            except Exception as notify_err:
+                logger.warning("Failed to notify student on batch enrollment: %s", notify_err)
+
             return format_success_response(
                 message="Student added to batch successfully.",
                 data=None,
@@ -622,6 +635,7 @@ class AvailableStudentListView(APIView):
         )
 
 
+@extend_schema(tags=["Batches"])
 class BatchStudentListView(APIView):
     permission_classes = [IsAuthenticated]
     pagination_class = CustomPageNumberPagination
@@ -639,7 +653,7 @@ class BatchStudentListView(APIView):
     def get(self, request, pk):
         try:
             batch = Batch.objects.get(pk=pk)
-            enrollments = batch.enrollments.all().select_related('student')
+            enrollments = batch.enrollments.all().select_related('student', 'student__profile')
             
             # Stats for top cards
             status_stats = {
@@ -666,18 +680,16 @@ class BatchStudentListView(APIView):
             page = paginator.paginate_queryset(enrollments, request, view=self)
             
             if page is not None:
-                serializer = BatchEnrollmentSerializer(page, many=True)
-                response = paginator.get_paginated_response(serializer.data)
-                response.data['stats'] = status_stats
-                return response
-            
-            if page is not None:
-                serializer = BatchEnrollmentSerializer(page, many=True)
+                serializer = BatchEnrollmentSerializer(
+                    page, many=True, context={'request': request}
+                )
                 response = paginator.get_paginated_response(serializer.data)
                 response.data['stats'] = status_stats
                 return response
 
-            serializer = BatchEnrollmentSerializer(enrollments, many=True)
+            serializer = BatchEnrollmentSerializer(
+                enrollments, many=True, context={'request': request}
+            )
             return format_success_response(
                 message="Batch students retrieved successfully",
                 data={
@@ -809,7 +821,8 @@ class BatchStudentEnrollmentUpdateView(APIView):
             data = serializer.validated_data
             if 'status' in data:
                 new_status = data['status']
-                
+                old_status = enrollment.status
+
                 # Terminal statuses: cannot change away from completed or dropped
                 if enrollment.status == BatchEnrollment.Status.COMPLETED and new_status != BatchEnrollment.Status.COMPLETED:
                     raise ServiceError(detail="Once a student's status is marked as 'completed', it cannot be changed.", status_code=status.HTTP_400_BAD_REQUEST)
@@ -831,6 +844,36 @@ class BatchStudentEnrollmentUpdateView(APIView):
                 enrollment.status = new_status
 
             enrollment.save()
+
+            if 'status' in data and old_status != data['status']:
+                stu = enrollment.student
+                bn = batch.name
+                ns = data['status']
+                try:
+                    if ns == BatchEnrollment.Status.COMPLETED:
+                        create_notification(
+                            stu,
+                            title="Batch enrollment completed",
+                            message=f'Your enrollment in "{bn}" has been marked as completed. Congratulations!',
+                            notification_type="success",
+                        )
+                    elif ns == BatchEnrollment.Status.DROPPED:
+                        create_notification(
+                            stu,
+                            title="Enrollment status updated",
+                            message=f'Your enrollment in "{bn}" has been marked as dropped. Contact your instructor if this is unexpected.',
+                            notification_type="warning",
+                        )
+                    elif ns == BatchEnrollment.Status.ACTIVE:
+                        create_notification(
+                            stu,
+                            title="Enrollment reactivated",
+                            message=f'Your enrollment in "{bn}" is now active again. You can continue your learning from your courses area.',
+                            notification_type="info",
+                        )
+                except Exception as notify_err:
+                    logger.warning("Failed to notify student on enrollment status change: %s", notify_err)
+
             return format_success_response(message="Enrollment updated successfully", data=BatchEnrollmentSerializer(enrollment, context={'request': request}).data)
         except Batch.DoesNotExist:
             raise ServiceError(detail="Batch not found.", status_code=status.HTTP_404_NOT_FOUND)
@@ -881,7 +924,22 @@ class BatchStudentEnrollmentUpdateView(APIView):
             if not enrollment:
                 raise ServiceError(detail="Enrollment not found.", status_code=status.HTTP_404_NOT_FOUND)
 
+            student_user = enrollment.student
+            batch_name = batch.name
             enrollment.delete()
+            try:
+                create_notification(
+                    student_user,
+                    title="Removed from batch",
+                    message=(
+                        f'You have been removed from the batch "{batch_name}". '
+                        f'If you believe this is a mistake, contact your instructor or administrator.'
+                    ),
+                    notification_type="warning",
+                )
+            except Exception as notify_err:
+                logger.warning("Failed to notify student on roster removal: %s", notify_err)
+
             return format_success_response(message="Student removed from batch.")
         except Batch.DoesNotExist:
             raise ServiceError(detail="Batch not found.", status_code=status.HTTP_404_NOT_FOUND)
@@ -1032,12 +1090,39 @@ class BatchStudentBulkUpdateView(APIView):
             # CRITICAL: Only update ACTIVE enrollments as requested
             # Students already COMPLETED or DROPPED should not be updated in bulk
             active_enrollments = enrollments.filter(status=BatchEnrollment.Status.ACTIVE)
-            
+            to_notify = list(
+                active_enrollments.select_related("student")
+            )
+
             updated_count = active_enrollments.update(
                 status=target_status,
                 completed_at=timezone.now(),
                 updated_at=timezone.now(),
             )
+
+            bn = batch.name
+            if to_notify:
+                try:
+                    msg = (
+                        f'Your enrollment in "{bn}" has been marked as completed. Congratulations!'
+                    )
+                    notification_rows = [
+                        Notification(
+                            user=enr.student,
+                            title="Batch enrollment completed",
+                            message=msg,
+                            notification_type=Notification.NotificationType.SUCCESS
+                        )
+                        for enr in to_notify
+                    ]
+                    # One batched INSERT (or chunked) instead of N separate creates
+                    Notification.objects.bulk_create(notification_rows, batch_size=500)
+                except Exception as notify_err:
+                    logger.warning(
+                        "Failed bulk notify on bulk completion (%s students): %s",
+                        len(to_notify),
+                        notify_err,
+                    )
 
             return format_success_response(message=f"Successfully updated {updated_count} active students to {target_status.lower()}.")
         except Batch.DoesNotExist:
