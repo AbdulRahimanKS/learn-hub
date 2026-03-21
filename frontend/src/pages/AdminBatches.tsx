@@ -428,6 +428,16 @@ export default function AdminBatches() {
 
   const handlePushContent = async () => {
     if (!pushTargetBatchId || !pushSourceId) return;
+    const targetBatch = batches.find(b => b.id === pushTargetBatchId);
+    const targetWeeksCount = ((targetBatch as any)?.weeks_count ?? 0) as number;
+    if (targetWeeksCount > 0) {
+      toast({
+        title: 'Clone unavailable',
+        description: 'Clone Content is allowed only when the target batch has no weeks yet.',
+        variant: 'destructive',
+      });
+      return;
+    }
     try {
       setIsPushing(true);
       const res = await batchApi.cloneContent(
@@ -661,9 +671,26 @@ export default function AdminBatches() {
                     {/* Right: Icon actions */}
                     <div className="flex items-center gap-0.5">
                       <button
-                        title="Clone Content"
-                        onClick={() => { setPushTargetBatchId(batch.id); setIsPushModalOpen(true); }}
-                        className="h-8 w-8 inline-flex items-center justify-center rounded-md text-muted-foreground hover:text-primary hover:bg-primary/10 transition-colors"
+                        title={((batch as any).weeks_count ?? 0) > 0 ? "Clone is available only for empty batches" : "Clone Content"}
+                        onClick={() => {
+                          const weeksCount = ((batch as any).weeks_count ?? 0) as number;
+                          if (weeksCount > 0) {
+                            toast({
+                              title: 'Clone unavailable',
+                              description: 'Clone Content is allowed only when the target batch has no weeks yet.',
+                              variant: 'destructive',
+                            });
+                            return;
+                          }
+                          setPushTargetBatchId(batch.id);
+                          setIsPushModalOpen(true);
+                        }}
+                        className={cn(
+                          "h-8 w-8 inline-flex items-center justify-center rounded-md transition-colors",
+                          ((batch as any).weeks_count ?? 0) > 0
+                            ? "text-muted-foreground/40 cursor-not-allowed"
+                            : "text-muted-foreground hover:text-primary hover:bg-primary/10"
+                        )}
                       >
                         <Copy className="h-4 w-4" />
                       </button>

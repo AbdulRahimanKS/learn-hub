@@ -685,6 +685,8 @@ class CloneBatchContentView(APIView):
                 return format_success_response(message="Content pushed successfully")
             else:
                 raise ServiceError(detail="Missing source source_course_id or source_batch_id", status_code=status.HTTP_400_BAD_REQUEST)
+        except ServiceError:
+            raise
         except ValueError as e:
             raise ServiceError(detail=str(e), status_code=status.HTTP_400_BAD_REQUEST)
         except Exception as e:

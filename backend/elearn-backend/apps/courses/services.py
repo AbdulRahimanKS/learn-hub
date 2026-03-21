@@ -9,6 +9,8 @@ from apps.courses.models import (
     BatchPostSessionQuestion, BatchPostSessionChoice
 )
 from apps.courses.views.upload_views import get_s3_client
+from utils.common import ServiceError
+from rest_framework import status
 
 logger = logging.getLogger(__name__)
 
@@ -23,14 +25,14 @@ def push_content_to_batch(source_batch_id=None, source_course_id=None, target_ba
     if source_batch_id:
         source_batch = Batch.objects.get(id=source_batch_id)
         if source_batch.course_id != target_batch.course_id:
-            raise ValueError("Source batch must belong to the same course as target batch.")
+            raise ServiceError(detail="Source batch must belong to the same course as target batch.", status_code=status.HTTP_400_BAD_REQUEST)
         source_weeks = BatchWeek.objects.filter(batch_id=source_batch_id)
     elif source_course_id:
         if int(source_course_id) != target_batch.course_id:
-             raise ValueError("Source course must be the same as target batch course.")
+            raise ServiceError(detail="Source course must be the same as target batch course.", status_code=status.HTTP_400_BAD_REQUEST)
         source_weeks = CourseWeek.objects.filter(course_id=source_course_id)
     else:
-        return False
+        raise ServiceError(detail="Missing source source_course_id or source_batch_id", status_code=status.HTTP_400_BAD_REQUEST)
 
     for sw in source_weeks:
         # 1. Create/Update BatchWeek
@@ -53,8 +55,13 @@ def push_content_to_batch(source_batch_id=None, source_course_id=None, target_ba
         # 2. Clone ClassSessions (from CourseClassSession → BatchClassSession)
         source_sessions = sw.class_sessions.all()
         for ss in source_sessions:
-            # Check if session already exists in target batch week
-            if not BatchClassSession.objects.filter(batch_week=bw, session_number=ss.session_number).exists():
+            # Check existence using the model's uniqueness tuple:
+            # (batch_week, weekday, session_number)
+            if not BatchClassSession.objects.filter(
+                batch_week=bw,
+                weekday=ss.weekday,
+                session_number=ss.session_number
+            ).exists():
                 batch_session = BatchClassSession.objects.create(
                     batch_week=bw,
                     session_number=ss.session_number,
