@@ -32,7 +32,7 @@ logger = logging.getLogger(__name__)
 
 def ensure_week_is_modifiable(week, action):
     """Centralized guard to prevent writes after unlock date."""
-    if not week.can_modify_content():
+    if not week.can_modify_content:
         raise ServiceError(
             detail=f"Cannot {action} in an unlocked week.",
             status_code=status.HTTP_400_BAD_REQUEST

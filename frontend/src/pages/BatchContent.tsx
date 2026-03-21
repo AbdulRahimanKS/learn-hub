@@ -139,10 +139,13 @@ export default function BatchContent() {
   // Add Week
   const [isAddWeekOpen, setIsAddWeekOpen] = useState(false);
   const [newWeekTitle, setNewWeekTitle] = useState('');
+  const [newWeekDesc, setNewWeekDesc] = useState('');
   const [newWeekNumber, setNewWeekNumber] = useState<number | ''>(1);
   const [newWeekTitleError, setNewWeekTitleError] = useState('');
   const [newWeekNumberError, setNewWeekNumberError] = useState('');
   const [isAddingWeek, setIsAddingWeek] = useState(false);
+
+  const hasFutureWeeks = weeks.some((week) => !week.is_unlocked);
 
   const fetchBatchInfo = async () => {
     if (!batchId) return;
@@ -262,11 +265,12 @@ export default function BatchContent() {
       await batchContentApi.createWeek(parseInt(batchId), {
         week_number: Number(newWeekNumber),
         title: newWeekTitle.trim(),
-        description: '',
+        description: newWeekDesc.trim(),
       });
       toast({ title: 'Success', description: 'Week added successfully', variant: 'success' });
       setIsAddWeekOpen(false);
       setNewWeekTitle('');
+      setNewWeekDesc('');
       await fetchWeeks(false);
     } catch (err: any) {
       const msg = err.response?.data?.detail || 'Failed to add week';
@@ -444,7 +448,7 @@ export default function BatchContent() {
                 </div>
               </div>
               <div className="flex shrink-0 gap-1.5 sm:gap-2">
-                {weeks.length > 0 && (
+                {hasFutureWeeks && (
                   <Button 
                     variant="outline" 
                     size="icon" 
@@ -568,11 +572,6 @@ export default function BatchContent() {
                             <Badge className="bg-white/15 text-primary-foreground backdrop-blur-md border-none font-semibold text-[10px] h-6 px-3">
                               WEEK {week.week_number}
                             </Badge>
-                            {week.is_unlocked && (
-                              <Badge className="bg-emerald-400 text-emerald-950 font-black text-[10px] h-6 px-3">
-                                LIVE
-                              </Badge>
-                            )}
                           </div>
                           <h2 className="text-2xl md:text-3xl font-display font-bold tracking-tight leading-tight">{week.title}</h2>
                           {week.description && (
@@ -582,37 +581,36 @@ export default function BatchContent() {
                           )}
                         </div>
 
-                        <div className="flex flex-col sm:flex-row md:flex-wrap gap-2 w-full lg:w-auto">
-                          <Button 
-                            variant="secondary" 
-                            className="bg-white/10 text-white hover:bg-white/20 font-bold shadow-md rounded-xl h-10 px-4"
-                            onClick={() => handleOpenTestManager(week)}
-                            disabled={week.is_unlocked}
-                          >
-                            <FileText className="h-4 w-4 mr-2 hidden sm:inline" />
-                            {weeklyTest ? 'Edit Assessment' : 'Setup Assessment'}
-                          </Button>
-                          <div className="flex gap-1 w-full sm:w-auto">
+                        {!week.is_unlocked && (
+                          <div className="flex flex-col sm:flex-row md:flex-wrap gap-2 w-full lg:w-auto">
                             <Button 
                               variant="secondary" 
-                              size="icon" 
-                              className="bg-white/10 text-white hover:bg-white/20 backdrop-blur-md rounded-xl h-10 w-10 flex-1 sm:flex-none"
-                              onClick={() => handleOpenEdit(week)}
-                              disabled={week.is_unlocked}
+                              className="bg-white/10 text-white hover:bg-white/20 font-bold shadow-md rounded-xl h-10 px-4"
+                              onClick={() => handleOpenTestManager(week)}
                             >
-                              <Edit className="h-4 w-4" />
+                              <FileText className="h-4 w-4 mr-2 hidden sm:inline" />
+                              {weeklyTest ? 'Edit Assessment' : 'Setup Assessment'}
                             </Button>
-                            <Button 
-                              variant="secondary" 
-                              size="icon" 
-                              className="bg-white/10 text-white hover:bg-white/20 backdrop-blur-md rounded-xl h-10 w-10 flex-1 sm:flex-none"
-                              onClick={() => setDeleteWeekId(week.id)}
-                              disabled={week.is_unlocked}
-                            >
-                              <Trash2 className="h-4 w-4" />
-                            </Button>
+                            <div className="flex gap-1 w-full sm:w-auto">
+                              <Button 
+                                variant="secondary" 
+                                size="icon" 
+                                className="bg-white/10 text-white hover:bg-white/20 backdrop-blur-md rounded-xl h-10 w-10 flex-1 sm:flex-none"
+                                onClick={() => handleOpenEdit(week)}
+                              >
+                                <Edit className="h-4 w-4" />
+                              </Button>
+                              <Button 
+                                variant="secondary" 
+                                size="icon" 
+                                className="bg-white/10 text-white hover:bg-white/20 backdrop-blur-md rounded-xl h-10 w-10 flex-1 sm:flex-none"
+                                onClick={() => setDeleteWeekId(week.id)}
+                              >
+                                <Trash2 className="h-4 w-4" />
+                              </Button>
+                            </div>
                           </div>
-                        </div>
+                        )}
                       </div>
 
                       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mt-8 pt-8 border-t border-white/10 text-[10px] md:text-xs">
@@ -652,16 +650,17 @@ export default function BatchContent() {
                           </div>
                           <h3 className="text-xl font-display font-bold text-foreground">Video Sessions</h3>
                         </div>
-                        <Button 
-                          variant="gradient" 
-                          size="sm" 
-                          className="rounded-xl px-6"
-                          disabled={week.is_unlocked}
-                          onClick={() => handleOpenSessionModal()}
-                        >
-                          <Plus className="h-4 w-4 mr-2" />
-                          Upload New Video
-                        </Button>
+                        {!week.is_unlocked && (
+                          <Button 
+                            variant="gradient" 
+                            size="sm" 
+                            className="rounded-xl px-6"
+                            onClick={() => handleOpenSessionModal()}
+                          >
+                            <Plus className="h-4 w-4 mr-2" />
+                            Upload New Video
+                          </Button>
+                        )}
                       </div>
 
                       {loading ? (
@@ -671,13 +670,19 @@ export default function BatchContent() {
                       ) : sessions.length === 0 ? (
                         <div className="py-16 text-center bg-card border-2 border-dashed border-muted-foreground/30 rounded-xl">
                           <VideoIcon className="h-12 w-12 mx-auto mb-4 text-muted-foreground/30" />
-                          <h4 className="text-lg font-display font-semibold text-foreground">No video sessions yet</h4>
+                          <h4 className="text-lg font-display font-semibold text-foreground">
+                            {week.is_unlocked ? 'No video sessions available' : 'No video sessions yet'}
+                          </h4>
                           <p className="text-sm text-muted-foreground max-w-xs mx-auto mb-6">
-                            Start adding video sessions to this week. You can reorder them by weekday and session number.
+                            {week.is_unlocked
+                              ? 'This released week is read-only. Video sessions can only be added before release.'
+                              : 'Start adding video sessions to this week. You can reorder them by weekday and session number.'}
                           </p>
-                          <Button variant="outline" className="rounded-xl" onClick={() => handleOpenSessionModal()}>
-                             <Plus className="h-4 w-4 mr-2" /> Add First Video Session
-                          </Button>
+                          {!week.is_unlocked && (
+                            <Button variant="outline" className="rounded-xl" onClick={() => handleOpenSessionModal()}>
+                               <Plus className="h-4 w-4 mr-2" /> Add First Video Session
+                            </Button>
+                          )}
                         </div>
                       ) : (
                         <Card className="rounded-2xl border-border/50 bg-card shadow-card p-3 sm:p-4">
@@ -757,24 +762,26 @@ export default function BatchContent() {
                                         <HelpCircle className="h-4 w-4" />
                                         <span className="text-xs font-bold hidden md:inline">MCQs</span>
                                       </Button>
-                                      <Button
-                                        variant="ghost"
-                                        size="icon"
-                                        className="h-9 w-9 text-muted-foreground hover:text-foreground"
-                                        onClick={() => handleOpenSessionModal(session)}
-                                        disabled={week.is_unlocked}
-                                      >
-                                        <Edit className="h-4 w-4" />
-                                      </Button>
-                                      <Button
-                                        variant="ghost"
-                                        size="icon"
-                                        className="h-9 w-9 text-muted-foreground hover:text-destructive hover:bg-destructive/10"
-                                        onClick={() => setDeleteSessionId(session.id)}
-                                        disabled={week.is_unlocked}
-                                      >
-                                        <Trash2 className="h-4 w-4" />
-                                      </Button>
+                                      {!week.is_unlocked && (
+                                        <>
+                                          <Button
+                                            variant="ghost"
+                                            size="icon"
+                                            className="h-9 w-9 text-muted-foreground hover:text-foreground"
+                                            onClick={() => handleOpenSessionModal(session)}
+                                          >
+                                            <Edit className="h-4 w-4" />
+                                          </Button>
+                                          <Button
+                                            variant="ghost"
+                                            size="icon"
+                                            className="h-9 w-9 text-muted-foreground hover:text-destructive hover:bg-destructive/10"
+                                            onClick={() => setDeleteSessionId(session.id)}
+                                          >
+                                            <Trash2 className="h-4 w-4" />
+                                          </Button>
+                                        </>
+                                      )}
                                     </div>
 
                                     <Button 
@@ -820,31 +827,37 @@ export default function BatchContent() {
                                   <span className="flex items-center gap-1.5 text-primary"><Award className="h-4 w-4" /> {weeklyTest.pass_percentage ?? 70}% Mastery Level</span>
                                 </div>
                              </div>
-                             <Button 
-                               variant="gradient"
-                               className="rounded-xl px-8 h-11 font-bold text-xs tracking-wide shadow-sm"
-                                onClick={() => handleOpenTestManager(week)}
-                                disabled={week.is_unlocked}
-                              >
-                               Edit Assessment
-                             </Button>
+                             {!week.is_unlocked && (
+                               <Button 
+                                 variant="gradient"
+                                 className="rounded-xl px-8 h-11 font-bold text-xs tracking-wide shadow-sm"
+                                  onClick={() => handleOpenTestManager(week)}
+                                >
+                                 Edit Assessment
+                               </Button>
+                             )}
                            </div>
                         </Card>
                       ) : (
                         <div className="border-2 border-dashed border-muted-foreground/30 rounded-xl p-12 text-center bg-card">
                           <FileText className="h-12 w-12 text-primary/40 mx-auto mb-4 opacity-50" />
-                          <h4 className="text-lg font-display font-semibold">Assessment Required</h4>
+                          <h4 className="text-lg font-display font-semibold">
+                            {week.is_unlocked ? 'No assessment configured' : 'Assessment Required'}
+                          </h4>
                           <p className="text-sm text-muted-foreground mb-8 max-w-sm mx-auto">
-                            Add a validation test for this week. Students cannot move forward or "Graduate" without passing this assessment.
+                            {week.is_unlocked
+                              ? 'This released week is read-only. Assessments must be configured before release.'
+                              : 'Add a validation test for this week. Students cannot move forward or "Graduate" without passing this assessment.'}
                           </p>
-                          <Button 
-                            variant="outline" 
-                            className="rounded-xl border-primary/30 text-primary"
-                            onClick={() => handleOpenTestManager(week)}
-                            disabled={week.is_unlocked}
-                          >
-                            <Plus className="h-4 w-4 mr-2" /> Initialize Weekly Test
-                          </Button>
+                          {!week.is_unlocked && (
+                            <Button 
+                              variant="outline" 
+                              className="rounded-xl border-primary/30 text-primary"
+                              onClick={() => handleOpenTestManager(week)}
+                            >
+                              <Plus className="h-4 w-4 mr-2" /> Create Assessment
+                            </Button>
+                          )}
                         </div>
                       )}
                     </div>
@@ -916,7 +929,7 @@ export default function BatchContent() {
       </Dialog>
 
       {/* Add Week Dialog — same layout as Course content */}
-      <Dialog open={isAddWeekOpen} onOpenChange={(open) => { if (!open) { setIsAddWeekOpen(false); setNewWeekTitle(''); setNewWeekTitleError(''); setNewWeekNumberError(''); } }}>
+      <Dialog open={isAddWeekOpen} onOpenChange={(open) => { if (!open) { setIsAddWeekOpen(false); setNewWeekTitle(''); setNewWeekDesc(''); setNewWeekTitleError(''); setNewWeekNumberError(''); } }}>
         <DialogContent className="sm:max-w-md" onOpenAutoFocus={(e) => e.preventDefault()}>
           <DialogHeader>
             <DialogTitle>Add New Week</DialogTitle>
@@ -953,9 +966,29 @@ export default function BatchContent() {
               />
               {newWeekTitleError && <p className="text-sm text-destructive mt-1">{newWeekTitleError}</p>}
             </div>
+            <div className="space-y-2">
+              <Label htmlFor="newBatchWeekDesc">Description (Optional)</Label>
+              <Textarea
+                id="newBatchWeekDesc"
+                placeholder="Brief overview for this week..."
+                value={newWeekDesc}
+                onChange={(e) => setNewWeekDesc(e.target.value)}
+              />
+            </div>
           </div>
           <div className="flex justify-end gap-3">
-            <Button variant="outline" onClick={() => setIsAddWeekOpen(false)}>Cancel</Button>
+            <Button
+              variant="outline"
+              onClick={() => {
+                setIsAddWeekOpen(false);
+                setNewWeekTitle('');
+                setNewWeekDesc('');
+                setNewWeekTitleError('');
+                setNewWeekNumberError('');
+              }}
+            >
+              Cancel
+            </Button>
             <Button variant="gradient" onClick={handleAddWeek} disabled={isAddingWeek}>
               {isAddingWeek ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
               Create Week
