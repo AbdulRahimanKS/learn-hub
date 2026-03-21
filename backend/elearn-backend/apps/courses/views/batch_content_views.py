@@ -92,9 +92,23 @@ class BatchWeekListView(APIView):
 
             unlock_date = None
             if batch.start_date:
-                days_to_add = (week_number - 1) * 7
+                # Follow latest configured week date (handles extended timelines).
+                last_week = BatchWeek.objects.filter(batch=batch).order_by('-week_number').first()
+                if last_week:
+                    if last_week.unlock_date:
+                        base_date = last_week.unlock_date.date()
+                    else:
+                        # Fallback for older rows without unlock_date.
+                        base_date = batch.start_date + timedelta(days=(last_week.week_number - 1) * 7)
+                    step_weeks = week_number - last_week.week_number
+                    days_to_add = step_weeks * 7
+                    target_date = base_date + timedelta(days=days_to_add)
+                else:
+                    days_to_add = (week_number - 1) * 7
+                    target_date = batch.start_date + timedelta(days=days_to_add)
+
                 unlock_date = timezone.make_aware(
-                    timezone.datetime.combine(batch.start_date + timedelta(days=days_to_add), timezone.datetime.min.time())
+                    timezone.datetime.combine(target_date, timezone.datetime.min.time())
                 )
 
             week = BatchWeek.objects.create(
@@ -154,10 +168,31 @@ class BatchWeekDetailView(APIView):
                         status_code=status.HTTP_400_BAD_REQUEST
                     )
 
+                # Prevent renumbering that would shift already unlocked weeks.
+                locked_weeks_qs = BatchWeek.objects.filter(batch=week.batch).exclude(id=week.id)
+                if new_week_number < old_week_number:
+                    affected_weeks = locked_weeks_qs.filter(
+                        week_number__gte=new_week_number,
+                        week_number__lt=old_week_number
+                    )
+                else:
+                    affected_weeks = locked_weeks_qs.filter(
+                        week_number__gt=old_week_number,
+                        week_number__lte=new_week_number
+                    )
+
+                if any(affected_week.is_unlocked for affected_week in affected_weeks):
+                    raise ServiceError(
+                        detail="Cannot change week number across unlocked weeks. Choose a position within locked/future weeks only.",
+                        status_code=status.HTTP_400_BAD_REQUEST
+                    )
+
                 # Move semantics with collision-safe ordered updates.
                 with transaction.atomic():
                     weeks_qs = BatchWeek.objects.select_for_update().filter(batch=week.batch)
                     safe_temp = total_weeks + 1000
+                    range_start = min(old_week_number, new_week_number)
+                    range_end = max(old_week_number, new_week_number)
                     weeks_qs.filter(id=week.id).update(week_number=safe_temp)
 
                     if new_week_number < old_week_number:
@@ -177,6 +212,27 @@ class BatchWeekDetailView(APIView):
 
                     weeks_qs.filter(id=week.id).update(week_number=new_week_number)
                     week.week_number = new_week_number
+
+                    # Keep unlock dates aligned with the new week order for affected locked weeks.
+                    previous_week = weeks_qs.filter(week_number=range_start - 1).first()
+                    if previous_week and previous_week.unlock_date:
+                        next_date = previous_week.unlock_date.date() + timedelta(days=7)
+                    elif week.batch.start_date:
+                        next_date = week.batch.start_date + timedelta(days=(range_start - 1) * 7)
+                    else:
+                        next_date = None
+
+                    if next_date:
+                        reordered_weeks = weeks_qs.filter(
+                            week_number__gte=range_start,
+                            week_number__lte=range_end
+                        ).order_by('week_number')
+                        for index, reordered_week in enumerate(reordered_weeks):
+                            recalculated_date = next_date + timedelta(days=index * 7)
+                            recalculated_unlock = timezone.make_aware(
+                                timezone.datetime.combine(recalculated_date, timezone.datetime.min.time())
+                            )
+                            weeks_qs.filter(id=reordered_week.id).update(unlock_date=recalculated_unlock)
 
             for attr, value in update_data.items():
                 setattr(week, attr, value)
@@ -200,19 +256,31 @@ class BatchWeekDetailView(APIView):
             batch = week.batch
             deleted_week_number = week.week_number
 
-            week.delete()
+            with transaction.atomic():
+                week.delete()
 
-            # Re-order subsequent batch weeks
-            subsequent_weeks = BatchWeek.objects.filter(
-                batch=batch,
-                week_number__gt=deleted_week_number
-            ).order_by('week_number')
+                weeks_qs = BatchWeek.objects.select_for_update().filter(batch=batch)
+                previous_week = weeks_qs.filter(week_number=deleted_week_number - 1).first()
+                if previous_week and previous_week.unlock_date:
+                    base_date = previous_week.unlock_date.date() + timedelta(days=7)
+                elif batch.start_date:
+                    base_date = batch.start_date + timedelta(days=(deleted_week_number - 1) * 7)
+                else:
+                    base_date = None
 
-            for subsequent_week in subsequent_weeks:
-                # Direct update
-                BatchWeek.objects.filter(id=subsequent_week.id).update(
-                    week_number=subsequent_week.week_number - 1
-                )
+                # Re-order subsequent batch weeks and keep unlock dates aligned.
+                subsequent_weeks = weeks_qs.filter(
+                    week_number__gt=deleted_week_number
+                ).order_by('week_number')
+
+                for index, subsequent_week in enumerate(subsequent_weeks):
+                    update_data = {'week_number': subsequent_week.week_number - 1}
+                    if base_date:
+                        recalculated_date = base_date + timedelta(days=index * 7)
+                        update_data['unlock_date'] = timezone.make_aware(
+                            timezone.datetime.combine(recalculated_date, timezone.datetime.min.time())
+                        )
+                    weeks_qs.filter(id=subsequent_week.id).update(**update_data)
 
             return format_success_response(message="Batch week deleted and order adjusted successfully")
         except ServiceError:
@@ -220,6 +288,7 @@ class BatchWeekDetailView(APIView):
         except Exception as e:
             logger.error(f"Error deleting course week: {str(e)}")
             raise ServiceError(detail="An error occurred while deleting the course week.", status_code=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
 
 @extend_schema(tags=["Batch Content"])
 class BatchClassSessionListCreateView(APIView):

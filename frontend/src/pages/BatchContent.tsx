@@ -103,6 +103,7 @@ export default function BatchContent() {
   const [videoTitle, setVideoTitle] = useState('');
   const [videoDesc, setVideoDesc] = useState('');
   const [videoFile, setVideoFile] = useState<File | null>(null);
+  const [uploadWeekId, setUploadWeekId] = useState('');
   const [sessionNumber, setSessionNumber] = useState<number | ''>('');
   const [weekday, setWeekday] = useState<string>('');
   const [videoFormErrors, setVideoFormErrors] = useState<Record<string, string>>({});
@@ -229,12 +230,36 @@ export default function BatchContent() {
     if (!batchId || !deleteWeekId) return;
     setIsDeletingWeek(true);
     try {
+      const deletedWeek = weeks.find((w) => w.id === deleteWeekId);
+      const deletedIdStr = deleteWeekId.toString();
+      const wasActive = activeTab === deletedIdStr;
+
       await batchContentApi.deleteWeek(parseInt(batchId), deleteWeekId);
       toast({ title: 'Success', description: 'Week deleted successfully', variant: 'success' });
       setDeleteWeekId(null);
-      // If we deleted the active tab, reset
-      if (activeTab === deleteWeekId.toString()) setActiveTab('');
-      await fetchWeeks(false);
+
+      // Refresh and keep a sensible active selection like course content.
+      const res = await batchContentApi.getWeeks(parseInt(batchId));
+      if (res.success) {
+        const nextWeeks = res.data || [];
+        setWeeks(nextWeeks);
+
+        if (nextWeeks.length === 0) {
+          setActiveTab('');
+        } else if (wasActive) {
+          const deletedWeekNumber = deletedWeek?.week_number ?? 0;
+          const nextActive =
+            nextWeeks.find((w) => w.week_number === deletedWeekNumber) ||
+            nextWeeks.find((w) => w.week_number === deletedWeekNumber - 1) ||
+            nextWeeks[0];
+          setActiveTab(nextActive.id.toString());
+        } else {
+          const stillExists = nextWeeks.some((w) => w.id.toString() === activeTab);
+          if (!stillExists) {
+            setActiveTab(nextWeeks[0].id.toString());
+          }
+        }
+      }
     } catch (err: any) {
       const msg = err.response?.data?.detail || 'Failed to delete week';
       toast({ title: 'Error', description: msg, variant: 'destructive' });
@@ -303,6 +328,7 @@ export default function BatchContent() {
       setSessionNumber(session.session_number);
       setWeekday(session.weekday || '');
       setVideoFile(null);
+      setUploadWeekId(activeTab);
     } else {
       setEditingSession(null);
       setVideoTitle('');
@@ -310,18 +336,21 @@ export default function BatchContent() {
       setSessionNumber(1);
       setWeekday('');
       setVideoFile(null);
+      setUploadWeekId(activeTab);
     }
     setVideoFormErrors({});
     setIsSessionModalOpen(true);
   };
 
   const handleSaveSession = async () => {
+    const targetWeekId = editingSession ? activeTab : uploadWeekId;
     const errors: Record<string, string> = {};
     if (!videoTitle.trim()) errors.title = 'Title is required';
-    if (!batchId || !activeTab) errors.week = 'Please select a week/batch';
+    if (!batchId || !targetWeekId) errors.week = 'Please select a week';
     if (sessionNumber === '' || sessionNumber <= 0) errors.session_number = 'Session number must be a valid number greater than 0';
     if (!weekday || weekday === 'none') errors.weekday = 'Weekday is required';
     if (!editingSession && !videoFile) errors.video_file = 'You must select a video file to upload';
+    if (videoFile && videoFile.type !== 'video/mp4') errors.video_file = 'Only MP4 videos are allowed';
 
     setVideoFormErrors(errors);
     if (Object.keys(errors).length > 0) return;
@@ -384,16 +413,22 @@ export default function BatchContent() {
       if (finalVideoKey) formData.append('video_file', finalVideoKey);
 
       if (editingSession) {
-        await batchContentApi.updateSession(parseInt(batchId as string), parseInt(activeTab), editingSession.id, formData);
+        await batchContentApi.updateSession(parseInt(batchId as string), parseInt(targetWeekId), editingSession.id, formData);
       } else {
-        await batchContentApi.createSession(parseInt(batchId as string), parseInt(activeTab), formData);
+        await batchContentApi.createSession(parseInt(batchId as string), parseInt(targetWeekId), formData);
       }
       
       toast({ title: 'Success', description: editingSession ? 'Session updated' : 'Session created' });
       setIsSessionModalOpen(false);
       await fetchWeeks(false);
     } catch (err: any) {
-      toast({ title: 'Error', description: err?.message || 'Failed to save session', variant: 'destructive' });
+      const backendMessage =
+        err?.response?.data?.detail ||
+        err?.response?.data?.message ||
+        err?.response?.data?.error ||
+        err?.message ||
+        'Failed to save session';
+      toast({ title: editingSession ? 'Error updating video' : 'Upload Failed', description: backendMessage, variant: 'destructive' });
     } finally {
       setIsSavingSession(false);
       setUploadProgress(-1);
@@ -901,12 +936,14 @@ export default function BatchContent() {
                 type="number"
                 min="1"
                 value={editWeekNumber}
+                disabled
                 onChange={(e) => {
                   setEditWeekNumber(e.target.value === '' ? '' : parseInt(e.target.value, 10));
                   if (editWeekNumberError) setEditWeekNumberError('');
                 }}
                 className={editWeekNumberError ? 'border-destructive focus-visible:ring-destructive' : ''}
               />
+              <p className="text-xs text-muted-foreground">Week number cannot be changed after creation.</p>
               {editWeekNumberError && <p className="text-sm text-destructive mt-1">{editWeekNumberError}</p>}
             </div>
             <div className="space-y-2">
@@ -918,7 +955,7 @@ export default function BatchContent() {
               <Textarea value={editDesc} onChange={e => setEditDesc(e.target.value)} />
             </div>
           </div>
-          <div className="flex justify-end gap-3 pt-4 border-t">
+          <div className="flex justify-end gap-3 pt-4">
             <Button variant="ghost" onClick={() => setIsEditOpen(false)}>Cancel</Button>
             <Button variant="gradient" onClick={handleSaveWeek} disabled={isSaving}>
               {isSaving ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
@@ -1037,15 +1074,69 @@ export default function BatchContent() {
             </DialogDescription>
           </DialogHeader>
           <div className="grid gap-6 py-4">
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div className="grid gap-2 relative">
+                <Label htmlFor="title">Video Title <span className="text-destructive">*</span></Label>
+                <Input
+                  id="title"
+                  value={videoTitle}
+                  onChange={(e) => {
+                    setVideoTitle(e.target.value);
+                    if (videoFormErrors.title) setVideoFormErrors((p) => ({ ...p, title: '' }));
+                  }}
+                  className={videoFormErrors.title ? "border-destructive" : ""}
+                  placeholder="Enter video title"
+                />
+                {videoFormErrors.title && <p className="text-xs text-destructive absolute -bottom-5 left-0">{videoFormErrors.title}</p>}
+              </div>
+
+              <div className="space-y-2">
+                <Label>Select Week <span className="text-destructive">*</span></Label>
+                <Select
+                  value={uploadWeekId}
+                  disabled={!!editingSession || isSavingSession}
+                  onValueChange={(val) => {
+                    setUploadWeekId(val);
+                    if (videoFormErrors.week) setVideoFormErrors((p) => ({ ...p, week: '' }));
+                  }}
+                >
+                  <SelectTrigger className={videoFormErrors.week ? "border-destructive focus:ring-destructive" : ""}>
+                    <SelectValue placeholder="Select a week" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {weeks.map((week) => (
+                      <SelectItem key={week.id} value={week.id.toString()}>
+                        Week {week.week_number}: {week.title}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                {videoFormErrors.week && <p className="text-xs text-destructive">{videoFormErrors.week}</p>}
+              </div>
+            </div>
+
+            <div className="grid gap-2">
+              <Label htmlFor="description">Description (Optional)</Label>
+              <Textarea
+                id="description"
+                value={videoDesc}
+                onChange={(e) => setVideoDesc(e.target.value)}
+                placeholder="Enter video description"
+                className="resize-none"
+                rows={2}
+              />
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div className="relative">
-                <Label htmlFor="session_number">Session Number</Label>
+                <Label htmlFor="session_number">Session Number <span className="text-destructive">*</span></Label>
                 <Input
                   id="session_number"
                   type="number"
+                  min="1"
                   value={sessionNumber}
                   onChange={(e) => {
-                    const val = e.target.value ? parseInt(e.target.value) : '';
+                    const val = e.target.value ? parseInt(e.target.value, 10) : '';
                     setSessionNumber(val as any);
                     if (videoFormErrors.session_number) setVideoFormErrors((p) => ({ ...p, session_number: '' }));
                   }}
@@ -1055,95 +1146,82 @@ export default function BatchContent() {
               </div>
 
               <div className="relative">
-                  <Label htmlFor="weekday" className="text-sm font-medium">Class Day</Label>
-                  <Select value={weekday} onValueChange={(val) => {
-                      setWeekday(val);
-                      if (videoFormErrors.weekday) setVideoFormErrors(p => ({ ...p, weekday: '' }));
-                  }}>
-                      <SelectTrigger className={`mt-1 ${videoFormErrors.weekday ? "border-destructive" : ""}`}>
-                          <SelectValue placeholder="Select a day" />
-                      </SelectTrigger>
-                      <SelectContent>
-                          {['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'].map(day => (
-                              <SelectItem key={day} value={day} className="capitalize">{day}</SelectItem>
-                          ))}
-                      </SelectContent>
-                  </Select>
-                  {videoFormErrors.weekday && <p className="text-xs text-destructive mt-1 absolute -bottom-5 left-0">{videoFormErrors.weekday}</p>}
+                <Label htmlFor="weekday" className="text-sm font-medium">Weekday Tag <span className="text-destructive">*</span></Label>
+                <select
+                  className={`mt-1 flex h-10 w-full items-center justify-between rounded-md border bg-background px-3 py-2 text-sm ring-offset-background focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 ${videoFormErrors.weekday ? "border-destructive focus:ring-destructive" : "border-input"}`}
+                  value={weekday}
+                  onChange={(e) => {
+                    setWeekday(e.target.value);
+                    if (videoFormErrors.weekday) setVideoFormErrors((p) => ({ ...p, weekday: '' }));
+                  }}
+                >
+                  <option value="" disabled>Select a weekday</option>
+                  <option value="monday">Monday</option>
+                  <option value="tuesday">Tuesday</option>
+                  <option value="wednesday">Wednesday</option>
+                  <option value="thursday">Thursday</option>
+                  <option value="friday">Friday</option>
+                  <option value="saturday">Saturday</option>
+                  <option value="sunday">Sunday</option>
+                </select>
+                {videoFormErrors.weekday && <p className="text-xs text-destructive mt-1 absolute -bottom-5 left-0">{videoFormErrors.weekday}</p>}
               </div>
             </div>
 
-            <div className="grid gap-2 relative">
-              <Label htmlFor="title">Session Title</Label>
-              <Input
-                id="title"
-                value={videoTitle}
-                onChange={(e) => {
-                  setVideoTitle(e.target.value);
-                  if (videoFormErrors.title) setVideoFormErrors((p) => ({ ...p, title: '' }));
-                }}
-                className={videoFormErrors.title ? "border-destructive" : ""}
-                placeholder="e.g. Introduction to Variables"
-              />
-              {videoFormErrors.title && <p className="text-xs text-destructive absolute -bottom-5 left-0">{videoFormErrors.title}</p>}
-            </div>
-
             <div className="grid gap-2">
-              <Label htmlFor="description">Session Description (Optional)</Label>
-              <Textarea
-                id="description"
-                value={videoDesc}
-                onChange={(e) => setVideoDesc(e.target.value)}
-                placeholder="Add notes, context, or homework references..."
-                className="resize-none"
-                rows={3}
-              />
-            </div>
-
-            <div className="grid gap-2">
-                <Label>Video File</Label>
-                <div 
-                  className={`border-2 border-dashed rounded-lg p-4 text-center cursor-pointer transition-colors ${videoFormErrors.video_file ? 'border-destructive bg-destructive/5' : (videoFile || (editingSession && editingSession.video_file)) ? 'bg-primary/5 border-primary/30' : 'hover:bg-muted/50 border-border'}`}
-                  onClick={() => fileInputRef.current?.click()}
-                >
-                  <input
-                    type="file"
-                    ref={fileInputRef}
-                    className="hidden"
-                    accept="video/*"
-                    onChange={(e) => {
-                      if (e.target.files && e.target.files.length > 0) {
-                        setVideoFile(e.target.files[0]);
-                        if (videoFormErrors.video_file) setVideoFormErrors((p) => ({ ...p, video_file: '' }));
+                <Label>Video File {!editingSession && <span className="text-destructive">*</span>}</Label>
+                <input
+                  type="file"
+                  ref={fileInputRef}
+                  disabled={isUploading}
+                  className="hidden"
+                  accept="video/mp4"
+                  onChange={(e) => {
+                    if (e.target.files && e.target.files.length > 0) {
+                      const file = e.target.files[0];
+                      if (file.type !== 'video/mp4') {
+                        setVideoFormErrors((p) => ({ ...p, video_file: "Only MP4 videos are allowed" }));
+                        setVideoFile(null);
+                        e.target.value = '';
+                        return;
                       }
-                    }}
-                  />
-                  <div className="flex flex-col items-center justify-center space-y-2">
+                      setVideoFile(file);
+                      setVideoFormErrors((p) => {
+                        const newErrs = { ...p };
+                        delete newErrs.video_file;
+                        return newErrs;
+                      });
+                    }
+                  }}
+                />
+                <div 
+                  className={`border-2 border-dashed rounded-lg p-8 text-center transition-colors ${isUploading ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'} ${videoFormErrors.video_file ? 'border-destructive bg-destructive/5' : videoFile ? 'border-primary bg-primary/5' : 'border-foreground/20 hover:border-primary/50'}`}
+                  onClick={() => !isUploading && fileInputRef.current?.click()}
+                >
+                  <div className="flex flex-col items-center justify-center">
                     {videoFile ? (
                       <>
-                        <div className={`p-2 rounded-full ${videoFormErrors.video_file ? 'bg-destructive/10' : 'bg-primary/10'}`}>
-                          <CheckCircle className={`h-6 w-6 ${videoFormErrors.video_file ? 'text-destructive' : 'text-primary'}`} />
-                        </div>
-                        <div className={`text-sm font-medium line-clamp-1 px-4 ${videoFormErrors.video_file ? 'text-destructive' : 'text-foreground'}`}>{videoFile.name}</div>
-                        <div className="text-xs text-muted-foreground">
+                        <CheckCircle className={`h-10 w-10 mb-4 ${videoFormErrors.video_file ? 'text-destructive' : 'text-primary'}`} />
+                        <p className={`text-sm font-medium ${videoFormErrors.video_file ? 'text-destructive' : 'text-foreground'}`}>{videoFile.name}</p>
+                        <p className="text-xs text-muted-foreground mt-1">
                           {(videoFile.size / (1024 * 1024)).toFixed(2)} MB
-                        </div>
+                        </p>
                       </>
                     ) : editingSession && editingSession.video_file ? (
                       <>
-                        <div className={`p-2 rounded-full ${videoFormErrors.video_file ? 'bg-destructive/10' : 'bg-primary/10'}`}>
-                          <CheckCircle className={`h-6 w-6 ${videoFormErrors.video_file ? 'text-destructive' : 'text-primary'}`} />
-                        </div>
-                        <div className={`text-sm font-medium ${videoFormErrors.video_file ? 'text-destructive' : 'text-foreground'}`}>Video Uploaded</div>
-                        <div className="text-xs text-muted-foreground mt-1 px-2">Click to replace existing video file</div>
+                        <CheckCircle className={`h-10 w-10 mb-4 ${videoFormErrors.video_file ? 'text-destructive' : 'text-primary'}`} />
+                        <p className={`text-sm font-medium ${videoFormErrors.video_file ? 'text-destructive' : 'text-foreground'}`}>Video Uploaded</p>
+                        <p className="text-xs text-muted-foreground mt-1">Click to replace existing video file</p>
                       </>
                     ) : (
                       <>
-                        <div className="p-2 bg-muted rounded-full">
-                          <Upload className={`h-6 w-6 ${videoFormErrors.video_file ? 'text-destructive' : 'text-muted-foreground'}`} />
-                        </div>
-                        <div className={`text-sm font-medium ${videoFormErrors.video_file ? 'text-destructive' : 'text-foreground'}`}>Click to upload video</div>
-                        <div className="text-xs text-muted-foreground">MP4, WebM (Max 5GB)</div>
+                        <Upload className={`h-10 w-10 mb-4 ${videoFormErrors.video_file ? 'text-destructive' : 'text-muted-foreground'}`} />
+                        <p className={`text-sm ${videoFormErrors.video_file ? 'text-destructive' : 'text-muted-foreground'}`}>
+                          Drag and drop or click to upload
+                        </p>
+                        <p className={`text-xs mt-1 ${videoFormErrors.video_file ? 'text-destructive' : 'text-muted-foreground'}`}>
+                          MP4 videos only
+                        </p>
                       </>
                     )}
                   </div>
