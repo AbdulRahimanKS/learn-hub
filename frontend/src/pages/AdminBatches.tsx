@@ -43,6 +43,7 @@ import {
   Trash2,
   Filter,
   Clock,
+  Info,
   BookOpen,
   Loader2,
   ChevronLeft,
@@ -1118,9 +1119,11 @@ export default function AdminBatches() {
               </Select>
             </div>
 
-            <div className="bg-warning/10 border border-warning/30 rounded-lg p-3 text-xs text-warning-foreground flex gap-2">
-              <Clock className="h-4 w-4 shrink-0" />
-              <p>Cloning content will recalculate unlock dates based on the target batch start date.</p>
+            <div className="flex items-center gap-2.5 rounded-lg border border-primary/20 bg-primary/5 py-2 px-3">
+              <Info className="h-4 w-4 shrink-0 text-primary" />
+              <p className="m-0 p-0 text-xs leading-relaxed text-primary/80">
+                Cloning content will recalculate unlock dates based on the target batch start date.
+              </p>
             </div>
           </div>
 
