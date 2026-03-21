@@ -532,7 +532,12 @@ export default function Content() {
           {/* Mobile Title Column */}
           <div className="flex-1 min-w-0 sm:hidden">
             <h3 className="font-bold text-foreground truncate text-base">{video.title}</h3>
-            <p className="text-[10px] text-muted-foreground uppercase font-bold tracking-tighter">{video.weekday || 'Session'}</p>
+            <div className="flex items-center gap-2 mt-1">
+              <p className="text-[10px] text-muted-foreground uppercase font-bold tracking-tighter">{video.weekday || 'Session'}</p>
+              <span className="text-[10px] text-muted-foreground font-bold">
+                {video.duration_seconds > 0 ? `${Math.floor(video.duration_seconds / 60)}m` : '...'}
+              </span>
+            </div>
           </div>
         </div>
 
@@ -546,11 +551,15 @@ export default function Content() {
               </Badge>
             )}
           </div>
-          {video.description && (
-            <p className="text-sm text-muted-foreground line-clamp-1">
-              {video.description}
-            </p>
-          )}
+          <div className="flex items-center gap-4 text-[10px] font-bold text-muted-foreground tracking-tight">
+            <span className="flex items-center gap-1">
+              <Clock className="h-3 w-3" />
+              {video.duration_seconds > 0 ? (
+                `${Math.floor(video.duration_seconds / 60).toString().padStart(2, '0')}:${(video.duration_seconds % 60).toString().padStart(2, '0')}`
+              ) : 'Processing'}
+            </span>
+            {video.description && <span className="line-clamp-1 opacity-70">/ {video.description}</span>}
+          </div>
         </div>
 
         {/* Right: Actions */}
@@ -828,7 +837,7 @@ export default function Content() {
                               className="rounded-xl px-8 h-11 font-bold text-xs tracking-wide"
                                onClick={() => handleOpenTestManager(week)}
                              >
-                               Manage Assessment
+                               Edit Assessment
                              </Button>
                           </div>
                         </Card>

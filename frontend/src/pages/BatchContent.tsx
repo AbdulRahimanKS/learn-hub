@@ -453,8 +453,8 @@ export default function BatchContent() {
         {/* ── BATCH CURRICULUM NAVIGATION ───────────────────── */}
         <aside className="w-full lg:w-80 shrink-0 lg:sticky lg:top-[5.5rem] z-20 bg-background/95 backdrop-blur-md lg:bg-transparent px-4 py-2 lg:mx-0 lg:px-0 lg:py-0 border-b lg:border-none">
           <div className="flex flex-col gap-4">
-            <div className="flex items-center justify-between px-2">
-              <div className="flex items-center gap-3">
+            <div className="flex items-center justify-between gap-2 px-2 min-w-0">
+              <div className="flex items-center gap-3 min-w-0">
                 <Button 
                   variant="outline" 
                   size="icon" 
@@ -463,14 +463,14 @@ export default function BatchContent() {
                 >
                   <ChevronLeft className="h-4 w-4 sm:h-5 sm:w-5" />
                 </Button>
-                <div>
+                <div className="min-w-0">
                   <h1 className="font-display text-lg sm:text-xl font-bold text-foreground">Batch Content</h1>
-                  <p className="text-[11px] sm:text-[12px] text-muted-foreground tracking-wide font-bold max-w-[180px] sm:max-w-[220px] truncate">
+                  <p className="text-[11px] sm:text-[12px] text-muted-foreground tracking-wide font-bold max-w-[140px] sm:max-w-[200px] truncate">
                     {batchName || `Batch #${batchId}`}
                   </p>
                 </div>
               </div>
-              <div className="flex gap-1.5 sm:gap-2">
+              <div className="flex shrink-0 gap-1.5 sm:gap-2">
                 {weeks.length > 0 && (
                   <Button 
                     variant="outline" 
@@ -599,7 +599,7 @@ export default function BatchContent() {
                               </Badge>
                             )}
                           </div>
-                          <h2 className="text-2xl md:text-3xl lg:text-4xl font-display font-bold tracking-tight leading-tight">{week.title}</h2>
+                          <h2 className="text-2xl md:text-3xl font-display font-bold tracking-tight leading-tight">{week.title}</h2>
                           {week.description && (
                             <p className="text-primary-foreground/80 max-w-xl text-xs md:text-sm leading-relaxed">
                               {week.description}
@@ -615,7 +615,7 @@ export default function BatchContent() {
                             disabled={week.is_unlocked}
                           >
                             <FileText className="h-4 w-4 mr-2 hidden sm:inline" />
-                            {weeklyTest ? 'Manage Assessment' : 'Setup Assessment'}
+                            {weeklyTest ? 'Edit Assessment' : 'Setup Assessment'}
                           </Button>
                           <div className="flex gap-1 w-full sm:w-auto">
                             <Button 
@@ -675,7 +675,7 @@ export default function BatchContent() {
                           <div className="h-10 w-10 rounded-2xl bg-primary/10 text-primary flex items-center justify-center border border-primary/30">
                             <VideoIcon className="h-5 w-5" />
                           </div>
-                          <h3 className="text-xl font-display font-black text-foreground">Video Sessions</h3>
+                          <h3 className="text-xl font-display font-bold text-foreground">Video Sessions</h3>
                         </div>
                         <Button 
                           variant="gradient" 
@@ -692,7 +692,6 @@ export default function BatchContent() {
                       {loadingContent ? (
                         <div className="flex flex-col items-center justify-center py-20 gap-4">
                            <Loader2 className="h-10 w-10 animate-spin text-primary/30" />
-                           <p className="text-xs font-bold text-muted-foreground uppercase tracking-wider">Syncing Sessions...</p>
                         </div>
                       ) : sessions.length === 0 ? (
                         <div className="py-16 text-center bg-card border-2 border-dashed border-muted-foreground/30 rounded-xl">
@@ -733,10 +732,10 @@ export default function BatchContent() {
                                       </div>
                                     </div>
                                     <div className="flex-1 min-w-0 sm:hidden">
-                                      <h4 className="font-bold text-base text-foreground truncate">{session.title}</h4>
+                                      <h3 className="font-bold text-foreground truncate text-base">{session.title}</h3>
                                       <div className="flex items-center gap-2 mt-1">
                                         {session.weekday && (
-                                          <Badge variant="outline" className="bg-muted/50 border-none capitalize font-bold text-[8px] h-4 px-1.5">
+                                          <Badge variant="outline" className="bg-background/90 shadow-sm border-primary/30 capitalize font-bold text-[10px] h-5 px-2">
                                             {session.weekday}
                                           </Badge>
                                         )}
@@ -748,9 +747,9 @@ export default function BatchContent() {
                                   {/* Middle Content: Desktop only */}
                                   <div className="hidden sm:block flex-1 min-w-0">
                                     <div className="flex flex-col sm:flex-row sm:items-center gap-3 mb-1.5">
-                                      <h4 className="font-bold text-lg text-foreground truncate">{session.title}</h4>
+                                      <h3 className="font-display font-bold text-foreground truncate text-lg">{session.title}</h3>
                                       {session.weekday && (
-                                        <Badge variant="outline" className="bg-muted/50 border-none capitalize font-bold text-[9px] h-5">
+                                        <Badge variant="outline" className="w-fit bg-background/90 shadow-sm border-primary/30 capitalize font-bold text-[10px] h-5 px-2">
                                           {session.weekday}
                                         </Badge>
                                       )}
@@ -767,28 +766,53 @@ export default function BatchContent() {
                                   </div>
 
                                   {/* Right Actions */}
-                                  <div className="flex items-center gap-2 w-full sm:w-auto justify-between sm:justify-end border-t sm:border-t-0 pt-3 sm:pt-0 sm:border-l sm:pl-4 border-border/50">
-                                    <Button 
-                                      variant="ghost" 
-                                      size="sm" 
-                                      className="h-9 w-9 sm:w-auto sm:px-4 gap-2 text-muted-foreground hover:text-primary transition-colors" 
-                                      onClick={() => {
-                                        setMcqSession(session);
-                                        setMcqApiUrl(`/api/courses/v1/batches/${batchId}/weeks/${activeTab}/sessions/${session.id}/mcq`);
-                                        setIsMcqOpen(true);
-                                      }}
-                                    >
-                                      <HelpCircle className="h-4 w-4" />
-                                      <span className="text-[10px] font-black uppercase hidden md:inline">MCQs</span>
-                                    </Button>
-                                    <div className="flex opacity-50 group-hover:opacity-100 transition-opacity">
-                                      <Button variant="ghost" size="icon" className="h-9 w-9" onClick={() => handleOpenSessionModal(session)} disabled={week.is_unlocked}>
+                                  <div className="flex items-center gap-2 shrink-0 w-full sm:w-auto justify-between sm:justify-end border-t sm:border-t-0 pt-3 sm:pt-0">
+                                    <div className="flex items-center gap-1">
+                                      <Button 
+                                        variant="ghost" 
+                                        size="sm" 
+                                        className="h-9 w-9 sm:w-auto sm:px-3 gap-2 text-muted-foreground hover:text-foreground" 
+                                        onClick={() => {
+                                          setMcqSession(session);
+                                          setMcqApiUrl(`/api/courses/v1/batches/${batchId}/weeks/${activeTab}/sessions/${session.id}/mcq`);
+                                          setIsMcqOpen(true);
+                                        }}
+                                      >
+                                        <HelpCircle className="h-4 w-4" />
+                                        <span className="text-xs font-bold hidden md:inline">MCQs</span>
+                                      </Button>
+                                      <Button
+                                        variant="ghost"
+                                        size="icon"
+                                        className="h-9 w-9 text-muted-foreground hover:text-foreground"
+                                        onClick={() => handleOpenSessionModal(session)}
+                                        disabled={week.is_unlocked}
+                                      >
                                         <Edit className="h-4 w-4" />
                                       </Button>
-                                      <Button variant="ghost" size="icon" className="h-9 w-9 text-destructive hover:bg-destructive/10" onClick={() => setDeleteSessionId(session.id)} disabled={week.is_unlocked}>
+                                      <Button
+                                        variant="ghost"
+                                        size="icon"
+                                        className="h-9 w-9 text-muted-foreground hover:text-destructive hover:bg-destructive/10"
+                                        onClick={() => setDeleteSessionId(session.id)}
+                                        disabled={week.is_unlocked}
+                                      >
                                         <Trash2 className="h-4 w-4" />
                                       </Button>
                                     </div>
+
+                                    <Button 
+                                      variant="gradient" 
+                                      size="sm" 
+                                      className="gap-2 px-6 h-9 rounded-lg shadow-sm font-bold"
+                                      onClick={() => {
+                                        const url = session.video_presigned_url || session.video_url;
+                                        if (url) setPlayingVideoUrl(url);
+                                      }}
+                                    >
+                                      <Play className="h-3.5 w-3.5 fill-current" />
+                                      <span className="sm:inline">Watch</span>
+                                    </Button>
                                   </div>
                                   </div>
                                 </Card>
@@ -826,7 +850,7 @@ export default function BatchContent() {
                                 onClick={() => handleOpenTestManager(week)}
                                 disabled={week.is_unlocked}
                               >
-                               Manage Assessment
+                               Edit Assessment
                              </Button>
                            </div>
                         </Card>

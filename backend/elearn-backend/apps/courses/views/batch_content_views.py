@@ -26,6 +26,16 @@ from apps.courses.services import delete_unused_video_from_storage
 
 logger = logging.getLogger(__name__)
 
+
+def ensure_week_is_modifiable(week, action):
+    """Centralized guard to prevent writes after unlock date."""
+    if not week.can_modify_content():
+        raise ServiceError(
+            detail=f"Cannot {action} in an unlocked week.",
+            status_code=status.HTTP_400_BAD_REQUEST
+        )
+
+
 @extend_schema(tags=["Batch Content"])
 class BatchWeekListView(APIView):
     permission_classes = [IsAuthenticated]
@@ -94,6 +104,7 @@ class BatchWeekDetailView(APIView):
     @extend_schema(summary="Update a batch week", request=BatchWeekCreateUpdateSerializer)
     def patch(self, request, batch_id, week_id):
         week = self.get_object(batch_id, week_id)
+        ensure_week_is_modifiable(week, "update week")
         serializer = BatchWeekCreateUpdateSerializer(week, data=request.data, partial=True)
         if not serializer.is_valid():
             error_str = handle_serializer_errors(serializer)
@@ -147,8 +158,7 @@ class BatchWeekDetailView(APIView):
     @extend_schema(summary="Delete a batch week")
     def delete(self, request, batch_id, week_id):
         week = self.get_object(batch_id, week_id)
-        if not week.can_modify_content():
-            raise ServiceError(detail="Cannot delete a week that has already been unlocked.", status_code=status.HTTP_400_BAD_REQUEST)
+        ensure_week_is_modifiable(week, "delete week")
         
         batch = week.batch
         deleted_week_number = week.week_number
@@ -196,6 +206,7 @@ class BatchClassSessionListCreateView(APIView):
     @extend_schema(summary="Create a session for a batch week", request=BatchClassSessionCreateUpdateSerializer)
     def post(self, request, batch_id, week_id):
         week = self.get_week(batch_id, week_id)
+        ensure_week_is_modifiable(week, "create session")
         serializer = BatchClassSessionCreateUpdateSerializer(data=request.data, context={'request': request})
         if not serializer.is_valid():
             error_str = handle_serializer_errors(serializer)
@@ -272,6 +283,7 @@ class BatchClassSessionDetailView(APIView):
     @extend_schema(summary="Update a batch session", request=BatchClassSessionCreateUpdateSerializer)
     def patch(self, request, batch_id, week_id, session_id):
         session = self.get_object(batch_id, week_id, session_id)
+        ensure_week_is_modifiable(session.batch_week, "update session")
         serializer = BatchClassSessionCreateUpdateSerializer(session, data=request.data, partial=True)
         if not serializer.is_valid():
             error_str = handle_serializer_errors(serializer)
@@ -283,8 +295,7 @@ class BatchClassSessionDetailView(APIView):
     @extend_schema(summary="Delete a batch session")
     def delete(self, request, batch_id, week_id, session_id):
         session = self.get_object(batch_id, week_id, session_id)
-        if not session.batch_week.can_modify_content():
-            raise ServiceError(detail="Cannot delete content from an unlocked week.", status_code=status.HTTP_400_BAD_REQUEST)
+        ensure_week_is_modifiable(session.batch_week, "delete session")
         
         batch_week = session.batch_week
         deleted_session_number = session.session_number
@@ -324,6 +335,7 @@ class BatchWeeklyTestManageView(APIView):
     @extend_schema(summary="Create or update batch weekly test", request=BatchWeeklyTestCreateUpdateSerializer)
     def post(self, request, batch_id, week_id):
         week = self.get_week(batch_id, week_id)
+        ensure_week_is_modifiable(week, "create or update weekly test")
         if hasattr(week, 'weekly_test'):
             serializer = BatchWeeklyTestCreateUpdateSerializer(week.weekly_test, data=request.data, partial=True)
         else:
@@ -348,9 +360,7 @@ class BatchWeeklyTestManageView(APIView):
         week = self.get_week(batch_id, week_id)
         if not hasattr(week, 'weekly_test'):
             raise ServiceError(detail="No test found.", status_code=status.HTTP_404_NOT_FOUND)
-        
-        if not week.can_modify_content():
-            raise ServiceError(detail="Cannot delete test from an unlocked week.", status_code=status.HTTP_400_BAD_REQUEST)
+        ensure_week_is_modifiable(week, "delete weekly test")
             
         week.weekly_test.delete()
         return format_success_response(message="Batch test deleted successfully")
@@ -377,6 +387,7 @@ class BatchWeeklyTestQuestionListCreateView(APIView):
 
     def post(self, request, batch_id, week_id):
         test = self.get_test(batch_id, week_id)
+        ensure_week_is_modifiable(test.batch_week, "add test question")
         serializer = BatchTestQuestionSerializer(data=request.data, context={'request': request})
         if not serializer.is_valid():
             error_str = handle_serializer_errors(serializer)
@@ -410,6 +421,7 @@ class BatchWeeklyTestQuestionDetailView(APIView):
 
     def patch(self, request, batch_id, week_id, question_id):
         question = self.get_object(batch_id, week_id, question_id)
+        ensure_week_is_modifiable(question.test.batch_week, "update test question")
         serializer = BatchTestQuestionSerializer(question, data=request.data, partial=True, context={'request': request})
         if not serializer.is_valid():
             error_str = handle_serializer_errors(serializer)
@@ -435,6 +447,7 @@ class BatchWeeklyTestQuestionDetailView(APIView):
 
     def delete(self, request, batch_id, week_id, question_id):
         question = self.get_object(batch_id, week_id, question_id)
+        ensure_week_is_modifiable(question.test.batch_week, "delete test question")
         question.delete()
         return format_success_response(message="Question deleted")
 
@@ -457,6 +470,7 @@ class BatchWeeklyTestQuestionAttachmentView(APIView):
     @extend_schema(summary="Add an attachment to a batch test question")
     def post(self, request, batch_id, week_id, question_id):
         question = self.get_question(batch_id, week_id, question_id)
+        ensure_week_is_modifiable(question.test.batch_week, "add question attachment")
         file = request.FILES.get('file')
         if not file:
             raise ServiceError(detail="No file provided.", status_code=status.HTTP_400_BAD_REQUEST)
@@ -490,6 +504,7 @@ class BatchWeeklyTestQuestionAttachmentDetailView(APIView):
     @extend_schema(summary="Delete a batch question attachment")
     def delete(self, request, batch_id, week_id, question_id, attachment_id):
         attachment = self.get_object(batch_id, week_id, question_id, attachment_id)
+        ensure_week_is_modifiable(attachment.question.test.batch_week, "delete question attachment")
         attachment.delete()
         return format_success_response(message="Attachment deleted successfully")
 @extend_schema(tags=["Batch Content"])
