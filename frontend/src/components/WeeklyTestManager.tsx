@@ -865,7 +865,7 @@ export function WeeklyTestManager({
 
               {/* Question file (single, replaces) */}
               <div className="space-y-1">
-                <Label className="text-xs">Question File <span className="text-muted-foreground font-normal">(.ipynb / .pdf / .doc / .docx)</span></Label>
+                <Label className="text-xs">Question File <span className="text-muted-foreground font-normal">(.ipynb / .pdf / .xlsx / .xls / .csv / .doc / .docx / .txt)</span></Label>
                 <div className="flex items-center gap-3 p-1 rounded-lg border border-border bg-background/30 h-10 w-full">
                   <Button
                     type="button"
@@ -923,7 +923,7 @@ export function WeeklyTestManager({
                     </>
                   )}
                 </div>
-                <input ref={questionFileRef} type="file" accept=".ipynb,.pdf,.doc,.docx" className="hidden"
+                <input ref={questionFileRef} type="file" accept=".ipynb,.pdf,.xlsx,.xls,.csv,.doc,.docx,.txt" className="hidden"
                   onChange={e => {
                     setEditingQuestion(prev => ({
                       ...prev,
@@ -936,7 +936,7 @@ export function WeeklyTestManager({
 
               {/* Image (single, replaces) */}
               <div className="space-y-1">
-                <Label className="text-xs">Image <span className="text-muted-foreground font-normal">(.jpg / .png)</span></Label>
+                <Label className="text-xs">Image <span className="text-muted-foreground font-normal">(.jpg / .jpeg / .png)</span></Label>
                 <div className="flex items-center gap-3 p-1 rounded-lg border border-border bg-background/30 h-10 w-full">
                   <Button
                     type="button"
@@ -994,7 +994,7 @@ export function WeeklyTestManager({
                     </>
                   )}
                 </div>
-                <input ref={questionImageRef} type="file" accept="image/jpeg,image/png" className="hidden"
+                <input ref={questionImageRef} type="file" accept=".jpg,.jpeg,.png,image/jpeg,image/png" className="hidden"
                   onChange={e => {
                     setEditingQuestion(prev => ({
                       ...prev,
@@ -1007,10 +1007,7 @@ export function WeeklyTestManager({
 
               {/* Multiple extra attachments */}
               <div className="space-y-1.5">
-                <Label className="text-xs">
-                  Extra Attachments
-                  <span className="ml-1.5 text-muted-foreground font-normal">(.ipynb / .pdf / .xlsx / .csv / .doc…)</span>
-                </Label>
+                <Label className="text-xs">Extra Attachments</Label>
 
                 {/* Existing saved attachments */}
                 {(editingQuestion.existingAttachments.length > 0 || editingQuestion.newAttachmentFiles.length > 0) && (
@@ -1075,7 +1072,7 @@ export function WeeklyTestManager({
                   </div>
                   <div className="space-y-0.5">
                     <p className="text-sm font-semibold text-foreground group-hover:text-primary transition-colors">Click to add extra materials</p>
-                    <p className="text-xs text-muted-foreground">Support for .pdf, .ipynb, .xlsx, etc.</p>
+                    <p className="text-xs text-muted-foreground">Supports .ipynb, .pdf, .xlsx, .xls, .csv, .doc, .docx, .txt</p>
                   </div>
                 </div>
 
