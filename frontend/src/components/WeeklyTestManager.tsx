@@ -134,6 +134,11 @@ function shortName(url: string | null | undefined) {
   return url.split('/').pop()?.split('?')[0] || url;
 }
 
+function isAllowedAnswerKeyFile(file: File) {
+  const name = file.name.toLowerCase();
+  return name.endsWith('.pdf') || name.endsWith('.ipynb');
+}
+
 // ─── Component ────────────────────────────────────────────────────────────────
 
 export function WeeklyTestManager({
@@ -359,6 +364,8 @@ export function WeeklyTestManager({
       question_file_url: q.question_file,
       image: null,
       image_url: q.image,
+      remove_question_file: false,
+      remove_image: false,
       existingAttachments: existingAtts,
       newAttachmentFiles: [],
     });
@@ -586,7 +593,7 @@ export function WeeklyTestManager({
 
                 <div className="space-y-2">
                   <Label className="text-sm font-semibold text-foreground/90 flex items-center gap-2">
-                    Answer Key <span className="text-xs text-muted-foreground font-normal">(PDF or .ipynb)</span>
+                    Answer Key <span className="text-xs text-muted-foreground font-normal">(.pdf or .ipynb only)</span>
                   </Label>
                   <div className="flex items-center gap-3 p-1 rounded-lg border border-border bg-background/30 h-10 w-full">
                     <Button
@@ -608,13 +615,38 @@ export function WeeklyTestManager({
                     )}
                   </div>
                   <FieldError msg={headerErrors.answer_key} />
+                  <p className="text-[11px] text-muted-foreground">
+                    Include both questions and solutions in one file. Need a template?{' '}
+                    <a
+                      href="/samples/answer-key-template.ipynb"
+                      download="answer-key-template.ipynb"
+                      className="text-primary hover:underline"
+                    >
+                      Download sample answer key
+                    </a>
+                    .
+                  </p>
                   <input 
                     ref={answerKeyRef} 
                     type="file" 
-                    accept=".pdf,.ipynb,.doc,.docx" 
+                    accept=".pdf,.ipynb" 
                     className="hidden" 
                     onChange={e => {
-                      setAnswerKeyFile(e.target.files?.[0] || null);
+                      const selected = e.target.files?.[0] || null;
+                      if (!selected) {
+                        setAnswerKeyFile(null);
+                        return;
+                      }
+                      if (!isAllowedAnswerKeyFile(selected)) {
+                        toast({
+                          title: 'Invalid answer key format',
+                          description: 'Only .pdf or .ipynb files are allowed for answer keys.',
+                          variant: 'destructive',
+                        });
+                        e.target.value = '';
+                        return;
+                      }
+                      setAnswerKeyFile(selected);
                       if (headerErrors.answer_key) setHeaderErrors(p => ({ ...p, answer_key: undefined }));
                     }} 
                   />

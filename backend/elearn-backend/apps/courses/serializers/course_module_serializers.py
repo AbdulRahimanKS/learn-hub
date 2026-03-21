@@ -12,6 +12,8 @@ from apps.courses.models import (
 from utils.common import ServiceError
 from rest_framework import status
 
+ALLOWED_ANSWER_KEY_EXTENSIONS = ('.pdf', '.ipynb')
+
 
 class CoursePostSessionChoiceSerializer(serializers.ModelSerializer):
     class Meta:
@@ -345,6 +347,16 @@ class CourseWeeklyTestSerializer(serializers.ModelSerializer):
 
 
 class CourseWeeklyTestCreateUpdateSerializer(serializers.ModelSerializer):
+    def validate_answer_key(self, value):
+        if not value:
+            return value
+
+        file_name = getattr(value, 'name', '') or ''
+        lower_name = file_name.lower()
+        if not lower_name.endswith(ALLOWED_ANSWER_KEY_EXTENSIONS):
+            raise ServiceError(detail="Answer key must be a PDF or .ipynb file.", status_code=status.HTTP_400_BAD_REQUEST)
+        return value
+
     class Meta:
         model = CourseWeeklyTest
         fields = ['id', 'title', 'instructions', 'pass_percentage', 'answer_key']
@@ -436,6 +448,16 @@ class BatchWeeklyTestSerializer(serializers.ModelSerializer):
 
 
 class BatchWeeklyTestCreateUpdateSerializer(serializers.ModelSerializer):
+    def validate_answer_key(self, value):
+        if not value:
+            return value
+
+        file_name = getattr(value, 'name', '') or ''
+        lower_name = file_name.lower()
+        if not lower_name.endswith(ALLOWED_ANSWER_KEY_EXTENSIONS):
+            raise ServiceError(detail="Answer key must be a PDF or .ipynb file.", status_code=status.HTTP_400_BAD_REQUEST)
+        return value
+
     class Meta:
         model = BatchWeeklyTest
         fields = ['id', 'title', 'instructions', 'pass_percentage', 'answer_key']
