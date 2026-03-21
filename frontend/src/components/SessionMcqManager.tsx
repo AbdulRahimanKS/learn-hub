@@ -43,6 +43,7 @@ interface SessionMcqManagerProps {
   /** e.g. "/api/courses/v1/courses/1/weeks/2/sessions/3/mcq" — NO trailing slash */
   apiBaseUrl: string;
   onSaved: () => void;
+  readOnly?: boolean;
 }
 
 interface ChoiceFormState {
@@ -84,6 +85,7 @@ export function SessionMcqManager({
   session,
   apiBaseUrl,
   onSaved,
+  readOnly = false,
 }: SessionMcqManagerProps) {
   const { toast } = useToast();
 
@@ -153,6 +155,7 @@ export function SessionMcqManager({
   };
 
   const handleSaveQuestion = async () => {
+    if (readOnly) return;
     if (!validateQuestionForm() || !apiBaseUrl) return;
     setIsSavingQuestion(true);
 
@@ -191,6 +194,7 @@ export function SessionMcqManager({
   };
 
   const handleDeleteQuestion = async () => {
+    if (readOnly) return;
     if (!deleteQuestionId || !apiBaseUrl) return;
     setIsDeletingQuestion(true);
     try {
@@ -207,6 +211,7 @@ export function SessionMcqManager({
   };
 
   const openAddQuestion = () => {
+    if (readOnly) return;
     setEditingQuestion({
       ...emptyQuestion(),
       order: String(questions.length + 1)
@@ -217,6 +222,7 @@ export function SessionMcqManager({
   };
 
   const openEditQuestion = (q: PostSessionQuestion) => {
+    if (readOnly) return;
     const defaultChoices: ChoiceFormState[] = [...q.choices];
     while (defaultChoices.length < 4) {
       defaultChoices.push(emptyChoice());
@@ -264,8 +270,11 @@ export function SessionMcqManager({
               <div>
                 <h3 className="font-semibold text-base">Questions ({questions.length})</h3>
                 <p className="text-xs text-muted-foreground">Optional queries shown after this video snippet</p>
+                {readOnly && (
+                  <p className="text-xs text-amber-600 mt-1">Week is unlocked. Editing is disabled.</p>
+                )}
               </div>
-              <Button variant="outline" size="sm" onClick={openAddQuestion}>
+              <Button variant="outline" size="sm" onClick={openAddQuestion} disabled={readOnly}>
                 <Plus className="h-4 w-4 mr-1.5" />
                 Add Question
               </Button>
@@ -306,10 +315,10 @@ export function SessionMcqManager({
                         </div>
                       </div>
                       <div className="flex flex-col gap-1">
-                        <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => openEditQuestion(q)}>
+                        <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => openEditQuestion(q)} disabled={readOnly}>
                           <Edit className="h-3.5 w-3.5" />
                         </Button>
-                        <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => setDeleteQuestionId(q.id)}>
+                        <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => setDeleteQuestionId(q.id)} disabled={readOnly}>
                           <Trash2 className="h-3.5 w-3.5" />
                         </Button>
                       </div>
@@ -343,6 +352,7 @@ export function SessionMcqManager({
                   if (errors.text) setErrors(p => ({ ...p, text: undefined }));
                 }}
                 className={errors.text ? 'border-destructive' : ''}
+                disabled={readOnly}
               />
               <FieldError msg={errors.text} />
             </div>
@@ -358,6 +368,7 @@ export function SessionMcqManager({
                     if (errors.order) setErrors(p => ({ ...p, order: undefined }));
                   }}
                   className={errors.order ? 'border-destructive' : ''}
+                  disabled={readOnly}
                 />
                 <FieldError msg={errors.order} />
               </div>
@@ -367,7 +378,7 @@ export function SessionMcqManager({
                   <Switch
                     checked={editingQuestion.is_fill_in_the_blank}
                     onCheckedChange={checked => setEditingQuestion(p => ({ ...p, is_fill_in_the_blank: checked }))}
-                    disabled={!!editingQuestionId}
+                    disabled={!!editingQuestionId || readOnly}
                   />
                   <Label className="text-xs font-normal cursor-pointer">Fill-in-the-blank</Label>
                 </div>
@@ -386,12 +397,14 @@ export function SessionMcqManager({
                     className="flex-1"
                     value={choice.text}
                     onChange={e => updateChoice(idx, { text: e.target.value })}
+                    disabled={readOnly}
                   />
                   {!editingQuestion.is_fill_in_the_blank && (
                     <div className="flex items-center gap-2 px-2">
                       <Switch
                         checked={choice.is_correct}
                         onCheckedChange={checked => updateChoice(idx, { is_correct: checked })}
+                        disabled={readOnly}
                       />
                       <span className="text-xs w-12">{choice.is_correct ? 'Correct' : ''}</span>
                     </div>
@@ -405,6 +418,7 @@ export function SessionMcqManager({
                   size="sm"
                   className="h-8 text-xs"
                   onClick={() => setEditingQuestion(p => ({ ...p, choices: [...p.choices, emptyChoice()] }))}
+                  disabled={readOnly}
                 >
                   <Plus className="h-3 w-3 mr-1" /> Add {editingQuestion.is_fill_in_the_blank ? 'Answer' : 'Option'}
                 </Button>
@@ -420,9 +434,9 @@ export function SessionMcqManager({
           </div>
           <div className="pt-3 border-t flex justify-end gap-2">
             <Button variant="ghost" onClick={() => setIsQuestionModalOpen(false)}>Cancel</Button>
-            <Button variant="gradient" disabled={isSavingQuestion} onClick={handleSaveQuestion}>
+            <Button variant="gradient" disabled={isSavingQuestion || readOnly} onClick={handleSaveQuestion}>
               {isSavingQuestion && <Loader2 className="h-4 w-4 animate-spin mr-2" />}
-              Save Question
+              {readOnly ? 'Read Only' : 'Save Question'}
             </Button>
           </div>
         </DialogContent>
@@ -438,7 +452,7 @@ export function SessionMcqManager({
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction onClick={handleDeleteQuestion} disabled={isDeletingQuestion}>
+            <AlertDialogAction onClick={handleDeleteQuestion} disabled={isDeletingQuestion || readOnly}>
               {isDeletingQuestion ? 'Deleting...' : 'Delete'}
             </AlertDialogAction>
           </AlertDialogFooter>

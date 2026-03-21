@@ -120,11 +120,13 @@ export default function BatchContent() {
   // Test Modal (now replaced by WeeklyTestManager)
   const [isTestModalOpen, setIsTestModalOpen] = useState(false);
   const [testWeek, setTestWeek] = useState<BatchWeek | null>(null);
+  const [isTestReadOnly, setIsTestReadOnly] = useState(false);
 
   // Session MCQ Manager State
   const [isMcqOpen, setIsMcqOpen] = useState(false);
   const [mcqSession, setMcqSession] = useState<any>(null);
   const [mcqApiUrl, setMcqApiUrl] = useState('');
+  const [isMcqReadOnly, setIsMcqReadOnly] = useState(false);
 
   // Delete Alert
   const [deleteSessionId, setDeleteSessionId] = useState<number | null>(null);
@@ -412,6 +414,7 @@ export default function BatchContent() {
 
   const handleOpenTestManager = (week: BatchWeek) => {
     setTestWeek(week);
+    setIsTestReadOnly(week.is_unlocked || !week.can_modify_content);
     setIsTestModalOpen(true);
   };
 
@@ -747,6 +750,7 @@ export default function BatchContent() {
                                         onClick={() => {
                                           setMcqSession(session);
                                           setMcqApiUrl(`/api/courses/v1/batches/${batchId}/weeks/${activeTab}/sessions/${session.id}/mcq`);
+                                        setIsMcqReadOnly(week.is_unlocked || !week.can_modify_content);
                                           setIsMcqOpen(true);
                                         }}
                                       >
@@ -1160,6 +1164,7 @@ export default function BatchContent() {
           weekLabel={`Week ${testWeek.week_number}: ${testWeek.title}`}
           testApiBase={`/api/courses/v1/batches/${batchId}/weeks/${testWeek.id}/test/manage`}
           onSaved={() => fetchWeeks(false)}
+          readOnly={isTestReadOnly}
         />
       )}
 
@@ -1170,6 +1175,7 @@ export default function BatchContent() {
         session={mcqSession}
         apiBaseUrl={mcqApiUrl}
         onSaved={() => fetchWeeks(false)}
+        readOnly={isMcqReadOnly}
       />
 
       {/* Delete Session Confirmation */}

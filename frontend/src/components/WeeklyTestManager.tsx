@@ -80,6 +80,7 @@ interface WeeklyTestManagerProps {
   testApiBase: string;
   onSaved: () => void;
   onDeleted?: () => void;
+  readOnly?: boolean;
 }
 
 // ─── Question form state ───────────────────────────────────────────────────────
@@ -149,6 +150,7 @@ export function WeeklyTestManager({
   testApiBase,
   onSaved,
   onDeleted,
+  readOnly = false,
 }: WeeklyTestManagerProps) {
   const { toast } = useToast();
 
@@ -243,6 +245,7 @@ export function WeeklyTestManager({
 
   // ── Save header ───────────────────────────────────────────────────────────
   const handleSaveHeader = async () => {
+    if (readOnly) return;
     if (!validateHeader()) return;
 
     setIsSavingHeader(true);
@@ -288,6 +291,7 @@ export function WeeklyTestManager({
 
   // ── Delete test ───────────────────────────────────────────────────────────
   const handleDeleteTest = async () => {
+    if (readOnly) return;
     setIsDeletingTest(true);
     try {
       await apiClient.delete(`${testApiBase}/`);
@@ -346,6 +350,7 @@ export function WeeklyTestManager({
 
   // ── Question helpers ──────────────────────────────────────────────────────
   const openAddQuestion = () => {
+    if (readOnly) return;
     setEditingQuestion(emptyQuestion());
     setEditingQuestionId(null);
     setQuestionErrors({});
@@ -353,6 +358,7 @@ export function WeeklyTestManager({
   };
 
   const openEditQuestion = (q: TestQuestion) => {
+    if (readOnly) return;
     // Ensure existingAttachments is extracted safely
     const existingAtts = Array.isArray(q.attachments) ? q.attachments : [];
     
@@ -375,6 +381,7 @@ export function WeeklyTestManager({
   };
 
   const handleSaveQuestion = async () => {
+    if (readOnly) return;
     if (!testId) {
       toast({ title: 'Save the test first', description: 'Click "Save Test" before adding questions.', variant: 'destructive' });
       return;
@@ -457,6 +464,7 @@ export function WeeklyTestManager({
   };
 
   const handleDeleteQuestion = async () => {
+    if (readOnly) return;
     if (!deleteQuestionId) return;
     setIsDeletingQuestion(true);
     try {
@@ -473,6 +481,7 @@ export function WeeklyTestManager({
 
   // ── Attachment helpers (edit modal) ───────────────────────────────────────
   const handleDeleteExistingAttachment = async (attachmentId: number) => {
+    if (readOnly) return;
     if (!editingQuestionId) return;
     setDeletingAttachmentIds(prev => new Set(prev).add(attachmentId));
     try {
@@ -494,6 +503,7 @@ export function WeeklyTestManager({
   };
 
   const handleAddNewAttachmentFiles = (files: FileList | null) => {
+    if (readOnly) return;
     if (!files || files.length === 0) return;
     const fileArray = Array.from(files);
     setEditingQuestion(prev => ({
@@ -504,6 +514,7 @@ export function WeeklyTestManager({
   };
 
   const handleRemoveNewAttachment = (index: number) => {
+    if (readOnly) return;
     setEditingQuestion(prev => ({
       ...prev,
       newAttachmentFiles: prev.newAttachmentFiles.filter((_, i) => i !== index),
@@ -528,6 +539,9 @@ export function WeeklyTestManager({
             <DialogDescription className="text-muted-foreground/80">
               {weekLabel} — Configure the core settings for this week's assessment.
             </DialogDescription>
+            {readOnly && (
+              <p className="text-xs text-amber-600 mt-1">Week is unlocked. Assessment is view-only.</p>
+            )}
           </DialogHeader>
 
           <div className="flex-1 overflow-y-auto px-2 space-y-8 py-4 scrollbar-hide">
@@ -550,6 +564,7 @@ export function WeeklyTestManager({
                     "bg-background/50 border-border focus:border-primary/50 transition-all font-medium",
                     headerErrors.title && "border-destructive focus:ring-destructive"
                   )}
+                  disabled={readOnly}
                 />
                 <FieldError msg={headerErrors.title} />
               </div>
@@ -565,6 +580,7 @@ export function WeeklyTestManager({
                   placeholder="Optional instructions for students..."
                   rows={3}
                   className="bg-background/50 border-border focus:border-primary/50 transition-all resize-none"
+                  disabled={readOnly}
                 />
               </div>
 
@@ -585,6 +601,7 @@ export function WeeklyTestManager({
                         if (headerErrors.pass_percentage) setHeaderErrors(p => ({ ...p, pass_percentage: undefined }));
                       }}
                       className="bg-background/50 border-border focus:border-primary/50 pr-8"
+                      disabled={readOnly}
                     />
                     <span className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground text-xs">%</span>
                   </div>
@@ -602,6 +619,7 @@ export function WeeklyTestManager({
                       size="sm"
                       className="h-8 hover:bg-muted text-xs px-3"
                       onClick={() => answerKeyRef.current?.click()}
+                      disabled={readOnly}
                     >
                       Choose File
                     </Button>
@@ -609,7 +627,7 @@ export function WeeklyTestManager({
                       {answerKeyFile ? answerKeyFile.name : (existingTest?.answer_key ? shortName(existingTest.answer_key) : 'No file chosen')}
                     </span>
                     {answerKeyFile && (
-                      <Button variant="ghost" size="icon" className="h-6 w-6 text-muted-foreground" onClick={() => setAnswerKeyFile(null)}>
+                      <Button variant="ghost" size="icon" className="h-6 w-6 text-muted-foreground" onClick={() => setAnswerKeyFile(null)} disabled={readOnly}>
                         <X className="h-3 w-3" />
                       </Button>
                     )}
@@ -656,7 +674,7 @@ export function WeeklyTestManager({
               <div className="flex justify-end pt-2">
                 <Button id="wt-save-btn" variant="gradient" size="sm" onClick={handleSaveHeader} disabled={isSavingHeader}>
                   {isSavingHeader ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Save className="h-4 w-4 mr-2" />}
-                  {testId ? 'Update Configuration' : 'Save & Add Questions'}
+                  {readOnly ? 'Read Only' : (testId ? 'Update Configuration' : 'Save & Add Questions')}
                 </Button>
               </div>
             </div>
@@ -671,7 +689,7 @@ export function WeeklyTestManager({
                       {questions.length} question{questions.length !== 1 ? 's' : ''} · {totalMarks} total marks
                     </p>
                   </div>
-                  <Button id="wt-add-question" variant="outline" size="sm" onClick={openAddQuestion}>
+                  <Button id="wt-add-question" variant="outline" size="sm" onClick={openAddQuestion} disabled={readOnly}>
                     <Plus className="h-4 w-4 mr-1.5" />
                     Add Question
                   </Button>
@@ -743,6 +761,7 @@ export function WeeklyTestManager({
                                 size="icon"
                                 className="h-7 w-7"
                                 onClick={() => openEditQuestion(q)}
+                                disabled={readOnly}
                               >
                                 <Edit className="h-3.5 w-3.5" />
                               </Button>
@@ -751,6 +770,7 @@ export function WeeklyTestManager({
                                 size="icon"
                                 className="h-7 w-7"
                                 onClick={() => setDeleteQuestionId(q.id)}
+                                disabled={readOnly}
                               >
                                 <Trash2 className="h-3.5 w-3.5" />
                               </Button>
@@ -780,6 +800,7 @@ export function WeeklyTestManager({
                   size="sm"
                   className="text-destructive border-destructive/40 hover:bg-destructive/10 hover:text-destructive"
                   onClick={() => setIsDeleteTestOpen(true)}
+                  disabled={readOnly}
                 >
                   <Trash2 className="h-3.5 w-3.5 mr-1.5" />
                   Delete Assessment
@@ -833,6 +854,7 @@ export function WeeklyTestManager({
                   "bg-background/50 border-border focus:border-primary/50 transition-all resize-none",
                   questionErrors.content && "focus-visible:ring-destructive/40"
                 )}
+                disabled={readOnly}
               />
               <FieldError msg={questionErrors.content} />
             </div>
@@ -856,6 +878,7 @@ export function WeeklyTestManager({
                   "w-32 bg-background/50 border-border focus:border-primary/50 transition-all",
                   questionErrors.marks && "focus-visible:ring-destructive/40"
                 )}
+                disabled={readOnly}
               />
               <FieldError msg={questionErrors.marks} />
             </div>
@@ -873,6 +896,7 @@ export function WeeklyTestManager({
                     size="sm"
                     className="h-8 hover:bg-muted text-xs px-3 gap-1.5"
                     onClick={() => questionFileRef.current?.click()}
+                    disabled={readOnly}
                   >
                     <Paperclip className="h-3.5 w-3.5" />
                     Choose File
@@ -889,6 +913,7 @@ export function WeeklyTestManager({
                       size="icon"
                       className="h-6 w-6 text-muted-foreground"
                       onClick={() => setEditingQuestion(prev => ({ ...prev, question_file: null }))}
+                      disabled={readOnly}
                     >
                       <X className="h-3 w-3" />
                     </Button>
@@ -917,6 +942,7 @@ export function WeeklyTestManager({
                             remove_question_file: editingQuestionId != null,
                           }))
                         }
+                        disabled={readOnly}
                       >
                         <X className="h-3 w-3" />
                       </Button>
@@ -944,6 +970,7 @@ export function WeeklyTestManager({
                     size="sm"
                     className="h-8 hover:bg-muted text-xs px-3 gap-1.5"
                     onClick={() => questionImageRef.current?.click()}
+                    disabled={readOnly}
                   >
                     <ImageIcon className="h-3.5 w-3.5" />
                     Choose Image
@@ -960,6 +987,7 @@ export function WeeklyTestManager({
                       size="icon"
                       className="h-6 w-6 text-muted-foreground"
                       onClick={() => setEditingQuestion(prev => ({ ...prev, image: null }))}
+                      disabled={readOnly}
                     >
                       <X className="h-3 w-3" />
                     </Button>
@@ -988,6 +1016,7 @@ export function WeeklyTestManager({
                             remove_image: editingQuestionId != null,
                           }))
                         }
+                        disabled={readOnly}
                       >
                         <X className="h-3 w-3" />
                       </Button>
@@ -1028,6 +1057,7 @@ export function WeeklyTestManager({
                           type="button"
                           className="flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors disabled:opacity-50"
                           disabled={deletingAttachmentIds.has(att.id)}
+                          aria-disabled={readOnly}
                           onClick={() => handleDeleteExistingAttachment(att.id)}
                         >
                           {deletingAttachmentIds.has(att.id)
@@ -1054,6 +1084,7 @@ export function WeeklyTestManager({
                           type="button"
                           className="flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors p-0.5"
                           onClick={() => handleRemoveNewAttachment(idx)}
+                          disabled={readOnly}
                         >
                           <X className="h-4 w-4" />
                         </button>
@@ -1066,6 +1097,7 @@ export function WeeklyTestManager({
                 <div
                   className="group relative border-2 border-dashed border-muted-foreground/20 rounded-xl p-4 text-center transition-all hover:border-primary/40 hover:bg-primary/[0.02] cursor-pointer"
                   onClick={() => attachmentFileRef.current?.click()}
+                  aria-disabled={readOnly}
                 >
                   <div className="w-10 h-10 rounded-full bg-muted/50 flex items-center justify-center mx-auto mb-2 group-hover:bg-primary/10 transition-all">
                     <Paperclip className="h-5 w-5 text-muted-foreground group-hover:text-primary" />
@@ -1102,10 +1134,10 @@ export function WeeklyTestManager({
               id="q-save-btn"
               variant="gradient"
               onClick={handleSaveQuestion}
-              disabled={isSavingQuestion}
+              disabled={isSavingQuestion || readOnly}
             >
               {isSavingQuestion && <Loader2 className="h-4 w-4 animate-spin mr-2" />}
-              {editingQuestionId ? 'Update Question' : 'Add Question'}
+              {readOnly ? 'Read Only' : (editingQuestionId ? 'Update Question' : 'Add Question')}
             </Button>
           </div>
         </DialogContent>
@@ -1124,7 +1156,7 @@ export function WeeklyTestManager({
             <AlertDialogCancel disabled={isDeletingQuestion}>Cancel</AlertDialogCancel>
             <AlertDialogAction
               onClick={handleDeleteQuestion}
-              disabled={isDeletingQuestion}
+              disabled={isDeletingQuestion || readOnly}
               className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
             >
               {isDeletingQuestion && <Loader2 className="h-4 w-4 animate-spin mr-2" />}
@@ -1148,7 +1180,7 @@ export function WeeklyTestManager({
             <AlertDialogCancel disabled={isDeletingTest}>Cancel</AlertDialogCancel>
             <AlertDialogAction
               onClick={handleDeleteTest}
-              disabled={isDeletingTest}
+              disabled={isDeletingTest || readOnly}
               className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
             >
               {isDeletingTest && <Loader2 className="h-4 w-4 animate-spin mr-2" />}
