@@ -643,6 +643,19 @@ class WeeklyTestQuestionDetailView(APIView):
 
             for attr, value in serializer.validated_data.items():
                 setattr(question, attr, value)
+
+            # Optional clears (multipart flags; same pattern as session thumbnail removal)
+            new_question_file = 'question_file' in request.FILES
+            new_image = 'image' in request.FILES
+            if request.data.get('remove_question_file') == 'true' and not new_question_file:
+                if question.question_file:
+                    question.question_file.delete(save=False)
+                question.question_file = None
+            if request.data.get('remove_image') == 'true' and not new_image:
+                if question.image:
+                    question.image.delete(save=False)
+                question.image = None
+
             question.save()
             
             response_serializer = CourseTestQuestionSerializer(question, context={'request': request})

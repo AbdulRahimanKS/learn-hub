@@ -389,6 +389,7 @@ class BatchWeeklyTestQuestionListCreateView(APIView):
 @extend_schema(tags=["Batch Content"])
 class BatchWeeklyTestQuestionDetailView(APIView):
     permission_classes = [IsAdminOrTeacher]
+    parser_classes = [MultiPartParser, FormParser, JSONParser]
     serializer_class = BatchTestQuestionSerializer
 
     def get_object(self, batch_id, week_id, question_id):
@@ -413,8 +414,22 @@ class BatchWeeklyTestQuestionDetailView(APIView):
         if not serializer.is_valid():
             error_str = handle_serializer_errors(serializer)
             raise ServiceError(detail=error_str, status_code=status.HTTP_400_BAD_REQUEST)
-        
-        serializer.save()
+
+        for attr, value in serializer.validated_data.items():
+            setattr(question, attr, value)
+
+        new_question_file = 'question_file' in request.FILES
+        new_image = 'image' in request.FILES
+        if request.data.get('remove_question_file') == 'true' and not new_question_file:
+            if question.question_file:
+                question.question_file.delete(save=False)
+            question.question_file = None
+        if request.data.get('remove_image') == 'true' and not new_image:
+            if question.image:
+                question.image.delete(save=False)
+            question.image = None
+
+        question.save()
         response_serializer = BatchTestQuestionSerializer(question, context={'request': request})
         return format_success_response(message="Question updated", data=response_serializer.data)
 

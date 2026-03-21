@@ -92,6 +92,10 @@ interface QuestionFormState {
   question_file_url: string | null;
   image: File | null;
   image_url: string | null;
+  /** PATCH only: user cleared an existing server-side question file */
+  remove_question_file: boolean;
+  /** PATCH only: user cleared an existing server-side image */
+  remove_image: boolean;
   // Existing persisted attachments (loaded from backend)
   existingAttachments: QuestionAttachment[];
   // New files queued to upload (not yet saved)
@@ -105,6 +109,8 @@ const emptyQuestion = (): QuestionFormState => ({
   question_file_url: null,
   image: null,
   image_url: null,
+  remove_question_file: false,
+  remove_image: false,
   existingAttachments: [],
   newAttachmentFiles: [],
 });
@@ -304,12 +310,17 @@ export function WeeklyTestManager({
   const validateQuestion = (): boolean => {
     const errors: typeof questionErrors = {};
 
+    const hasQuestionFile =
+      editingQuestion.question_file !== null ||
+      (editingQuestion.question_file_url !== null && !editingQuestion.remove_question_file);
+    const hasImage =
+      editingQuestion.image !== null ||
+      (editingQuestion.image_url !== null && !editingQuestion.remove_image);
+
     const hasContent =
       editingQuestion.text.trim().length > 0 ||
-      editingQuestion.question_file !== null ||
-      editingQuestion.image !== null ||
-      editingQuestion.question_file_url !== null ||
-      editingQuestion.image_url !== null ||
+      hasQuestionFile ||
+      hasImage ||
       editingQuestion.existingAttachments.length > 0 ||
       editingQuestion.newAttachmentFiles.length > 0;
 
@@ -374,6 +385,12 @@ export function WeeklyTestManager({
       let savedQuestionId = editingQuestionId;
 
       if (editingQuestionId) {
+        if (editingQuestion.remove_question_file && !editingQuestion.question_file) {
+          fd.append('remove_question_file', 'true');
+        }
+        if (editingQuestion.remove_image && !editingQuestion.image) {
+          fd.append('remove_image', 'true');
+        }
         const res = await apiClient.patch(
           `${testApiBase}/questions/${editingQuestionId}/`,
           fd,
@@ -845,20 +862,42 @@ export function WeeklyTestManager({
                     </Button>
                   )}
                   {!editingQuestion.question_file && editingQuestion.question_file_url && (
-                    <a
-                      href={editingQuestion.question_file_url}
-                      target="_blank"
-                      rel="noreferrer"
-                      className="inline-flex h-6 w-6 items-center justify-center rounded-md text-muted-foreground hover:text-primary hover:bg-muted"
-                      title="Open existing file"
-                    >
-                      <ExternalLink className="h-3 w-3" />
-                    </a>
+                    <>
+                      <a
+                        href={editingQuestion.question_file_url}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="inline-flex h-6 w-6 items-center justify-center rounded-md text-muted-foreground hover:text-primary hover:bg-muted"
+                        title="Open existing file"
+                      >
+                        <ExternalLink className="h-3 w-3" />
+                      </a>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon"
+                        className="h-6 w-6 text-muted-foreground shrink-0"
+                        title="Remove file from question"
+                        onClick={() =>
+                          setEditingQuestion(prev => ({
+                            ...prev,
+                            question_file_url: null,
+                            remove_question_file: editingQuestionId != null,
+                          }))
+                        }
+                      >
+                        <X className="h-3 w-3" />
+                      </Button>
+                    </>
                   )}
                 </div>
                 <input ref={questionFileRef} type="file" accept=".ipynb,.pdf,.doc,.docx" className="hidden"
                   onChange={e => {
-                    setEditingQuestion(prev => ({ ...prev, question_file: e.target.files?.[0] || null }));
+                    setEditingQuestion(prev => ({
+                      ...prev,
+                      question_file: e.target.files?.[0] || null,
+                      remove_question_file: false,
+                    }));
                     if (questionErrors.content) setQuestionErrors(p => ({ ...p, content: undefined }));
                   }} />
               </div>
@@ -894,20 +933,42 @@ export function WeeklyTestManager({
                     </Button>
                   )}
                   {!editingQuestion.image && editingQuestion.image_url && (
-                    <a
-                      href={editingQuestion.image_url}
-                      target="_blank"
-                      rel="noreferrer"
-                      className="inline-flex h-6 w-6 items-center justify-center rounded-md text-muted-foreground hover:text-primary hover:bg-muted"
-                      title="Open existing image"
-                    >
-                      <ExternalLink className="h-3 w-3" />
-                    </a>
+                    <>
+                      <a
+                        href={editingQuestion.image_url}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="inline-flex h-6 w-6 items-center justify-center rounded-md text-muted-foreground hover:text-primary hover:bg-muted"
+                        title="Open existing image"
+                      >
+                        <ExternalLink className="h-3 w-3" />
+                      </a>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon"
+                        className="h-6 w-6 text-muted-foreground shrink-0"
+                        title="Remove image from question"
+                        onClick={() =>
+                          setEditingQuestion(prev => ({
+                            ...prev,
+                            image_url: null,
+                            remove_image: editingQuestionId != null,
+                          }))
+                        }
+                      >
+                        <X className="h-3 w-3" />
+                      </Button>
+                    </>
                   )}
                 </div>
                 <input ref={questionImageRef} type="file" accept="image/jpeg,image/png" className="hidden"
                   onChange={e => {
-                    setEditingQuestion(prev => ({ ...prev, image: e.target.files?.[0] || null }));
+                    setEditingQuestion(prev => ({
+                      ...prev,
+                      image: e.target.files?.[0] || null,
+                      remove_image: false,
+                    }));
                     if (questionErrors.content) setQuestionErrors(p => ({ ...p, content: undefined }));
                   }} />
               </div>
