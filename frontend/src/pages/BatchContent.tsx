@@ -310,7 +310,7 @@ export default function BatchContent() {
     setIsExtending(true);
     try {
       await batchApi.extendTimeline(parseInt(batchId), extendDays);
-      toast({ title: 'Success', description: `Program extended by ${extendDays} days` });
+      toast({ title: 'Success', description: `Program extended by ${extendDays} days`, variant: 'success' });
       setIsExtendOpen(false);
       fetchWeeks(false);
     } catch (err) {
