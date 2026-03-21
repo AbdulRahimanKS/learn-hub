@@ -640,16 +640,34 @@ class ExtendBatchTimelineView(APIView):
     @extend_schema(
         summary="Extend batch timeline by adding days to future unlock dates",
         parameters=[
-            OpenApiParameter("days", OpenApiTypes.INT, description="Number of days to extend"),
+            OpenApiParameter(
+                "days",
+                OpenApiTypes.INT,
+                description="Days to add to each future week's unlock date. Must be a multiple of 7 (whole weeks) so the schedule stays aligned.",
+            ),
         ],
         responses={200: None},
     )
     def post(self, request, pk):
         try:
-            days = int(request.query_params.get('days', 0))
+            try:
+                days = int(request.query_params.get('days', 0))
+            except (TypeError, ValueError):
+                raise ServiceError(
+                    detail="Invalid days parameter. Provide a positive integer, multiple of 7.",
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                )
             if days <= 0:
                 raise ServiceError(detail="Days must be greater than 0", status_code=status.HTTP_400_BAD_REQUEST)
-            
+            if days % 7 != 0:
+                raise ServiceError(
+                    detail=(
+                        "Extension must be in whole weeks (a multiple of 7 days) so unlock dates stay "
+                        "aligned with your curriculum weeks. Examples: 7, 14, 21, 28."
+                    ),
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                )
+
             extend_batch_timeline(pk, days)
             return format_success_response(message=f"Batch timeline extended by {days} days")
         except Exception as e:

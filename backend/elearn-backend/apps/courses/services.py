@@ -130,6 +130,9 @@ def push_content_to_batch(source_batch_id=None, source_course_id=None, target_ba
 def extend_batch_timeline(batch_id, days):
     """
     Extends the timeline for all NOT YET UNLOCKED weeks of a batch.
+
+    Caller should pass ``days`` as a multiple of 7 so unlock cadence stays consistent
+    with week-based scheduling (validated in the API view).
     """
     now = timezone.now()
     weeks_to_update = BatchWeek.objects.filter(

@@ -93,7 +93,8 @@ export default function BatchContent() {
   const [isSaving, setIsSaving] = useState(false);
 
   const [isExtendOpen, setIsExtendOpen] = useState(false);
-  const [extendDays, setExtendDays] = useState(7);
+  /** String so the days input can be cleared/edited without NaN glitches */
+  const [extendDaysInput, setExtendDaysInput] = useState('7');
   const [isExtending, setIsExtending] = useState(false);
 
   // Session Modal
@@ -308,14 +309,28 @@ export default function BatchContent() {
 
   const handleExtendTimeline = async () => {
     if (!batchId) return;
+    const days = parseInt(extendDaysInput, 10);
+    if (!Number.isFinite(days) || days <= 0) {
+      toast({ title: 'Invalid value', description: 'Enter a positive number of days.', variant: 'destructive' });
+      return;
+    }
+    if (days % 7 !== 0) {
+      toast({
+        title: 'Use whole weeks',
+        description: 'Extension must be a multiple of 7 days (e.g. 7, 14, 21) so weekly unlocks stay aligned.',
+        variant: 'destructive',
+      });
+      return;
+    }
     setIsExtending(true);
     try {
-      await batchApi.extendTimeline(parseInt(batchId), extendDays);
-      toast({ title: 'Success', description: `Program extended by ${extendDays} days`, variant: 'success' });
+      await batchApi.extendTimeline(parseInt(batchId), days);
+      toast({ title: 'Success', description: `Program extended by ${days} days (${days / 7} week${days === 7 ? '' : 's'})`, variant: 'success' });
       setIsExtendOpen(false);
       fetchWeeks(false);
-    } catch (err) {
-      toast({ title: 'Error', description: 'Failed to extend program', variant: 'destructive' });
+    } catch (err: any) {
+      const msg = err.response?.data?.detail || 'Failed to extend program';
+      toast({ title: 'Error', description: typeof msg === 'string' ? msg : 'Failed to extend program', variant: 'destructive' });
     } finally {
       setIsExtending(false);
     }
@@ -1059,29 +1074,61 @@ export default function BatchContent() {
       </Dialog>
 
       {/* Extend Timeline Dialog */}
-      <Dialog open={isExtendOpen} onOpenChange={setIsExtendOpen}>
+      <Dialog
+        open={isExtendOpen}
+        onOpenChange={(open) => {
+          setIsExtendOpen(open);
+          if (open) setExtendDaysInput('7');
+        }}
+      >
         <DialogContent className="sm:max-w-md" onOpenAutoFocus={(e) => e.preventDefault()}>
           <DialogHeader>
             <DialogTitle>Extend Program Timeline</DialogTitle>
             <DialogDescription>
-              This will shift the unlock dates for all FUTURE (not yet unlocked) weeks by the specified number of days.
+              Shifts unlock dates for all future (not yet unlocked) weeks. Use{' '}
+              <strong className="text-foreground">whole weeks only</strong> (multiples of 7 days) so your schedule
+              stays aligned—odd day counts would break the usual week-by-week rhythm.
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4 py-4">
             <div className="space-y-2">
-              <Label>Days to Extend</Label>
-              <Input 
-                type="number" 
-                value={extendDays} 
-                onChange={e => setExtendDays(parseInt(e.target.value))} 
-                min={1} 
+              <Label>Days to extend</Label>
+              <div className="flex flex-wrap gap-2">
+                {[7, 14, 21, 28].map((d) => (
+                  <Button
+                    key={d}
+                    type="button"
+                    size="sm"
+                    variant={parseInt(extendDaysInput, 10) === d ? 'default' : 'outline'}
+                    className={parseInt(extendDaysInput, 10) === d ? 'gradient-primary text-primary-foreground' : ''}
+                    onClick={() => setExtendDaysInput(String(d))}
+                  >
+                    {d}d / {d / 7}wk
+                  </Button>
+                ))}
+              </div>
+              <Input
+                type="number"
+                value={extendDaysInput}
+                onChange={(e) => setExtendDaysInput(e.target.value)}
+                min={7}
+                step={7}
               />
-              <p className="text-xs text-muted-foreground">Example: 7 days = 1 week extension.</p>
+              <p className="text-xs text-muted-foreground">
+                Only <strong className="text-foreground">7, 14, 21…</strong> are accepted. Same shift is applied to every future week.
+              </p>
             </div>
           </div>
           <div className="flex justify-end gap-3 pt-4 border-t">
             <Button variant="ghost" onClick={() => setIsExtendOpen(false)}>Cancel</Button>
-            <Button variant="gradient" onClick={handleExtendTimeline} disabled={isExtending}>
+            <Button
+              variant="gradient"
+              onClick={handleExtendTimeline}
+              disabled={(() => {
+                const d = parseInt(extendDaysInput, 10);
+                return isExtending || !Number.isFinite(d) || d <= 0 || d % 7 !== 0;
+              })()}
+            >
               {isExtending ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Clock className="h-4 w-4 mr-2" />}
               Apply Extension
             </Button>
