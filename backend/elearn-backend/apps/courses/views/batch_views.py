@@ -308,6 +308,11 @@ class BatchUpdateView(APIView):
             if 'start_date' in request.data:
                 new_start_date_str = str(request.data.get('start_date'))
                 if batch.start_date and str(batch.start_date) != new_start_date_str:
+                    if batch.batch_weeks.exists():
+                        raise ServiceError(
+                            detail="Cannot edit the start date after weeks have been added to this batch.",
+                            status_code=status.HTTP_400_BAD_REQUEST
+                        )
                     today = get_current_local_date()
                     if batch.start_date <= today:
                         raise ServiceError(detail="Cannot edit the start date of a batch that has already started.", status_code=status.HTTP_400_BAD_REQUEST)
