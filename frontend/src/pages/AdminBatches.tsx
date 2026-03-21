@@ -155,6 +155,12 @@ export default function AdminBatches() {
   const [pushSourceType, setPushSourceType] = useState<'course' | 'batch'>('course');
   const [pushSourceId, setPushSourceId] = useState<number | null>(null);
   const [isPushing, setIsPushing] = useState(false);
+  const [cloneBatchSearch, setCloneBatchSearch] = useState('');
+  const debouncedCloneBatchSearch = useDebounceValue(cloneBatchSearch, 300);
+  const [cloneBatchPage, setCloneBatchPage] = useState(1);
+  const [cloneBatchOptions, setCloneBatchOptions] = useState<Batch[]>([]);
+  const [cloneHasMoreBatches, setCloneHasMoreBatches] = useState(false);
+  const [isLoadingCloneBatches, setIsLoadingCloneBatches] = useState(false);
 
   // ──────────────────────────────────────────────
   // Data Fetching
@@ -288,18 +294,62 @@ export default function AdminBatches() {
       const targetBatch = batches.find(b => b.id === pushTargetBatchId);
       if (targetBatch) {
         if (pushSourceType === 'course') {
-          const match = courses.find(c => c.id === targetBatch.course);
-          if (match && pushSourceId !== match.id) setPushSourceId(match.id);
+          if (targetBatch.course && pushSourceId !== targetBatch.course) {
+            setPushSourceId(targetBatch.course);
+          }
         } else if (pushSourceType === 'batch') {
           // If we want to auto-populate the first matching batch as well:
-          const matchingBatches = batches.filter(b => b.id !== pushTargetBatchId && b.course === targetBatch.course);
+          const matchingBatches = cloneBatchOptions.filter(b => b.id !== pushTargetBatchId && b.course === targetBatch.course);
           if (matchingBatches.length === 1 && pushSourceId !== matchingBatches[0].id) {
             setPushSourceId(matchingBatches[0].id);
           }
         }
       }
     }
-  }, [isPushModalOpen, pushTargetBatchId, pushSourceType, courses, batches, pushSourceId]);
+  }, [isPushModalOpen, pushTargetBatchId, pushSourceType, batches, cloneBatchOptions, pushSourceId]);
+
+  useEffect(() => {
+    if (!isPushModalOpen) return;
+    setCloneBatchPage(1);
+    setCloneBatchOptions([]);
+  }, [isPushModalOpen, pushSourceType, pushTargetBatchId, debouncedCloneBatchSearch]);
+
+  const fetchCloneSourceBatches = useCallback(async (page: number, search: string) => {
+    if (!pushTargetBatchId || pushSourceType !== 'batch') return;
+    const targetBatch = batches.find(b => b.id === pushTargetBatchId);
+    if (!targetBatch?.course) return;
+
+    try {
+      setIsLoadingCloneBatches(true);
+      const res = await batchApi.getBatches({
+        paginate: true,
+        page,
+        page_size: 10,
+        search,
+      });
+      const pagedData = res as any;
+      const filtered = ((pagedData.data || []) as Batch[]).filter(
+        (b) => b.id !== pushTargetBatchId && b.course === targetBatch.course
+      );
+      setCloneHasMoreBatches(pagedData.next !== null);
+      setCloneBatchOptions(prev => {
+        const base = page === 1 ? [] : prev;
+        const merged = [...base];
+        filtered.forEach(item => {
+          if (!merged.find(m => m.id === item.id)) merged.push(item);
+        });
+        return merged;
+      });
+    } catch (_) {
+      setCloneHasMoreBatches(false);
+    } finally {
+      setIsLoadingCloneBatches(false);
+    }
+  }, [pushTargetBatchId, pushSourceType, batches]);
+
+  useEffect(() => {
+    fetchCloneSourceBatches(cloneBatchPage, debouncedCloneBatchSearch);
+  }, [cloneBatchPage, debouncedCloneBatchSearch, fetchCloneSourceBatches]);
 
   // ──────────────────────────────────────────────
   // Validation
@@ -460,6 +510,8 @@ export default function AdminBatches() {
       setIsPushing(false);
     }
   };
+
+  const selectedCloneSourceBatch = cloneBatchOptions.find(b => b.id === pushSourceId);
 
   // Re-fetch summary whenever batches change (create/delete/toggle)
   // Updated logic for toggling through some status state (e.g. ACTIVE -> COMPLETED) if ever called
@@ -682,6 +734,12 @@ export default function AdminBatches() {
                             });
                             return;
                           }
+                          // Always start clone flow from Course Template to avoid stale source state.
+                          setPushSourceType('course');
+                          setPushSourceId(null);
+                          setCloneBatchSearch('');
+                          setCloneBatchPage(1);
+                          setCloneBatchOptions([]);
                           setPushTargetBatchId(batch.id);
                           setIsPushModalOpen(true);
                         }}
@@ -1126,24 +1184,76 @@ export default function AdminBatches() {
 
             <div className="space-y-2">
               <Label>Select Source {pushSourceType === 'course' ? 'Course' : 'Batch'}</Label>
-              <Select value={pushSourceId?.toString() || ""} onValueChange={(v) => setPushSourceId(parseInt(v))}>
-                <SelectTrigger>
-                  <SelectValue placeholder={`Select ${pushSourceType}`} />
-                </SelectTrigger>
-                <SelectContent>
-                  {pushSourceType === 'course' ? (
-                    courses
-                      .filter(c => c.id === batches.find(b => b.id === pushTargetBatchId)?.course)
-                      .map(c => <SelectItem key={c.id} value={c.id.toString()}>{c.title}</SelectItem>)
-                  ) : (
-                    batches
-                      .filter(b => b.id !== pushTargetBatchId && b.course === batches.find(t => t.id === pushTargetBatchId)?.course)
-                      .map(b => (
-                        <SelectItem key={b.id} value={b.id.toString()}>{b.name}</SelectItem>
-                      ))
-                  )}
-                </SelectContent>
-              </Select>
+              {pushSourceType === 'course' ? (
+                <Select
+                  value={pushSourceId?.toString() || ""}
+                  onValueChange={(v) => setPushSourceId(parseInt(v))}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select course" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {batches.find(b => b.id === pushTargetBatchId)?.course ? (
+                      <SelectItem value={String(batches.find(b => b.id === pushTargetBatchId)?.course)}>
+                        {batches.find(b => b.id === pushTargetBatchId)?.course_title || `Course #${batches.find(b => b.id === pushTargetBatchId)?.course}`}
+                      </SelectItem>
+                    ) : (
+                      <SelectItem value="no-course" disabled>No course available</SelectItem>
+                    )}
+                  </SelectContent>
+                </Select>
+              ) : (
+                <Popover modal={true}>
+                  <PopoverTrigger asChild>
+                    <button
+                      type="button"
+                      role="combobox"
+                      className={cn(
+                        "flex w-full justify-between items-center h-10 px-3 py-2 text-sm font-normal bg-background hover:bg-transparent border border-input rounded-md ring-offset-background placeholder:text-muted-foreground focus:outline-none",
+                        !pushSourceId && "text-muted-foreground"
+                      )}
+                    >
+                      <span className="truncate">
+                        {selectedCloneSourceBatch?.name || "— Select source batch —"}
+                      </span>
+                    </button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-[400px] p-0" align="start">
+                    <Command shouldFilter={false}>
+                      <CommandInput
+                        placeholder="Search batches..."
+                        value={cloneBatchSearch}
+                        onValueChange={setCloneBatchSearch}
+                      />
+                      <CommandList>
+                        <CommandEmpty>{isLoadingCloneBatches ? "Loading..." : "No matching batch found."}</CommandEmpty>
+                        <CommandGroup>
+                          {cloneBatchOptions.map(b => (
+                            <CommandItem
+                              key={b.id}
+                              value={b.id.toString()}
+                              onSelect={() => setPushSourceId(b.id)}
+                            >
+                              <Check className={cn("mr-2 h-4 w-4", pushSourceId === b.id ? "opacity-100" : "opacity-0")} />
+                              {b.name}
+                            </CommandItem>
+                          ))}
+                          {cloneHasMoreBatches && (
+                            <CommandItem
+                              value="load-more-batches"
+                              onSelect={() => setCloneBatchPage(p => p + 1)}
+                              className="justify-center text-primary font-medium cursor-pointer py-2 mt-1"
+                            >
+                              {isLoadingCloneBatches ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : "Load more..."}
+                              {isLoadingCloneBatches ? "Loading" : ""}
+                            </CommandItem>
+                          )}
+                        </CommandGroup>
+                      </CommandList>
+                    </Command>
+                  </PopoverContent>
+                </Popover>
+              )}
             </div>
 
             <div className="flex items-center gap-2.5 rounded-lg border border-primary/20 bg-primary/5 py-2 px-3">
