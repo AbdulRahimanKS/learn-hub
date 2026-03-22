@@ -933,12 +933,12 @@ export default function Courses() {
                                   />
                                 </div>
                                 <span className="text-xs text-muted-foreground font-medium">
-                                  {completedCount} / {sessions.length} LESSONS COMPLETE
+                                  {completedCount} / {sessions.length} lessons complete
                                 </span>
                               </div>
                             )}
                             {locked && (
-                              <p className="text-[10px] text-muted-foreground font-medium uppercase tracking-wider mt-0.5">
+                              <p className="mt-0.5 text-xs text-muted-foreground font-medium leading-snug">
                                 {lockInfo.reason === 'date_locked'
                                   ? (() => {
                                       const unlockDate = (lockInfo as { unlock_date?: string }).unlock_date;
@@ -983,6 +983,7 @@ export default function Courses() {
                                   const isPlaying =
                                     playingSession?.weekId === week.id && playingSession?.sessionId === session.id;
                                   const completed = session.is_completed;
+                                  const sessionDescription = session.description?.trim() ?? '';
 
                                   return (
                                     <div
@@ -1024,7 +1025,15 @@ export default function Courses() {
                                            <h4 className={cn('font-bold text-sm leading-snug truncate', completed ? 'text-muted-foreground' : 'text-foreground')}>
                                               {session.title}
                                            </h4>
-                                           <div className="flex items-center gap-2 mt-1">
+                                           {sessionDescription ? (
+                                             <p
+                                               className="mt-1 text-xs leading-snug text-muted-foreground line-clamp-2"
+                                               title={sessionDescription.length > 120 ? sessionDescription : undefined}
+                                             >
+                                               {sessionDescription}
+                                             </p>
+                                           ) : null}
+                                           <div className="flex items-center gap-2 mt-1.5">
                                              <span className="text-[9px] font-black uppercase text-primary/70">{session.weekday || 'Session'}</span>
                                              {completed && <span className="text-[8px] bg-emerald-500/20 text-emerald-400 px-1 rounded font-black uppercase">Watched</span>}
                                            </div>
@@ -1041,21 +1050,33 @@ export default function Courses() {
                                         >
                                           {session.title}
                                         </h4>
-                                        {session.duration_seconds > 0 && (
-                                          <p className="text-xs text-muted-foreground mt-0.5 flex items-center gap-3">
-                                            <span className="flex items-center gap-1.5 capitalize text-[10px]">
-                                              <Calendar className="h-3 w-3 text-primary/60" />
-                                              {session.weekday || 'Session'}
-                                            </span>
-                                            <span className="flex items-center gap-1.5 text-[10px]">
-                                              <Clock className="h-3 w-3 text-primary/60" />
-                                              {formatSessionDuration(session.duration_seconds)}
-                                            </span>
-                                            {completed && (
-                                              <span className="flex items-center gap-1 px-1.5 py-0.5 rounded bg-emerald-500/20 text-emerald-400 text-[9px] font-black uppercase tracking-wider">
+                                        {sessionDescription ? (
+                                          <p
+                                            className="mt-1 text-xs leading-relaxed text-muted-foreground line-clamp-2 max-w-3xl"
+                                            title={sessionDescription.length > 160 ? sessionDescription : undefined}
+                                          >
+                                            {sessionDescription}
+                                          </p>
+                                        ) : null}
+                                        {(session.duration_seconds > 0 || session.weekday || completed) && (
+                                          <p className="mt-1.5 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-foreground">
+                                            {session.weekday ? (
+                                              <span className="flex items-center gap-1.5 capitalize text-[10px] font-medium">
+                                                <Calendar className="h-3 w-3 shrink-0 text-primary/60" />
+                                                {session.weekday}
+                                              </span>
+                                            ) : null}
+                                            {session.duration_seconds > 0 ? (
+                                              <span className="flex items-center gap-1.5 text-[10px] font-medium">
+                                                <Clock className="h-3 w-3 shrink-0 text-primary/60" />
+                                                {formatSessionDuration(session.duration_seconds)}
+                                              </span>
+                                            ) : null}
+                                            {completed ? (
+                                              <span className="flex items-center gap-1 rounded bg-emerald-500/20 px-1.5 py-0.5 text-[9px] font-black uppercase tracking-wider text-emerald-400">
                                                 Watched
                                               </span>
-                                            )}
+                                            ) : null}
                                           </p>
                                         )}
                                       </div>
