@@ -743,27 +743,27 @@ export default function Courses() {
                   {(selectedCourse.batch_teacher_name ||
                     (Array.isArray(selectedCourse.batch_co_teacher_names) &&
                       selectedCourse.batch_co_teacher_names.length > 0)) && (
-                    <div className="mt-2.5 space-y-1.5 text-xs md:text-sm text-primary-foreground/85">
+                    <div className="mt-2.5 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs md:text-sm text-primary-foreground/85">
                       {selectedCourse.batch_teacher_name && (
-                        <p className="flex items-start gap-2">
-                          <GraduationCap className="w-3.5 h-3.5 md:w-4 md:h-4 shrink-0 mt-0.5 opacity-90" />
-                          <span>
+                        <span className="inline-flex items-center gap-2 min-w-0">
+                          <GraduationCap className="w-3.5 h-3.5 md:w-4 md:h-4 shrink-0 opacity-90" />
+                          <span className="min-w-0">
                             <span className="font-semibold text-primary-foreground/70">Teacher: </span>
                             {selectedCourse.batch_teacher_name}
                           </span>
-                        </p>
+                        </span>
                       )}
                       {Array.isArray(selectedCourse.batch_co_teacher_names) &&
                         selectedCourse.batch_co_teacher_names.length > 0 && (
-                          <p className="flex items-start gap-2">
-                            <UserCircle2 className="w-3.5 h-3.5 md:w-4 md:h-4 shrink-0 mt-0.5 opacity-90" />
-                            <span>
+                          <span className="inline-flex items-center gap-2 min-w-0">
+                            <UserCircle2 className="w-3.5 h-3.5 md:w-4 md:h-4 shrink-0 opacity-90" />
+                            <span className="min-w-0 break-words">
                               <span className="font-semibold text-primary-foreground/70">
                                 Co-teacher{selectedCourse.batch_co_teacher_names.length !== 1 ? 's' : ''}:{' '}
                               </span>
                               {selectedCourse.batch_co_teacher_names.join(', ')}
                             </span>
-                          </p>
+                          </span>
                         )}
                     </div>
                   )}
@@ -836,24 +836,19 @@ export default function Courses() {
             ) : (
               <Card className="overflow-hidden border-border/60 shadow-card">
                 <CardHeader className="flex flex-col gap-1 space-y-0 border-b border-border/50 bg-muted/25 px-5 py-4 md:px-6 md:py-5">
-                  <div className="flex flex-col gap-0.5 sm:flex-row sm:items-center sm:justify-between">
-                    <div>
-                      <CardTitle className="text-lg font-bold tracking-tight md:text-xl">
-                        Course weeks
-                      </CardTitle>
-                      <CardDescription className="mt-1 text-sm">
-                        Expand a week to view lessons and weekly assessments
-                      </CardDescription>
-                    </div>
-                    <span className="mt-2 inline-flex w-fit items-center rounded-full border border-border/60 bg-background/60 px-3 py-1 text-xs font-semibold text-muted-foreground sm:mt-0">
-                      {weeks.length} week{weeks.length !== 1 ? 's' : ''}
-                    </span>
-                  </div>
+                  <CardTitle className="text-lg font-bold tracking-tight md:text-xl">
+                    Course weeks
+                  </CardTitle>
+                  <CardDescription className="mt-1 text-sm">
+                    Expand a week to view lessons and weekly assessments
+                  </CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-2 p-3 md:space-y-3 md:p-4">
                   {weeks.map(week => {
                     const lockInfo = getWeekLockInfo(week);
                     const locked = lockInfo.is_locked;
+                    /** Batch/calendar not open yet — instructor may still add content. */
+                    const isCalendarLocked = locked && lockInfo.reason === 'date_locked';
                     const isExpanded = expandedWeeks.has(week.id);
                     const baseSessions: ClassSession[] = week.class_sessions || [];
                     const weekdayOrder = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'];
@@ -1164,10 +1159,10 @@ export default function Courses() {
                                             ? (() => {
                                                 const unlockDate = (lockInfo as { unlock_date?: string }).unlock_date;
                                                 return unlockDate
-                                                  ? `Unlocks on ${new Date(unlockDate).toLocaleDateString('en-US', {
-                                                      weekday: 'long',
+                                                  ? `Unlocks ${new Date(unlockDate).toLocaleDateString('en-US', {
                                                       month: 'short',
                                                       day: 'numeric',
+                                                      year: 'numeric',
                                                     })}`
                                                   : 'Unlocks soon';
                                               })()
@@ -1271,6 +1266,7 @@ export default function Courses() {
                                           <Button
                                             size="sm"
                                             disabled={disabled}
+                                            title={locked ? 'This week is locked' : undefined}
                                             className={cn(
                                               'font-bold rounded-full h-9 px-6 text-xs transition-all',
                                               disabled
@@ -1293,16 +1289,34 @@ export default function Courses() {
                                               }
                                             }}
                                           >
-                                            {label}
+                                            {locked ? (
+                                              <span className="inline-flex items-center gap-1.5">
+                                                <Lock className="h-3.5 w-3.5 shrink-0 opacity-80" aria-hidden />
+                                                Locked
+                                              </span>
+                                            ) : (
+                                              label
+                                            )}
                                           </Button>
                                         );
                                       })()}
                                   </div>
                                 </div>
                               ) : (
-                                <div className="flex items-center gap-3 rounded-xl border border-dashed border-border/50 bg-[hsl(var(--muted)_/_0.35)] px-5 py-4 text-muted-foreground">
-                                  <Award className="h-4 w-4 opacity-40" />
-                                  <p className="text-xs font-medium italic">No assessment scheduled for this week.</p>
+                                <div className="flex flex-col gap-3 rounded-xl border border-border/50 bg-[hsl(var(--muted)_/_0.3)] px-5 py-5 sm:flex-row sm:items-center sm:gap-4">
+                                  <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border border-border/40 bg-background/40 text-primary/85 shadow-sm">
+                                    <FlaskConical className="h-5 w-5" aria-hidden />
+                                  </div>
+                                  <div className="min-w-0 text-left">
+                                    <p className="text-sm font-semibold text-foreground">No weekly assessment</p>
+                                    <p className="mt-1 text-xs leading-relaxed text-muted-foreground">
+                                      {isCalendarLocked
+                                        ? "This week hasn't opened on the calendar yet. Your instructor may still add a weekly assessment before it unlocks."
+                                        : locked
+                                          ? 'No weekly assessment is listed for this week.'
+                                          : "This week doesn't include a scheduled test — continue with your lessons."}
+                                    </p>
+                                  </div>
                                 </div>
                               )}
                             </div>
