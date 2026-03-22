@@ -520,9 +520,9 @@ export default function Courses() {
                         <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent opacity-60" />
                       </div>
 
-                      <div className="flex-1 px-5 pt-3 pb-2">
+                      <div className="flex-1 px-5 pt-5 pb-4 flex flex-col gap-4">
                         <div className="flex items-start justify-between gap-3">
-                          <h3 className="text-xl line-clamp-1 font-bold leading-tight flex-1 min-w-0" title={course.title}>
+                          <h3 className="text-xl line-clamp-1 font-bold leading-snug flex-1 min-w-0" title={course.title}>
                             {course.title}
                           </h3>
                           {course.batch_status && (
@@ -541,18 +541,18 @@ export default function Courses() {
                           )}
                         </div>
                         {course.batch_name && (
-                          <p className="mt-1 text-base text-muted-foreground flex items-center gap-1.5">
+                          <p className="text-base text-muted-foreground flex items-center gap-1.5">
                             <Layers className="h-4 w-4 text-primary/70 shrink-0" />
                             <span className="truncate font-medium">{course.batch_name}</span>
                           </p>
                         )}
                         {course.description && (
-                          <p className="mt-1 line-clamp-2 text-sm text-muted-foreground" title={course.description}>
+                          <p className="line-clamp-2 text-sm text-muted-foreground leading-relaxed" title={course.description}>
                             {course.description}
                           </p>
                         )}
                         {Array.isArray(course.tags) && course.tags.length > 0 && (
-                          <div className="mt-3 flex gap-2 flex-wrap mb-1 max-h-16 overflow-hidden">
+                          <div className="flex gap-2 flex-wrap max-h-16 overflow-hidden">
                             {course.tags.slice(0, 8).map((tag, idx) => (
                               <Badge
                                 key={idx}
@@ -571,8 +571,8 @@ export default function Courses() {
                         )}
                       </div>
 
-                      <div className="px-5 pt-2 pb-2">
-                        <div className="bg-muted/30 border border-border/50 rounded-xl px-3 py-2">
+                      <div className="px-5 pt-1 pb-3">
+                        <div className="bg-muted/30 border border-border/50 rounded-xl px-3 py-3">
                           <div className="flex items-center justify-between gap-3 text-sm text-muted-foreground">
                             <div className="flex items-center gap-1.5 min-w-0">
                               <BookOpen className="h-4 w-4 text-primary/70 shrink-0" />
@@ -598,12 +598,12 @@ export default function Courses() {
                         </div>
                       </div>
 
-                      <div className="px-5 pb-4 pt-2">
-                        <div className="flex items-center justify-between text-sm mb-1">
+                      <div className="px-5 pb-5 pt-2">
+                        <div className="flex items-center justify-between text-sm mb-2.5 mt-1">
                           <span className="font-medium text-muted-foreground">Progress</span>
                           <span className="font-bold text-foreground">{progress}%</span>
                         </div>
-                        <div className="h-2 w-full bg-muted rounded-full overflow-hidden mb-3">
+                        <div className="h-2.5 w-full bg-muted rounded-full overflow-hidden mb-4">
                           <div
                             className="h-full bg-gradient-to-r from-primary to-primary/80 rounded-full transition-all duration-500"
                             style={{ width: `${progress}%` }}
@@ -622,7 +622,10 @@ export default function Courses() {
                             'w-full font-bold h-10 transition-all duration-300 rounded-xl',
                             course.learning_status !== 'review' &&
                               !course.batch_content_starts_at &&
-                              'shadow-md group-hover:shadow-lg'
+                              'shadow-md group-hover:shadow-lg',
+                            /* Match outline “Review Course” vibrancy; native disabled applies opacity-50 */
+                            !!course.batch_content_starts_at &&
+                              'disabled:opacity-100 disabled:border-primary disabled:text-primary'
                           )}
                         >
                           <span className="flex items-center justify-center">
