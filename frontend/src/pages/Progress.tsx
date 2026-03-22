@@ -814,7 +814,7 @@ export default function Progress() {
                   <Button 
                     variant="outline" 
                     size="sm"
-                    className="shrink-0 gap-1.5 text-primary border-primary/40 hover:bg-primary/5"
+                    className="shrink-0 gap-1.5 border-primary/40 text-primary hover:bg-primary hover:text-primary-foreground dark:border-primary/50"
                     onClick={() => {
                       const batch = batches.find(b => b.id === selectedBatchId);
                       if (batch?.course) {
@@ -935,7 +935,7 @@ export default function Progress() {
                 <Button 
                   variant="outline" 
                   size="sm"
-                  className="shrink-0 gap-1.5 text-primary border-primary/40 hover:bg-primary/5"
+                  className="shrink-0 gap-1.5 border-primary/40 text-primary hover:bg-primary hover:text-primary-foreground dark:border-primary/50"
                   onClick={() => navigate('/assessments')}
                 >
                   View All

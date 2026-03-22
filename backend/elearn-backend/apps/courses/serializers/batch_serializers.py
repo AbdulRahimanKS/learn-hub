@@ -5,9 +5,15 @@ from drf_spectacular.utils import extend_schema_field
 from drf_spectacular.types import OpenApiTypes
 from utils.common import ServiceError
 from rest_framework import serializers
-from apps.courses.models import Course, Batch, BatchEnrollment
+from apps.courses.models import Course, Batch, BatchEnrollment, BatchWeek, BatchClassSession, StudentSessionView, TestSubmission, BatchWeeklyTest
 from rest_framework import status
-from apps.courses.models import BatchEnrollment as BE, StudentSessionView, BatchWeeklyTest, TestSubmission, BatchClassSession
+from apps.courses.models import BatchEnrollment as BE
+from utils.progress_utils import (
+    average_week_based_progress_percent,
+    count_consecutive_completed_weeks,
+    week_based_progress_percent,
+    week_based_progress_percent_float,
+)
 
 
 class BatchListSerializer(serializers.ModelSerializer):
@@ -36,12 +42,6 @@ class BatchListSerializer(serializers.ModelSerializer):
         if not request or not request.user.is_authenticated:
             return 0.0
 
-        total_sessions = BatchClassSession.objects.filter(batch_week__batch=obj).count()
-        total_tests = BatchWeeklyTest.objects.filter(batch_week__batch=obj).count()
-        total_items = total_sessions + total_tests
-        if total_items == 0:
-            return 0.0
-
         enrollment = self.context.get('enrollment')
         if not enrollment:
             enrollment = BE.objects.filter(
@@ -50,36 +50,16 @@ class BatchListSerializer(serializers.ModelSerializer):
                 status__in=[BE.Status.ACTIVE, BE.Status.COMPLETED]
             ).first()
 
-        # Student view: show that student's own progress in the batch.
+        # Student view: week-based progress (sessions + tests per week, consecutive from week 1).
         if enrollment:
-            completed_sessions = StudentSessionView.objects.filter(enrollment=enrollment, is_completed=True).count()
-            completed_tests = TestSubmission.objects.filter(
-                enrollment=enrollment,
-                is_passed=True,
-                status=TestSubmission.Status.PUBLISHED
-            ).count()
-            return min(100.0, round((completed_sessions + completed_tests) / total_items * 100, 1))
+            return week_based_progress_percent_float(enrollment)
 
-        # Admin/teacher view: show aggregate progress across active + completed students.
+        # Admin/teacher view: average week-based progress across active + completed students.
         relevant_enrollments = BE.objects.filter(
             batch=obj,
             status__in=[BE.Status.ACTIVE, BE.Status.COMPLETED]
         )
-        relevant_count = relevant_enrollments.count()
-        if relevant_count == 0:
-            return 0.0
-
-        completed_sessions = StudentSessionView.objects.filter(
-            enrollment__in=relevant_enrollments,
-            is_completed=True
-        ).count()
-        completed_tests = TestSubmission.objects.filter(
-            enrollment__in=relevant_enrollments,
-            is_passed=True,
-            status=TestSubmission.Status.PUBLISHED
-        ).count()
-        total_possible_completions = total_items * relevant_count
-        return min(100.0, round((completed_sessions + completed_tests) / total_possible_completions * 100, 1))
+        return average_week_based_progress_percent(relevant_enrollments)
 
     @extend_schema_field(OpenApiTypes.INT)
     def get_weeks_count(self, obj):
@@ -171,7 +151,7 @@ class BatchEnrollmentSerializer(serializers.ModelSerializer):
     student_email = serializers.EmailField(source='student.email', read_only=True)
     profile_picture = serializers.SerializerMethodField()
 
-    # Progress fields (Mocked for now, to be implemented with real logic)
+    # Progress: week-based (all sessions in week + passed weekly test if present); see progress_utils.
     overall_progress = serializers.SerializerMethodField()
     weeks_completed = serializers.SerializerMethodField()
     total_weeks = serializers.SerializerMethodField()
@@ -215,7 +195,6 @@ class BatchEnrollmentSerializer(serializers.ModelSerializer):
 
     @extend_schema_field(serializers.ListField(child=serializers.DictField()))
     def get_weeks_access_status(self, obj):
-        from apps.courses.models import BatchWeek, TestSubmission, StudentSessionView, BatchClassSession
         weeks = BatchWeek.objects.filter(batch=obj.batch).order_by('week_number')
         manual_unlocked_ids = set(obj.manual_unlocks.values_list('batch_week_id', flat=True))
         
@@ -244,7 +223,7 @@ class BatchEnrollmentSerializer(serializers.ModelSerializer):
                         # B. Check Test
                         if hasattr(pw, 'weekly_test') and pw.weekly_test:
                             if not TestSubmission.objects.filter(
-                                enrollment=obj, batch_weekly_test=pw.weekly_test, status='published', is_passed=True
+                                enrollment=obj, batch_weekly_test=pw.weekly_test, status=TestSubmission.Status.PUBLISHED, is_passed=True
                             ).exists():
                                 is_system_unlocked = False
                                 break
@@ -270,39 +249,11 @@ class BatchEnrollmentSerializer(serializers.ModelSerializer):
 
     @extend_schema_field(OpenApiTypes.INT)
     def get_overall_progress(self, obj):
-        from apps.courses.models import BatchClassSession, StudentSessionView, BatchWeeklyTest, TestSubmission
-        total_sessions = BatchClassSession.objects.filter(batch_week__batch=obj.batch).count()
-        total_tests = BatchWeeklyTest.objects.filter(batch_week__batch=obj.batch).count()
-        total_items = total_sessions + total_tests
-        
-        if total_items == 0:
-            return 0
-            
-        completed_sessions = StudentSessionView.objects.filter(enrollment=obj, is_completed=True).count()
-        completed_tests = TestSubmission.objects.filter(enrollment=obj, is_passed=True, status='published').count()
-        completed_items = completed_sessions + completed_tests
-        
-        return min(100, round((completed_items / total_items) * 100))
+        return week_based_progress_percent(obj)
 
     @extend_schema_field(OpenApiTypes.INT)
     def get_weeks_completed(self, obj):
-        from apps.courses.models import BatchWeek, TestSubmission
-        all_weeks = BatchWeek.objects.filter(batch=obj.batch).order_by('week_number')
-        completed = 0
-        for week in all_weeks:
-            # A week is completed if test (if exists) is passed
-            if hasattr(week, 'weekly_test') and week.weekly_test:
-                if TestSubmission.objects.filter(enrollment=obj, batch_weekly_test=week.weekly_test, status='published', is_passed=True).exists():
-                    completed += 1
-                else:
-                    # If there's a test and it's not passed, we stop counting linear progress
-                    break
-            else:
-                # If no test, and we reached here, consider it "done" if it's unlocked 
-                # (This is simplified, could also check session completion)
-                if week.is_unlocked:
-                    completed += 1
-        return completed
+        return count_consecutive_completed_weeks(obj)
 
     @extend_schema_field(OpenApiTypes.INT)
     def get_total_weeks(self, obj):
@@ -310,27 +261,22 @@ class BatchEnrollmentSerializer(serializers.ModelSerializer):
 
     @extend_schema_field(OpenApiTypes.INT)
     def get_total_weekly_tests(self, obj):
-        from apps.courses.models import BatchWeeklyTest
         return BatchWeeklyTest.objects.filter(batch_week__batch=obj.batch).count()
 
     @extend_schema_field(OpenApiTypes.INT)
     def get_weekly_tests_submitted(self, obj):
-        from apps.courses.models import TestSubmission
-        return TestSubmission.objects.filter(enrollment=obj, status='published', is_passed=True).count()
+        return TestSubmission.objects.filter(enrollment=obj, status=TestSubmission.Status.PUBLISHED, is_passed=True).count()
 
     @extend_schema_field(OpenApiTypes.INT)
     def get_videos_watched(self, obj):
-        from apps.courses.models import StudentSessionView
         return StudentSessionView.objects.filter(enrollment=obj, is_completed=True).count()
 
     @extend_schema_field(OpenApiTypes.INT)
     def get_total_videos(self, obj):
-        from apps.courses.models import BatchClassSession
         return BatchClassSession.objects.filter(batch_week__batch=obj.batch).count()
 
     @extend_schema_field(serializers.ListField(child=serializers.DictField()))
     def get_week_details(self, obj):
-        from apps.courses.models import BatchWeek, BatchClassSession, StudentSessionView, TestSubmission
         weeks = BatchWeek.objects.filter(batch=obj.batch).order_by('week_number')
         result = []
         for week in weeks:
@@ -351,7 +297,7 @@ class BatchEnrollmentSerializer(serializers.ModelSerializer):
                 submission = TestSubmission.objects.filter(
                     enrollment=obj,
                     batch_weekly_test=weekly_test,
-                    status='published'
+                    status=TestSubmission.Status.PUBLISHED
                 ).order_by('-submitted_at').first()
                 test_info = {
                     'exists': True,

@@ -16,7 +16,7 @@ from apps.courses.serializers import (
 )
 from apps.users.serializers.user_management_serializers import UserManagementSerializer
 from apps.users.models import Notification, User
-from apps.courses.models import BatchWeek
+from apps.courses.models import BatchWeek, StudentSessionView, TestSubmission, ManualStudentWeekUnlock
 
 from utils.permissions import IsAuthenticated, IsSuperAdminAdminOrTeacher
 from utils.common import (
@@ -992,7 +992,6 @@ class BatchStudentWeekUnlockToggleView(APIView):
             if not batch_week:
                 raise ServiceError(detail=f"Week {week_number} not found in this batch.", status_code=status.HTTP_404_NOT_FOUND)
 
-            from apps.courses.models import ManualStudentWeekUnlock
             if action == 'unlock':
                 ManualStudentWeekUnlock.objects.get_or_create(
                     enrollment=enrollment,
@@ -1002,8 +1001,6 @@ class BatchStudentWeekUnlockToggleView(APIView):
                 message = f"Week {week_number} unlocked manually."
             else:
                 # Check for student progress in this week before revoking
-                from apps.courses.models import StudentSessionView, TestSubmission, ManualStudentWeekUnlock
-                
                 has_session_progress = StudentSessionView.objects.filter(
                     enrollment=enrollment, 
                     batch_session__batch_week=batch_week, 
@@ -1016,10 +1013,10 @@ class BatchStudentWeekUnlockToggleView(APIView):
                 ).exists()
 
                 if has_session_progress or has_test_progress:
-                     raise ServiceError(
-                         detail=f"Cannot revoke unlock for week {week_number} because the student has already started consuming content or attempted tests in this week.",
-                         status_code=status.HTTP_400_BAD_REQUEST
-                     )
+                    raise ServiceError(
+                        detail=f"Cannot revoke unlock for week {week_number} because the student has already started consuming content or attempted tests in this week.",
+                        status_code=status.HTTP_400_BAD_REQUEST
+                    )
 
                 ManualStudentWeekUnlock.objects.filter(
                     enrollment=enrollment,

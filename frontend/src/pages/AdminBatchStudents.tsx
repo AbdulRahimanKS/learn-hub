@@ -416,7 +416,7 @@ export default function AdminBatchStudents() {
             {enrolledStudents.length > 0 && stats.active > 0 && (
               <Button 
                 variant="outline" 
-                className="text-primary border-primary/20 hover:bg-primary/5 gap-2"
+                className="gap-2 border-primary/25 text-primary hover:bg-primary hover:text-primary-foreground dark:border-primary/40"
                 onClick={() => setIsBulkConfirmOpen(true)}
               >
                 <CheckCircle2 className="h-4 w-4" />
@@ -980,7 +980,8 @@ export default function AdminBatchStudents() {
                                         size="sm"
                                         variant="outline"
                                         className={cn(
-                                          "h-8 px-3 text-[11px] font-bold uppercase tracking-wider text-primary hover:bg-primary/5 border-primary/20",
+                                          "h-8 border-primary/25 px-3 text-[11px] font-bold uppercase tracking-wider text-primary",
+                                          "hover:bg-primary hover:text-primary-foreground dark:border-primary/40",
                                           isDropped && "opacity-50 cursor-not-allowed"
                                         )}
                                         onClick={() => !isDropped && handleToggleWeekUnlock(enrollment.id, weekNo, 'unlock')}

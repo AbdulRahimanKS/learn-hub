@@ -4,7 +4,8 @@ Serializers for the Course models.
 from drf_spectacular.utils import extend_schema_field
 from drf_spectacular.types import OpenApiTypes
 from rest_framework import serializers
-from apps.courses.models import Course, Tag, BatchEnrollment, BatchClassSession, StudentSessionView, BatchWeeklyTest, TestSubmission, BatchWeek
+from apps.courses.models import Course, Tag, BatchEnrollment, BatchWeek, StudentSessionView
+from utils.progress_utils import week_based_progress_percent
 from utils.common import ServiceError
 from rest_framework import status
 
@@ -136,15 +137,7 @@ class CourseListSerializer(serializers.ModelSerializer):
         enrollment = self._get_enrollment(obj)
         if not enrollment:
             return 0
-        total_sessions = BatchClassSession.objects.filter(batch_week__batch=enrollment.batch).count()
-        total_tests = BatchWeeklyTest.objects.filter(batch_week__batch=enrollment.batch).count()
-        total_items = total_sessions + total_tests
-        if total_items == 0:
-            return 0
-        completed_sessions = StudentSessionView.objects.filter(enrollment=enrollment, is_completed=True).count()
-        completed_tests = TestSubmission.objects.filter(enrollment=enrollment, is_passed=True, status=TestSubmission.Status.PUBLISHED).count()
-        completed_items = completed_sessions + completed_tests
-        return min(100, round((completed_items / total_items) * 100))
+        return week_based_progress_percent(enrollment)
 
 
 class CourseDetailSerializer(serializers.ModelSerializer):
@@ -233,15 +226,7 @@ class CourseDetailSerializer(serializers.ModelSerializer):
         enrollment = self._get_enrollment(obj)
         if not enrollment:
             return 0
-        total_sessions = BatchClassSession.objects.filter(batch_week__batch=enrollment.batch).count()
-        total_tests = BatchWeeklyTest.objects.filter(batch_week__batch=enrollment.batch).count()
-        total_items = total_sessions + total_tests
-        if total_items == 0:
-            return 0
-        completed_sessions = StudentSessionView.objects.filter(enrollment=enrollment, is_completed=True).count()
-        completed_tests = TestSubmission.objects.filter(enrollment=enrollment, is_passed=True, status=TestSubmission.Status.PUBLISHED).count()
-        completed_items = completed_sessions + completed_tests
-        return min(100, round((completed_items / total_items) * 100))
+        return week_based_progress_percent(enrollment)
 
 
 class CourseCreateUpdateSerializer(serializers.ModelSerializer):

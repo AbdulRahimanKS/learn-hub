@@ -338,7 +338,7 @@ export default function Assessments() {
                             <div className="flex items-center gap-3">
                               <Button 
                                 variant="outline"
-                                className="font-bold rounded-xl border-primary/20 text-primary hover:bg-primary/5 h-10 px-4"
+                                className="h-10 rounded-xl border-primary/25 px-4 font-bold text-primary hover:bg-primary hover:text-primary-foreground dark:border-primary/40"
                                 onClick={() => handleTriggerAI(item.id)}
                                 disabled={evaluatingIds.includes(item.id)}
                               >
