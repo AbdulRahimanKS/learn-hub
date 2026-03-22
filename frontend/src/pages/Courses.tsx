@@ -580,7 +580,9 @@ export default function Courses() {
                             </div>
                             <div className="flex items-center gap-1.5 min-w-0">
                               <Calendar className="h-4 w-4 text-primary/70 shrink-0" />
-                              <span className="truncate">{totalWeeks} Weeks</span>
+                              <span className="truncate">
+                                {totalWeeks} {totalWeeks === 1 ? 'Week' : 'Weeks'}
+                              </span>
                             </div>
                             <div className="flex items-center gap-1.5 min-w-0 justify-end">
                               <Calendar className="h-4 w-4 text-primary/70 shrink-0" />
