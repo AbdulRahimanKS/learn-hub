@@ -350,28 +350,24 @@ export default function Courses() {
     return acc + sessionCount + testCount;
   }, 0);
 
-  const completedSessions = weeks.reduce((acc, w) => {
-    const completedSessionCount =
-      (w.class_sessions ?? []).filter((s: ClassSession) => s.is_completed).length;
-    const completedTestCount =
-      w.weekly_test && 'is_passed' in w.weekly_test && w.weekly_test.is_passed ? 1 : 0;
-    return acc + completedSessionCount + completedTestCount;
-  }, 0);
+  /** Week-based progress from API (matches My Courses cards); not session-item counts. */
+  const headerProgressPercent = Math.min(100, selectedCourse?.progress_percent ?? 0);
 
-  const inProgressWeek = weeks.find(w => {
-    const lockInfo = getWeekLockInfo(w);
-    if (lockInfo.is_locked) return false;
-    const sessions: ClassSession[] = w.class_sessions || [];
-    return sessions.some(s => !s.is_completed) || sessions.length === 0;
-  });
+  /** Matches list card: completed batch → Review, not “Starts …” on calendar lock. */
+  const isEnrollmentReviewLike =
+    selectedCourse?.learning_status === 'review' ||
+    selectedCourse?.batch_status === 'completed';
 
   const firstWeekLockInfo = weeks.length > 0 ? getWeekLockInfo(weeks[0]) : null;
-  const isBatchNotStarted = firstWeekLockInfo?.is_locked && firstWeekLockInfo?.reason === 'date_locked';
+  const isBatchNotStarted =
+    !isEnrollmentReviewLike &&
+    firstWeekLockInfo?.is_locked &&
+    firstWeekLockInfo?.reason === 'date_locked';
   const batchUnlockDate = isBatchNotStarted && firstWeekLockInfo && 'unlock_date' in firstWeekLockInfo
     ? (firstWeekLockInfo as { unlock_date: string }).unlock_date
     : null;
   
-  const isUpToDate = totalSessions > 0 && completedSessions === totalSessions;
+  const isUpToDate = isEnrollmentReviewLike || headerProgressPercent >= 100;
 
   const formatSessionDuration = (seconds: number) => {
     if (!seconds || seconds <= 0) return '0:00';
@@ -758,30 +754,20 @@ export default function Courses() {
                   <div className="w-full lg:w-80 shrink-0 bg-white/10 backdrop-blur-md border border-white/20 rounded-2xl p-5 md:p-6 shadow-xl">
                   <div className="flex items-center justify-between mb-2">
                     <span className="text-[10px] font-black uppercase tracking-[0.2em] text-primary-foreground/50">Overall Progress</span>
-                    <span className="text-lg md:text-xl font-black text-primary-foreground">{totalSessions > 0 ? Math.round((completedSessions / totalSessions) * 100) : 0}%</span>
+                    <span className="text-lg md:text-xl font-black text-primary-foreground">{Math.round(headerProgressPercent)}%</span>
                   </div>
                   <div className="h-2 w-full bg-white/10 rounded-full overflow-hidden border border-white/5">
                     <div 
                       className="h-full bg-gradient-to-r from-emerald-400 to-emerald-500 rounded-full transition-all duration-1000 ease-out shadow-[0_0_10px_rgba(52,211,153,0.3)]"
-                      style={{ width: `${totalSessions > 0 ? (completedSessions / totalSessions) * 100 : 0}%` }}
+                      style={{ width: `${headerProgressPercent}%` }}
                     />
-                  </div>
-                  <div className="flex items-center gap-4 mt-3">
-                    <div className="flex items-center gap-1.5">
-                      <div className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
-                      <span className="text-[9px] md:text-[10px] font-bold text-primary-foreground/50 uppercase tracking-wider">{completedSessions} DONE</span>
-                    </div>
-                    <div className="flex items-center gap-1.5">
-                      <div className="w-1.5 h-1.5 rounded-full bg-white/20" />
-                      <span className="text-[9px] md:text-[10px] font-bold text-primary-foreground/50 uppercase tracking-wider">{totalSessions - completedSessions} LEFT</span>
-                    </div>
                   </div>
                   <Button
                     onClick={handleStartLearning}
                     disabled={isBatchNotStarted}
                     variant={isBatchNotStarted ? 'hero-outline' : 'gradient'}
                     className={cn(
-                      "w-full mt-4 md:mt-5 font-black h-10 md:h-11 rounded-xl shadow-lg transition-all text-xs md:text-sm"
+                      "w-full mt-4 md:mt-6 font-black h-10 md:h-11 rounded-xl shadow-lg transition-all text-xs md:text-sm"
                     )}
                   >
                     {isBatchNotStarted ? (
@@ -792,12 +778,14 @@ export default function Courses() {
                     ) : isUpToDate ? (
                       <>
                         <CheckCircle2 className="w-3.5 h-3.5 mr-2 text-emerald-500" />
-                        Review Lessons
+                        Review Course
                       </>
                     ) : (
                       <>
                         <Play className="w-3.5 h-3.5 mr-2 fill-current" />
-                        {completedSessions === 0 ? 'Start Learning' : 'Continue Journey'}
+                        {selectedCourse.learning_status === 'continue_learning'
+                          ? 'Continue Learning'
+                          : 'Start Learning'}
                       </>
                     )}
                   </Button>
