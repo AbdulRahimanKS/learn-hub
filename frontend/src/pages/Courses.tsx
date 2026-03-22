@@ -610,20 +610,43 @@ export default function Courses() {
                           />
                         </div>
                         <Button
-                          variant={course.learning_status === 'review' ? 'outline' : 'gradient'}
+                          variant={
+                            course.learning_status === 'review'
+                              ? 'outline'
+                              : course.batch_content_starts_at
+                                ? 'outline'
+                                : 'gradient'
+                          }
+                          disabled={!!course.batch_content_starts_at}
                           className={cn(
                             'w-full font-bold h-10 transition-all duration-300 rounded-xl',
-                            course.learning_status !== 'review' && 'shadow-md group-hover:shadow-lg'
+                            course.learning_status !== 'review' &&
+                              !course.batch_content_starts_at &&
+                              'shadow-md group-hover:shadow-lg'
                           )}
                         >
-                          <span className="flex items-center">
-                            {course.learning_status === 'review'
-                              ? 'Review Course'
-                              : course.learning_status === 'continue_learning'
-                              ? 'Continue Learning'
-                              : 'Start Learning'}
-                            {course.learning_status !== 'review' && (
-                              <Play className="h-4 w-4 ml-2 fill-current opacity-80" />
+                          <span className="flex items-center justify-center">
+                            {course.learning_status === 'review' ? (
+                              'Review Course'
+                            ) : course.batch_content_starts_at ? (
+                              <>
+                                <Calendar className="h-4 w-4 mr-2 shrink-0" />
+                                Starts{' '}
+                                {new Date(course.batch_content_starts_at).toLocaleDateString('en-US', {
+                                  month: 'short',
+                                  day: 'numeric',
+                                })}
+                              </>
+                            ) : course.learning_status === 'continue_learning' ? (
+                              <>
+                                Continue Learning
+                                <Play className="h-4 w-4 ml-2 fill-current opacity-80" />
+                              </>
+                            ) : (
+                              <>
+                                Start Learning
+                                <Play className="h-4 w-4 ml-2 fill-current opacity-80" />
+                              </>
                             )}
                           </span>
                         </Button>

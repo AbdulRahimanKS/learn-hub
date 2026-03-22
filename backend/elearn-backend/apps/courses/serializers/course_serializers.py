@@ -4,7 +4,14 @@ Serializers for the Course models.
 from drf_spectacular.utils import extend_schema_field
 from drf_spectacular.types import OpenApiTypes
 from rest_framework import serializers
-from apps.courses.models import Course, Tag, BatchEnrollment, BatchWeek, StudentSessionView
+from apps.courses.models import (
+    Course,
+    Tag,
+    BatchEnrollment,
+    BatchWeek,
+    StudentSessionView,
+    ManualStudentWeekUnlock,
+)
 from utils.progress_utils import week_based_progress_percent
 from utils.common import ServiceError
 from rest_framework import status
@@ -131,6 +138,35 @@ class CourseListSerializer(serializers.ModelSerializer):
         if completed_sessions > 0:
             return 'continue_learning'
         return 'start_learning'
+
+    def _batch_content_starts_at_value(self, obj):
+        """
+        When week 1 is still calendar-locked for this student, return its unlock datetime
+        (same rule as BatchWeekSerializer.student_lock_status date_locked). Used on My Courses
+        cards to show 'Starts Mar 23' before the student opens the course.
+        """
+        enrollment = self._get_enrollment(obj)
+        if not enrollment or enrollment.status != BatchEnrollment.Status.ACTIVE:
+            return None
+        first_week = (
+            BatchWeek.objects.filter(batch=enrollment.batch)
+            .order_by('week_number')
+            .first()
+        )
+        if not first_week or not first_week.unlock_date:
+            return None
+        if ManualStudentWeekUnlock.objects.filter(
+            enrollment=enrollment, batch_week=first_week
+        ).exists():
+            return None
+        if first_week.is_unlocked:
+            return None
+        return first_week.unlock_date
+
+    def to_representation(self, instance):
+        data = super().to_representation(instance)
+        data['batch_content_starts_at'] = self._batch_content_starts_at_value(instance)
+        return data
 
     @extend_schema_field(OpenApiTypes.INT)
     def get_progress_percent(self, obj):

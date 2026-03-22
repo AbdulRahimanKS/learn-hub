@@ -18,6 +18,8 @@ export interface Course {
   batch_teacher_name?: string | null;
   learning_status?: 'start_learning' | 'continue_learning' | 'review';
   progress_percent?: number;
+  /** When set, week 1 is calendar-locked until this instant (batch courses). */
+  batch_content_starts_at?: string | null;
   created_at: string;
   updated_at: string;
 }
