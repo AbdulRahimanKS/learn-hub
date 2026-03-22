@@ -26,13 +26,6 @@ import {
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select"
-import {
   Plus,
   Video,
   VideoIcon,
@@ -55,7 +48,8 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
 import { liveSessionApi, LiveSession } from '@/lib/live-session-api';
-import { batchApi } from '@/lib/batch-api';
+import type { Batch } from '@/lib/batch-api';
+import { BatchFilterCombobox } from '@/components/BatchFilterCombobox';
 import { format } from 'date-fns';
 import { cn } from '@/lib/utils';
 import { useForm } from "react-hook-form";
@@ -98,9 +92,8 @@ export default function LiveSessions() {
   const isStudent = user?.role === 'student';
   const isAdminOrTeacher = !isStudent;
 
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false);
   const [sessions, setSessions] = useState<LiveSession[]>([]);
-  const [batches, setBatches] = useState<any[]>([]);
   const [selectedBatchId, setSelectedBatchId] = useState<number | null>(null);
   const [selectedBatchName, setSelectedBatchName] = useState('');
   
@@ -124,22 +117,11 @@ export default function LiveSessions() {
     },
   });
 
-  // Fetch batches for admin/teacher or for student
-  const fetchBatches = useCallback(async () => {
-    try {
-      const res = await batchApi.getBatches({ paginate: false });
-      if (res.success && Array.isArray(res.data) && res.data.length > 0) {
-        setBatches(res.data);
-        setSelectedBatchId(res.data[0].id);
-        setSelectedBatchName(res.data[0].name);
-      } else {
-        setLoading(false);
-      }
-    } catch (err) {
-      setLoading(false);
-      toast({ title: 'Error', description: 'Failed to fetch batches', variant: 'destructive' });
-    }
-  }, [toast]);
+  const handleLiveBatchChange = useCallback((id: string, batch: Batch) => {
+    setSelectedBatchId(Number(id));
+    setSelectedBatchName(batch.name);
+    setCurrentPage(1);
+  }, []);
 
   const fetchSessions = useCallback(async (batchId: number, tab: string, page: number) => {
     setLoading(true);
@@ -157,10 +139,6 @@ export default function LiveSessions() {
       setLoading(false);
     }
   }, [toast]);
-
-  useEffect(() => {
-    fetchBatches();
-  }, [fetchBatches]);
 
   useEffect(() => {
     if (selectedBatchId) {
@@ -267,42 +245,30 @@ export default function LiveSessions() {
         </div>
 
         {/* Batch Selection (Admins and Students have specific batches) */}
-        <div className="flex flex-col sm:flex-row items-center justify-between gap-4 p-5 rounded-2xl bg-card border shadow-sm">
-          <div className="flex items-center gap-3">
+        <div className="flex min-w-0 flex-col items-center justify-between gap-4 p-5 sm:flex-row sm:items-center rounded-2xl bg-card border shadow-sm">
+          <div className="flex min-w-0 items-center gap-3">
             <div className="w-10 h-10 rounded-xl bg-primary/10 text-primary flex items-center justify-center shrink-0">
                <BookOpen className="w-5 h-5" />
             </div>
-            <div>
+            <div className="min-w-0">
               <p className="text-sm font-medium text-muted-foreground">Course Batch</p>
-              <h3 className="font-bold text-foreground">{selectedBatchName || 'Select a batch'}</h3>
+              <h3
+                className="truncate font-bold text-foreground"
+                title={selectedBatchName || undefined}
+              >
+                {selectedBatchName || 'Select a batch'}
+              </h3>
             </div>
           </div>
           
-          <div className="flex-1 w-full sm:w-auto sm:max-w-[280px]">
-            <Select 
-              value={selectedBatchId?.toString()} 
-              onValueChange={(val) => {
-                const bId = Number(val);
-                setSelectedBatchId(bId);
-                const selectedBatch = batches.find(b => b.id === bId);
-                if (selectedBatch) {
-                  setSelectedBatchName(selectedBatch.name);
-                }
-                setCurrentPage(1);
-              }}
-              disabled={batches.length === 0}
-            >
-              <SelectTrigger className="w-full h-11 bg-background rounded-xl">
-                <SelectValue placeholder="Select course batch" />
-              </SelectTrigger>
-              <SelectContent className="rounded-xl">
-                {batches.map(batch => (
-                  <SelectItem key={batch.id} value={batch.id.toString()} className="font-medium cursor-pointer">
-                    {batch.name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+          <div className="w-full min-w-0 sm:w-[min(280px,100%)] sm:max-w-[280px]">
+            <BatchFilterCombobox
+              value={selectedBatchId?.toString() ?? ''}
+              selectedLabel={selectedBatchName}
+              onValueChange={handleLiveBatchChange}
+              placeholder="Select course batch"
+              className="h-11 border-border bg-background font-semibold"
+            />
           </div>
         </div>
 

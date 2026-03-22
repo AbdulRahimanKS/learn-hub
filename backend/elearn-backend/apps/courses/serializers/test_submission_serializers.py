@@ -1,7 +1,7 @@
 from drf_spectacular.utils import extend_schema_field
 from drf_spectacular.types import OpenApiTypes
 from rest_framework import serializers
-from apps.courses.models import TestSubmission, TestSubmissionAnswer, BatchTestQuestion
+from apps.courses.models import TestSubmission, TestSubmissionAnswer
 
 class TestSubmissionAnswerSerializer(serializers.ModelSerializer):
     question_text = serializers.CharField(source='question.text', read_only=True)
@@ -58,7 +58,6 @@ class TestSubmissionSerializer(serializers.ModelSerializer):
                 data = TestSubmissionAnswerSerializer(ans, context=self.context).data
                 data['is_attended'] = True
             else:
-                # Mock the structure for unattended questions
                 data = {
                     'id': f"unattended-{q.id}",
                     'question': q.id,

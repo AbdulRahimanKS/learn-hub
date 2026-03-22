@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
+import { BatchFilterCombobox } from '@/components/BatchFilterCombobox';
 import { useAuth } from '@/contexts/AuthContext';
 import { DashboardLayout } from '@/components/layout/DashboardLayout';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
@@ -40,14 +41,7 @@ import {
   User,
   ChevronRight,
 } from 'lucide-react';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select"
-import { batchApi, batchContentApi, BatchWeek } from '@/lib/batch-api';
+import { batchApi, batchContentApi, BatchWeek, type Batch } from '@/lib/batch-api';
 import { useToast } from '@/hooks/use-toast';
 import { useNavigate } from 'react-router-dom';
 import {
@@ -67,9 +61,9 @@ export default function Progress() {
   const navigate = useNavigate();
   const isStudent = user?.role === 'student';
 
-  const [batches, setBatches] = useState<any[]>([]);
   const [selectedBatchId, setSelectedBatchId] = useState<number | null>(null);
   const [selectedBatchName, setSelectedBatchName] = useState('');
+  const [selectedBatchCourseId, setSelectedBatchCourseId] = useState<number | null>(null);
   
   // Shared loading
   const [loading, setLoading] = useState(true);
@@ -106,26 +100,13 @@ export default function Progress() {
     return () => clearTimeout(timer);
   }, [search]);
 
-  // Fetch Batches
-  const fetchBatches = useCallback(async () => {
-    try {
-      const res = await batchApi.getBatches({ paginate: false });
-      if (res.success && Array.isArray(res.data) && res.data.length > 0) {
-        setBatches(res.data);
-        setSelectedBatchId(res.data[0].id);
-        setSelectedBatchName(res.data[0].name);
-      } else {
-        setLoading(false);
-      }
-    } catch (err) {
-      setLoading(false);
-      toast({ title: 'Error', description: 'Failed to fetch batches', variant: 'destructive' });
-    }
-  }, [toast]);
-
-  useEffect(() => {
-    fetchBatches();
-  }, [fetchBatches]);
+  const handleProgressBatchChange = useCallback((id: string, batch: Batch) => {
+    setSelectedBatchId(Number(id));
+    setSelectedBatchName(batch.name);
+    setSelectedBatchCourseId(batch.course ?? null);
+    setCurrentPage(1);
+    setSearch('');
+  }, []);
 
   // Fetch Students for Admin
   const fetchAdminData = useCallback(async () => {
@@ -206,7 +187,9 @@ export default function Progress() {
     if (!selectedBatchId) return;
     setIsSubmissionsLoading(true);
     try {
-      const res = await apiClient.get(`/api/courses/v1/test-submissions/my-submissions/?batch_id=${selectedBatchId}`);
+      const res = await apiClient.get(
+        `/api/courses/v1/batches/${selectedBatchId}/test-submissions/my-submissions/`,
+      );
       if (res.data?.success) {
         setSubmissions(res.data.data || []);
       }
@@ -371,35 +354,16 @@ export default function Progress() {
             onChange={(e) => setSearch(e.target.value)} 
           />
         </div>
-        <div className="w-[220px] shrink-0">
-          <Select 
-            value={selectedBatchId?.toString()} 
-            onValueChange={(val) => {
-              const bId = Number(val);
-              setSelectedBatchId(bId);
-              const selectedBatch = batches.find(b => b.id === bId);
-              if (selectedBatch) {
-                setSelectedBatchName(selectedBatch.name);
-              }
-              setCurrentPage(1);
-              setSearch('');
-            }}
-            disabled={batches.length === 0}
-          >
-            <SelectTrigger className="h-10 border-primary text-primary">
-              <div className="flex items-center">
-                <Filter className="h-4 w-4 mr-2" />
-                <SelectValue placeholder="Filter by Batch" />
-              </div>
-            </SelectTrigger>
-            <SelectContent>
-              {batches.map(batch => (
-                <SelectItem key={batch.id} value={batch.id.toString()}>
-                  {batch.name}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+        <div className="w-full min-w-0 shrink-0 sm:w-[min(280px,100%)] sm:max-w-[280px]">
+          <BatchFilterCombobox
+            value={selectedBatchId?.toString() ?? ''}
+            selectedLabel={selectedBatchName}
+            onValueChange={handleProgressBatchChange}
+            onReady={() => setLoading(false)}
+            placeholder="Filter by batch"
+            triggerIcon={<Filter className="h-4 w-4 text-primary" />}
+            className="h-10 border-primary font-semibold text-primary"
+          />
         </div>
       </div>
 
@@ -722,33 +686,16 @@ export default function Progress() {
           <h1 className="font-display text-3xl font-bold text-foreground">My Progress</h1>
           <p className="mt-1 text-muted-foreground">Track your learning journey for this program</p>
         </div>
-        <div className="w-[220px] shrink-0">
-          <Select 
-            value={selectedBatchId?.toString()} 
-            onValueChange={(val) => {
-              const bId = Number(val);
-              setSelectedBatchId(bId);
-              const selectedBatch = batches.find(b => b.id === bId);
-              if (selectedBatch) {
-                setSelectedBatchName(selectedBatch.name);
-              }
-            }}
-            disabled={batches.length === 0}
-          >
-            <SelectTrigger className="h-10 border-primary text-primary">
-              <div className="flex items-center">
-                <BookOpen className="h-4 w-4 mr-2" />
-                <SelectValue placeholder="Select course batch" />
-              </div>
-            </SelectTrigger>
-            <SelectContent>
-              {batches.map(batch => (
-                <SelectItem key={batch.id} value={batch.id.toString()}>
-                  {batch.name}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+        <div className="w-full min-w-0 shrink-0 sm:w-[min(280px,100%)] sm:max-w-[280px]">
+          <BatchFilterCombobox
+            value={selectedBatchId?.toString() ?? ''}
+            selectedLabel={selectedBatchName}
+            onValueChange={handleProgressBatchChange}
+            onReady={() => setLoading(false)}
+            placeholder="Select course batch"
+            triggerIcon={<BookOpen className="h-4 w-4 text-primary" />}
+            className="h-10 border-primary font-semibold text-primary"
+          />
         </div>
       </div>
 
@@ -816,9 +763,8 @@ export default function Progress() {
                     size="sm"
                     className="shrink-0 gap-1.5 border-primary/40 text-primary hover:bg-primary hover:text-primary-foreground dark:border-primary/50"
                     onClick={() => {
-                      const batch = batches.find(b => b.id === selectedBatchId);
-                      if (batch?.course) {
-                        navigate(`/courses/${batch.course}`);
+                      if (selectedBatchCourseId) {
+                        navigate(`/courses/${selectedBatchCourseId}`);
                       } else {
                         navigate('/courses');
                       }

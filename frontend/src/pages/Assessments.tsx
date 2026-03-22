@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { DashboardLayout } from '@/components/layout/DashboardLayout';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -20,8 +20,6 @@ import {
   ChevronRight,
   Loader2,
   Filter,
-  Award,
-  TrendingUp,
   BookOpen,
   Zap,
   Edit3,
@@ -48,15 +46,16 @@ import { WeeklyTestResults } from '@/components/WeeklyTestResults';
 import { WeeklyTestSubmission } from '@/components/WeeklyTestSubmission';
 import { cn } from '@/lib/utils';
 import { format } from 'date-fns';
+import { BatchFilterCombobox } from '@/components/BatchFilterCombobox';
+import type { Batch } from '@/lib/batch-api';
 
 export default function Assessments() {
   const { user } = useAuth();
   const { toast } = useToast();
-  const [batches, setBatches] = useState<any[]>([]);
   const [selectedBatch, setSelectedBatch] = useState<string>('');
+  const [selectedBatchName, setSelectedBatchName] = useState('');
   const [submissions, setSubmissions] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(false);
-  const [isInitialLoading, setIsInitialLoading] = useState(true);
   // Filters & Pagination
   const [selectedWeek, setSelectedWeek] = useState<string>('all');
   const [currentPage, setCurrentPage] = useState(1);
@@ -84,52 +83,52 @@ export default function Assessments() {
     window.scrollTo(0, 0);
   }, []);
 
-  useEffect(() => {
-    fetchBatches();
-  }, [user]);
+  const handleAssessmentBatchChange = useCallback((id: string, batch: Batch) => {
+    setSelectedBatch(id);
+    setSelectedBatchName(batch.name);
+    setSelectedWeek('all');
+    setBatchWeeks([]);
+    setCurrentPage(1);
+  }, []);
 
   useEffect(() => {
-    if (user?.role === 'student') {
-      fetchStudentSubmissions(currentPage, selectedWeek, selectedBatch);
-    }
+    if (user?.role !== 'student' || !selectedBatch) return;
+    fetchStudentSubmissions(currentPage, selectedWeek, selectedBatch);
   }, [currentPage, selectedWeek, selectedBatch, user]);
 
   useEffect(() => {
-    if (selectedBatch) {
-      if (user?.role !== 'student') {
-        fetchBatchSubmissions(selectedBatch, currentPage, selectedWeek);
-      }
-      fetchBatchWeeks(selectedBatch);
+    if (!selectedBatch || selectedBatch === 'all') {
+      setBatchWeeks([]);
+      return;
     }
+    if (user?.role !== 'student') {
+      fetchBatchSubmissions(selectedBatch, currentPage, selectedWeek);
+    }
+    fetchBatchWeeks(selectedBatch);
   }, [selectedBatch, currentPage, selectedWeek, user]);
 
-  const fetchBatches = async () => {
-    try {
-      const res = await apiClient.get('/api/courses/v1/batches/');
-      if (res.data?.success) {
-        setBatches(res.data.data);
-        if (res.data.data.length > 0) {
-          setSelectedBatch(res.data.data[0].id.toString());
-        } else {
-          setIsInitialLoading(false);
-        }
-      } else {
-        setIsInitialLoading(false);
-      }
-    } catch (err) {
-      toast({ title: 'Error', description: 'Failed to fetch batches.', variant: 'destructive' });
-      setIsInitialLoading(false);
-    }
-  };
+  /** If the selected week is not in the current batch’s week list, fall back to “all”. */
+  useEffect(() => {
+    if (selectedWeek === 'all') return;
+    if (batchWeeks.length === 0) return;
+    const valid = batchWeeks.some((w) => String(w.week_number) === selectedWeek);
+    if (!valid) setSelectedWeek('all');
+  }, [batchWeeks, selectedWeek]);
 
   const fetchBatchWeeks = async (batchId: string) => {
     try {
       const res = await apiClient.get(`/api/courses/v1/batches/${batchId}/weeks/`);
       if (res.data?.success) {
-        setBatchWeeks(res.data.data);
+        const rows = Array.isArray(res.data.data) ? res.data.data : [];
+        setBatchWeeks(
+          [...rows].sort((a, b) => (Number(a.week_number) || 0) - (Number(b.week_number) || 0)),
+        );
+      } else {
+        setBatchWeeks([]);
       }
     } catch (err) {
-      console.error("Failed to fetch batch weeks", err);
+      console.error('Failed to fetch batch weeks', err);
+      setBatchWeeks([]);
     }
   };
 
@@ -149,16 +148,20 @@ export default function Assessments() {
       toast({ title: 'Error', description: 'Failed to fetch submissions.', variant: 'destructive' });
     } finally {
       setIsLoading(false);
-      setIsInitialLoading(false);
     }
   };
 
-  const fetchStudentSubmissions = async (page = 1, week = 'all', batch_id = 'all') => {
+  const fetchStudentSubmissions = async (page = 1, week = 'all', batchId?: string) => {
+    if (!batchId) {
+      setSubmissions([]);
+      setTotalPages(1);
+      setStats({ total: 0, pending: 0, published: 0 });
+      return;
+    }
     setIsLoading(true);
     try {
-      let url = `/api/courses/v1/test-submissions/my-submissions/?page=${page}`;
+      let url = `/api/courses/v1/batches/${batchId}/test-submissions/my-submissions/?page=${page}`;
       if (week !== 'all') url += `&week_number=${week}`;
-      if (batch_id !== 'all') url += `&batch_id=${batch_id}`;
 
       const res = await apiClient.get(url);
       if (res.data?.success) {
@@ -170,7 +173,6 @@ export default function Assessments() {
       console.error("Failed to fetch student submissions");
     } finally {
       setIsLoading(false);
-      setIsInitialLoading(false);
     }
   };
 
@@ -205,56 +207,61 @@ export default function Assessments() {
       </div>
 
       {/* Selection Filter Pattern */}
-      <div className="flex flex-col sm:flex-row items-center justify-between gap-4 p-5 rounded-2xl bg-card border shadow-sm">
-        <div className="flex items-center gap-3">
+      <div className="flex min-w-0 flex-col items-center justify-between gap-4 p-5 sm:flex-row sm:items-center rounded-2xl bg-card border shadow-sm">
+        <div className="flex min-w-0 items-center gap-3">
           <div className="w-10 h-10 rounded-xl bg-primary/10 text-primary flex items-center justify-center shrink-0">
              <BookOpen className="w-5 h-5" />
           </div>
-          <div>
+          <div className="min-w-0">
             <p className="text-sm font-medium text-muted-foreground">Course Batch</p>
-            <h3 className="font-bold text-foreground">
-              {batches.find(b => b.id.toString() === selectedBatch)?.name || 'Select a batch'}
+            <h3
+              className="truncate font-bold text-foreground"
+              title={selectedBatchName || undefined}
+            >
+              {selectedBatchName || 'Select a batch'}
             </h3>
           </div>
         </div>
         
-        <div className="flex items-center gap-3 w-full sm:w-auto">
-          <div className="w-[180px] shrink-0">
+        <div className="flex min-w-0 w-full flex-1 items-center gap-3 sm:w-auto sm:justify-end">
+          <div className="w-[min(180px,100%)] shrink-0">
             <Select value={selectedWeek} onValueChange={(val) => { setSelectedWeek(val); setCurrentPage(1); }}>
-              <SelectTrigger className="h-11 bg-background rounded-xl font-bold">
+              <SelectTrigger className="h-11 max-w-full bg-background rounded-xl font-bold">
                 <SelectValue placeholder="All Weeks" />
               </SelectTrigger>
               <SelectContent className="rounded-xl">
                 <SelectItem value="all" className="font-medium cursor-pointer">All Weeks</SelectItem>
-                {batchWeeks.map(w => (
-                  <SelectItem key={w.id} value={w.week_number.toString()} className="font-medium cursor-pointer">Week {w.week_number}</SelectItem>
+                {batchWeeks.map((w) => (
+                  <SelectItem
+                    key={w.id}
+                    value={String(w.week_number)}
+                    className="font-medium cursor-pointer"
+                  >
+                    Week {w.week_number}
+                  </SelectItem>
                 ))}
               </SelectContent>
             </Select>
           </div>
 
-          <div className="w-[240px] shrink-0">
-            <Select value={selectedBatch} onValueChange={(val) => { setSelectedBatch(val); setCurrentPage(1); }}>
-              <SelectTrigger className="w-full h-11 bg-background rounded-xl font-bold">
-                <SelectValue placeholder="Select a Batch" />
-              </SelectTrigger>
-              <SelectContent className="rounded-xl">
-                {batches.map(b => (
-                  <SelectItem key={b.id} value={b.id.toString()} className="font-medium cursor-pointer">{b.name}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+          <div className="w-full min-w-0 shrink-0 sm:w-[min(280px,100%)] sm:max-w-[280px]">
+            <BatchFilterCombobox
+              value={selectedBatch}
+              selectedLabel={selectedBatchName}
+              onValueChange={handleAssessmentBatchChange}
+              placeholder="Select a batch"
+              className="h-11 border-border bg-background font-bold"
+            />
           </div>
         </div>
       </div>
 
       {/* Stats Cards */}
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
         {[
           { label: 'Total Submissions', value: stats.total, icon: FileText, color: 'info' },
           { label: 'Pending Review', value: stats.pending, icon: AlertCircle, color: 'warning' },
           { label: 'Evaluated', value: stats.published, icon: CheckCircle, color: 'success' },
-          { label: 'Avg Pass Rate', value: '76%', icon: TrendingUp, color: 'primary' }
         ].map((stat, i) => (
           <Card key={i} className="shadow-card border-none overflow-hidden group">
             <CardContent className="p-6">
@@ -490,66 +497,62 @@ export default function Assessments() {
       </div>
 
       {/* Selection Filter Pattern */}
-      <div className="flex flex-col sm:flex-row items-center justify-between gap-4 p-5 rounded-2xl bg-card border shadow-sm">
-        <div className="flex items-center gap-3">
+      <div className="flex min-w-0 flex-col items-center justify-between gap-4 p-5 sm:flex-row sm:items-center rounded-2xl bg-card border shadow-sm">
+        <div className="flex min-w-0 items-center gap-3">
           <div className="w-10 h-10 rounded-xl bg-primary/10 text-primary flex items-center justify-center shrink-0">
              <BookOpen className="w-5 h-5" />
           </div>
-          <div>
+          <div className="min-w-0">
             <p className="text-sm font-medium text-muted-foreground">Course Batch</p>
-            <h3 className="font-bold text-foreground">
-              {selectedBatch === 'all' ? 'All Batches' : batches.find(b => b.id.toString() === selectedBatch)?.name || 'Select a batch'}
+            <h3
+              className="truncate font-bold text-foreground"
+              title={selectedBatchName || undefined}
+            >
+              {selectedBatchName || 'Select a batch'}
             </h3>
           </div>
         </div>
         
-        <div className="flex items-center gap-3 w-full sm:w-auto">
-          <div className="w-[180px] shrink-0">
+        <div className="flex min-w-0 w-full flex-1 items-center gap-3 sm:w-auto sm:justify-end">
+          <div className="w-[min(180px,100%)] shrink-0">
             <Select value={selectedWeek} onValueChange={(val) => { setSelectedWeek(val); setCurrentPage(1); }}>
-              <SelectTrigger className="h-11 bg-background rounded-xl font-bold">
+              <SelectTrigger className="h-11 max-w-full bg-background rounded-xl font-bold">
                 <SelectValue placeholder="All Weeks" />
               </SelectTrigger>
               <SelectContent className="rounded-xl">
                 <SelectItem value="all" className="font-medium cursor-pointer">All Weeks</SelectItem>
-                {batchWeeks.map(w => (
-                  <SelectItem key={w.id} value={w.week_number.toString()} className="font-medium cursor-pointer">Week {w.week_number}</SelectItem>
+                {batchWeeks.map((w) => (
+                  <SelectItem
+                    key={w.id}
+                    value={String(w.week_number)}
+                    className="font-medium cursor-pointer"
+                  >
+                    Week {w.week_number}
+                  </SelectItem>
                 ))}
               </SelectContent>
             </Select>
           </div>
 
-          <div className="w-[240px] shrink-0">
-            <Select value={selectedBatch} onValueChange={(val) => { setSelectedBatch(val); setCurrentPage(1); }}>
-              <SelectTrigger className="w-full h-11 bg-background rounded-xl font-bold">
-                <SelectValue placeholder="All Batches" />
-              </SelectTrigger>
-              <SelectContent className="rounded-xl">
-                <SelectItem value="all" className="font-medium cursor-pointer">All Batches</SelectItem>
-                {batches.map(b => (
-                  <SelectItem key={b.id} value={b.id.toString()} className="font-medium cursor-pointer">{b.name}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+          <div className="w-full min-w-0 shrink-0 sm:w-[min(280px,100%)] sm:max-w-[280px]">
+            <BatchFilterCombobox
+              value={selectedBatch}
+              selectedLabel={selectedBatchName}
+              onValueChange={handleAssessmentBatchChange}
+              placeholder="Select a batch"
+              className="h-11 border-border bg-background font-bold"
+            />
           </div>
         </div>
       </div>
 
       {/* Student Stats */}
-      {(() => {
-        const publishedSubs = submissions.filter(s => s.status === 'published');
-        const average = publishedSubs.length > 0 
-          ? Math.round(publishedSubs.reduce((acc, s) => acc + (s.marks_obtained || 0), 0) / publishedSubs.length) 
-          : 0;
-        const lastFailed = publishedSubs.find(s => !s.is_passed);
-
-        return (
-          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-            {[
-              { label: 'Completed Tests', value: stats.published, icon: CheckCircle, color: 'success' },
-              { label: 'Pending Review', value: stats.pending, icon: Clock, color: 'warning' },
-              { label: 'Overall Average', value: `${average}%`, icon: Award, color: 'primary' },
-              { label: 'Total Attempts', value: stats.total, icon: FileText, color: 'info' }
-            ].map((stat, i) => (
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+        {[
+          { label: 'Completed Tests', value: stats.published, icon: CheckCircle, color: 'success' },
+          { label: 'Pending Review', value: stats.pending, icon: Clock, color: 'warning' },
+          { label: 'Total Attempts', value: stats.total, icon: FileText, color: 'info' },
+        ].map((stat, i) => (
               <Card key={i} className="shadow-card group overflow-hidden">
                 <CardContent className="p-6">
                   <div className="flex items-center gap-4">
@@ -570,9 +573,7 @@ export default function Assessments() {
                 </CardContent>
               </Card>
             ))}
-          </div>
-        );
-      })()}
+      </div>
 
       {isLoading ? (
         <div className="flex items-center justify-center py-20">
@@ -728,11 +729,15 @@ export default function Assessments() {
    return (
     <DashboardLayout>
       <div className="space-y-6 min-h-screen pb-20 flex flex-col">
-        {isInitialLoading ? (
+        {!user ? (
           <div className="flex-1 flex items-center justify-center">
             <Loader2 className="h-10 w-10 animate-spin text-primary" />
           </div>
-        ) : user?.role === 'student' ? renderStudentView() : renderAdminView()}
+        ) : user.role === 'student' ? (
+          renderStudentView()
+        ) : (
+          renderAdminView()
+        )}
         
         {/* Admin Review Modal */}
         {reviewId && (
@@ -766,7 +771,7 @@ export default function Assessments() {
             batchId={selectedBatchId}
             weekId={selectedWeekId}
             onSubmitted={() => {
-              fetchStudentSubmissions();
+              if (selectedBatch) fetchStudentSubmissions(currentPage, selectedWeek, selectedBatch);
             }}
           />
         )}

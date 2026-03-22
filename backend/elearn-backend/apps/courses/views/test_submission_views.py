@@ -468,8 +468,16 @@ class MyTestSubmissionsListView(generics.ListAPIView):
         enrollment = _get_enrollment(batch_id, user)
         if not enrollment:
             raise ServiceError(detail="You are not a enrolled student in this batch.", status_code=status.HTTP_403_FORBIDDEN)
-            
-        return TestSubmission.objects.filter(enrollment=enrollment).order_by('-submitted_at')
+
+        qs = TestSubmission.objects.filter(enrollment=enrollment)
+        week_number = self.request.query_params.get('week_number')
+        if week_number and week_number != 'all':
+            try:
+                week_int = int(week_number)
+                qs = qs.filter(batch_weekly_test__batch_week__week_number=week_int)
+            except (ValueError, TypeError):
+                pass
+        return qs.order_by('-submitted_at')
 
     def list(self, request, batch_id):
         queryset = self.get_queryset()
