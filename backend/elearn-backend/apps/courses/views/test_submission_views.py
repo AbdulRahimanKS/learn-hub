@@ -5,8 +5,11 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework.views import APIView
 from django.utils import timezone
 from apps.courses.models import (
-    TestSubmission, TestSubmissionAnswer, BatchWeeklyTest, 
-    BatchEnrollment
+    TestSubmission,
+    TestSubmissionAnswer,
+    BatchWeeklyTest,
+    BatchEnrollment,
+    Batch,
 )
 from apps.courses.serializers.test_submission_serializers import (
     TestSubmissionSerializer, TestSubmissionUpdateSerializer, TestSubmissionAnswerSerializer
@@ -15,6 +18,7 @@ from utils.pagination import CustomPageNumberPagination
 from django.contrib.contenttypes.models import ContentType
 from apps.users.models import Notification
 from utils.common import format_success_response, ServiceError
+from utils.constants import UserTypeConstants
 from drf_spectacular.utils import extend_schema
 import logging
 
@@ -40,11 +44,84 @@ def _validate_weekly_test_answer_upload(uploaded_file):
 
 
 def _get_enrollment(batch_id, user):
-    return BatchEnrollment.objects.filter(
-        batch_id=batch_id, 
-        student=user, 
-        status__in=[BatchEnrollment.Status.ACTIVE, BatchEnrollment.Status.COMPLETED]
-    ).first()
+    return (
+        BatchEnrollment.objects.select_related('batch', 'batch__teacher')
+        .prefetch_related('batch__co_teachers')
+        .filter(
+            batch_id=batch_id,
+            student=user,
+            status__in=[BatchEnrollment.Status.ACTIVE, BatchEnrollment.Status.COMPLETED],
+        )
+        .first()
+    )
+
+
+def _notify_batch_teachers_new_weekly_submission(submission, student_user, test, enrollment):
+    """Notify primary teacher and co-teachers that a student submitted a weekly test."""
+    try:
+        batch = enrollment.batch
+        recipients = []
+        seen = set()
+        if batch.teacher_id and batch.teacher:
+            recipients.append(batch.teacher)
+            seen.add(batch.teacher.id)
+        for co in batch.co_teachers.all():
+            if co.id not in seen:
+                recipients.append(co)
+                seen.add(co.id)
+        if not recipients:
+            return
+
+        week_num = test.batch_week.week_number
+        student_label = (getattr(student_user, 'fullname', None) or '').strip() or student_user.email
+        test_title = test.title
+        message = (
+            f'{student_label} submitted "{test_title}" for week {week_num} '
+            f'in batch "{batch.name}" (attempt {submission.attempt_number}).'
+        )
+
+        Notification.objects.bulk_create(
+            [
+                Notification(
+                    user=teacher_user,
+                    title='New weekly test submission',
+                    message=message,
+                    notification_type=Notification.NotificationType.INFO,
+                )
+                for teacher_user in recipients
+            ]
+        )
+    except Exception as exc:
+        logger.exception(
+            'Failed to notify teachers about test submission %s: %s',
+            getattr(submission, 'pk', None),
+            exc,
+        )
+
+
+def _get_batch_or_404(batch_id):
+    try:
+        return Batch.objects.get(pk=batch_id)
+    except Batch.DoesNotExist:
+        raise ServiceError(detail="Batch not found.", status_code=status.HTTP_404_NOT_FOUND)
+
+
+def _can_list_all_submissions_for_batch(user, batch):
+    """
+    Teachers, co-teachers, and global admins may list every submission in a batch.
+    (Students use my-submissions or are limited to their own enrollment below.)
+    """
+    if getattr(user, "is_superuser", False):
+        return True
+    ut = getattr(user, "user_type", None)
+    role = getattr(ut, "name", None) if ut else None
+    if role in (UserTypeConstants.SUPERADMIN, UserTypeConstants.ADMIN):
+        return True
+    if batch.teacher_id and batch.teacher_id == user.id:
+        return True
+    if batch.co_teachers.filter(pk=user.pk).exists():
+        return True
+    return False
 
 
 @extend_schema(tags=["Test Submissions"], summary="Create a new test submission", description="Allows a student to submit their weekly test.")
@@ -61,7 +138,10 @@ class TestSubmissionCreateView(APIView):
                 raise ServiceError(detail="You are not a enrolled student in this batch.", status_code=status.HTTP_403_FORBIDDEN)
 
             try:
-                test = BatchWeeklyTest.objects.get(batch_week_id=week_id, batch_week__batch_id=batch_id)
+                test = (
+                    BatchWeeklyTest.objects.select_related('batch_week')
+                    .get(batch_week_id=week_id, batch_week__batch_id=batch_id)
+                )
             except BatchWeeklyTest.DoesNotExist:
                 raise ServiceError(detail="Test not found for this week.", status_code=status.HTTP_404_NOT_FOUND)
 
@@ -105,6 +185,8 @@ class TestSubmissionCreateView(APIView):
                         answer_file=answer_file
                     )
 
+            _notify_batch_teachers_new_weekly_submission(submission, user, test, enrollment)
+
             return format_success_response(
                 message="Test submitted successfully",
                 data=TestSubmissionSerializer(submission).data,
@@ -126,12 +208,18 @@ class BatchTestSubmissionListView(generics.ListAPIView):
     def get_queryset(self):
         batch_id = self.kwargs.get('batch_id')
         user = self.request.user
-        
-        enrollment = _get_enrollment(batch_id, user)
-        if not enrollment:
-            raise ServiceError(detail="You are not a enrolled student in this batch.", status_code=status.HTTP_403_FORBIDDEN)
+        batch = _get_batch_or_404(batch_id)
 
-        qs = TestSubmission.objects.filter(enrollment=enrollment)
+        if _can_list_all_submissions_for_batch(user, batch):
+            qs = TestSubmission.objects.filter(enrollment__batch_id=batch_id)
+        else:
+            enrollment = _get_enrollment(batch_id, user)
+            if not enrollment:
+                raise ServiceError(
+                    detail="You are not allowed to view submissions for this batch.",
+                    status_code=status.HTTP_403_FORBIDDEN,
+                )
+            qs = TestSubmission.objects.filter(enrollment=enrollment)
         
         status_param = self.request.query_params.get('status')
         if status_param:
