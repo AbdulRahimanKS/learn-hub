@@ -219,7 +219,9 @@ export default function Assessments() {
   const handleTriggerAI = async (id: number) => {
     setEvaluatingIds(prev => [...prev, id]);
     try {
-      const res = await apiClient.post(`/api/courses/v1/test-submissions/${id}/trigger-ai/`);
+      const res = await apiClient.post(
+        `/api/courses/v1/batches/${selectedBatch}/test-submissions/${id}/trigger-ai/`,
+      );
       if (res.data?.success) {
         toast({ title: 'AI Analysis Started', description: 'AI is evaluating the submission.', variant: 'success' });
         // Refresh local data
@@ -887,10 +889,11 @@ export default function Assessments() {
         )}
         
         {/* Admin Review Modal */}
-        {reviewId && (
-          <SubmissionReviewModal 
+        {reviewId && selectedBatch && (
+          <SubmissionReviewModal
             open={isReviewOpen}
             onClose={() => { setReviewId(null); setIsReviewOpen(false); }}
+            batchId={selectedBatch}
             submissionId={reviewId}
             onUpdated={() => {
               if (selectedBatch && user?.role !== 'student') {

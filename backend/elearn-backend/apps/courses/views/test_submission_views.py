@@ -275,7 +275,9 @@ class BatchTestSubmissionListView(generics.ListAPIView):
 @extend_schema(tags=["Test Submissions"], summary="Retrieve or update a specific test submission", description="Allows a teacher to retrieve or update a specific test submission.")
 class TestSubmissionDetailView(generics.RetrieveUpdateAPIView):
     permission_classes = [IsAuthenticated]
-    queryset = TestSubmission.objects.all()
+
+    def get_queryset(self):
+        return TestSubmission.objects.filter(enrollment__batch_id=self.kwargs.get('batch_id')).all()
 
     def get_serializer_class(self):
         if self.request.method in ['PUT', 'PATCH']:
@@ -287,71 +289,79 @@ class TestSubmissionDetailView(generics.RetrieveUpdateAPIView):
             instance = self.get_object()
         except TestSubmission.DoesNotExist:
             raise ServiceError(detail="Test submission not found.", status_code=status.HTTP_404_NOT_FOUND)
-        serializer = self.get_serializer(instance)
+        
+        serializer = self.get_serializer(instance, context={'request': request})
         return format_success_response(data=serializer.data)
 
     def update(self, request, *args, **kwargs):
-        partial = kwargs.pop('partial', False)
         try:
-            instance = self.get_object()
-        except TestSubmission.DoesNotExist:
-            raise ServiceError(detail="Test submission not found.", status_code=status.HTTP_404_NOT_FOUND)
-        
-        old_status = instance.status
-        
-        serializer = self.get_serializer(instance, data=request.data, partial=partial)
-        serializer.is_valid(raise_exception=True)
-        
-        # Admin is reviewing/updating
-        new_status = serializer.validated_data.get('status')
-        if new_status and new_status != old_status:
-            # Updating status dynamically
-            if new_status in [TestSubmission.Status.PUBLISHED, TestSubmission.Status.RETURNED]:
-                instance.graded_at = timezone.now()
-                instance.graded_by = request.user
-                
-        self.perform_update(serializer)
-        
-        # Fire notifications
-        if new_status and new_status != old_status:
-            student = instance.enrollment.student
-            ct = ContentType.objects.get_for_model(TestSubmission)
+            partial = kwargs.pop('partial', False)
+            try:
+                instance = self.get_object(kwargs.get('batch_id'), kwargs.get('pk'))
+            except TestSubmission.DoesNotExist:
+                raise ServiceError(detail="Test submission not found.", status_code=status.HTTP_404_NOT_FOUND)
             
-            if new_status == TestSubmission.Status.PUBLISHED:
-                Notification.objects.create(
-                    user=student,
-                    title="Test Results Published",
-                    message=f"Your result for Test Attempt {instance.attempt_number} has been published by the instructor. Marks: {instance.marks_obtained}%",
-                    notification_type=Notification.NotificationType.SUCCESS,
-                    content_type=ct,
-                    object_id=instance.id,
-                    action_url=f"/progress" # Example URL
-                )
-            elif new_status == TestSubmission.Status.RETURNED:
-                Notification.objects.create(
-                    user=student,
-                    title="Test Returned for Revision",
-                    message=f"Your Test Attempt {instance.attempt_number} was returned. Please review the grader's remarks.",
-                    notification_type=Notification.NotificationType.WARNING,
-                    content_type=ct,
-                    object_id=instance.id,
-                    action_url=f"/progress"
-                )
+            old_status = instance.status
+            
+            serializer = self.get_serializer(instance, data=request.data, partial=partial, context={'request': request})
+            serializer.is_valid(raise_exception=True)
+            
+            # Admin is reviewing/updating
+            new_status = serializer.validated_data.get('status')
+            if new_status and new_status != old_status:
+                # Updating status dynamically
+                if new_status in [TestSubmission.Status.PUBLISHED, TestSubmission.Status.RETURNED]:
+                    instance.graded_at = timezone.now()
+                    instance.graded_by = request.user
+                    
+            self.perform_update(serializer)
+            
+            # Fire notifications
+            if new_status and new_status != old_status:
+                student = instance.enrollment.student
+                ct = ContentType.objects.get_for_model(TestSubmission)
                 
-        return Response({
-            "success": True,
-            "message": "Test submission updated successfully",
-            "data": TestSubmissionSerializer(instance).data
-        }, status=status.HTTP_200_OK)
+                if new_status == TestSubmission.Status.PUBLISHED:
+                    Notification.objects.create(
+                        user=student,
+                        title="Test Results Published",
+                        message=f"Your result for Test Attempt {instance.attempt_number} has been published by the instructor. Marks: {instance.marks_obtained}%",
+                        notification_type=Notification.NotificationType.SUCCESS,
+                        content_type=ct,
+                        object_id=instance.id,
+                        action_url=f"/progress" # Example URL
+                    )
+                elif new_status == TestSubmission.Status.RETURNED:
+                    Notification.objects.create(
+                        user=student,
+                        title="Test Returned for Revision",
+                        message=f"Your Test Attempt {instance.attempt_number} was returned. Please review the grader's remarks.",
+                        notification_type=Notification.NotificationType.WARNING,
+                        content_type=ct,
+                        object_id=instance.id,
+                        action_url=f"/progress"
+                    )
+                    
+            return format_success_response(
+                message="Test submission updated successfully",
+                data=TestSubmissionSerializer(instance, context={'request': request}).data
+            )
+            
+        except ServiceError:
+            raise
+        except Exception as e:
+            logger.error(f"Error updating test submission: {str(e)}")
+            raise ServiceError(detail="An error occurred while updating the test submission.", status_code=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
 
 @extend_schema(tags=["Test Submissions"], summary="Trigger AI evaluation for a specific test submission", description="Allows a teacher to trigger AI evaluation for a specific test submission.")
 class TriggerAIEvaluationView(APIView):
     permission_classes = [IsAuthenticated]
     serializer_class = TestSubmissionSerializer
 
-    def post(self, request, submission_pk):
+    def post(self, request, batch_id, pk):
         try:
-            submission = TestSubmission.objects.get(pk=submission_pk)
+            submission = TestSubmission.objects.get(pk=pk, enrollment__batch_id=batch_id)
         except TestSubmission.DoesNotExist:
             raise ServiceError(detail="Test submission not found.", status_code=status.HTTP_404_NOT_FOUND)
 
@@ -411,9 +421,13 @@ class TriggerAnswerAIEvaluationView(APIView):
     permission_classes = [IsAuthenticated]
     serializer_class = TestSubmissionAnswerSerializer
 
-    def post(self, request, submission_pk, answer_pk):
+    def post(self, request, batch_id, submission_pk, answer_pk):
         try:
-            answer = TestSubmissionAnswer.objects.get(pk=answer_pk, submission_id=submission_pk)
+            answer = TestSubmissionAnswer.objects.get(
+                pk=answer_pk,
+                submission_id=submission_pk,
+                submission__enrollment__batch_id=batch_id,
+            )
         except TestSubmissionAnswer.DoesNotExist:
             raise ServiceError(detail="Answer not found.", status_code=status.HTTP_404_NOT_FOUND)
 
@@ -433,9 +447,9 @@ class SimulateAIEvaluationCompleteView(APIView):
     permission_classes = [IsAuthenticated]
     serializer_class = TestSubmissionSerializer
 
-    def post(self, request, submission_pk):
+    def post(self, request, batch_id, pk):
         try:
-            submission = TestSubmission.objects.get(pk=submission_pk)
+            submission = TestSubmission.objects.get(pk=pk, enrollment__batch_id=batch_id)
         except TestSubmission.DoesNotExist:
             raise ServiceError(detail="Test submission not found.", status_code=status.HTTP_404_NOT_FOUND)
 

@@ -28,6 +28,8 @@ import { format } from 'date-fns';
 interface SubmissionReviewModalProps {
   open: boolean;
   onClose: () => void;
+  /** Batch the submission belongs to (required for URL namespace). */
+  batchId: string;
   submissionId: number;
   onUpdated: () => void;
 }
@@ -35,6 +37,7 @@ interface SubmissionReviewModalProps {
 export function SubmissionReviewModal({
   open,
   onClose,
+  batchId,
   submissionId,
   onUpdated,
 }: SubmissionReviewModalProps) {
@@ -53,12 +56,14 @@ export function SubmissionReviewModal({
     if (open && submissionId) {
       fetchSubmission();
     }
-  }, [open, submissionId]);
+  }, [open, submissionId, batchId]);
+
+  const submissionBase = `/api/courses/v1/batches/${batchId}/test-submissions/${submissionId}`;
 
   const fetchSubmission = async () => {
     setIsLoading(true);
     try {
-      const res = await apiClient.get(`/api/courses/v1/test-submissions/${submissionId}/`);
+      const res = await apiClient.get(`${submissionBase}/`);
       if (res.data?.success) {
         const data = res.data.data;
         setSubmission(data);
@@ -99,7 +104,7 @@ export function SubmissionReviewModal({
         answers: answersUpdate
       };
 
-      await apiClient.patch(`/api/courses/v1/test-submissions/${submissionId}/`, payload);
+      await apiClient.patch(`${submissionBase}/`, payload);
       toast({ title: 'Success', description: `Submission ${status.replace('_', ' ')} successfully.`, variant: 'success' });
       onUpdated();
       onClose();
@@ -113,7 +118,7 @@ export function SubmissionReviewModal({
   const handleTriggerAI = async () => {
     setIsEvaluating(true);
     try {
-      const res = await apiClient.post(`/api/courses/v1/test-submissions/${submissionId}/trigger-ai/`);
+      const res = await apiClient.post(`${submissionBase}/trigger-ai/`);
       if (res.data?.success) {
         toast({ title: 'AI Analysis Complete', description: 'AI has evaluated the submission.', variant: 'success' });
         fetchSubmission();
@@ -128,7 +133,7 @@ export function SubmissionReviewModal({
   const handleTriggerQuestionAI = async (answerId: number) => {
     setEvaluatingQuestionIds(prev => [...prev, answerId]);
     try {
-      const res = await apiClient.post(`/api/courses/v1/test-submissions/${submissionId}/answers/${answerId}/trigger-ai/`);
+      const res = await apiClient.post(`${submissionBase}/answers/${answerId}/trigger-ai/`);
       if (res.data?.success) {
         toast({ title: 'Question Analyzed', description: 'AI has evaluated this specific question.', variant: 'success' });
         // Update local state for just this answer
