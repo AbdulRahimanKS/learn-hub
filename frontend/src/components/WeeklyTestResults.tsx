@@ -2,7 +2,6 @@ import React from 'react';
 import {
   Dialog,
   DialogContent,
-  DialogHeader,
   DialogTitle,
   DialogDescription,
   DialogFooter,
@@ -12,19 +11,11 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Label } from '@/components/ui/label';
 import {
-  Award,
   CheckCircle,
   FileText,
-  MessageSquare,
-  AlertTriangle,
   Clock,
-  ExternalLink,
-  ChevronRight,
-  Target,
-  Download,
   Eye,
   Hourglass,
-  Scale,
   HelpCircle,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
@@ -60,71 +51,71 @@ export function WeeklyTestResults({
 
   return (
     <Dialog open={open} onOpenChange={(v) => !v && onClose()}>
-      <DialogContent className="sm:max-w-3xl max-h-[92vh] flex flex-col overflow-hidden border border-border bg-background p-0 text-slate-900 shadow-2xl dark:text-white">
-        {/* Header Section */}
-        <div className={cn(
-          "p-4 md:p-6 text-white shrink-0 relative overflow-hidden border-b border-black/5 dark:border-white/5",
-          isPublished 
-            ? "bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 dark:from-slate-950 dark:via-slate-900 dark:to-slate-950" 
-            : "bg-gradient-to-br from-primary via-blue-700 to-primary dark:from-slate-900 dark:via-primary/80 dark:to-slate-900"
-        )}>
-          {/* Decorative Background Icons */}
-          {isPublished ? (
-            <CheckCircle className="absolute -right-6 -bottom-6 h-32 w-32 opacity-10 -rotate-12 text-emerald-500" />
-          ) : (
-            <Hourglass className="absolute -right-6 -bottom-6 h-32 w-32 opacity-10 -rotate-12 text-white animate-[spin_10s_linear_infinite]" />
-          )}
-          
-          <div className="relative z-10 flex flex-col md:flex-row md:justify-between md:items-center gap-4">
-            <div className="space-y-3">
-              <div className="space-y-0.5">
-                <DialogTitle className="text-xl md:text-2xl font-black tracking-tight leading-tight text-white capitalize">
+      <DialogContent className="flex max-h-[92vh] max-w-3xl flex-col overflow-hidden rounded-[28px] border border-primary/25 bg-background p-0 text-foreground shadow-2xl [&>button]:right-4 [&>button]:top-4 [&>button]:z-[60] [&>button]:text-primary-foreground [&>button]:opacity-90 [&>button]:ring-offset-transparent [&>button]:hover:bg-white/10 [&>button]:hover:text-primary-foreground [&>button]:hover:opacity-100 data-[state=open]:[&>button]:bg-transparent data-[state=open]:[&>button]:text-primary-foreground">
+        {/* Header — match WeeklyTestSubmission / MCQ modal */}
+        <div className="relative flex-none overflow-hidden border-b border-white/10 gradient-primary px-6 pb-4 pt-7 text-primary-foreground">
+          <div className="pointer-events-none absolute inset-0 overflow-hidden">
+            <div className="absolute right-0 top-0 h-40 w-40 rounded-full bg-white/5 blur-3xl" />
+            <div className="absolute bottom-0 left-0 h-28 w-28 rounded-full bg-primary/20 blur-2xl" />
+          </div>
+          <div className="relative z-10 flex flex-col gap-5 md:flex-row md:items-start md:justify-between">
+            <div className="min-w-0 space-y-3">
+              <div>
+                <div className="mb-3 inline-flex items-center gap-2 rounded-full border border-white/15 bg-white/10 px-3 py-1 text-xs font-semibold text-primary-foreground backdrop-blur-md">
+                  <HelpCircle className="h-3.5 w-3.5 shrink-0" />
+                  Weekly assessment
+                </div>
+                <DialogTitle className="mb-1.5 text-2xl font-bold tracking-tight text-primary-foreground capitalize">
                   {testTitle}
                 </DialogTitle>
-                <p className="text-white/60 text-[10px] font-bold uppercase tracking-widest flex items-center gap-2">
+                <DialogDescription className="text-[15px] text-primary-foreground/80">
                   Submitted {submission.submitted_at && format(new Date(submission.submitted_at), 'MMMM do, yyyy')}
-                </p>
+                </DialogDescription>
+                <div className="mt-3">
+                  {isPublished ? (
+                    <span className="inline-flex w-fit items-center gap-2 rounded-full border border-emerald-400/35 bg-emerald-500/15 px-3 py-1 text-xs font-semibold tracking-tight text-emerald-100 backdrop-blur-md">
+                      <CheckCircle className="h-3.5 w-3.5 shrink-0" />
+                      Results published
+                    </span>
+                  ) : (
+                    <span className="inline-flex w-fit items-center gap-2 rounded-full border border-white/15 bg-white/10 px-3 py-1 text-xs font-semibold tracking-tight text-primary-foreground backdrop-blur-md">
+                      <Clock className="h-3.5 w-3.5 shrink-0" />
+                      Pending review
+                    </span>
+                  )}
+                </div>
               </div>
-
-              {isPublished ? (
-                <Badge className="bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 font-black uppercase py-1 px-3 text-[9px] tracking-widest rounded-full flex items-center gap-1.5 w-fit">
-                  <CheckCircle className="h-3 w-3" />
-                  Results Published
-                </Badge>
-              ) : (
-                <Badge className="bg-white/10 text-white/80 border border-white/20 font-black uppercase py-1 px-3 text-[9px] tracking-widest rounded-full flex items-center gap-1.5 w-fit">
-                  <Clock className="h-3 w-3" />
-                  Pending Review
-                </Badge>
-              )}
             </div>
 
             {isPublished && (
-              <div className="relative group">
-                <div className="absolute inset-0 bg-blue-500/20 blur-2xl rounded-full opacity-0 group-hover:opacity-100 transition-opacity" />
-                <div className="relative bg-white/10 rounded-2xl p-4 backdrop-blur-xl border border-white/20 min-w-[130px] flex flex-col items-center justify-center shadow-2xl">
-                  <p className="text-[9px] font-black uppercase text-white/50 tracking-[0.2em] mb-1">Total Score</p>
+              <div className="relative shrink-0">
+                <div className="relative flex min-w-[130px] flex-col items-center justify-center rounded-2xl border border-white/15 bg-white/10 p-4 shadow-sm backdrop-blur-md">
+                  <p className="mb-1 text-[10px] font-semibold tracking-tight text-primary-foreground/60">
+                    Total score
+                  </p>
                   <div className="flex items-baseline gap-1">
-                    <span className="text-3xl font-black tracking-tighter text-white">
+                    <span className="text-3xl font-bold tabular-nums tracking-tight text-primary-foreground">
                       {Math.round(score)}
                     </span>
-                    <span className="text-sm font-bold text-white/50">%</span>
+                    <span className="text-sm font-semibold text-primary-foreground/50">%</span>
                   </div>
-                  <div className={cn(
-                    "mt-2 h-1 w-full bg-white/10 rounded-full overflow-hidden",
-                    isPassed ? "shadow-[0_0_10px_rgba(52,211,153,0.1)]" : "shadow-[0_0_10px_rgba(244,63,94,0.1)]"
-                  )}>
-                    <div 
+                  <div
+                    className={cn(
+                      'mt-2 h-1 w-full overflow-hidden rounded-full bg-white/10',
+                      isPassed ? 'shadow-[0_0_10px_rgba(52,211,153,0.12)]' : 'shadow-[0_0_10px_rgba(244,63,94,0.12)]',
+                    )}
+                  >
+                    <div
                       className={cn(
-                        "h-full rounded-full transition-all duration-1000",
-                        isPassed ? "bg-emerald-400" : "bg-rose-400"
+                        'h-full rounded-full transition-all duration-1000',
+                        isPassed ? 'bg-emerald-400' : 'bg-rose-400',
                       )}
                       style={{ width: `${score}%` }}
                     />
                   </div>
                 </div>
                 {isPassed && (
-                  <div className="absolute -bottom-1.5 -right-1.5 bg-emerald-500 text-white rounded-full p-1 shadow-lg border-2 border-[#0a192f] scale-100">
+                  <div className="absolute -bottom-1.5 -right-1.5 rounded-full border-2 border-background bg-emerald-500 p-1 text-white shadow-lg">
                     <CheckCircle className="h-3 w-3" />
                   </div>
                 )}
@@ -149,9 +140,9 @@ export function WeeklyTestResults({
 
           {/* Questions Section */}
           <div className="space-y-4">
-            <h3 className="text-[9px] font-black uppercase tracking-[0.3em] text-slate-400 dark:text-white/20 flex items-center gap-3">
+            <h3 className="flex items-center gap-3 text-xs font-semibold tracking-tight text-slate-500 dark:text-white/35">
               <span className="h-px flex-1 bg-slate-100 dark:bg-white/5" />
-              {isPublished ? "Performance Summary" : "Questions Submitted"}
+              {isPublished ? 'Performance summary' : 'Questions submitted'}
               <span className="h-px flex-1 bg-slate-100 dark:bg-white/5" />
             </h3>
 
@@ -166,12 +157,12 @@ export function WeeklyTestResults({
                       <div className="flex flex-col md:flex-row md:items-start justify-between gap-3">
                         <div className="space-y-1">
                           <div className="flex items-center gap-2">
-                            <Label className="text-[9px] font-black pointer-events-none text-indigo-600 dark:text-blue-400 uppercase tracking-widest">
+                            <Label className="pointer-events-none text-xs font-semibold tracking-tight text-indigo-600 dark:text-blue-400">
                               Question {idx + 1}
                             </Label>
                             {!answer.is_attended && (
-                              <Badge variant="outline" className="h-4 text-[7px] font-black uppercase tracking-tighter border-rose-500/20 text-rose-500 dark:text-rose-400/80 bg-rose-500/5 px-1.5 rounded-sm">
-                                Not Attended
+                              <Badge variant="outline" className="h-5 rounded-md border-rose-500/20 bg-rose-500/5 px-2 text-[10px] font-medium tracking-tight text-rose-500 dark:text-rose-400/80">
+                                Not attended
                               </Badge>
                             )}
                           </div>
@@ -213,8 +204,8 @@ export function WeeklyTestResults({
                            {/* Question Resources */}
                            {(answer.question_file || (answer.attachments && answer.attachments.length > 0)) && (
                              <div className="space-y-2">
-                               <div className="flex items-center gap-2 text-[9px] font-black text-slate-400 dark:text-white/20 uppercase tracking-widest">
-                                 <HelpCircle className="h-3 w-3" /> Reference Materials
+                               <div className="flex items-center gap-2 text-xs font-semibold tracking-tight text-slate-500 dark:text-white/35">
+                                 <HelpCircle className="h-3 w-3 shrink-0" /> Reference materials
                                </div>
                                <div className="grid grid-cols-1 gap-2">
                                   {answer.question_file && (
@@ -227,18 +218,18 @@ export function WeeklyTestResults({
                                              <p className="text-[11px] font-bold text-slate-800 dark:text-white truncate" title={shortName(answer.question_file)}>
                                                {shortName(answer.question_file)}
                                              </p>
-                                             <p className="text-[8px] font-bold text-slate-400 dark:text-white/30 uppercase tracking-wider">Question Resource</p>
+                                             <p className="text-[10px] font-medium text-slate-400 dark:text-white/30">Question resource</p>
                                           </div>
                                        </div>
                                        <div className="flex items-center gap-1 opacity-40 group-hover/file:opacity-100 transition-opacity">
                                           <Button variant="ghost" size="icon" className="h-7 w-7" asChild>
-                                             <a href={answer.question_file} target="_blank" rel="noreferrer">
+                                             <a
+                                               href={answer.question_file}
+                                               target="_blank"
+                                               rel="noopener noreferrer"
+                                               title="Open in new tab"
+                                             >
                                                <Eye className="h-3.5 w-3.5" />
-                                             </a>
-                                          </Button>
-                                          <Button variant="ghost" size="icon" className="h-7 w-7" asChild>
-                                             <a href={answer.question_file} download>
-                                               <Download className="h-3.5 w-3.5" />
                                              </a>
                                           </Button>
                                        </div>
@@ -254,18 +245,18 @@ export function WeeklyTestResults({
                                              <p className="text-[11px] font-bold text-slate-800 dark:text-white truncate" title={att.name || att.file}>
                                                {att.name || shortName(att.file)}
                                              </p>
-                                             <p className="text-[8px] font-bold text-slate-400 dark:text-white/30 uppercase tracking-wider">Additional Asset</p>
+                                             <p className="text-[10px] font-medium text-slate-400 dark:text-white/30">Additional asset</p>
                                           </div>
                                        </div>
                                        <div className="flex items-center gap-1 opacity-40 group-hover/file:opacity-100 transition-opacity">
                                           <Button variant="ghost" size="icon" className="h-7 w-7" asChild>
-                                             <a href={att.file} target="_blank" rel="noreferrer">
+                                             <a
+                                               href={att.file}
+                                               target="_blank"
+                                               rel="noopener noreferrer"
+                                               title="Open in new tab"
+                                             >
                                                <Eye className="h-3.5 w-3.5" />
-                                             </a>
-                                          </Button>
-                                          <Button variant="ghost" size="icon" className="h-7 w-7" asChild>
-                                             <a href={att.file} download>
-                                               <Download className="h-3.5 w-3.5" />
                                              </a>
                                           </Button>
                                        </div>
@@ -278,8 +269,8 @@ export function WeeklyTestResults({
                            {/* Student Submission */}
                            {answer.answer_file && (
                              <div className="space-y-2">
-                               <div className="flex items-center gap-2 text-[9px] font-black text-slate-400 dark:text-white/20 uppercase tracking-widest">
-                                 <CheckCircle className="h-3 w-3" /> Your Submission
+                               <div className="flex items-center gap-2 text-xs font-semibold tracking-tight text-slate-500 dark:text-white/35">
+                                 <CheckCircle className="h-3 w-3 shrink-0" /> Your submission
                                </div>
                                <div className="flex items-center justify-between p-2.5 rounded-xl bg-emerald-500/5 dark:bg-emerald-500/5 border border-emerald-500/10 dark:border-emerald-500/10 group/file hover:bg-emerald-500/10 transition-all shadow-sm">
                                   <div className="flex items-center gap-2.5 min-w-0">
@@ -290,18 +281,18 @@ export function WeeklyTestResults({
                                         <p className="text-[11px] font-bold text-slate-800 dark:text-white truncate" title={shortName(answer.answer_file)}>
                                           {shortName(answer.answer_file)}
                                         </p>
-                                        <p className="text-[8px] font-bold text-emerald-600 dark:text-emerald-400/60 uppercase tracking-wider">Student Solution</p>
+                                        <p className="text-[10px] font-medium text-emerald-600 dark:text-emerald-400/60">Student solution</p>
                                      </div>
                                   </div>
                                   <div className="flex items-center gap-1 opacity-40 group-hover/file:opacity-100 transition-opacity">
                                      <Button variant="ghost" size="icon" className="h-7 w-7 text-emerald-600 dark:text-emerald-400" asChild>
-                                        <a href={answer.answer_file} target="_blank" rel="noreferrer">
+                                        <a
+                                          href={answer.answer_file}
+                                          target="_blank"
+                                          rel="noopener noreferrer"
+                                          title="Open in new tab"
+                                        >
                                           <Eye className="h-3.5 w-3.5" />
-                                        </a>
-                                     </Button>
-                                     <Button variant="ghost" size="icon" className="h-7 w-7 text-emerald-600 dark:text-emerald-400" asChild>
-                                        <a href={answer.answer_file} download>
-                                          <Download className="h-3.5 w-3.5" />
                                         </a>
                                      </Button>
                                   </div>
@@ -332,56 +323,15 @@ export function WeeklyTestResults({
           </div>
         </div>
 
-        <DialogFooter className="shrink-0 items-center justify-between gap-4 border-t border-slate-100 bg-background p-4 dark:border-white/5 md:p-6 sm:flex-row">
-          <div className="w-full sm:w-auto order-2 sm:order-1">
-            {isPublished && (
-              <Button 
-                variant="outline" 
-                className="bg-white dark:bg-white/5 border-slate-200 dark:border-white/10 text-slate-600 dark:text-white/60 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-white/10 font-bold rounded-xl h-10 px-5 gap-2 w-full sm:w-auto transition-all text-xs"
-                onClick={() => {
-                  const content = `
-Test: ${testTitle}
-Status: ${isPublished ? 'Published' : 'Pending Review'}
-Score: ${score}%
-Result: ${isPassed ? 'PASSED' : 'FAILED'}
-
-Summary:
-${submission.grader_remarks || submission.ai_feedback || 'No overall feedback provided.'}
-
-Detailed Question Results:
-${submission.answers?.map((ans: any, idx: number) => `
-Question ${idx + 1}: ${ans.question_text}
-Score: ${ans.marks_obtained} / ${ans.max_marks}
-Feedback: ${ans.grader_remarks || ans.ai_feedback || 'No specific feedback.'}
-`).join('\n')}
-                  `.trim();
-                  
-                  const blob = new Blob([content], { type: 'text/plain' });
-                  const url = URL.createObjectURL(blob);
-                  const link = document.createElement('a');
-                  link.href = url;
-                  link.download = `${testTitle.replace(/\s+/g, '_')}_Feedback.txt`;
-                  document.body.appendChild(link);
-                  link.click();
-                  document.body.removeChild(link);
-                  URL.revokeObjectURL(url);
-                }}
-              >
-                <Download className="h-3.5 w-3.5" />
-                Download Feedback
-              </Button>
-            )}
-          </div>
-          
-          <div className="flex items-center gap-3 w-full sm:w-auto order-1 sm:order-2">
-            <Button 
-              onClick={onClose} 
-              className="group h-10 flex-1 rounded-xl bg-primary px-10 text-[10px] font-black uppercase tracking-[0.2em] text-white shadow-xl shadow-primary/20 transition-all hover:bg-primary/90 active:scale-[0.98] sm:flex-none"
-            >
-              Done
-              <CheckCircle className="ml-2 h-3.5 w-3.5 opacity-50 group-hover:opacity-100 transition-opacity" />
-            </Button>
-          </div>
+        <DialogFooter className="shrink-0 justify-end border-t border-border bg-background p-4 md:p-6 sm:flex-row">
+          <Button
+            variant="gradient"
+            onClick={onClose}
+            className="group h-10 w-full rounded-xl px-10 text-sm font-bold shadow-none hover:shadow-none sm:w-auto"
+          >
+            Done
+            <CheckCircle className="ml-2 h-4 w-4 opacity-70 transition-opacity group-hover:opacity-100" />
+          </Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>

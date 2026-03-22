@@ -534,7 +534,7 @@ export default function Courses() {
                           {course.batch_status && (
                             <Badge
                               className={cn(
-                                'shrink-0 font-semibold text-[9px] uppercase tracking-wider px-2 h-5 border-none',
+                                'shrink-0 px-2.5 py-0.5 text-xs font-medium tracking-normal normal-case border-none',
                                 course.batch_status === 'active'
                                   ? 'bg-success text-white'
                                   : course.batch_status === 'completed'
@@ -542,7 +542,7 @@ export default function Courses() {
                                   : 'bg-destructive text-destructive-foreground'
                               )}
                             >
-                              {course.batch_status}
+                              {formatStatusLabel(String(course.batch_status))}
                             </Badge>
                           )}
                         </div>
@@ -791,7 +791,7 @@ export default function Courses() {
 
                   <div className="w-full lg:w-80 shrink-0 bg-white/10 backdrop-blur-md border border-white/20 rounded-2xl p-5 md:p-6 shadow-xl">
                   <div className="flex items-center justify-between mb-2">
-                    <span className="text-[10px] font-black uppercase tracking-[0.2em] text-primary-foreground/50">Overall Progress</span>
+                    <span className="text-xs font-semibold tracking-tight text-primary-foreground/70">Overall Progress</span>
                     <span className="text-lg md:text-xl font-black text-primary-foreground">{Math.round(headerProgressPercent)}%</span>
                   </div>
                   <div className="h-2 w-full bg-white/10 rounded-full overflow-hidden border border-white/5">
