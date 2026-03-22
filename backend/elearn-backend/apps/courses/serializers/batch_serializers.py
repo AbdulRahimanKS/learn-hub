@@ -11,6 +11,7 @@ from apps.courses.models import BatchEnrollment as BE
 from utils.progress_utils import (
     average_week_based_progress_percent,
     count_consecutive_completed_weeks,
+    count_deliverable_weeks,
     week_based_progress_percent,
     week_based_progress_percent_float,
 )
@@ -257,7 +258,8 @@ class BatchEnrollmentSerializer(serializers.ModelSerializer):
 
     @extend_schema_field(OpenApiTypes.INT)
     def get_total_weeks(self, obj):
-        return obj.batch.batch_weeks.count()
+        # Match progress denominator: weeks that have sessions and/or a weekly test (not empty shells).
+        return count_deliverable_weeks(obj.batch)
 
     @extend_schema_field(OpenApiTypes.INT)
     def get_total_weekly_tests(self, obj):
