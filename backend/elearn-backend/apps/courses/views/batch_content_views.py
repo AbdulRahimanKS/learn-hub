@@ -29,6 +29,23 @@ from datetime import timedelta
 
 logger = logging.getLogger(__name__)
 
+# Students may list/read batch learning content while active or after completion (review).
+# Dropped enrollments must not access. Session completion / new submissions stay ACTIVE-only.
+STUDENT_BATCH_CONTENT_READ_STATUSES = [
+    BatchEnrollment.Status.ACTIVE,
+    BatchEnrollment.Status.COMPLETED,
+]
+
+
+def _student_can_read_batch_content(batch_id, user) -> bool:
+    if not getattr(user, "user_type", None) or user.user_type.name != UserTypeConstants.STUDENT:
+        return True
+    return BatchEnrollment.objects.filter(
+        batch_id=batch_id,
+        student=user,
+        status__in=STUDENT_BATCH_CONTENT_READ_STATUSES,
+    ).exists()
+
 
 def ensure_week_is_modifiable(week, action):
     """Centralized guard to prevent writes after unlock date."""
@@ -50,9 +67,11 @@ class BatchWeekListView(APIView):
         
         user = request.user
         if getattr(user, 'user_type', None) and user.user_type.name == UserTypeConstants.STUDENT:
-            # Check if student is active in this batch
-            if not BatchEnrollment.objects.filter(batch_id=batch_id, student=user, status=BatchEnrollment.Status.ACTIVE).exists():
-                raise ServiceError(detail="Access denied. You are not an active student in this batch.", status_code=status.HTTP_403_FORBIDDEN)
+            if not _student_can_read_batch_content(batch_id, user):
+                raise ServiceError(
+                    detail="Access denied. You are not enrolled in this batch.",
+                    status_code=status.HTTP_403_FORBIDDEN,
+                )
             # For students, only show published weeks
             weeks = weeks.filter(is_published=True)
 
@@ -306,9 +325,12 @@ class BatchClassSessionListCreateView(APIView):
     def get(self, request, batch_id, week_id):
         user = request.user
         if getattr(user, 'user_type', None) and user.user_type.name == UserTypeConstants.STUDENT:
-            if not BatchEnrollment.objects.filter(batch_id=batch_id, student=user, status=BatchEnrollment.Status.ACTIVE).exists():
-                raise ServiceError(detail="Access denied. You are not an active student in this batch.", status_code=status.HTTP_403_FORBIDDEN)
-                
+            if not _student_can_read_batch_content(batch_id, user):
+                raise ServiceError(
+                    detail="Access denied. You are not enrolled in this batch.",
+                    status_code=status.HTTP_403_FORBIDDEN,
+                )
+
         week = self.get_week(batch_id, week_id)
         sessions = BatchClassSession.objects.filter(batch_week=week)
         serializer = BatchClassSessionSerializer(sessions, many=True, context={'request': request})
@@ -377,9 +399,12 @@ class BatchWeeklyTestView(APIView):
     def get(self, request, batch_id, week_id):
         user = request.user
         if getattr(user, 'user_type', None) and user.user_type.name == UserTypeConstants.STUDENT:
-            if not BatchEnrollment.objects.filter(batch_id=batch_id, student=user, status=BatchEnrollment.Status.ACTIVE).exists():
-                raise ServiceError(detail="Access denied. You are not an active student in this batch.", status_code=status.HTTP_403_FORBIDDEN)
-                
+            if not _student_can_read_batch_content(batch_id, user):
+                raise ServiceError(
+                    detail="Access denied. You are not enrolled in this batch.",
+                    status_code=status.HTTP_403_FORBIDDEN,
+                )
+
         week = self.get_week(batch_id, week_id)
         if not hasattr(week, 'weekly_test'):
             raise ServiceError(detail="No test configured for this batch week.", status_code=status.HTTP_404_NOT_FOUND)

@@ -7,7 +7,7 @@ from drf_spectacular.types import OpenApiTypes
 from django.db.models import Q, Max, F
 from django.db.models.functions import Coalesce
 
-from apps.courses.models import Batch, BatchChatMessage, BatchChatReadReceipt
+from apps.courses.models import Batch, BatchChatMessage, BatchChatReadReceipt, BatchEnrollment
 from apps.courses.serializers import BatchListSerializer
 from apps.courses.serializers.chat_serializers import BatchChatMessageSerializer
 
@@ -41,7 +41,7 @@ class ChatBatchListView(APIView):
             if user.user_type.name == UserTypeConstants.TEACHER:
                 qs = qs.filter(Q(teacher=user) | Q(co_teachers=user)).distinct()
             elif user.user_type.name == UserTypeConstants.STUDENT:
-                qs = qs.filter(enrollments__student=user, enrollments__status='active').distinct()
+                qs = qs.filter(enrollments__student=user, enrollments__status__in=[BatchEnrollment.Status.ACTIVE, BatchEnrollment.Status.COMPLETED]).distinct()
 
         search = request.query_params.get('search', '').strip()
         if search:
@@ -72,7 +72,7 @@ class BatchChatMessageListCreateView(APIView):
                     return batch
                 raise ServiceError(detail="Access denied.", status_code=status.HTTP_403_FORBIDDEN)
             elif user.user_type.name == UserTypeConstants.STUDENT:
-                if batch.enrollments.filter(student=user, status='active').exists():
+                if batch.enrollments.filter(student=user, status__in=[BatchEnrollment.Status.ACTIVE, BatchEnrollment.Status.COMPLETED]).exists():
                     return batch
                 raise ServiceError(detail="Access denied.", status_code=status.HTTP_403_FORBIDDEN)
         return batch
