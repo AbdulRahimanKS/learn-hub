@@ -723,11 +723,6 @@ class BatchTestQuestionAttachment(models.Model):
 
 # Batch Test Submission
 class TestSubmission(models.Model):
-    """
-    A student's answer submission for a WeeklyTest.
-    Per-question answer files: .ipynb and .pdf only (aligned with AI extraction).
-    """
-
     class Status(models.TextChoices):
         PENDING         = 'pending',         _('Pending')
         EVALUATING      = 'evaluating',      _('Evaluating via AI')
@@ -797,10 +792,6 @@ class TestSubmission(models.Model):
 
 # Batch Test Submission Answer
 class TestSubmissionAnswer(models.Model):
-    """
-    Individual answer for a specific question in a TestSubmission.
-    Allows for per-question files and text answers.
-    """
     submission = models.ForeignKey(
         TestSubmission, on_delete=models.CASCADE, related_name='answers'
     )

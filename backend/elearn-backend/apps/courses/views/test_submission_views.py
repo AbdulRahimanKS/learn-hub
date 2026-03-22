@@ -56,23 +56,19 @@ class TestSubmissionCreateView(APIView):
         try:
             user = request.user
             
-            # 1. Verify Enrollment
             enrollment = _get_enrollment(batch_id, user)
             if not enrollment:
                 raise ServiceError(detail="You are not a enrolled student in this batch.", status_code=status.HTTP_403_FORBIDDEN)
 
-            # 2. Get Test
             try:
                 test = BatchWeeklyTest.objects.get(batch_week_id=week_id, batch_week__batch_id=batch_id)
             except BatchWeeklyTest.DoesNotExist:
                 raise ServiceError(detail="Test not found for this week.", status_code=status.HTTP_404_NOT_FOUND)
 
-            # 3. Check Attempt
             latest_attempt = TestSubmission.objects.filter(
                 batch_weekly_test=test, enrollment=enrollment
             ).order_by('-attempt_number').first()
             
-            # If the latest attempt is already PUBLISHED and passed, they shouldn't resubmit
             if latest_attempt and latest_attempt.status == TestSubmission.Status.PUBLISHED and latest_attempt.is_passed:
                 raise ServiceError(detail="You have already passed this test.", status_code=status.HTTP_400_BAD_REQUEST)
 
@@ -82,7 +78,6 @@ class TestSubmissionCreateView(APIView):
                 if key.startswith('file_q_'):
                     _validate_weekly_test_answer_upload(uploaded)
 
-            # 4. Create Submission
             submission = TestSubmission.objects.create(
                 batch_weekly_test=test,
                 enrollment=enrollment,
@@ -90,7 +85,6 @@ class TestSubmissionCreateView(APIView):
                 status=TestSubmission.Status.PENDING
             )
 
-            # 5. Handle Answers
             answers_data = {}
             if 'answers' in request.data:
                 try:
@@ -121,6 +115,7 @@ class TestSubmissionCreateView(APIView):
         except Exception as e:
             logger.error(f"Error submitting test: {str(e)}")
             raise ServiceError(detail="An error occurred while submitting the test.", status_code=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
 
 @extend_schema(tags=["Test Submissions"], summary="List all test submissions for a specific batch", description="Allows a teacher to list all test submissions for a specific batch.")
 class BatchTestSubmissionListView(generics.ListAPIView):
