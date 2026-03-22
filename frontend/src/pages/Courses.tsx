@@ -53,6 +53,15 @@ import { WeeklyTestSubmission } from '@/components/WeeklyTestSubmission';
 import { WeeklyTestResults } from '@/components/WeeklyTestResults';
 import { WeeklyTest } from '@/components/WeeklyTestManager';
 
+/** Human-readable label for submission/week status strings from the API. */
+function formatStatusLabel(raw: string): string {
+  return raw
+    .replace(/_/g, ' ')
+    .trim()
+    .toLowerCase()
+    .replace(/\b\w/g, (ch) => ch.toUpperCase());
+}
+
 function useDebounce<T>(value: T, delay: number): T {
   const [debouncedValue, setDebouncedValue] = useState<T>(value);
   useEffect(() => {
@@ -911,7 +920,7 @@ export default function Courses() {
                                 </Badge>
                               )}
                               {allDone && (
-                                <Badge className="bg-emerald-500/20 text-emerald-400 border-emerald-500/30 text-[10px] h-5 px-2 font-black uppercase tracking-wider shadow-[0_0_10px_rgba(16,185,129,0.1)]">
+                                <Badge className="bg-emerald-500/20 text-emerald-400 border-emerald-500/30 text-[10px] h-5 px-2 font-semibold shadow-[0_0_10px_rgba(16,185,129,0.1)]">
                                   Completed
                                 </Badge>
                               )}
@@ -1029,8 +1038,12 @@ export default function Courses() {
                                              </p>
                                            ) : null}
                                            <div className="flex items-center gap-2 mt-1.5">
-                                             <span className="text-[9px] font-black uppercase text-primary/70">{session.weekday || 'Session'}</span>
-                                             {completed && <span className="text-[8px] bg-emerald-500/20 text-emerald-400 px-1 rounded font-black uppercase">Watched</span>}
+                                             <span className="text-[9px] font-semibold capitalize text-primary/70">{session.weekday || 'Session'}</span>
+                                             {completed && (
+                                               <span className="inline-flex items-center h-5 shrink-0 rounded-full border border-emerald-500/30 bg-emerald-500/20 px-2 text-[10px] font-semibold text-emerald-400 shadow-[0_0_10px_rgba(16,185,129,0.1)]">
+                                                 Watched
+                                               </span>
+                                             )}
                                            </div>
                                         </div>
                                       </div>
@@ -1068,7 +1081,7 @@ export default function Courses() {
                                               </span>
                                             ) : null}
                                             {completed ? (
-                                              <span className="flex items-center gap-1 rounded bg-emerald-500/20 px-1.5 py-0.5 text-[9px] font-black uppercase tracking-wider text-emerald-400">
+                                              <span className="inline-flex items-center h-5 shrink-0 rounded-full border border-emerald-500/30 bg-emerald-500/20 px-2 text-[10px] font-semibold text-emerald-400 shadow-[0_0_10px_rgba(16,185,129,0.1)]">
                                                 Watched
                                               </span>
                                             ) : null}
@@ -1169,7 +1182,7 @@ export default function Courses() {
                                             : 'Pass previous assessment to unlock'
                                           : "Test your understanding of this week's lessons"}
                                         {isPass ? (
-                                          <Badge className="bg-emerald-500/20 text-emerald-400 border-emerald-500/30 text-[10px] h-5 px-2 font-black uppercase tracking-wider shadow-[0_0_10px_rgba(16,185,129,0.1)]">
+                                          <Badge className="bg-emerald-500/20 text-emerald-400 border-emerald-500/30 text-[10px] h-5 px-2 font-semibold shadow-[0_0_10px_rgba(16,185,129,0.1)]">
                                             Passed
                                           </Badge>
                                         ) : (() => {
@@ -1181,15 +1194,15 @@ export default function Courses() {
                                           if (!latest) return null;
                                           if (latest.status === 'published' && !isPass) {
                                             return (
-                                              <Badge className="bg-rose-500/20 text-rose-400 border-rose-500/30 text-[10px] h-5 px-2 font-black uppercase tracking-wider shadow-[0_0_10px_rgba(244,63,94,0.1)]">
+                                              <Badge className="bg-rose-500/20 text-rose-400 border-rose-500/30 text-[10px] h-5 px-2 font-semibold shadow-[0_0_10px_rgba(244,63,94,0.1)]">
                                                 Failed
                                               </Badge>
                                             );
                                           }
                                           if (latest.status !== 'published') {
                                             return (
-                                              <Badge className="bg-blue-500/10 text-blue-500 border-blue-500/20 text-[10px] h-5 px-2 font-black uppercase tracking-wider shadow-[0_0_10px_rgba(59,130,246,0.05)]">
-                                                {latest.status.replace('_', ' ')}
+                                              <Badge className="bg-blue-500/10 text-blue-500 border-blue-500/20 text-[10px] h-5 px-2 font-semibold shadow-[0_0_10px_rgba(59,130,246,0.05)]">
+                                                {formatStatusLabel(latest.status)}
                                               </Badge>
                                             );
                                           }
