@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { DashboardLayout } from '@/components/layout/DashboardLayout';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -16,13 +16,13 @@ import {
   AlertCircle,
   Eye,
   Users,
-  LayoutGrid,
   ChevronRight,
   Loader2,
   Filter,
   BookOpen,
   Zap,
   Edit3,
+  ClipboardCheck,
 } from 'lucide-react';
 import {
   Select,
@@ -31,14 +31,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '@/components/ui/table';
 import { apiClient } from '@/lib/api';
 import { useToast } from '@/hooks/use-toast';
 import { SubmissionReviewModal } from '@/components/SubmissionReviewModal';
@@ -54,14 +46,26 @@ export default function Assessments() {
   const { toast } = useToast();
   const [selectedBatch, setSelectedBatch] = useState<string>('');
   const [selectedBatchName, setSelectedBatchName] = useState('');
-  const [submissions, setSubmissions] = useState<any[]>([]);
+  /** Student list (all scopes combined — no scope param) */
+  const [studentSubmissions, setStudentSubmissions] = useState<any[]>([]);
+  const [pendingSubmissions, setPendingSubmissions] = useState<any[]>([]);
+  const [publishedSubmissions, setPublishedSubmissions] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(false);
+  const [loadingReview, setLoadingReview] = useState(false);
+  const [loadingPublished, setLoadingPublished] = useState(false);
   // Filters & Pagination
   const [selectedWeek, setSelectedWeek] = useState<string>('all');
   const [currentPage, setCurrentPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
-  const [activeTab, setActiveTab] = useState('review');
+  const [reviewPage, setReviewPage] = useState(1);
+  const [reviewTotalPages, setReviewTotalPages] = useState(1);
+  const [publishedPage, setPublishedPage] = useState(1);
+  const [publishedTotalPages, setPublishedTotalPages] = useState(1);
   const [stats, setStats] = useState({ total: 0, pending: 0, published: 0 });
+  const reviewPageRef = useRef(reviewPage);
+  const publishedPageRef = useRef(publishedPage);
+  reviewPageRef.current = reviewPage;
+  publishedPageRef.current = publishedPage;
   const [batchWeeks, setBatchWeeks] = useState<any[]>([]);
   
   // Review Modal State
@@ -89,6 +93,8 @@ export default function Assessments() {
     setSelectedWeek('all');
     setBatchWeeks([]);
     setCurrentPage(1);
+    setReviewPage(1);
+    setPublishedPage(1);
   }, []);
 
   useEffect(() => {
@@ -96,16 +102,69 @@ export default function Assessments() {
     fetchStudentSubmissions(currentPage, selectedWeek, selectedBatch);
   }, [currentPage, selectedWeek, selectedBatch, user]);
 
+  const loadAdminPending = useCallback(async () => {
+    if (!selectedBatch || user?.role === 'student') return;
+    setLoadingReview(true);
+    try {
+      let url = `/api/courses/v1/batches/${selectedBatch}/test-submissions/?page=${reviewPageRef.current}&scope=pending`;
+      if (selectedWeek !== 'all') url += `&week_number=${selectedWeek}`;
+      const res = await apiClient.get(url);
+      if (res.data?.success) {
+        setPendingSubmissions(res.data.data || []);
+        setReviewTotalPages(res.data.total_pages || 1);
+        if (res.data.stats) setStats(res.data.stats);
+      }
+    } catch {
+      toast({ title: 'Error', description: 'Failed to fetch pending submissions.', variant: 'destructive' });
+    } finally {
+      setLoadingReview(false);
+    }
+  }, [selectedBatch, selectedWeek, user?.role, toast]);
+
+  const loadAdminPublished = useCallback(async () => {
+    if (!selectedBatch || user?.role === 'student') return;
+    setLoadingPublished(true);
+    try {
+      let url = `/api/courses/v1/batches/${selectedBatch}/test-submissions/?page=${publishedPageRef.current}&scope=published`;
+      if (selectedWeek !== 'all') url += `&week_number=${selectedWeek}`;
+      const res = await apiClient.get(url);
+      if (res.data?.success) {
+        setPublishedSubmissions(res.data.data || []);
+        setPublishedTotalPages(res.data.total_pages || 1);
+        if (res.data.stats) setStats(res.data.stats);
+      }
+    } catch {
+      toast({ title: 'Error', description: 'Failed to fetch published submissions.', variant: 'destructive' });
+    } finally {
+      setLoadingPublished(false);
+    }
+  }, [selectedBatch, selectedWeek, user?.role, toast]);
+
   useEffect(() => {
     if (!selectedBatch || selectedBatch === 'all') {
       setBatchWeeks([]);
       return;
     }
-    if (user?.role !== 'student') {
-      fetchBatchSubmissions(selectedBatch, currentPage, selectedWeek);
+    void fetchBatchWeeks(selectedBatch);
+  }, [selectedBatch]);
+
+  useEffect(() => {
+    if (user?.role === 'student' || !selectedBatch || selectedBatch === 'all') {
+      setPendingSubmissions([]);
+      setReviewTotalPages(1);
+      return;
     }
-    fetchBatchWeeks(selectedBatch);
-  }, [selectedBatch, currentPage, selectedWeek, user]);
+    void loadAdminPending();
+  }, [user?.role, selectedBatch, selectedWeek, reviewPage, loadAdminPending]);
+
+  useEffect(() => {
+    if (user?.role === 'student' || !selectedBatch || selectedBatch === 'all') {
+      setPublishedSubmissions([]);
+      setPublishedTotalPages(1);
+      return;
+    }
+    void loadAdminPublished();
+  }, [user?.role, selectedBatch, selectedWeek, publishedPage, loadAdminPublished]);
 
   /** If the selected week is not in the current batch’s week list, fall back to “all”. */
   useEffect(() => {
@@ -132,28 +191,9 @@ export default function Assessments() {
     }
   };
 
-  const fetchBatchSubmissions = async (batchId: string, page = 1, week = 'all') => {
-    setIsLoading(true);
-    try {
-      let url = `/api/courses/v1/batches/${batchId}/test-submissions/?page=${page}`;
-      if (week !== 'all') url += `&week_number=${week}`;
-      
-      const res = await apiClient.get(url);
-      if (res.data?.success) {
-        setSubmissions(res.data.data || []);
-        setTotalPages(res.data.total_pages || 1);
-        if (res.data.stats) setStats(res.data.stats);
-      }
-    } catch (err) {
-      toast({ title: 'Error', description: 'Failed to fetch submissions.', variant: 'destructive' });
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
   const fetchStudentSubmissions = async (page = 1, week = 'all', batchId?: string) => {
     if (!batchId) {
-      setSubmissions([]);
+      setStudentSubmissions([]);
       setTotalPages(1);
       setStats({ total: 0, pending: 0, published: 0 });
       return;
@@ -165,12 +205,12 @@ export default function Assessments() {
 
       const res = await apiClient.get(url);
       if (res.data?.success) {
-        setSubmissions(res.data.data || []);
+        setStudentSubmissions(res.data.data || []);
         setTotalPages(res.data.total_pages || 1);
         if (res.data.stats) setStats(res.data.stats);
       }
     } catch (err) {
-      console.error("Failed to fetch student submissions");
+      console.error('Failed to fetch student submissions');
     } finally {
       setIsLoading(false);
     }
@@ -183,7 +223,7 @@ export default function Assessments() {
       if (res.data?.success) {
         toast({ title: 'AI Analysis Started', description: 'AI is evaluating the submission.', variant: 'success' });
         // Refresh local data
-        if (selectedBatch) fetchBatchSubmissions(selectedBatch, currentPage, selectedWeek);
+        if (selectedBatch) void loadAdminPending();
       }
     } catch (err) {
       toast({ title: 'AI Error', description: 'Failed to trigger AI evaluation.', variant: 'destructive' });
@@ -191,9 +231,6 @@ export default function Assessments() {
       setEvaluatingIds(prev => prev.filter(eid => eid !== id));
     }
   };
-
-  const pendingCount = stats.pending;
-  const publishedCount = stats.published;
 
   // Render Logic
   const renderAdminView = () => (
@@ -225,7 +262,14 @@ export default function Assessments() {
         
         <div className="flex min-w-0 w-full flex-1 items-center gap-3 sm:w-auto sm:justify-end">
           <div className="w-[min(180px,100%)] shrink-0">
-            <Select value={selectedWeek} onValueChange={(val) => { setSelectedWeek(val); setCurrentPage(1); }}>
+            <Select
+              value={selectedWeek}
+              onValueChange={(val) => {
+                setSelectedWeek(val);
+                setReviewPage(1);
+                setPublishedPage(1);
+              }}
+            >
               <SelectTrigger className="h-11 max-w-full bg-background rounded-xl font-bold">
                 <SelectValue placeholder="All Weeks" />
               </SelectTrigger>
@@ -256,27 +300,40 @@ export default function Assessments() {
         </div>
       </div>
 
-      {/* Stats Cards */}
+      {/* Stats — Dashboard-style (label + value + icon, separated cards) */}
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
         {[
-          { label: 'Total Submissions', value: stats.total, icon: FileText, color: 'info' },
-          { label: 'Pending Review', value: stats.pending, icon: AlertCircle, color: 'warning' },
-          { label: 'Evaluated', value: stats.published, icon: CheckCircle, color: 'success' },
+          {
+            label: 'Total Submissions',
+            value: stats.total,
+            icon: FileText,
+            iconClass: 'text-primary',
+            boxClass: 'bg-primary/10',
+          },
+          {
+            label: 'Pending Review',
+            value: stats.pending,
+            icon: AlertCircle,
+            iconClass: 'text-warning',
+            boxClass: 'bg-warning/10',
+          },
+          {
+            label: 'Evaluated',
+            value: stats.published,
+            icon: CheckCircle,
+            iconClass: 'text-success',
+            boxClass: 'bg-success/10',
+          },
         ].map((stat, i) => (
-          <Card key={i} className="shadow-card border-none overflow-hidden group">
+          <Card key={i} className="shadow-card transition-shadow hover:shadow-lg">
             <CardContent className="p-6">
-              <div className="flex items-center gap-4">
-                <div className={cn(
-                  "p-3 rounded-xl transition-transform group-hover:scale-110 duration-300",
-                  stat.color === 'info' ? "bg-info/10 text-info" :
-                  stat.color === 'warning' ? "bg-warning/10 text-warning" :
-                  stat.color === 'success' ? "bg-success/10 text-success" : "bg-primary/10 text-primary"
-                )}>
-                  <stat.icon className="h-6 w-6" />
-                </div>
-                <div>
-                  <p className="text-2xl font-bold text-foreground leading-tight">{stat.value}</p>
+              <div className="flex items-center justify-between gap-4">
+                <div className="min-w-0">
                   <p className="text-sm text-muted-foreground">{stat.label}</p>
+                  <p className="mt-1 text-3xl font-bold text-foreground">{stat.value}</p>
+                </div>
+                <div className={cn('shrink-0 rounded-xl p-3', stat.boxClass)}>
+                  <stat.icon className={cn('h-6 w-6', stat.iconClass)} />
                 </div>
               </div>
             </CardContent>
@@ -284,205 +341,258 @@ export default function Assessments() {
         ))}
       </div>
 
-      <Tabs defaultValue="review" className="space-y-6">
-        <TabsList className="bg-background p-1 border border-border/50 rounded-lg w-fit h-10">
-          <TabsTrigger value="review" className="gap-2 w-40 h-8 text-xs font-bold">
-            Pending Review
-          </TabsTrigger>
-          <TabsTrigger value="published" className="gap-2 w-40 h-8 text-xs font-bold">
-            Published Results
-          </TabsTrigger>
-        </TabsList>
+      <Card className="shadow-card">
+        <CardHeader className="pb-2">
+          <CardTitle>Student submissions</CardTitle>
+          <CardDescription>Review pending work and published results for the selected batch and week.</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <Tabs defaultValue="review" className="space-y-6">
+            <TabsList className="h-10 w-fit rounded-lg border border-border/50 bg-background p-1">
+              <TabsTrigger value="review" className="h-8 w-40 rounded-md text-xs font-bold">
+                Pending Review
+              </TabsTrigger>
+              <TabsTrigger value="published" className="h-8 w-40 rounded-md text-xs font-bold">
+                Published Results
+              </TabsTrigger>
+            </TabsList>
 
-        <TabsContent value="review" className="mt-0 outline-none">
-          <div className="grid gap-4">
-            {isLoading ? (
-              <div className="flex items-center justify-center py-20">
-                <Loader2 className="h-8 w-8 animate-spin text-primary" />
-              </div>
-            ) : submissions.filter(s => s.status !== 'published').length === 0 ? (
-              <div className="text-center py-20 text-muted-foreground border-2 border-dashed border-muted-foreground/30 rounded-2xl bg-card/50">
-                 <div className="inline-flex h-20 w-20 items-center justify-center rounded-full bg-slate-50 dark:bg-slate-900 text-slate-300 mb-6 border shadow-inner">
-                   <CheckCircle className="h-10 w-10" />
-                 </div>
-                 <h3 className="text-xl font-bold text-foreground mb-2">All caught up!</h3>
-                 <p className="max-w-xs mx-auto font-medium opacity-70">No pending submissions found for the selected batch. Great job keeping up with reviews!</p>
-              </div>
-            ) : (
-              <div className="grid gap-4">
-                {submissions.filter(s => s.status !== 'published').map((item) => (
-                  <Card key={item.id} className="shadow-card border-none hover:shadow-md transition-all duration-300 overflow-hidden group">
-                    <CardContent className="p-0">
-                      <div className="flex flex-col md:flex-row md:items-center">
-                        <div className="flex-1 p-5 flex items-center gap-4">
-                          <div className="h-12 w-12 rounded-xl bg-primary/10 flex items-center justify-center border border-primary/5 transition-transform group-hover:scale-105">
-                            <span className="text-lg font-bold text-primary">{item.student_name?.charAt(0)}</span>
+            <TabsContent value="review" className="mt-0 outline-none">
+              {loadingReview ? (
+                <div className="flex items-center justify-center py-16">
+                  <Loader2 className="h-8 w-8 animate-spin text-primary" />
+                </div>
+              ) : pendingSubmissions.length === 0 ? (
+                <div className="rounded-xl border border-border bg-muted/40 px-6 py-14 text-center">
+                  <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-lg bg-success/10">
+                    <CheckCircle className="h-6 w-6 text-success" />
+                  </div>
+                  <h3 className="text-lg font-semibold text-foreground">All caught up!</h3>
+                  <p className="mx-auto mt-2 max-w-md text-sm text-muted-foreground">
+                    No pending submissions for this batch. Great job keeping up with reviews.
+                  </p>
+                </div>
+              ) : (
+                <>
+                <div className="space-y-4">
+                  {pendingSubmissions.map((item) => (
+                      <div
+                        key={item.id}
+                        className="group flex flex-col gap-4 rounded-xl border border-border bg-muted/40 p-4 transition-all hover:bg-accent/20 hover:shadow-sm xl:flex-row xl:items-center xl:justify-between"
+                      >
+                        <div className="flex min-w-0 flex-1 items-center gap-3">
+                          <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-primary/10 text-base font-bold text-primary">
+                            {item.student_name?.charAt(0)}
                           </div>
-                          <div className="space-y-0.5">
-                            <h3 className="font-bold text-base text-foreground group-hover:text-primary transition-colors">{item.student_name}</h3>
+                          <div className="min-w-0 space-y-0.5">
+                            <p className="font-medium text-foreground">{item.student_name}</p>
                             <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs font-medium text-muted-foreground">
-                              <span className="flex items-center gap-1.5"><FileText className="h-3 w-3" /> Week {item.week_number} • {item.test_title}</span>
-                              <span className="hidden sm:inline h-1 w-1 rounded-full bg-slate-300 dark:bg-slate-700" />
-                              <span className="flex items-center gap-1.5"><Clock className="h-3 w-3" /> {format(new Date(item.submitted_at), 'MMM d, h:mm a')}</span>
+                              <span className="flex items-center gap-1.5">
+                                <FileText className="h-3 w-3 shrink-0" />
+                                Week {item.week_number} • {item.test_title}
+                              </span>
+                              <span className="hidden sm:inline h-1 w-1 rounded-full bg-muted-foreground/40" />
+                              <span className="flex items-center gap-1.5">
+                                <Clock className="h-3 w-3 shrink-0" />
+                                {format(new Date(item.submitted_at), 'MMM d, h:mm a')}
+                              </span>
                             </div>
                           </div>
                         </div>
-                        <div className="p-5 bg-muted/30 flex items-center justify-between md:justify-end gap-8 md:min-w-[340px] border-t md:border-t-0 md:border-l border-border/50">
-                          <div className="text-center md:text-right">
-                            <p className="text-[10px] font-bold uppercase text-muted-foreground tracking-wider mb-1">AI Suggestion</p>
-                            <div className="flex items-center justify-end gap-2">
-                               {item.status === 'evaluating' || evaluatingIds.includes(item.id) ? (
-                                 <Badge className="bg-primary/10 text-primary border-none animate-pulse">Evaluating...</Badge>
-                               ) : item.status === 'pending' ? (
-                                 <Badge variant="outline" className="text-[10px] border-dashed border-muted-foreground/30 text-muted-foreground">Waiting for Trigger</Badge>
-                               ) : (
-                                 <p className="text-xl font-bold text-foreground">{(item.ai_score || item.marks_obtained || 0).toFixed(1)}%</p>
-                               )}
+                        <div className="flex flex-col gap-4 border-t border-border/50 pt-4 sm:flex-row sm:items-center sm:justify-between sm:gap-6 sm:border-t-0 sm:pt-0 xl:shrink-0 xl:justify-end">
+                          <div className="sm:text-right">
+                            <p className="mb-1 text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
+                              AI suggestion
+                            </p>
+                            <div className="flex justify-start sm:justify-end">
+                              {item.status === 'evaluating' || evaluatingIds.includes(item.id) ? (
+                                <Badge className="animate-pulse border-none bg-primary/10 text-primary">
+                                  Evaluating…
+                                </Badge>
+                              ) : item.status === 'pending' ? (
+                                <Badge
+                                  variant="outline"
+                                  className="border-dashed border-muted-foreground/30 text-[10px] text-muted-foreground"
+                                >
+                                  Waiting for trigger
+                                </Badge>
+                              ) : (
+                                <p className="text-xl font-bold text-foreground">
+                                  {(item.ai_score || item.marks_obtained || 0).toFixed(1)}%
+                                </p>
+                              )}
                             </div>
                           </div>
-                          
-                          {item.status === 'pending' ? (
-                            <div className="flex items-center gap-3">
-                              <Button 
-                                variant="outline"
-                                className="h-10 rounded-xl border-primary/25 px-4 font-bold text-primary hover:bg-primary hover:text-primary-foreground dark:border-primary/40"
-                                onClick={() => handleTriggerAI(item.id)}
-                                disabled={evaluatingIds.includes(item.id)}
-                              >
-                                {evaluatingIds.includes(item.id) ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Zap className="h-4 w-4 mr-2 fill-primary" />}
-                                Evaluate via AI
-                              </Button>
-                              <Button 
-                                variant="gradient"
-                                className="font-bold rounded-xl h-10 px-4 shadow-lg shadow-primary/20"
+                          <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+                            {item.status === 'pending' ? (
+                              <>
+                                <Button
+                                  variant="outline"
+                                  className="h-10 rounded-xl border-primary/25 px-4 font-bold text-primary hover:bg-primary hover:text-primary-foreground dark:border-primary/40"
+                                  onClick={() => handleTriggerAI(item.id)}
+                                  disabled={evaluatingIds.includes(item.id)}
+                                >
+                                  {evaluatingIds.includes(item.id) ? (
+                                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                                  ) : (
+                                    <Zap className="mr-2 h-4 w-4 fill-primary" />
+                                  )}
+                                  Evaluate via AI
+                                </Button>
+                                <Button
+                                  variant="gradient"
+                                  className="h-10 rounded-xl px-4 font-bold shadow-lg shadow-primary/20"
+                                  onClick={() => {
+                                    setReviewId(item.id);
+                                    setIsReviewOpen(true);
+                                  }}
+                                >
+                                  <Edit3 className="mr-2 h-4 w-4" />
+                                  Review & Grade
+                                </Button>
+                              </>
+                            ) : (
+                              <Button
+                                variant={item.status === 'pending_review' ? 'gradient' : 'outline'}
+                                className={cn(
+                                  'h-10 rounded-xl px-6 font-bold',
+                                  item.status === 'pending_review' ? 'shadow-lg shadow-primary/20' : '',
+                                )}
                                 onClick={() => {
                                   setReviewId(item.id);
                                   setIsReviewOpen(true);
                                 }}
+                                disabled={item.status === 'evaluating' || evaluatingIds.includes(item.id)}
                               >
-                                <Edit3 className="h-4 w-4 mr-2" />
-                                Review & Grade
+                                <Edit3 className="mr-2 h-4 w-4" />
+                                {item.status === 'pending_review' || item.status === 'evaluating'
+                                  ? 'Review & Grade'
+                                  : item.status === 'returned'
+                                    ? 'Review correction'
+                                    : 'View submission'}
                               </Button>
-                            </div>
-                          ) : (
-                            <Button 
-                              variant={item.status === 'pending_review' ? 'gradient' : 'outline'} 
-                              className={cn(
-                                "font-bold rounded-xl h-10 px-6",
-                                item.status === 'pending_review' ? "shadow-lg shadow-primary/20" : ""
-                              )}
-                              onClick={() => {
-                                setReviewId(item.id);
-                                setIsReviewOpen(true);
-                              }}
-                              disabled={item.status === 'evaluating' || evaluatingIds.includes(item.id)}
-                            >
-                              <Edit3 className="h-4 w-4 mr-2" />
-                              {item.status === 'pending_review' || item.status === 'evaluating' ? 'Review & Grade' : item.status === 'returned' ? 'Review Correction' : 'View Submission'}
-                            </Button>
-                          )}
+                            )}
+                          </div>
                         </div>
                       </div>
-                    </CardContent>
-                  </Card>
-                ))}
-              </div>
-            )}
-          </div>
-        </TabsContent>
+                    ))}
+                </div>
+                {!loadingReview && pendingSubmissions.length > 0 && reviewTotalPages > 1 && (
+                  <div className="mt-8 flex items-center justify-center gap-2">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setReviewPage((p) => Math.max(1, p - 1))}
+                      disabled={reviewPage === 1}
+                    >
+                      Previous
+                    </Button>
+                    <div className="px-4 text-sm font-medium text-muted-foreground">
+                      Page {reviewPage} of {reviewTotalPages}
+                    </div>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setReviewPage((p) => Math.min(reviewTotalPages, p + 1))}
+                      disabled={reviewPage === reviewTotalPages}
+                    >
+                      Next
+                    </Button>
+                  </div>
+                )}
+                </>
+              )}
+            </TabsContent>
 
-        <TabsContent value="published" className="mt-0 outline-none">
-          <div className="border rounded-2xl overflow-hidden shadow-sm bg-card">
-            <Table>
-              <TableHeader className="bg-muted/30">
-                <TableRow>
-                  <TableHead className="font-bold uppercase text-[10px] tracking-wider py-4">Student</TableHead>
-                  <TableHead className="font-bold uppercase text-[10px] tracking-wider py-4">Assessment Details</TableHead>
-                  <TableHead className="font-bold uppercase text-[10px] tracking-wider py-4">Submitted On</TableHead>
-                  <TableHead className="font-bold uppercase text-[10px] tracking-wider py-4">Score</TableHead>
-                  <TableHead className="text-right font-bold uppercase text-[10px] tracking-wider py-4">Action</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {submissions.filter(s => s.status === 'published').length === 0 ? (
-                  <TableRow>
-                    <TableCell colSpan={5} className="h-64 text-center">
-                      <div className="flex flex-col items-center justify-center py-12 text-muted-foreground">
-                         <FileText className="h-12 w-12 mb-4 opacity-20" />
-                         <p className="font-bold text-lg">No published results yet</p>
-                         <p className="max-w-xs mx-auto mt-1 opacity-70">Evaluated assessments for this batch will appear in this table.</p>
-                      </div>
-                    </TableCell>
-                  </TableRow>
-                ) : (
-                  submissions.filter(s => s.status === 'published').map((item) => (
-                    <TableRow key={item.id} className="group hover:bg-muted/10 transition-colors border-b last:border-0">
-                      <TableCell className="py-4">
-                        <div className="flex items-center gap-3">
-                          <div className="h-9 w-9 rounded-full bg-success/10 text-success flex items-center justify-center font-bold text-sm border border-success/10">
+            <TabsContent value="published" className="mt-0 outline-none">
+              {loadingPublished ? (
+                <div className="flex items-center justify-center py-16">
+                  <Loader2 className="h-8 w-8 animate-spin text-primary" />
+                </div>
+              ) : publishedSubmissions.length === 0 ? (
+                <div className="rounded-xl border border-border bg-muted/40 px-6 py-14 text-center">
+                  <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-lg bg-primary/10">
+                    <FileText className="h-6 w-6 text-primary" />
+                  </div>
+                  <h3 className="text-lg font-semibold text-foreground">No published results yet</h3>
+                  <p className="mx-auto mt-2 max-w-md text-sm text-muted-foreground">
+                    Graded assessments you publish will appear here as separate cards.
+                  </p>
+                </div>
+              ) : (
+                <>
+                <div className="space-y-4">
+                  {publishedSubmissions.map((item) => (
+                      <div
+                        key={item.id}
+                        className="group flex flex-col gap-4 rounded-xl border border-border bg-muted/40 p-4 transition-all hover:bg-accent/20 hover:shadow-sm sm:flex-row sm:items-center sm:justify-between"
+                      >
+                        <div className="flex min-w-0 flex-1 items-center gap-3">
+                          <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full border border-success/15 bg-success/10 text-sm font-bold text-success">
                             {item.student_name?.charAt(0)}
                           </div>
-                          <span className="font-bold text-foreground">{item.student_name}</span>
+                          <div className="min-w-0">
+                            <p className="font-medium text-foreground">{item.student_name}</p>
+                            <p className="text-sm text-muted-foreground">
+                              Week {item.week_number} • {item.test_title}
+                            </p>
+                            <p className="mt-0.5 text-xs font-medium text-muted-foreground">
+                              Submitted {format(new Date(item.submitted_at), 'MMM d, yyyy')}
+                            </p>
+                          </div>
                         </div>
-                      </TableCell>
-                      <TableCell className="py-4">
-                        <div className="flex flex-col">
-                          <span className="text-sm font-bold text-foreground">Week {item.week_number}</span>
-                          <span className="text-xs text-muted-foreground font-medium">{item.test_title}</span>
+                        <div className="flex shrink-0 flex-col items-stretch gap-3 sm:flex-row sm:items-center sm:gap-4">
+                          <Badge
+                            variant="outline"
+                            className="w-fit rounded-lg border-success/30 bg-success/5 px-2 py-1 text-xs font-black text-success shadow-sm"
+                          >
+                            {item.marks_obtained}%
+                          </Badge>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="h-10 rounded-xl font-bold"
+                            onClick={() => {
+                              setReviewId(item.id);
+                              setIsReviewOpen(true);
+                            }}
+                          >
+                            <Eye className="mr-2 h-4 w-4" />
+                            View results
+                          </Button>
                         </div>
-                      </TableCell>
-                      <TableCell className="text-sm text-muted-foreground font-medium py-4">
-                        {format(new Date(item.submitted_at), 'MMM d, yyyy')}
-                      </TableCell>
-                      <TableCell className="py-4">
-                        <Badge variant="outline" className="border-success/30 text-success bg-success/5 font-black text-xs px-2 py-0.5 rounded-lg shadow-sm">
-                          {item.marks_obtained}%
-                        </Badge>
-                      </TableCell>
-                      <TableCell className="text-right py-4">
-                        <Button 
-                          variant="ghost" 
-                          size="sm" 
-                          className="hover:bg-primary/10 hover:text-primary font-bold rounded-lg transition-all h-9"
-                          onClick={() => { setReviewId(item.id); setIsReviewOpen(true); }}
-                        >
-                          <Eye className="h-4 w-4 mr-2" />
-                          View Results
-                        </Button>
-                      </TableCell>
-                    </TableRow>
-                  ))
+                      </div>
+                    ))}
+                </div>
+                {!loadingPublished && publishedSubmissions.length > 0 && publishedTotalPages > 1 && (
+                  <div className="mt-8 flex items-center justify-center gap-2">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setPublishedPage((p) => Math.max(1, p - 1))}
+                      disabled={publishedPage === 1}
+                    >
+                      Previous
+                    </Button>
+                    <div className="px-4 text-sm font-medium text-muted-foreground">
+                      Page {publishedPage} of {publishedTotalPages}
+                    </div>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setPublishedPage((p) => Math.min(publishedTotalPages, p + 1))}
+                      disabled={publishedPage === publishedTotalPages}
+                    >
+                      Next
+                    </Button>
+                  </div>
                 )}
-              </TableBody>
-            </Table>
-          </div>
-        </TabsContent>
-      </Tabs>
-
-      {/* Pagination Controls */}
-      {!isLoading && submissions.length > 0 && totalPages > 1 && (
-        <div className="flex items-center justify-center gap-2 mt-8">
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
-            disabled={currentPage === 1}
-          >
-            Previous
-          </Button>
-          <div className="text-sm font-medium text-muted-foreground px-4">
-            Page {currentPage} of {totalPages}
-          </div>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
-            disabled={currentPage === totalPages}
-          >
-            Next
-          </Button>
-        </div>
-      )}
+                </>
+              )}
+            </TabsContent>
+          </Tabs>
+        </CardContent>
+      </Card>
     </div>
   );
 
@@ -546,157 +656,194 @@ export default function Assessments() {
         </div>
       </div>
 
-      {/* Student Stats */}
+      {/* Student Stats — Dashboard-style: label + value + icon */}
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
         {[
-          { label: 'Completed Tests', value: stats.published, icon: CheckCircle, color: 'success' },
-          { label: 'Pending Review', value: stats.pending, icon: Clock, color: 'warning' },
-          { label: 'Total Attempts', value: stats.total, icon: FileText, color: 'info' },
+          {
+            label: 'Completed Tests',
+            value: stats.published,
+            icon: CheckCircle,
+            iconClass: 'text-success',
+            boxClass: 'bg-success/10',
+          },
+          {
+            label: 'Pending Review',
+            value: stats.pending,
+            icon: Clock,
+            iconClass: 'text-warning',
+            boxClass: 'bg-warning/10',
+          },
+          {
+            label: 'Total Attempts',
+            value: stats.total,
+            icon: FileText,
+            iconClass: 'text-primary',
+            boxClass: 'bg-primary/10',
+          },
         ].map((stat, i) => (
-              <Card key={i} className="shadow-card group overflow-hidden">
-                <CardContent className="p-6">
-                  <div className="flex items-center gap-4">
-                    <div className={cn(
-                      "p-3 rounded-xl transition-transform group-hover:scale-110 duration-300",
-                      stat.color === 'success' ? "bg-success/10 text-success" :
-                      stat.color === 'warning' ? "bg-warning/10 text-warning" :
-                      stat.color === 'destructive' ? "bg-destructive/10 text-destructive" :
-                      stat.color === 'muted' ? "bg-muted text-muted-foreground" : "bg-primary/10 text-primary"
-                    )}>
-                      <stat.icon className="h-6 w-6" />
-                    </div>
-                    <div>
-                      <p className="text-2xl font-bold text-foreground leading-tight">{stat.value}</p>
-                      <p className="text-sm text-muted-foreground">{stat.label}</p>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-            ))}
+          <Card key={i} className="shadow-card transition-shadow hover:shadow-lg">
+            <CardContent className="p-6">
+              <div className="flex items-center justify-between gap-4">
+                <div className="min-w-0">
+                  <p className="text-sm text-muted-foreground">{stat.label}</p>
+                  <p className="mt-1 text-3xl font-bold text-foreground">{stat.value}</p>
+                </div>
+                <div className={cn('shrink-0 rounded-xl p-3', stat.boxClass)}>
+                  <stat.icon className={cn('h-6 w-6', stat.iconClass)} />
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        ))}
       </div>
 
-      {isLoading ? (
-        <div className="flex items-center justify-center py-20">
-          <Loader2 className="h-8 w-8 animate-spin text-primary" />
-        </div>
-      ) : submissions.length === 0 ? (
-        <div className="text-center py-20 bg-background border-2 border-dashed border-border rounded-2xl">
-          <div className="inline-flex h-16 w-16 items-center justify-center rounded-full bg-muted text-muted-foreground mb-4">
-            <LayoutGrid className="h-8 w-8" />
+      {/* Main panel — matches Dashboard “Recent Submissions” card + row styling */}
+      <Card className="shadow-card">
+        <CardHeader className="flex flex-col gap-1 sm:flex-row sm:items-start sm:justify-between">
+          <div>
+            <CardTitle>Your assessments</CardTitle>
+            <CardDescription>Latest submissions and scores for the selected batch and week.</CardDescription>
           </div>
-          <h3 className="text-xl font-bold text-foreground">No assessments yet</h3>
-          <p className="text-muted-foreground max-w-sm mx-auto mt-2">Start learning and completing lessons to unlock your assessments.</p>
-        </div>
-      ) : (
-        <div className="grid gap-4">
-          {submissions.map((assessment) => (
-            <Card key={assessment.id} className="shadow-card border-none hover:shadow-md transition-all duration-300 overflow-hidden group">
-              <CardContent className="p-0">
-                <div className="flex flex-col md:flex-row md:items-center">
-                  <div className="flex-1 p-5 flex items-start gap-4">
-                    <div className={cn(
-                      "p-3.5 rounded-xl shrink-0 transition-colors",
-                      assessment.status === 'published' 
-                        ? "bg-success/10 text-success group-hover:bg-success/20" 
-                        : "bg-warning/10 text-warning group-hover:bg-warning/20"
-                    )}>
+        </CardHeader>
+        <CardContent>
+          {isLoading ? (
+            <div className="flex items-center justify-center py-16">
+              <Loader2 className="h-8 w-8 animate-spin text-primary" />
+            </div>
+          ) : studentSubmissions.length === 0 ? (
+            <div className="rounded-xl border border-border bg-muted/40 px-6 py-16 text-center transition-colors">
+              <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-lg bg-warning/10">
+                <ClipboardCheck className="h-6 w-6 text-warning" />
+              </div>
+              <h3 className="text-lg font-semibold text-foreground">No assessments yet</h3>
+              <p className="mx-auto mt-2 max-w-md text-sm text-muted-foreground">
+                Start learning and complete lessons to unlock weekly tests. Your submissions will show up here.
+              </p>
+            </div>
+          ) : (
+            <div className="space-y-4">
+              {studentSubmissions.map((assessment) => (
+                <div
+                  key={assessment.id}
+                  className="group flex flex-col gap-4 rounded-xl border border-border bg-muted/40 p-4 transition-all hover:bg-accent/20 hover:shadow-sm sm:flex-row sm:items-center sm:justify-between"
+                >
+                  <div className="flex min-w-0 flex-1 items-start gap-3">
+                    <div
+                      className={cn(
+                        'shrink-0 rounded-lg p-2.5 transition-colors',
+                        assessment.status === 'published'
+                          ? 'bg-success/10 text-success group-hover:bg-success/15'
+                          : 'bg-warning/10 text-warning group-hover:bg-warning/15',
+                      )}
+                    >
                       {assessment.status === 'published' ? (
-                        <CheckCircle className="h-6 w-6" />
+                        <CheckCircle className="h-5 w-5" />
                       ) : (
-                        <Clock className="h-6 w-6" />
+                        <Clock className="h-5 w-5" />
                       )}
                     </div>
-                    <div className="space-y-1">
-                      <h3 className="font-bold text-lg text-foreground group-hover:text-primary transition-colors">{assessment.test_title}</h3>
-                      <div className="flex flex-wrap items-center gap-3">
-                         <Badge variant="outline" className="border-border text-muted-foreground font-bold text-[10px] uppercase tracking-wider px-2">
-                           Week {assessment.week_number}
-                         </Badge>
-                         <span className="text-[10px] text-muted-foreground font-black uppercase tracking-widest bg-muted rounded px-2 py-0.5">
-                           Attempt {assessment.attempt_number}
-                         </span>
+                    <div className="min-w-0 space-y-1">
+                      <p className="font-medium text-foreground">{assessment.test_title}</p>
+                      <div className="flex flex-wrap items-center gap-2">
+                        <Badge
+                          variant="outline"
+                          className="border-border px-2 text-[10px] font-bold uppercase tracking-wider text-muted-foreground"
+                        >
+                          Week {assessment.week_number}
+                        </Badge>
+                        <span className="rounded bg-muted px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+                          Attempt {assessment.attempt_number}
+                        </span>
                       </div>
                       {assessment.grader_remarks && assessment.status === 'published' && (
-                        <p className="text-sm text-muted-foreground mt-3 leading-relaxed font-medium line-clamp-1 italic max-w-2xl">
-                          "{assessment.grader_remarks}"
+                        <p className="mt-2 line-clamp-2 max-w-2xl text-sm font-medium italic leading-relaxed text-muted-foreground">
+                          &ldquo;{assessment.grader_remarks}&rdquo;
                         </p>
                       )}
                     </div>
                   </div>
-                  <div className="p-5 bg-muted/20 flex items-center justify-between md:justify-end gap-10 md:min-w-[300px] border-t md:border-t-0 md:border-l border-border/50">
+                  <div className="flex shrink-0 flex-col items-stretch gap-3 sm:flex-row sm:items-center sm:justify-end sm:gap-4">
                     {assessment.status === 'published' ? (
-                      <div className="text-center md:text-right flex flex-col items-center md:items-end gap-1">
+                      <div className="flex flex-col items-end gap-1 sm:text-right">
                         <div className="flex items-center gap-2">
                           <p className="text-2xl font-bold text-foreground">{assessment.marks_obtained}%</p>
-                          <Badge className={cn(
-                            "font-black uppercase text-[8px] px-2 py-0.5 border-none",
-                            assessment.is_passed 
-                              ? "bg-emerald-500/20 text-emerald-600 dark:text-emerald-400" 
-                              : "bg-rose-500/20 text-rose-600 dark:text-rose-400"
-                          )}>
+                          <Badge
+                            className={cn(
+                              'border-none px-2 py-0.5 text-[8px] font-black uppercase',
+                              assessment.is_passed
+                                ? 'bg-emerald-500/20 text-emerald-600 dark:text-emerald-400'
+                                : 'bg-rose-500/20 text-rose-600 dark:text-rose-400',
+                            )}
+                          >
                             {assessment.is_passed ? 'Passed' : 'Failed'}
                           </Badge>
                         </div>
-                        <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Your Score</p>
+                        <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">
+                          Your score
+                        </p>
                       </div>
                     ) : (
-                      <div className="text-center md:text-right">
-                        <Badge className={cn(
-                          "font-bold uppercase text-[10px] py-1 px-3 border-none",
-                          assessment.status === 'returned' ? "bg-destructive text-destructive-foreground shadow-lg shadow-destructive/20" : "bg-warning text-warning-foreground"
-                        )}>
+                      <div className="flex flex-col items-end gap-1 sm:text-right">
+                        <Badge
+                          className={cn(
+                            'border-none px-3 py-1 text-[10px] font-bold uppercase',
+                            assessment.status === 'returned'
+                              ? 'bg-destructive text-destructive-foreground shadow-lg shadow-destructive/20'
+                              : 'bg-warning text-warning-foreground',
+                          )}
+                        >
                           {assessment.status.replace('_', ' ')}
                         </Badge>
                         {assessment.status === 'returned' && (
-                          <p className="text-[9px] font-bold text-destructive uppercase mt-1">Please retake</p>
+                          <p className="text-[9px] font-bold uppercase text-destructive">Please retake</p>
                         )}
                       </div>
                     )}
-                    <div className="flex flex-col sm:flex-row items-center gap-3">
-                      <Button 
-                        variant={assessment.status === 'published' ? 'outline' : 'gradient'} 
-                        size="sm"
-                        className="font-bold h-10 px-6 rounded-xl w-full sm:w-auto"
-                        onClick={() => {
-                          if (assessment.status === 'returned') {
-                            handleRetake(assessment);
-                          } else {
-                            setViewingSubmission(assessment);
-                            setIsResultsOpen(true);
-                          }
-                        }}
-                      >
-                        {assessment.status === 'published' ? 'View Feedback' : assessment.status === 'returned' ? 'Retake Test' : 'Details'}
-                      </Button>
-                    </div>
+                    <Button
+                      variant={assessment.status === 'published' ? 'outline' : 'gradient'}
+                      size="sm"
+                      className="h-10 rounded-xl px-6 font-bold sm:w-auto"
+                      onClick={() => {
+                        if (assessment.status === 'returned') {
+                          handleRetake(assessment);
+                        } else {
+                          setViewingSubmission(assessment);
+                          setIsResultsOpen(true);
+                        }
+                      }}
+                    >
+                      {assessment.status === 'published'
+                        ? 'View Feedback'
+                        : assessment.status === 'returned'
+                          ? 'Retake Test'
+                          : 'Details'}
+                    </Button>
                   </div>
                 </div>
-              </CardContent>
-            </Card>
-          ))}
-        </div>
-      )}
+              ))}
+            </div>
+          )}
+        </CardContent>
+      </Card>
 
       {/* Pagination Controls */}
-      {!isLoading && submissions.length > 0 && totalPages > 1 && (
-        <div className="flex items-center justify-center gap-2 mt-12 bg-card p-4 rounded-2xl border shadow-sm w-fit mx-auto">
+      {!isLoading && studentSubmissions.length > 0 && totalPages > 1 && (
+        <div className="mt-8 flex items-center justify-center gap-2">
           <Button
             variant="outline"
             size="sm"
-            className="h-9 px-4 rounded-xl border-border/50"
-            onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+            onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
             disabled={currentPage === 1}
           >
             Previous
           </Button>
-          <div className="text-sm font-bold text-foreground px-6 py-1 bg-muted/50 rounded-lg">
+          <div className="px-4 text-sm font-medium text-muted-foreground">
             Page {currentPage} of {totalPages}
           </div>
           <Button
             variant="outline"
             size="sm"
-            className="h-9 px-4 rounded-xl border-border/50"
-            onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+            onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
             disabled={currentPage === totalPages}
           >
             Next
@@ -746,7 +893,10 @@ export default function Assessments() {
             onClose={() => { setReviewId(null); setIsReviewOpen(false); }}
             submissionId={reviewId}
             onUpdated={() => {
-              if (selectedBatch) fetchBatchSubmissions(selectedBatch);
+              if (selectedBatch && user?.role !== 'student') {
+                void loadAdminPending();
+                void loadAdminPublished();
+              }
             }}
           />
         )}

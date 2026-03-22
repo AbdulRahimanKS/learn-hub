@@ -27,6 +27,12 @@ logger = logging.getLogger(__name__)
 
 WEEKLY_TEST_STUDENT_ANSWER_EXTENSIONS = frozenset(('ipynb', 'pdf'))
 
+_STATS_PENDING_STATUSES = (
+    TestSubmission.Status.PENDING,
+    TestSubmission.Status.EVALUATING,
+    TestSubmission.Status.PENDING_REVIEW,
+)
+
 
 def _validate_weekly_test_answer_upload(uploaded_file):
     name = (getattr(uploaded_file, 'name', '') or '').strip()
@@ -205,7 +211,8 @@ class BatchTestSubmissionListView(generics.ListAPIView):
     serializer_class = TestSubmissionSerializer
     pagination_class = CustomPageNumberPagination
 
-    def get_queryset(self):
+    def _base_queryset(self):
+        """Batch (or student enrollment) + optional week — no status/scope filter (used for stats)."""
         batch_id = self.kwargs.get('batch_id')
         user = self.request.user
         batch = _get_batch_or_404(batch_id)
@@ -220,10 +227,6 @@ class BatchTestSubmissionListView(generics.ListAPIView):
                     status_code=status.HTTP_403_FORBIDDEN,
                 )
             qs = TestSubmission.objects.filter(enrollment=enrollment)
-        
-        status_param = self.request.query_params.get('status')
-        if status_param:
-            qs = qs.filter(status=status_param)
 
         week_number = self.request.query_params.get('week_number')
         if week_number and week_number != 'all':
@@ -232,21 +235,31 @@ class BatchTestSubmissionListView(generics.ListAPIView):
                 qs = qs.filter(batch_weekly_test__batch_week__week_number=week_int)
             except (ValueError, TypeError):
                 pass
-            
-        return qs.order_by('-submitted_at')
+
+        return qs
+
+    def get_queryset(self):
+        qs = self._base_queryset().order_by('-submitted_at')
+        scope = (self.request.query_params.get('scope') or '').strip().lower()
+        if scope == TestSubmission.Status.PENDING:
+            return qs.filter(status__in=[TestSubmission.Status.PENDING, TestSubmission.Status.EVALUATING, TestSubmission.Status.PENDING_REVIEW])
+        elif scope == TestSubmission.Status.PUBLISHED:
+            return qs.filter(status=TestSubmission.Status.PUBLISHED)
+        else:
+            return qs
 
     def list(self, request, *args, **kwargs):
-        queryset = self.filter_queryset(self.get_queryset())
-
+        base_for_stats = self._base_queryset()
         stats = {
-            "total": queryset.count(),
-            "pending": queryset.filter(status__in=[
-                TestSubmission.Status.PENDING, 
-                TestSubmission.Status.EVALUATING, 
-                TestSubmission.Status.PENDING_REVIEW
-            ]).count(),
-            "published": queryset.filter(status=TestSubmission.Status.PUBLISHED).count(),
+            "total": base_for_stats.count(),
+            "pending": base_for_stats.filter(status__in=_STATS_PENDING_STATUSES).count(),
+            "published": base_for_stats.filter(status=TestSubmission.Status.PUBLISHED).count(),
+            "evaluating": base_for_stats.filter(status=TestSubmission.Status.EVALUATING).count(),
+            "pending_review": base_for_stats.filter(status=TestSubmission.Status.PENDING_REVIEW).count(),
+            "returned": base_for_stats.filter(status=TestSubmission.Status.RETURNED).count(),
         }
+
+        queryset = self.filter_queryset(self.get_queryset())
 
         page = self.paginate_queryset(queryset)
         if page is not None:
@@ -257,6 +270,7 @@ class BatchTestSubmissionListView(generics.ListAPIView):
 
         serializer = self.get_serializer(queryset, many=True)
         return format_success_response(data=serializer.data, extra_params={"stats": stats})
+
 
 @extend_schema(tags=["Test Submissions"], summary="Retrieve or update a specific test submission", description="Allows a teacher to retrieve or update a specific test submission.")
 class TestSubmissionDetailView(generics.RetrieveUpdateAPIView):
@@ -462,7 +476,7 @@ class MyTestSubmissionsListView(generics.ListAPIView):
     serializer_class = TestSubmissionSerializer
     pagination_class = CustomPageNumberPagination
 
-    def get_queryset(self):
+    def _base_queryset(self):
         user = self.request.user
         batch_id = self.kwargs.get('batch_id')
         enrollment = _get_enrollment(batch_id, user)
@@ -477,24 +491,38 @@ class MyTestSubmissionsListView(generics.ListAPIView):
                 qs = qs.filter(batch_weekly_test__batch_week__week_number=week_int)
             except (ValueError, TypeError):
                 pass
-        return qs.order_by('-submitted_at')
+        return qs
+
+    def get_queryset(self):
+        qs = self._base_queryset().order_by('-submitted_at')
+        scope = (self.request.query_params.get('scope') or '').strip().lower()
+        if scope == TestSubmission.Status.PENDING:
+            return qs.filter(status__in=[TestSubmission.Status.PENDING, TestSubmission.Status.EVALUATING, TestSubmission.Status.PENDING_REVIEW])
+        return qs
 
     def list(self, request, batch_id):
-        queryset = self.get_queryset()
-
+        base_for_stats = self._base_queryset()
         stats = {
-            "total": queryset.count(),
-            "pending": queryset.filter(status__in=[
-                TestSubmission.Status.PENDING, 
-                TestSubmission.Status.EVALUATING, 
-                TestSubmission.Status.PENDING_REVIEW
-            ]).count(),
-            "published": queryset.filter(status=TestSubmission.Status.PUBLISHED).count(),
+            "total": base_for_stats.count(),
+            "pending": base_for_stats.filter(status__in=_STATS_PENDING_STATUSES).count(),
+            "published": base_for_stats.filter(status=TestSubmission.Status.PUBLISHED).count(),
+            "evaluating": base_for_stats.filter(status=TestSubmission.Status.EVALUATING).count(),
+            "pending_review": base_for_stats.filter(status=TestSubmission.Status.PENDING_REVIEW).count(),
+            "returned": base_for_stats.filter(status=TestSubmission.Status.RETURNED).count(),
         }
+
+        queryset = self.filter_queryset(self.get_queryset())
 
         page = self.paginate_queryset(queryset)
         if page is not None:
             serializer = self.get_serializer(page, many=True)
-            return format_success_response(data=serializer.data, message="Test submissions retrieved successfully", extra_params={"stats": stats}, status_code=status.HTTP_200_OK)
+            response = self.get_paginated_response(serializer.data)
+            response.data['stats'] = stats
+            return response
         serializer = self.get_serializer(queryset, many=True)
-        return format_success_response(data=serializer.data, message="Test submissions retrieved successfully", status_code=status.HTTP_200_OK)
+        return format_success_response(
+            data=serializer.data,
+            message="Test submissions retrieved successfully",
+            extra_params={"stats": stats},
+            status_code=status.HTTP_200_OK,
+        )
