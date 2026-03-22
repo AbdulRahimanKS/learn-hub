@@ -850,30 +850,36 @@ class BatchClassSessionCompletionView(APIView):
     @extend_schema(summary="Mark a batch session as completed", responses={200: None})
     def post(self, request, batch_id, week_id, session_id):
         try:
-            session = BatchClassSession.objects.get(
-                id=session_id, 
-                batch_week_id=week_id, 
-                batch_week__batch_id=batch_id
+            try:
+                session = BatchClassSession.objects.get(
+                    id=session_id, 
+                    batch_week_id=week_id, 
+                    batch_week__batch_id=batch_id
+                )
+            except BatchClassSession.DoesNotExist:
+                raise ServiceError(detail="Batch session not found.", status_code=status.HTTP_404_NOT_FOUND)
+
+            enrollment = BatchEnrollment.objects.filter(student=request.user, batch_id=batch_id, status__in=[BatchEnrollment.Status.ACTIVE, BatchEnrollment.Status.COMPLETED]).first()
+            if not enrollment:
+                raise ServiceError(detail="You are not a enrolled student in this batch.", status_code=status.HTTP_403_FORBIDDEN)
+
+            view, created = StudentSessionView.objects.get_or_create(
+                enrollment=enrollment,
+                batch_session=session
             )
-        except BatchClassSession.DoesNotExist:
-            raise ServiceError(detail="Batch session not found.", status_code=status.HTTP_404_NOT_FOUND)
+            
+            is_completed = request.data.get('is_completed', True)
+            view.is_completed = is_completed
+            if is_completed:
+                view.watched_percent = 100.0
+            view.save()
 
-        enrollment = BatchEnrollment.objects.filter(student=request.user, batch_id=batch_id, status=BatchEnrollment.Status.ACTIVE).first()
-        if not enrollment:
-            raise ServiceError(detail="You are not an active student in this batch.", status_code=status.HTTP_403_FORBIDDEN)
-
-        view, created = StudentSessionView.objects.get_or_create(
-            enrollment=enrollment,
-            batch_session=session
-        )
-        
-        is_completed = request.data.get('is_completed', True)
-        view.is_completed = is_completed
-        if is_completed:
-            view.watched_percent = 100.0
-        view.save()
-
-        return format_success_response(
-            message=f"Session marked as {'completed' if is_completed else 'incomplete'}",
-            data={'is_completed': view.is_completed}
-        )
+            return format_success_response(
+                message=f"Session marked as {'completed' if is_completed else 'incomplete'}",
+                data={'is_completed': view.is_completed}
+            )
+        except ServiceError:
+            raise
+        except Exception as e:
+            logger.error(f"Error marking session as completed: {str(e)}")
+            raise ServiceError(detail="An error occurred while marking the session as completed.", status_code=status.HTTP_500_INTERNAL_SERVER_ERROR)
