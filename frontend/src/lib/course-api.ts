@@ -16,6 +16,7 @@ export interface Course {
   batch_student_count?: number | null;
   batch_start_date?: string | null;
   batch_teacher_name?: string | null;
+  batch_co_teacher_names?: string[];
   learning_status?: 'start_learning' | 'continue_learning' | 'review';
   progress_percent?: number;
   /** When set, week 1 is calendar-locked until this instant (batch courses). */

@@ -33,6 +33,7 @@ import {
   Filter,
   Layers,
   GraduationCap,
+  UserCircle2,
 } from 'lucide-react';
 import {
   Select,
@@ -734,9 +735,37 @@ export default function Courses() {
                   
                   {selectedCourse.batch_name && (
                     <p className="mt-2 text-primary-foreground/80 text-xs md:text-sm font-medium flex items-center gap-2">
-                       <Users className="w-3.5 h-3.5 md:w-4 md:h-4" />
+                       <Users className="w-3.5 h-3.5 md:w-4 md:h-4 shrink-0" />
                        <span className="truncate">Batch: {selectedCourse.batch_name}</span>
                     </p>
+                  )}
+
+                  {(selectedCourse.batch_teacher_name ||
+                    (Array.isArray(selectedCourse.batch_co_teacher_names) &&
+                      selectedCourse.batch_co_teacher_names.length > 0)) && (
+                    <div className="mt-2.5 space-y-1.5 text-xs md:text-sm text-primary-foreground/85">
+                      {selectedCourse.batch_teacher_name && (
+                        <p className="flex items-start gap-2">
+                          <GraduationCap className="w-3.5 h-3.5 md:w-4 md:h-4 shrink-0 mt-0.5 opacity-90" />
+                          <span>
+                            <span className="font-semibold text-primary-foreground/70">Teacher: </span>
+                            {selectedCourse.batch_teacher_name}
+                          </span>
+                        </p>
+                      )}
+                      {Array.isArray(selectedCourse.batch_co_teacher_names) &&
+                        selectedCourse.batch_co_teacher_names.length > 0 && (
+                          <p className="flex items-start gap-2">
+                            <UserCircle2 className="w-3.5 h-3.5 md:w-4 md:h-4 shrink-0 mt-0.5 opacity-90" />
+                            <span>
+                              <span className="font-semibold text-primary-foreground/70">
+                                Co-teacher{selectedCourse.batch_co_teacher_names.length !== 1 ? 's' : ''}:{' '}
+                              </span>
+                              {selectedCourse.batch_co_teacher_names.join(', ')}
+                            </span>
+                          </p>
+                        )}
+                    </div>
                   )}
 
                   <div className="flex flex-wrap items-center gap-3 md:gap-5 mt-4 md:mt-5">

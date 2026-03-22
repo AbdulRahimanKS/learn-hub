@@ -39,6 +39,7 @@ class CourseListSerializer(serializers.ModelSerializer):
     batch_student_count = serializers.SerializerMethodField()
     batch_start_date = serializers.SerializerMethodField()
     batch_teacher_name = serializers.SerializerMethodField()
+    batch_co_teacher_names = serializers.SerializerMethodField()
     learning_status = serializers.SerializerMethodField()
     progress_percent = serializers.SerializerMethodField()
 
@@ -62,6 +63,7 @@ class CourseListSerializer(serializers.ModelSerializer):
             'batch_student_count',
             'batch_start_date',
             'batch_teacher_name',
+            'batch_co_teacher_names',
             'learning_status',
             'progress_percent',
         ]
@@ -127,6 +129,20 @@ class CourseListSerializer(serializers.ModelSerializer):
             return None
         return getattr(teacher, 'fullname', None) or getattr(teacher, 'get_full_name', lambda: None)() or str(teacher)
 
+    @extend_schema_field(serializers.ListField(child=serializers.CharField()))
+    def get_batch_co_teacher_names(self, obj):
+        enrollment = self._get_enrollment(obj)
+        if not enrollment:
+            return []
+        names = []
+        for user in enrollment.batch.co_teachers.all():
+            names.append(
+                getattr(user, 'fullname', None)
+                or getattr(user, 'get_full_name', lambda: None)()
+                or str(user)
+            )
+        return names
+
     @extend_schema_field(OpenApiTypes.STR)
     def get_learning_status(self, obj):
         enrollment = self._get_enrollment(obj)
@@ -188,6 +204,9 @@ class CourseDetailSerializer(serializers.ModelSerializer):
     batch_id = serializers.SerializerMethodField()
     batch_name = serializers.SerializerMethodField()
     batch_status = serializers.SerializerMethodField()
+    batch_start_date = serializers.SerializerMethodField()
+    batch_teacher_name = serializers.SerializerMethodField()
+    batch_co_teacher_names = serializers.SerializerMethodField()
     learning_status = serializers.SerializerMethodField()
     progress_percent = serializers.SerializerMethodField()
 
@@ -211,6 +230,9 @@ class CourseDetailSerializer(serializers.ModelSerializer):
             'batch_id',
             'batch_name',
             'batch_status',
+            'batch_start_date',
+            'batch_teacher_name',
+            'batch_co_teacher_names',
             'learning_status',
             'progress_percent',
         ]
@@ -245,6 +267,37 @@ class CourseDetailSerializer(serializers.ModelSerializer):
         enrollment = self._get_enrollment(obj)
         return enrollment.status if enrollment else None
 
+    @extend_schema_field(OpenApiTypes.DATE)
+    def get_batch_start_date(self, obj):
+        enrollment = self._get_enrollment(obj)
+        if not enrollment:
+            return None
+        return getattr(enrollment.batch, 'start_date', None)
+
+    @extend_schema_field(OpenApiTypes.STR)
+    def get_batch_teacher_name(self, obj):
+        enrollment = self._get_enrollment(obj)
+        if not enrollment:
+            return None
+        teacher = getattr(enrollment.batch, 'teacher', None)
+        if not teacher:
+            return None
+        return getattr(teacher, 'fullname', None) or getattr(teacher, 'get_full_name', lambda: None)() or str(teacher)
+
+    @extend_schema_field(serializers.ListField(child=serializers.CharField()))
+    def get_batch_co_teacher_names(self, obj):
+        enrollment = self._get_enrollment(obj)
+        if not enrollment:
+            return []
+        names = []
+        for user in enrollment.batch.co_teachers.all():
+            names.append(
+                getattr(user, 'fullname', None)
+                or getattr(user, 'get_full_name', lambda: None)()
+                or str(user)
+            )
+        return names
+
     @extend_schema_field(OpenApiTypes.STR)
     def get_learning_status(self, obj):
         enrollment = self._get_enrollment(obj)
@@ -256,6 +309,30 @@ class CourseDetailSerializer(serializers.ModelSerializer):
         if completed_sessions > 0:
             return 'continue_learning'
         return 'start_learning'
+
+    def _batch_content_starts_at_value(self, obj):
+        enrollment = self._get_enrollment(obj)
+        if not enrollment or enrollment.status != BatchEnrollment.Status.ACTIVE:
+            return None
+        first_week = (
+            BatchWeek.objects.filter(batch=enrollment.batch)
+            .order_by('week_number')
+            .first()
+        )
+        if not first_week or not first_week.unlock_date:
+            return None
+        if ManualStudentWeekUnlock.objects.filter(
+            enrollment=enrollment, batch_week=first_week
+        ).exists():
+            return None
+        if first_week.is_unlocked:
+            return None
+        return first_week.unlock_date
+
+    def to_representation(self, instance):
+        data = super().to_representation(instance)
+        data['batch_content_starts_at'] = self._batch_content_starts_at_value(instance)
+        return data
 
     @extend_schema_field(OpenApiTypes.INT)
     def get_progress_percent(self, obj):

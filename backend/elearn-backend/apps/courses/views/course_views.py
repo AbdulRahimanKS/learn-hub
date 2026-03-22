@@ -51,8 +51,8 @@ class CourseListView(APIView):
                     student=user,
                     status__in=[BatchEnrollment.Status.ACTIVE, BatchEnrollment.Status.COMPLETED]
                 )
-                .select_related('batch', 'batch__course')
-                .prefetch_related('batch__course__tags')
+                .select_related('batch', 'batch__course', 'batch__teacher')
+                .prefetch_related('batch__course__tags', 'batch__co_teachers')
                 .order_by('-enrolled_at')
             )
             enrollment_status = request.query_params.get('enrollment_status', '').strip().lower()
@@ -196,7 +196,7 @@ class CourseDetailView(APIView):
                     batch__course=course,
                     batch_id=batch_id,
                     student=request.user,
-                ).select_related('batch').first()
+                ).select_related('batch', 'batch__teacher').prefetch_related('batch__co_teachers').first()
                 if enrollment:
                     context['enrollment'] = enrollment
             except (TypeError, ValueError):
