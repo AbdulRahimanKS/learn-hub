@@ -219,7 +219,7 @@ export function SubmissionReviewModal({
             <div className="grid gap-3 sm:grid-cols-4">
               {[
                 { label: 'Questions', value: `${answeredQuestions}/${(submission?.answers || []).length}`, hint: `${unansweredQuestions} unanswered` },
-                { label: 'Total Marks', value: `${gradedPoints.toFixed(1)} / ${totalPossible}`, hint: `Pass mark ${passPercentage}%` },
+                { label: 'Total Marks', value: `${gradedPoints.toFixed(1)} / ${totalPossible}`, hint: `Pass percentage ${passPercentage}%` },
                 { label: 'Final Score', value: `${overallPercentage.toFixed(1)}%`, hint: isReadyToPass ? 'Currently passing' : 'Needs improvement' },
                 { label: 'AI Suggestion', value: `${aiScore}%`, hint: submission?.ai_feedback ? 'AI analysis available' : 'No AI analysis yet' },
               ].map((item) => (

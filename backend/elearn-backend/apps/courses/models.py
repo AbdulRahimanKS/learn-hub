@@ -725,7 +725,7 @@ class BatchTestQuestionAttachment(models.Model):
 class TestSubmission(models.Model):
     """
     A student's answer submission for a WeeklyTest.
-    The answer file can be any of: .ipynb, .pdf, .doc, .docx, .jpg, .jpeg.
+    Per-question answer files: .ipynb and .pdf only (aligned with AI extraction).
     """
 
     class Status(models.TextChoices):
@@ -810,7 +810,7 @@ class TestSubmissionAnswer(models.Model):
     answer_file = models.FileField(
         upload_to='test_submissions/answers/',
         null=True, blank=True,
-        help_text=_('Supported: .ipynb, .pdf, .doc, .docx, .jpg, .jpeg, .png')
+        help_text=_('Student upload: .ipynb or .pdf only (same as answer key).')
     )
     answer_text = models.TextField(
         _('Answer Text'), blank=True,
