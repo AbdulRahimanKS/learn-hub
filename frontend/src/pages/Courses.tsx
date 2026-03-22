@@ -1081,7 +1081,7 @@ export default function Courses() {
                                         {session.has_mcq && (
                                           <Button
                                             size="sm"
-                                            variant="secondary"
+                                            variant={locked || !completed ? 'secondary' : 'gradient'}
                                             disabled={locked || !completed}
                                             title={
                                               locked
@@ -1091,10 +1091,10 @@ export default function Courses() {
                                                   : undefined
                                             }
                                             className={cn(
-                                              "h-8 sm:h-9 px-6 sm:px-4 text-xs w-full sm:w-auto font-black rounded-full transition-all border",
-                                              (locked || !completed)
-                                                ? "bg-muted text-muted-foreground opacity-50 cursor-not-allowed"
-                                                : "bg-[#283593] hover:bg-[#1a237e] text-white border-transparent shadow-sm"
+                                              'h-8 sm:h-9 px-6 sm:px-4 text-xs w-full sm:w-auto font-black rounded-full transition-all',
+                                              locked || !completed
+                                                ? 'border border-border bg-muted text-muted-foreground opacity-50 cursor-not-allowed hover:!scale-100 hover:!shadow-none'
+                                                : 'border-0 shadow-sm'
                                             )}
                                             onClick={(e) => {
                                               e.stopPropagation();
@@ -1265,13 +1265,14 @@ export default function Courses() {
                                         return (
                                           <Button
                                             size="sm"
+                                            variant={disabled ? 'secondary' : 'gradient'}
                                             disabled={disabled}
                                             title={locked ? 'This week is locked' : undefined}
                                             className={cn(
                                               'font-bold rounded-full h-9 px-6 text-xs transition-all',
                                               disabled
-                                                ? 'bg-muted text-muted-foreground cursor-not-allowed border'
-                                                : 'bg-[#283593] hover:bg-[#1a237e] text-white shadow-md',
+                                                ? 'border border-border bg-muted text-muted-foreground cursor-not-allowed hover:!scale-100 hover:!shadow-none'
+                                                : 'border-0 shadow-md',
                                             )}
                                             onClick={(e) => {
                                               e.stopPropagation();
@@ -1332,17 +1333,21 @@ export default function Courses() {
             {/* MCQ Practice Dialog */}
             <Dialog open={!!activeMcqSession} onOpenChange={open => { if (!open) setActiveMcqSession(null); }}>
               {activeMcqSession && (
-                <DialogContent className="max-w-2xl w-[95vw] overflow-hidden border border-border bg-background p-0 shadow-2xl sm:rounded-[26px]">
-                  <div className="relative border-b border-border/60 bg-gradient-to-r from-slate-100 via-white to-blue-50 p-6 dark:from-slate-950 dark:via-slate-900 dark:to-slate-950">
-                    <div className="flex items-center gap-3">
-                      <div className="flex h-10 w-10 items-center justify-center rounded-2xl border border-primary/15 bg-primary/10 text-primary">
-                        <Video className="w-4 h-4" />
+                <DialogContent className="max-w-2xl w-[95vw] overflow-hidden border border-primary/25 bg-background p-0 shadow-2xl sm:rounded-[26px] [&>button]:right-4 [&>button]:top-4 [&>button]:z-[60] [&>button]:text-primary-foreground [&>button]:opacity-90 [&>button]:ring-offset-transparent [&>button]:hover:bg-white/10 [&>button]:hover:text-primary-foreground [&>button]:hover:opacity-100 data-[state=open]:[&>button]:bg-transparent data-[state=open]:[&>button]:text-primary-foreground">
+                  <div className="relative overflow-hidden border-b border-white/10 gradient-primary p-6 text-primary-foreground">
+                    <div className="pointer-events-none absolute inset-0 overflow-hidden">
+                      <div className="absolute right-0 top-0 h-32 w-32 rounded-full bg-white/5 blur-2xl" />
+                      <div className="absolute bottom-0 left-0 h-24 w-24 rounded-full bg-primary/20 blur-2xl" />
+                    </div>
+                    <div className="relative flex items-center gap-3">
+                      <div className="flex h-10 w-10 items-center justify-center rounded-2xl border border-white/15 bg-white/10 text-primary-foreground shadow-sm backdrop-blur-md">
+                        <Video className="h-4 w-4" />
                       </div>
                       <div>
-                        <h2 className="text-xl font-bold tracking-tight text-foreground">
+                        <h2 className="text-xl font-bold tracking-tight text-primary-foreground">
                           {activeMcqSession.title}
                         </h2>
-                        <p className="text-xs font-medium text-muted-foreground">Practice Quiz</p>
+                        <p className="text-xs font-medium text-primary-foreground/75">Practice Quiz</p>
                       </div>
                     </div>
                   </div>

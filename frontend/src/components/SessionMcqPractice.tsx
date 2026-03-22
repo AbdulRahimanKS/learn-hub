@@ -23,6 +23,21 @@ interface SessionMcqPracticeProps {
   onClose: () => void;
 }
 
+function normalizeFillBlank(s: string) {
+  return s.trim().toLowerCase();
+}
+
+/** Every non-empty choice marked correct is an acceptable answer (admin “Acceptable Correct Answers”). */
+function acceptableFillBlankTexts(question: McqPracticeQuestion): string[] {
+  return question.choices.filter(c => c.is_correct && c.text.trim()).map(c => c.text.trim());
+}
+
+function isFillBlankAnswerCorrect(question: McqPracticeQuestion, rawAnswer: string): boolean {
+  const user = normalizeFillBlank(rawAnswer);
+  if (!user) return false;
+  return acceptableFillBlankTexts(question).some(a => normalizeFillBlank(a) === user);
+}
+
 export function SessionMcqPractice({ sessionTitle, questions, onClose }: SessionMcqPracticeProps) {
   const [currentIdx, setCurrentIdx] = useState(0);
   const [selectedChoiceId, setSelectedChoiceId] = useState<number | null>(null);
@@ -47,8 +62,7 @@ export function SessionMcqPractice({ sessionTitle, questions, onClose }: Session
   const handleSubmit = () => {
     if (currentQuestion.is_fill_in_the_blank) {
       if (!fillInBlankAnswer.trim()) return;
-      const correctChoice = currentQuestion.choices.find(c => c.is_correct);
-      if (correctChoice && fillInBlankAnswer.trim().toLowerCase() === correctChoice.text.trim().toLowerCase()) {
+      if (isFillBlankAnswerCorrect(currentQuestion, fillInBlankAnswer)) {
         setScore(prev => prev + 1);
       }
     } else {
@@ -96,15 +110,13 @@ export function SessionMcqPractice({ sessionTitle, questions, onClose }: Session
           <Button variant="outline" size="sm" className="h-10 flex-1" onClick={handleReset}>
             <RotateCcw className="w-3.5 h-3.5 mr-2" /> Try Again
           </Button>
-          <Button size="sm" className="h-10 flex-1" onClick={onClose}>
+          <Button variant="gradient" size="sm" className="h-10 flex-1 rounded-xl font-bold shadow-none hover:shadow-none" onClick={onClose}>
             Close
           </Button>
         </div>
       </div>
     );
   }
-
-  const alphabet = ['A', 'B', 'C', 'D', 'E', 'F'];
 
   return (
     <div className="w-full space-y-6 pt-2">
@@ -135,11 +147,11 @@ export function SessionMcqPractice({ sessionTitle, questions, onClose }: Session
                   {i < arr.length - 1 && (
                     <span className={cn(
                       "inline-block border-b-2 min-w-[30px] px-1 transition-colors mx-1",
-                      showFeedback 
-                        ? (currentQuestion.choices.find(c => c.is_correct)?.text.toLowerCase() === fillInBlankAnswer.toLowerCase() 
-                            ? "border-emerald-500 text-emerald-400" 
-                            : "border-red-500 text-red-400")
-                        : "border-primary/40 text-primary"
+                      showFeedback
+                        ? isFillBlankAnswerCorrect(currentQuestion, fillInBlankAnswer)
+                          ? 'border-emerald-500 text-emerald-400'
+                          : 'border-red-500 text-red-400'
+                        : 'border-primary/40 text-primary'
                     )}>
                       {fillInBlankAnswer || "\u00A0\u00A0\u00A0\u00A0"}
                     </span>
@@ -162,39 +174,60 @@ export function SessionMcqPractice({ sessionTitle, questions, onClose }: Session
                 onChange={(e) => !showFeedback && setFillInBlankAnswer(e.target.value)}
                 placeholder="Write the answer here..."
                 className={cn(
-                  "h-12 rounded-xl border-border bg-background text-base text-foreground focus:border-primary/50 focus:ring-primary/20 dark:bg-slate-950/70",
-                  showFeedback && (
-                    currentQuestion.choices.find(c => c.is_correct)?.text.toLowerCase() === fillInBlankAnswer.toLowerCase()
-                      ? "border-emerald-500/50 bg-emerald-500/10" 
-                      : "border-red-500/50 bg-red-500/10"
-                  )
+                  'h-12 rounded-md border border-input bg-background text-base text-foreground focus-visible:border-primary/50 focus-visible:ring-primary/20',
+                  showFeedback &&
+                    (isFillBlankAnswerCorrect(currentQuestion, fillInBlankAnswer)
+                      ? 'border-emerald-500/50 bg-emerald-500/10'
+                      : 'border-red-500/50 bg-red-500/10')
                 )}
               />
             </div>
-            {showFeedback && (
-              <div className={cn(
-                "p-3 rounded-xl flex items-start gap-3",
-                currentQuestion.choices.find(c => c.is_correct)?.text.toLowerCase() === fillInBlankAnswer.toLowerCase()
-                  ? "bg-emerald-500/10 text-emerald-400 border border-emerald-500/20"
-                  : "bg-red-500/10 text-red-400 border border-red-500/20"
-              )}>
-                {currentQuestion.choices.find(c => c.is_correct)?.text.toLowerCase() === fillInBlankAnswer.toLowerCase() ? (
-                  <CheckCircle2 className="w-4 h-4 shrink-0 mt-0.5" />
-                ) : (
-                  <HelpCircle className="w-4 h-4 shrink-0 mt-0.5" />
-                )}
-                <div>
-                  <p className="font-bold text-sm">
-                    {currentQuestion.choices.find(c => c.is_correct)?.text.toLowerCase() === fillInBlankAnswer.toLowerCase() 
-                      ? "Correct!" 
-                      : "The correct answer is:"}
-                  </p>
-                  <p className="text-base font-medium mt-0.5">
-                    {currentQuestion.choices.find(c => c.is_correct)?.text}
-                  </p>
+            {showFeedback && (() => {
+              const acceptable = acceptableFillBlankTexts(currentQuestion);
+              const correct = isFillBlankAnswerCorrect(currentQuestion, fillInBlankAnswer);
+              const multiple = acceptable.length > 1;
+              return (
+                <div
+                  className={cn(
+                    'flex items-start gap-3 rounded-xl border p-3',
+                    correct
+                      ? 'border-emerald-500/20 bg-emerald-500/10 text-emerald-400'
+                      : 'border-red-500/20 bg-red-500/10 text-red-400'
+                  )}
+                >
+                  {correct ? (
+                    <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0" />
+                  ) : (
+                    <HelpCircle className="mt-0.5 h-4 w-4 shrink-0" />
+                  )}
+                  <div className="min-w-0 flex-1">
+                    <p className="text-sm font-bold">
+                      {correct
+                        ? 'Correct!'
+                        : multiple
+                          ? 'Any one of these answers is correct:'
+                          : 'The correct answer is:'}
+                    </p>
+                    {!correct && acceptable.length === 0 && (
+                      <p className="mt-0.5 text-base font-medium">—</p>
+                    )}
+                    {!correct && acceptable.length === 1 && (
+                      <p className="mt-0.5 text-base font-medium">{acceptable[0]}</p>
+                    )}
+                    {!correct && multiple && (
+                      <ul className="mt-2 list-disc space-y-1 pl-5 text-base font-medium marker:text-current">
+                        {acceptable.map((a, i) => (
+                          <li key={`${i}-${a}`}>{a}</li>
+                        ))}
+                      </ul>
+                    )}
+                    {correct && !multiple && acceptable.length === 1 && (
+                      <p className="mt-0.5 text-base font-medium opacity-90">{acceptable[0]}</p>
+                    )}
+                  </div>
                 </div>
-              </div>
-            )}
+              );
+            })()}
           </div>
         ) : (
           <RadioGroup 
@@ -205,15 +238,21 @@ export function SessionMcqPractice({ sessionTitle, questions, onClose }: Session
             {currentQuestion.choices.map((choice, index) => {
               const isSelected = selectedChoiceId === choice.id;
               const isCorrect = choice.is_correct;
-              
-              let statusClass = "border-white/10 bg-white/5 hover:bg-white/[0.08] hover:border-white/20";
-              statusClass = "border-border bg-card hover:bg-accent/40 hover:border-border/80 dark:bg-slate-950/60";
+
+              let statusClass =
+                'border border-input bg-background hover:bg-muted/50 hover:border-input';
               if (showFeedback) {
-                if (isCorrect) statusClass = "border-emerald-500/50 bg-emerald-500/10 ring-1 ring-emerald-500/20";
-                else if (isSelected) statusClass = "border-red-500/50 bg-red-500/10 ring-1 ring-red-500/20";
-                else statusClass = "opacity-40 border-border";
+                if (isCorrect) {
+                  statusClass = 'border-2 border-emerald-500/70 bg-emerald-500/10';
+                } else if (isSelected) {
+                  statusClass = 'border-2 border-red-500/70 bg-red-500/10';
+                } else {
+                  /* Do not use opacity on the row — it fades borders away; mute content only */
+                  statusClass =
+                    'border border-input bg-muted/25 text-muted-foreground';
+                }
               } else if (isSelected) {
-                statusClass = "border-primary bg-primary/10 ring-1 ring-primary/30";
+                statusClass = 'border-2 border-primary bg-primary/10 ring-1 ring-primary/25';
               }
 
               return (
@@ -221,33 +260,22 @@ export function SessionMcqPractice({ sessionTitle, questions, onClose }: Session
                   <Label
                     htmlFor={choice.id.toString()}
                     className={cn(
-                      "flex items-center gap-3 p-3.5 rounded-xl border-2 transition-all cursor-pointer",
+                      'flex cursor-pointer items-center gap-3 rounded-md p-3 transition-all',
+                      showFeedback ? 'cursor-default' : '',
                       statusClass
                     )}
                   >
-                    <div className="relative flex items-center justify-center h-5 w-5 shrink-0">
-                      <RadioGroupItem value={choice.id.toString()} id={choice.id.toString()} className="sr-only" />
-                      <div className={cn(
-                        "h-4 w-4 rounded-full border-2 transition-all flex items-center justify-center",
-                        isSelected ? "border-primary" : "border-border"
-                      )}>
-                        {isSelected && <div className="h-2 w-2 rounded-full bg-primary" />}
-                      </div>
-                    </div>
-                    
-                    <div className={cn(
-                      "flex items-center justify-center h-7 w-7 rounded-lg font-bold text-xs shrink-0",
-                      isSelected ? "bg-primary text-white" : "bg-muted text-muted-foreground"
-                    )}>
-                      {alphabet[index]}
-                    </div>
-
-                    <span className="text-base font-medium text-foreground">{choice.text}</span>
-                    
+                    <RadioGroupItem
+                      value={choice.id.toString()}
+                      id={choice.id.toString()}
+                      disabled={showFeedback}
+                      className="shrink-0 border-border text-primary data-[state=checked]:border-primary"
+                    />
+                    <span className="min-w-0 flex-1 text-base font-medium text-inherit">{choice.text}</span>
                     {showFeedback && (
-                      <div className="ml-auto">
-                        {isCorrect && <CheckCircle2 className="w-5 h-5 text-emerald-500" />}
-                        {isSelected && !isCorrect && <XCircle className="w-5 h-5 text-red-500" />}
+                      <div className="ml-auto shrink-0">
+                        {isCorrect && <CheckCircle2 className="h-5 w-5 text-emerald-500" />}
+                        {isSelected && !isCorrect && <XCircle className="h-5 w-5 text-red-500" />}
                       </div>
                     )}
                   </Label>
@@ -269,20 +297,22 @@ export function SessionMcqPractice({ sessionTitle, questions, onClose }: Session
         </Button>
 
         {!showFeedback ? (
-          <Button 
-            onClick={handleSubmit} 
-            disabled={currentQuestion.is_fill_in_the_blank ? !fillInBlankAnswer.trim() : selectedChoiceId === null} 
-            className="px-8 h-10 rounded-xl bg-primary hover:bg-primary/90 text-white font-bold text-sm shadow-lg shadow-primary/20 transition-all hover:scale-[1.02] active:scale-[0.98]"
+          <Button
+            variant="gradient"
+            onClick={handleSubmit}
+            disabled={currentQuestion.is_fill_in_the_blank ? !fillInBlankAnswer.trim() : selectedChoiceId === null}
+            className="h-10 rounded-xl px-8 text-sm font-bold shadow-none hover:shadow-none"
           >
             Check Answer
           </Button>
         ) : (
-          <Button 
-            onClick={handleNext} 
-            className="px-8 h-10 rounded-xl bg-primary hover:bg-primary/90 text-white font-bold text-sm shadow-lg shadow-primary/20 transition-all hover:scale-[1.02]"
+          <Button
+            variant="gradient"
+            onClick={handleNext}
+            className="h-10 rounded-xl px-8 text-sm font-bold shadow-none hover:shadow-none"
           >
-            {currentIdx < questions.length - 1 ? "Next Question" : "Finish Practice"}
-            <ChevronRight className="w-4 h-4 ml-1" />
+            {currentIdx < questions.length - 1 ? 'Next Question' : 'Finish Practice'}
+            <ChevronRight className="ml-1 h-4 w-4" />
           </Button>
         )}
       </div>
