@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { DashboardLayout } from '@/components/layout/DashboardLayout';
-import { Card, CardContent } from '@/components/ui/card';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent } from '@/components/ui/dialog';
@@ -834,9 +834,23 @@ export default function Courses() {
                 <p>Check back later for new course materials.</p>
               </div>
             ) : (
-              <>
-                {/* ===== MAIN CONTENT (FULL WIDTH) ===== */}
-                <div className="space-y-4">
+              <Card className="overflow-hidden border-border/60 shadow-card">
+                <CardHeader className="flex flex-col gap-1 space-y-0 border-b border-border/50 bg-muted/25 px-5 py-4 md:px-6 md:py-5">
+                  <div className="flex flex-col gap-0.5 sm:flex-row sm:items-center sm:justify-between">
+                    <div>
+                      <CardTitle className="text-lg font-bold tracking-tight md:text-xl">
+                        Course weeks
+                      </CardTitle>
+                      <CardDescription className="mt-1 text-sm">
+                        Expand a week to view lessons and weekly assessments
+                      </CardDescription>
+                    </div>
+                    <span className="mt-2 inline-flex w-fit items-center rounded-full border border-border/60 bg-background/60 px-3 py-1 text-xs font-semibold text-muted-foreground sm:mt-0">
+                      {weeks.length} week{weeks.length !== 1 ? 's' : ''}
+                    </span>
+                  </div>
+                </CardHeader>
+                <CardContent className="space-y-2 p-3 md:space-y-3 md:p-4">
                   {weeks.map(week => {
                     const lockInfo = getWeekLockInfo(week);
                     const locked = lockInfo.is_locked;
@@ -862,13 +876,16 @@ export default function Courses() {
                     const isPass = weeklyTestWithPass?.is_passed;
 
                     return (
-                      <div key={week.id} className="rounded-xl border border-border/60 bg-card overflow-hidden shadow-sm">
+                      <div
+                        key={week.id}
+                        className="overflow-hidden rounded-xl border border-border/50 bg-[hsl(var(--muted)_/_0.4)] shadow-none"
+                      >
                         {/* Week Header */}
                         <button
                           className={cn(
                             'w-full text-left px-5 py-4 flex items-center gap-3 transition-colors',
-                            locked ? 'opacity-90' : 'hover:bg-muted/30',
-                            isExpanded ? 'bg-muted/20' : ''
+                            locked ? 'opacity-90' : 'hover:bg-[hsl(var(--muted)_/_0.55)]',
+                            isExpanded ? 'bg-[hsl(var(--muted)_/_0.5)]' : ''
                           )}
                           onClick={() => toggleWeekExpand(week.id)}
                         >
@@ -1050,6 +1067,13 @@ export default function Courses() {
                                             size="sm"
                                             variant="secondary"
                                             disabled={locked || !completed}
+                                            title={
+                                              locked
+                                                ? 'This week is locked'
+                                                : !completed
+                                                  ? 'Finish this lesson (mark complete) to unlock practice questions'
+                                                  : undefined
+                                            }
                                             className={cn(
                                               "h-8 sm:h-9 px-6 sm:px-4 text-xs w-full sm:w-auto font-black rounded-full transition-all border",
                                               (locked || !completed)
@@ -1066,7 +1090,14 @@ export default function Courses() {
                                               }
                                             }}
                                           >
-                                            {completed ? 'Practice MCQs' : 'Watch Video First'}
+                                            {completed ? (
+                                              'Practice MCQs'
+                                            ) : (
+                                              <span className="inline-flex items-center gap-1.5">
+                                                <Lock className="h-3.5 w-3.5 shrink-0 opacity-80" aria-hidden />
+                                                Locked
+                                              </span>
+                                            )}
                                           </Button>
                                         )}
                                       </div>
@@ -1248,7 +1279,7 @@ export default function Courses() {
                                   </div>
                                 </div>
                               ) : (
-                                <div className="flex items-center gap-3 rounded-xl bg-muted/20 border border-dashed border-border/50 px-5 py-4 text-muted-foreground">
+                                <div className="flex items-center gap-3 rounded-xl border border-dashed border-border/50 bg-[hsl(var(--muted)_/_0.35)] px-5 py-4 text-muted-foreground">
                                   <Award className="h-4 w-4 opacity-40" />
                                   <p className="text-xs font-medium italic">No assessment scheduled for this week.</p>
                                 </div>
@@ -1259,8 +1290,8 @@ export default function Courses() {
                       </div>
                     );
                   })}
-                </div>
-              </>
+                </CardContent>
+              </Card>
             )}
 
             {/* MCQ Practice Dialog */}
