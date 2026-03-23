@@ -83,6 +83,13 @@ export default function Assessments() {
   const [selectedBatchId, setSelectedBatchId] = useState<number | null>(null);
   const [evaluatingIds, setEvaluatingIds] = useState<number[]>([]);
 
+  const formatStatusLabel = (raw?: string | null) => {
+    return String(raw || '')
+      .replace(/_/g, ' ')
+      .toLowerCase()
+      .replace(/\b\w/g, (c) => c.toUpperCase());
+  };
+
   const getShortAiError = (raw?: string | null) => {
     const text = (raw || '').toLowerCase();
     if (!text) return 'AI evaluation failed. Please retry.';
@@ -789,11 +796,11 @@ export default function Assessments() {
                       <div className="flex flex-wrap items-center gap-2">
                         <Badge
                           variant="outline"
-                          className="border-border px-2 text-[10px] font-bold uppercase tracking-wider text-muted-foreground"
+                          className="border-border px-2 text-[10px] font-semibold text-muted-foreground"
                         >
                           Week {assessment.week_number}
                         </Badge>
-                        <span className="rounded bg-muted px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+                        <span className="rounded bg-muted px-2 py-0.5 text-[10px] font-medium text-muted-foreground">
                           Attempt {assessment.attempt_number}
                         </span>
                       </div>
@@ -811,7 +818,7 @@ export default function Assessments() {
                           <p className="text-2xl font-bold text-foreground">{assessment.marks_obtained}%</p>
                           <Badge
                             className={cn(
-                              'border-none px-2 py-0.5 text-[8px] font-black uppercase',
+                              'border-none px-2 py-0.5 text-[8px] font-semibold',
                               assessment.is_passed
                                 ? 'bg-emerald-500/20 text-emerald-600 dark:text-emerald-400'
                                 : 'bg-rose-500/20 text-rose-600 dark:text-rose-400',
@@ -820,23 +827,27 @@ export default function Assessments() {
                             {assessment.is_passed ? 'Passed' : 'Failed'}
                           </Badge>
                         </div>
-                        <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">
+                        <p className="text-[10px] font-medium text-muted-foreground">
                           Your score
                         </p>
                       </div>
                     ) : (
                       <div className="flex flex-col items-end gap-1 sm:text-right">
                         <Badge
-                          className="border-none px-3 py-1 text-[10px] font-bold uppercase bg-warning text-warning-foreground"
+                          variant="outline"
+                          className="border-primary/25 px-3 py-1 text-[10px] font-semibold bg-primary/10 text-primary hover:bg-primary/10"
                         >
-                          {assessment.status.replace('_', ' ')}
+                          {formatStatusLabel(assessment.status)}
                         </Badge>
                       </div>
                     )}
                     <Button
-                      variant={assessment.status === 'published' && assessment.is_passed ? 'outline' : 'gradient'}
+                      variant={assessment.status === 'published' ? 'outline' : 'gradient'}
                       size="sm"
-                      className="h-10 rounded-xl px-6 font-bold sm:w-auto"
+                      className={cn(
+                        "h-10 rounded-xl px-6 font-bold sm:w-auto",
+                        assessment.status !== 'published' ? "shadow-none hover:shadow-none" : ""
+                      )}
                       onClick={() => {
                         if (assessment.status === 'published' && !assessment.is_passed) {
                           handleRetake(assessment);
@@ -847,10 +858,10 @@ export default function Assessments() {
                       }}
                     >
                       {assessment.status === 'published' && assessment.is_passed
-                        ? 'View Feedback'
+                        ? 'View submission'
                         : assessment.status === 'published' && !assessment.is_passed
                           ? 'Retake Test'
-                          : 'Details'}
+                          : 'View submission'}
                     </Button>
                   </div>
                 </div>
