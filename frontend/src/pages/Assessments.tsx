@@ -106,7 +106,7 @@ export default function Assessments() {
     if (!selectedBatch || user?.role === 'student') return;
     setLoadingReview(true);
     try {
-      let url = `/api/courses/v1/batches/${selectedBatch}/test-submissions/?page=${reviewPageRef.current}&scope=pending`;
+      let url = `/api/courses/v1/batches/${selectedBatch}/test-submissions/?page=${reviewPageRef.current}&page_size=5&scope=pending`;
       if (selectedWeek !== 'all') url += `&week_number=${selectedWeek}`;
       const res = await apiClient.get(url);
       if (res.data?.success) {
@@ -125,7 +125,7 @@ export default function Assessments() {
     if (!selectedBatch || user?.role === 'student') return;
     setLoadingPublished(true);
     try {
-      let url = `/api/courses/v1/batches/${selectedBatch}/test-submissions/?page=${publishedPageRef.current}&scope=published`;
+      let url = `/api/courses/v1/batches/${selectedBatch}/test-submissions/?page=${publishedPageRef.current}&page_size=5&scope=published`;
       if (selectedWeek !== 'all') url += `&week_number=${selectedWeek}`;
       const res = await apiClient.get(url);
       if (res.data?.success) {
@@ -469,9 +469,7 @@ export default function Assessments() {
                                 <Edit3 className="mr-2 h-4 w-4" />
                                 {item.status === 'pending_review' || item.status === 'evaluating'
                                   ? 'Review & Grade'
-                                  : item.status === 'returned'
-                                    ? 'Review correction'
-                                    : 'View submission'}
+                                  : 'View submission'}
                               </Button>
                             )}
                           </div>
@@ -787,26 +785,18 @@ export default function Assessments() {
                     ) : (
                       <div className="flex flex-col items-end gap-1 sm:text-right">
                         <Badge
-                          className={cn(
-                            'border-none px-3 py-1 text-[10px] font-bold uppercase',
-                            assessment.status === 'returned'
-                              ? 'bg-destructive text-destructive-foreground shadow-lg shadow-destructive/20'
-                              : 'bg-warning text-warning-foreground',
-                          )}
+                          className="border-none px-3 py-1 text-[10px] font-bold uppercase bg-warning text-warning-foreground"
                         >
                           {assessment.status.replace('_', ' ')}
                         </Badge>
-                        {assessment.status === 'returned' && (
-                          <p className="text-[9px] font-bold uppercase text-destructive">Please retake</p>
-                        )}
                       </div>
                     )}
                     <Button
-                      variant={assessment.status === 'published' ? 'outline' : 'gradient'}
+                      variant={assessment.status === 'published' && assessment.is_passed ? 'outline' : 'gradient'}
                       size="sm"
                       className="h-10 rounded-xl px-6 font-bold sm:w-auto"
                       onClick={() => {
-                        if (assessment.status === 'returned') {
+                        if (assessment.status === 'published' && !assessment.is_passed) {
                           handleRetake(assessment);
                         } else {
                           setViewingSubmission(assessment);
@@ -814,9 +804,9 @@ export default function Assessments() {
                         }
                       }}
                     >
-                      {assessment.status === 'published'
+                      {assessment.status === 'published' && assessment.is_passed
                         ? 'View Feedback'
-                        : assessment.status === 'returned'
+                        : assessment.status === 'published' && !assessment.is_passed
                           ? 'Retake Test'
                           : 'Details'}
                     </Button>
@@ -911,7 +901,6 @@ export default function Assessments() {
             onClose={() => { setViewingSubmission(null); setIsResultsOpen(false); }}
             submission={viewingSubmission}
             testTitle={viewingSubmission.test_title}
-            onRetake={() => handleRetake(viewingSubmission)}
           />
         )}
 

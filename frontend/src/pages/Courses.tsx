@@ -1268,7 +1268,7 @@ export default function Courses() {
                                           : hasAttempted
                                             ? isPass
                                               ? 'Passed'
-                                              : latestStatus === 'published' || latestStatus === 'returned'
+                                              : latestStatus === 'published'
                                                 ? 'Retake Test'
                                                 : 'View Submission'
                                             : !allSessionsCompleted
@@ -1293,7 +1293,7 @@ export default function Courses() {
                                               setActiveTest(weeklyTest);
                                               setActiveTestWeek(week.id);
                                               if (hasAttempted) {
-                                                if (!isPass && (latestStatus === 'published' || latestStatus === 'returned')) {
+                                                if (!isPass && latestStatus === 'published') {
                                                   setIsTestSubmissionOpen(true);
                                                 } else {
                                                   setIsResultsOpen(true);

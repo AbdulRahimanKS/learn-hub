@@ -465,9 +465,6 @@ export function SubmissionReviewModal({
                      {isSaving ? <Loader2 className="h-5 w-5 animate-spin" /> : <CheckIcon className="h-5 w-5 mr-3" />}
                      Confirm & Publish
                    </Button>
-                   <Button variant="outline" className="w-full h-14 font-black uppercase tracking-[0.1em] text-[10px] border-2 border-slate-100 dark:border-slate-800 text-slate-500 hover:text-destructive hover:bg-destructive/5 hover:border-destructive/20 rounded-2xl transition-all" onClick={() => handleUpdateStatus('returned')} disabled={isSaving}>
-                     Return for Revision
-                   </Button>
                 </div>
               </div>
             </div>

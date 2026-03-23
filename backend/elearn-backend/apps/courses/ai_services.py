@@ -8,6 +8,7 @@ import time
 from django.conf import settings
 from django.utils import timezone
 from apps.courses.models import TestSubmission, TestSubmissionAnswer
+from apps.users.models import AppConfiguration
 
 # For PDF and Excel extraction
 try:
@@ -22,6 +23,7 @@ except ImportError:
 
 logger = logging.getLogger(__name__)
 
+
 class AIEvaluationService:
     """
     Service to handle AI-powered evaluation of student test submissions.
@@ -30,11 +32,12 @@ class AIEvaluationService:
     def __init__(self):
         self.openai_key = getattr(settings, 'OPENAI_API_KEY', None)
         self.groq_key = getattr(settings, 'GROQ_API_KEY', None)
-        self.openai_model = "gpt-4o-mini" # Default
-        self.groq_model = "llama-3.3-70b-versatile" # Default
+        self.groq_base_url = getattr(settings, 'GROQ_BASE_URL', 'https://api.groq.com/openai/v1')
+        self.allow_mock = getattr(settings, 'AI_ALLOW_MOCK_EVALUATION', False)
+        self.openai_model = "gpt-4o-mini"
+        self.groq_model = "llama-3.3-70b-versatile"
         
         try:
-            from apps.users.models import AppConfiguration
             app_config = AppConfiguration.objects.first()
             if app_config:
                 if app_config.openai_api_key:
@@ -54,10 +57,9 @@ class AIEvaluationService:
 
         if self.groq_key and openai:
             try:
-                # We can use the openai client to talk to Groq as it's binary compatible
                 self.client = openai.OpenAI(
                     api_key=self.groq_key,
-                    base_url="https://api.groq.com/openai/v1"
+                    base_url=self.groq_base_url
                 )
                 self.provider = "groq"
                 self.model = self.groq_model
@@ -73,9 +75,15 @@ class AIEvaluationService:
 
         if not self.client:
             if not openai:
-                logger.warning("openai library not installed. AI evaluation will be mocked.")
+                if self.allow_mock == "True":
+                    logger.warning("openai library not installed. AI evaluation will be mocked.")
+                else:
+                    logger.error("openai library not installed and AI mock mode is disabled.")
             else:
-                logger.warning("No AI API keys (OpenAI/Groq) found. AI evaluation will be mocked.")
+                if self.allow_mock == "True":
+                    logger.warning("No AI API keys (OpenAI/Groq) found. AI evaluation will be mocked.")
+                else:
+                    logger.error("No AI API keys (OpenAI/Groq) found and AI mock mode is disabled.")
 
     def evaluate_submission(self, submission_id):
         """
@@ -94,10 +102,8 @@ class AIEvaluationService:
             submission.save()
             return
 
-        # Prepare the prompt
         test = submission.batch_weekly_test
         
-        # Step 1: Read and extract Answer Key content
         answer_key_content = ""
         if test.answer_key:
             answer_key_content = self._extract_file_content(test.answer_key)
@@ -105,9 +111,10 @@ class AIEvaluationService:
         prompt = self._prepare_prompt(test, answers, answer_key_content)
 
         if not self.client:
-            # Mock evaluation if no API key
-            self._mock_evaluation(submission)
-            return
+            if self.allow_mock == "True":
+                self._mock_evaluation(submission)
+                return
+            raise RuntimeError("AI provider is not configured. Set OpenAI/Groq keys or enable AI_ALLOW_MOCK_EVALUATION.")
 
         try:
             response = self.client.chat.completions.create(
@@ -356,10 +363,14 @@ class AIEvaluationService:
         """
 
         if not self.client:
-            import random
-            answer.ai_score = random.uniform(0, q.marks)
-            answer.ai_feedback = "Mocked single question feedback."
-            answer.save()
+            if self.allow_mock == "True":
+                import random
+                answer.ai_score = random.uniform(0, q.marks)
+                answer.ai_feedback = "Mocked single question feedback."
+                answer.save()
+                return
+            answer.ai_feedback = "AI provider is not configured for single-answer evaluation."
+            answer.save(update_fields=['ai_feedback'])
             return
 
         try:

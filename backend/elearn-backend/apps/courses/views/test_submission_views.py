@@ -1,7 +1,7 @@
 import json
 import random
 from rest_framework import generics, status
-from rest_framework.permissions import IsAuthenticated
+from utils.permissions import IsSuperAdminAdminOrTeacher, IsAuthenticated
 from rest_framework.views import APIView
 from django.utils import timezone
 from apps.courses.models import (
@@ -20,6 +20,7 @@ from apps.users.models import Notification
 from utils.common import format_success_response, ServiceError
 from utils.constants import UserTypeConstants
 from drf_spectacular.utils import extend_schema
+from apps.courses.ai_services import AIEvaluationService
 import logging
 
 logger = logging.getLogger(__name__)
@@ -256,7 +257,6 @@ class BatchTestSubmissionListView(generics.ListAPIView):
             "published": base_for_stats.filter(status=TestSubmission.Status.PUBLISHED).count(),
             "evaluating": base_for_stats.filter(status=TestSubmission.Status.EVALUATING).count(),
             "pending_review": base_for_stats.filter(status=TestSubmission.Status.PENDING_REVIEW).count(),
-            "returned": base_for_stats.filter(status=TestSubmission.Status.RETURNED).count(),
         }
 
         queryset = self.filter_queryset(self.get_queryset())
@@ -310,7 +310,7 @@ class TestSubmissionDetailView(generics.RetrieveUpdateAPIView):
             new_status = serializer.validated_data.get('status')
             if new_status and new_status != old_status:
                 # Updating status dynamically
-                if new_status in [TestSubmission.Status.PUBLISHED, TestSubmission.Status.RETURNED]:
+                if new_status == TestSubmission.Status.PUBLISHED:
                     instance.graded_at = timezone.now()
                     instance.graded_by = request.user
                     
@@ -331,16 +331,6 @@ class TestSubmissionDetailView(generics.RetrieveUpdateAPIView):
                         object_id=instance.id,
                         action_url=f"/progress" # Example URL
                     )
-                elif new_status == TestSubmission.Status.RETURNED:
-                    Notification.objects.create(
-                        user=student,
-                        title="Test Returned for Revision",
-                        message=f"Your Test Attempt {instance.attempt_number} was returned. Please review the grader's remarks.",
-                        notification_type=Notification.NotificationType.WARNING,
-                        content_type=ct,
-                        object_id=instance.id,
-                        action_url=f"/progress"
-                    )
                     
             return format_success_response(
                 message="Test submission updated successfully",
@@ -356,65 +346,36 @@ class TestSubmissionDetailView(generics.RetrieveUpdateAPIView):
 
 @extend_schema(tags=["Test Submissions"], summary="Trigger AI evaluation for a specific test submission", description="Allows a teacher to trigger AI evaluation for a specific test submission.")
 class TriggerAIEvaluationView(APIView):
-    permission_classes = [IsAuthenticated]
-    serializer_class = TestSubmissionSerializer
+    permission_classes = [IsSuperAdminAdminOrTeacher]
 
     def post(self, request, batch_id, pk):
         try:
-            submission = TestSubmission.objects.get(pk=pk, enrollment__batch_id=batch_id)
-        except TestSubmission.DoesNotExist:
-            raise ServiceError(detail="Test submission not found.", status_code=status.HTTP_404_NOT_FOUND)
+            batch = _get_batch_or_404(batch_id)
+            if not _can_list_all_submissions_for_batch(request.user, batch):
+                raise ServiceError(detail="You are not allowed to trigger AI evaluation for this batch.", status_code=status.HTTP_403_FORBIDDEN)
 
-        if submission.status not in [TestSubmission.Status.PENDING, TestSubmission.Status.RETURNED]:
-            raise ServiceError(detail=f"Cannot evaluate submission in '{submission.status}' state.", status_code=status.HTTP_400_BAD_REQUEST)
-
-        # Switch status to EVALUATING
-        submission.status = TestSubmission.Status.EVALUATING
-        submission.save(update_fields=['status'])
-
-        # Notify the student
-        ct = ContentType.objects.get_for_model(TestSubmission)
-        student = submission.enrollment.student
-        
-        Notification.objects.create(
-            user=student,
-            title="AI Evaluation Started",
-            message=f"Your Test Attempt {submission.attempt_number} is currently being evaluated by our AI grader.",
-            notification_type=Notification.NotificationType.INFO,
-            content_type=ct,
-            object_id=submission.id,
-            action_url=f"/progress"
-        )
-        
-        # Notify whoever triggered it (if not the student)
-        if request.user != student:
-            Notification.objects.create(
-                user=request.user,
-                title="AI Evaluation Initiated",
-                message=f"AI evaluation started for {student.fullname}'s Test Attempt {submission.attempt_number}.",
-                notification_type=Notification.NotificationType.INFO,
-                content_type=ct,
-                object_id=submission.id
-            )
-
-        # Trigger actual evaluation
-        try:
-            from apps.courses.ai_services import AIEvaluationService
+            try:
+                submission = TestSubmission.objects.get(pk=pk, enrollment__batch_id=batch_id)
+            except TestSubmission.DoesNotExist:
+                raise ServiceError(detail="Test submission not found.", status_code=status.HTTP_404_NOT_FOUND)
+            
+            if submission.status != TestSubmission.Status.PENDING:
+                raise ServiceError(detail=f"Cannot evaluate submission in '{submission.status}' state.", status_code=status.HTTP_400_BAD_REQUEST)
+            
+            submission.status = TestSubmission.Status.EVALUATING
+            submission.save(update_fields=['status'])
+            
             ai_service = AIEvaluationService()
             ai_service.evaluate_submission(submission.id)
-        except Exception as e:
-            # Safety fallback if ai_service itself crashes or fails to import
-            submission.status = TestSubmission.Status.PENDING_REVIEW
-            submission.ai_feedback = f"Catastrophic failure: {str(e)}"
-            submission.save()
+            submission.refresh_from_db()
             
-        # Refresh submission from DB after AI evaluation
-        submission.refresh_from_db()
-        
-        return format_success_response(
-            message="AI evaluation completed." if submission.status == TestSubmission.Status.PENDING_REVIEW else "AI evaluation initiated.",
-            data=TestSubmissionSerializer(submission).data
-        )
+            return format_success_response(message="AI evaluation completed.")
+        except ServiceError:
+            raise
+        except Exception as e:
+            logger.error(f"Error triggering AI evaluation for test answer: {str(e)}")
+            raise ServiceError(detail="An error occurred while triggering AI evaluation for the test answer.", status_code=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
 
 @extend_schema(tags=["Test Submissions"], summary="Trigger AI evaluation for a specific test answer", description="Allows a teacher to trigger AI evaluation for a specific test answer.")
 class TriggerAnswerAIEvaluationView(APIView):
@@ -522,7 +483,6 @@ class MyTestSubmissionsListView(generics.ListAPIView):
             "published": base_for_stats.filter(status=TestSubmission.Status.PUBLISHED).count(),
             "evaluating": base_for_stats.filter(status=TestSubmission.Status.EVALUATING).count(),
             "pending_review": base_for_stats.filter(status=TestSubmission.Status.PENDING_REVIEW).count(),
-            "returned": base_for_stats.filter(status=TestSubmission.Status.RETURNED).count(),
         }
 
         queryset = self.filter_queryset(self.get_queryset())

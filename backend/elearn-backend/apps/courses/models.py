@@ -728,7 +728,6 @@ class TestSubmission(models.Model):
         EVALUATING      = 'evaluating',      _('Evaluating via AI')
         PENDING_REVIEW  = 'pending_review',  _('Pending Review')
         PUBLISHED       = 'published',       _('Published')
-        RETURNED        = 'returned',        _('Returned')
 
     batch_weekly_test = models.ForeignKey(
         BatchWeeklyTest,

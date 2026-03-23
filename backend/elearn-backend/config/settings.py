@@ -34,7 +34,8 @@ ALLOWED_HOSTS = ['*']
 
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
 GROQ_API_KEY = os.getenv("GROQ_API_KEY")
-    
+GROQ_BASE_URL = os.getenv("GROQ_BASE_URL")
+AI_ALLOW_MOCK_EVALUATION = os.getenv("AI_ALLOW_MOCK_EVALUATION", "False") == "True"
 
 # Application definition
 
