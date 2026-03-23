@@ -729,6 +729,13 @@ class TestSubmission(models.Model):
         PENDING_REVIEW  = 'pending_review',  _('Pending Review')
         PUBLISHED       = 'published',       _('Published')
 
+    class AIJobStatus(models.TextChoices):
+        IDLE      = 'idle', _('Idle')
+        QUEUED    = 'queued', _('Queued')
+        RUNNING   = 'running', _('Running')
+        SUCCEEDED = 'succeeded', _('Succeeded')
+        FAILED    = 'failed', _('Failed')
+
     batch_weekly_test = models.ForeignKey(
         BatchWeeklyTest,
         on_delete=models.CASCADE,
@@ -750,6 +757,14 @@ class TestSubmission(models.Model):
         help_text=_('Raw AI evaluation response')
     )
     ai_evaluated_at = models.DateTimeField(null=True, blank=True)
+    ai_job_status = models.CharField(
+        _('AI Job Status'),
+        max_length=16,
+        choices=AIJobStatus.choices,
+        default=AIJobStatus.IDLE,
+        help_text=_('Background AI job lifecycle state')
+    )
+    ai_error_message = models.TextField(blank=True, help_text=_('Latest AI execution error message, if any'))
 
     # Grading
     marks_obtained = models.FloatField(

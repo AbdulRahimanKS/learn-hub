@@ -20,7 +20,7 @@ from apps.users.models import Notification
 from utils.common import format_success_response, ServiceError
 from utils.constants import UserTypeConstants
 from drf_spectacular.utils import extend_schema
-from apps.courses.ai_services import AIEvaluationService
+from apps.courses.tasks import run_ai_evaluation_for_submission
 import logging
 
 logger = logging.getLogger(__name__)
@@ -363,13 +363,19 @@ class TriggerAIEvaluationView(APIView):
                 raise ServiceError(detail=f"Cannot evaluate submission in '{submission.status}' state.", status_code=status.HTTP_400_BAD_REQUEST)
             
             submission.status = TestSubmission.Status.EVALUATING
-            submission.save(update_fields=['status'])
-            
-            ai_service = AIEvaluationService()
-            ai_service.evaluate_submission(submission.id)
+            submission.ai_job_status = TestSubmission.AIJobStatus.QUEUED
+            submission.ai_error_message = ""
+            submission.ai_feedback = ""
+            submission.save(update_fields=['status', 'ai_job_status', 'ai_error_message', 'ai_feedback'])
+
+            run_ai_evaluation_for_submission.delay(submission.id)
+
             submission.refresh_from_db()
-            
-            return format_success_response(message="AI evaluation completed.")
+            return format_success_response(
+                message="AI evaluation queued.",
+                data=TestSubmissionSerializer(submission).data,
+                status_code=status.HTTP_202_ACCEPTED,
+            )
         except ServiceError:
             raise
         except Exception as e:

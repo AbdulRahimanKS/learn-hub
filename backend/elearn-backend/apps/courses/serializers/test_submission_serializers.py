@@ -39,7 +39,9 @@ class TestSubmissionSerializer(serializers.ModelSerializer):
             'id', 'batch_weekly_test', 'enrollment', 'attempt_number', 'student_name', 'student_email',
             'batch_name', 'week_number', 'test_title',
             'submitted_at', 'marks_obtained', 'is_passed', 'grader_remarks', 
-            'graded_at', 'graded_by', 'graded_by_name', 'status', 'answers'
+            'graded_at', 'graded_by', 'graded_by_name', 'status',
+            'ai_score', 'ai_feedback', 'ai_evaluated_at', 'ai_job_status', 'ai_error_message',
+            'answers'
         ]
         read_only_fields = ['id', 'batch_weekly_test', 'enrollment', 'submitted_at', 'graded_at', 'graded_by']
 

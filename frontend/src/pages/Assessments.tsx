@@ -83,6 +83,24 @@ export default function Assessments() {
   const [selectedBatchId, setSelectedBatchId] = useState<number | null>(null);
   const [evaluatingIds, setEvaluatingIds] = useState<number[]>([]);
 
+  const getShortAiError = (raw?: string | null) => {
+    const text = (raw || '').toLowerCase();
+    if (!text) return 'AI evaluation failed. Please retry.';
+    if (text.includes('invalid api key') || text.includes('invalid_api_key')) {
+      return 'AI evaluation failed. Check provider API key configuration.';
+    }
+    if (text.includes('rate') && text.includes('limit')) {
+      return 'AI evaluation failed due to provider rate limits. Please retry.';
+    }
+    if (text.includes('timeout')) {
+      return 'AI evaluation timed out. Please retry.';
+    }
+    if (text.includes('provider is not configured')) {
+      return 'AI provider is not configured. Contact admin.';
+    }
+    return 'AI evaluation failed. Please retry or grade manually.';
+  };
+
   useEffect(() => {
     window.scrollTo(0, 0);
   }, []);
@@ -158,6 +176,21 @@ export default function Assessments() {
   }, [user?.role, selectedBatch, selectedWeek, reviewPage, loadAdminPending]);
 
   useEffect(() => {
+    if (user?.role === 'student') return;
+    if (!selectedBatch || selectedBatch === 'all') return;
+    const hasRunning = pendingSubmissions.some(
+      (s) => s.status === 'evaluating' || s.ai_job_status === 'queued' || s.ai_job_status === 'running'
+    );
+    if (!hasRunning) return;
+
+    const timer = window.setInterval(() => {
+      void loadAdminPending();
+    }, 4000);
+
+    return () => window.clearInterval(timer);
+  }, [pendingSubmissions, selectedBatch, user?.role, loadAdminPending]);
+
+  useEffect(() => {
     if (user?.role === 'student' || !selectedBatch || selectedBatch === 'all') {
       setPublishedSubmissions([]);
       setPublishedTotalPages(1);
@@ -223,7 +256,7 @@ export default function Assessments() {
         `/api/courses/v1/batches/${selectedBatch}/test-submissions/${id}/trigger-ai/`,
       );
       if (res.data?.success) {
-        toast({ title: 'AI Analysis Started', description: 'AI is evaluating the submission.', variant: 'success' });
+        toast({ title: 'AI evaluation queued', description: 'Background job started. Status will refresh shortly.', variant: 'success' });
         // Refresh local data
         if (selectedBatch) void loadAdminPending();
       }
@@ -378,6 +411,13 @@ export default function Assessments() {
                 <>
                 <div className="space-y-4">
                   {pendingSubmissions.map((item) => (
+                      (() => {
+                        const isAiRunning =
+                          item.status === 'evaluating' ||
+                          item.ai_job_status === 'queued' ||
+                          item.ai_job_status === 'running' ||
+                          evaluatingIds.includes(item.id);
+                        return (
                       <div
                         key={item.id}
                         className="group flex flex-col gap-4 rounded-xl border border-border bg-muted/40 p-4 transition-all hover:bg-accent/20 hover:shadow-sm xl:flex-row xl:items-center xl:justify-between"
@@ -403,13 +443,23 @@ export default function Assessments() {
                         </div>
                         <div className="flex flex-col gap-2 border-t border-border/50 pt-4 sm:border-t-0 sm:pt-0 xl:shrink-0 xl:items-end">
                           <div className="flex items-center gap-2">
-                            {item.status === 'evaluating' && (
+                            {item.ai_job_status === 'failed' && (
+                              <Badge
+                                variant="outline"
+                                className="h-7 rounded-full border-rose-500/30 bg-rose-500/10 px-2.5 text-rose-500"
+                                title={getShortAiError(item.ai_error_message)}
+                              >
+                                <AlertCircle className="mr-1.5 h-3.5 w-3.5" />
+                                AI failed
+                              </Badge>
+                            )}
+                            {item.status === 'evaluating' && item.ai_job_status !== 'failed' && (
                               <Badge className="h-7 rounded-full border-none bg-primary/10 px-2.5 text-primary animate-pulse">
                                 <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />
                                 AI suggestion: Evaluating
                               </Badge>
                             )}
-                            {item.status !== 'pending' && item.status !== 'evaluating' && !evaluatingIds.includes(item.id) && (
+                            {item.status !== 'pending' && item.status !== 'evaluating' && !evaluatingIds.includes(item.id) && item.ai_job_status !== 'failed' && (
                               <Badge className="pointer-events-none h-7 rounded-full border border-primary/20 bg-primary/[0.08] px-2.5 text-primary/80 shadow-none transition-none">
                                 <Zap className="mr-1.5 h-3.5 w-3.5 text-primary/70" />
                                 AI suggestion:
@@ -440,6 +490,7 @@ export default function Assessments() {
                                     setReviewId(item.id);
                                     setIsReviewOpen(true);
                                   }}
+                                  disabled={isAiRunning}
                                 >
                                   <Edit3 className="mr-2 h-4 w-4" />
                                   Review & Grade
@@ -453,7 +504,7 @@ export default function Assessments() {
                                   setReviewId(item.id);
                                   setIsReviewOpen(true);
                                 }}
-                                disabled={item.status === 'evaluating' || evaluatingIds.includes(item.id)}
+                                disabled={isAiRunning}
                               >
                                 <Edit3 className="mr-2 h-4 w-4" />
                                 {item.status === 'pending_review' || item.status === 'evaluating'
@@ -464,6 +515,8 @@ export default function Assessments() {
                           </div>
                         </div>
                       </div>
+                        );
+                      })()
                     ))}
                 </div>
                 {!loadingReview && pendingSubmissions.length > 0 && reviewTotalPages > 1 && (

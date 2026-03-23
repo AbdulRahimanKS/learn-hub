@@ -33,7 +33,7 @@ class AIEvaluationService:
         self.openai_key = getattr(settings, 'OPENAI_API_KEY', None)
         self.groq_key = getattr(settings, 'GROQ_API_KEY', None)
         self.groq_base_url = getattr(settings, 'GROQ_BASE_URL', 'https://api.groq.com/openai/v1')
-        self.allow_mock = getattr(settings, 'AI_ALLOW_MOCK_EVALUATION', False)
+        self.allow_mock = bool(getattr(settings, 'AI_ALLOW_MOCK_EVALUATION', False))
         self.openai_model = "gpt-4o-mini"
         self.groq_model = "llama-3.3-70b-versatile"
         
@@ -75,12 +75,12 @@ class AIEvaluationService:
 
         if not self.client:
             if not openai:
-                if self.allow_mock == "True":
+                if self.allow_mock:
                     logger.warning("openai library not installed. AI evaluation will be mocked.")
                 else:
                     logger.error("openai library not installed and AI mock mode is disabled.")
             else:
-                if self.allow_mock == "True":
+                if self.allow_mock:
                     logger.warning("No AI API keys (OpenAI/Groq) found. AI evaluation will be mocked.")
                 else:
                     logger.error("No AI API keys (OpenAI/Groq) found and AI mock mode is disabled.")
@@ -95,11 +95,17 @@ class AIEvaluationService:
             logger.error(f"Submission {submission_id} not found.")
             return
 
+        submission.ai_job_status = TestSubmission.AIJobStatus.RUNNING
+        submission.ai_error_message = ""
+        submission.save(update_fields=['ai_job_status', 'ai_error_message'])
+
         answers = submission.answers.all()
         if not answers.exists():
             submission.status = TestSubmission.Status.PENDING_REVIEW
             submission.grader_remarks = "No answers submitted for evaluation."
-            submission.save()
+            submission.ai_job_status = TestSubmission.AIJobStatus.FAILED
+            submission.ai_error_message = "No answers submitted for evaluation."
+            submission.save(update_fields=['status', 'grader_remarks', 'ai_job_status', 'ai_error_message'])
             return
 
         test = submission.batch_weekly_test
@@ -111,7 +117,7 @@ class AIEvaluationService:
         prompt = self._prepare_prompt(test, answers, answer_key_content)
 
         if not self.client:
-            if self.allow_mock == "True":
+            if self.allow_mock:
                 self._mock_evaluation(submission)
                 return
             raise RuntimeError("AI provider is not configured. Set OpenAI/Groq keys or enable AI_ALLOW_MOCK_EVALUATION.")
@@ -135,7 +141,9 @@ class AIEvaluationService:
             submission.status = TestSubmission.Status.PENDING_REVIEW
             submission.ai_feedback = f"AI Evaluation Error: {str(e)}"
             submission.grader_remarks = f"System Error during AI evaluation. You can try refreshing the AI analysis specifically for this submission."
-            submission.save()
+            submission.ai_job_status = TestSubmission.AIJobStatus.FAILED
+            submission.ai_error_message = str(e)
+            submission.save(update_fields=['status', 'ai_feedback', 'grader_remarks', 'ai_job_status', 'ai_error_message'])
 
     def _prepare_prompt(self, test, answers, answer_key_content=""):
         """
@@ -283,7 +291,12 @@ class AIEvaluationService:
             submission.is_passed = True
 
         submission.status = TestSubmission.Status.PENDING_REVIEW
-        submission.save()
+        submission.ai_job_status = TestSubmission.AIJobStatus.SUCCEEDED
+        submission.ai_error_message = ""
+        submission.save(update_fields=[
+            'ai_score', 'ai_feedback', 'ai_response', 'ai_evaluated_at',
+            'marks_obtained', 'is_passed', 'status', 'ai_job_status', 'ai_error_message'
+        ])
 
     def _mock_evaluation(self, submission):
         """
@@ -313,7 +326,12 @@ class AIEvaluationService:
             submission.is_passed = True
             
         submission.status = TestSubmission.Status.PENDING_REVIEW
-        submission.save()
+        submission.ai_job_status = TestSubmission.AIJobStatus.SUCCEEDED
+        submission.ai_error_message = ""
+        submission.save(update_fields=[
+            'ai_score', 'ai_feedback', 'ai_evaluated_at',
+            'marks_obtained', 'is_passed', 'status', 'ai_job_status', 'ai_error_message'
+        ])
 
     def evaluate_single_answer(self, answer_id):
         """
@@ -363,7 +381,7 @@ class AIEvaluationService:
         """
 
         if not self.client:
-            if self.allow_mock == "True":
+            if self.allow_mock:
                 import random
                 answer.ai_score = random.uniform(0, q.marks)
                 answer.ai_feedback = "Mocked single question feedback."
