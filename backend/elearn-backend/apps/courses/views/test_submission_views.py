@@ -297,7 +297,7 @@ class TestSubmissionDetailView(generics.RetrieveUpdateAPIView):
         try:
             partial = kwargs.pop('partial', False)
             try:
-                instance = self.get_object(kwargs.get('batch_id'), kwargs.get('pk'))
+                instance = self.get_object()
             except TestSubmission.DoesNotExist:
                 raise ServiceError(detail="Test submission not found.", status_code=status.HTTP_404_NOT_FOUND)
             

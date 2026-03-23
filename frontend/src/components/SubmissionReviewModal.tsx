@@ -2,7 +2,6 @@ import React, { useState, useEffect } from 'react';
 import {
   Dialog,
   DialogContent,
-  DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
@@ -180,9 +179,12 @@ export function SubmissionReviewModal({
 
   return (
     <Dialog open={open} onOpenChange={(v) => !v && onClose()}>
-      <DialogContent className="h-[96vh] w-[96vw] max-w-[1400px] flex flex-col rounded-3xl border border-border bg-background p-0 overflow-hidden shadow-2xl">
-        <DialogHeader className="bg-gradient-to-r from-slate-900 via-slate-800 to-slate-900 p-8 text-white shrink-0 space-y-0 relative overflow-hidden">
-          <div className="absolute top-0 right-0 w-64 h-64 bg-primary/10 rounded-full blur-3xl -mr-32 -mt-32" />
+      <DialogContent className="h-[96vh] w-[96vw] max-w-[1400px] flex flex-col rounded-3xl border border-primary/25 bg-background p-0 overflow-hidden shadow-2xl [&>button]:right-4 [&>button]:top-4 [&>button]:z-[60] [&>button]:text-primary-foreground [&>button]:opacity-90 [&>button]:ring-offset-transparent [&>button]:hover:bg-white/10 [&>button]:hover:text-primary-foreground [&>button]:hover:opacity-100 data-[state=open]:[&>button]:bg-transparent data-[state=open]:[&>button]:text-primary-foreground">
+        <div className="relative shrink-0 space-y-0 overflow-hidden border-b border-white/10 gradient-primary p-8 text-primary-foreground">
+          <div className="pointer-events-none absolute inset-0 overflow-hidden">
+            <div className="absolute right-0 top-0 h-40 w-40 rounded-full bg-white/5 blur-3xl" />
+            <div className="absolute bottom-0 left-0 h-28 w-28 rounded-full bg-primary/20 blur-2xl" />
+          </div>
           <div className="relative z-10 space-y-6">
             <div className="flex justify-between items-start gap-6">
               <div className="space-y-3">
@@ -191,13 +193,13 @@ export function SubmissionReviewModal({
                    <User className="h-6 w-6 text-primary-foreground" />
                   </div>
                   <div>
-                    <DialogTitle className="text-3xl font-black tracking-tight">{submission?.student_name}</DialogTitle>
+                    <DialogTitle className="text-2xl font-bold tracking-tight">{submission?.student_name}</DialogTitle>
                     <div className="flex flex-wrap items-center gap-2 mt-1">
-                      <Badge variant="outline" className="border-white/20 text-white/70 bg-white/5 h-5 px-1.5 text-[9px] uppercase font-bold tracking-widest">
+                      <Badge variant="outline" className="border-white/20 text-primary-foreground/80 bg-white/5 h-5 px-2 text-[10px] font-semibold">
                         {submission?.batch_name}
                       </Badge>
-                      <span className="text-[10px] text-white/30 font-black uppercase tracking-tighter">•</span>
-                      <span className="text-xs text-white/70 font-medium flex items-center gap-1.5">
+                      <span className="text-[10px] text-primary-foreground/35 font-semibold">•</span>
+                      <span className="text-xs text-primary-foreground/80 font-medium flex items-center gap-1.5">
                         <FileText className="h-3 w-3" />
                         {submission?.test_title}
                       </span>
@@ -207,14 +209,14 @@ export function SubmissionReviewModal({
               </div>
               <div className="space-y-2">
                 <div className="rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-right backdrop-blur-sm">
-                  <p className="text-[9px] font-black uppercase tracking-[0.18em] text-white/40">Submission Status</p>
-                  <p className="mt-1 text-sm font-black uppercase tracking-[0.12em] text-white">
+                  <p className="text-[10px] font-semibold text-primary-foreground/60">Submission status</p>
+                  <p className="mt-1 text-sm font-semibold text-primary-foreground">
                     {submission?.status?.replace('_', ' ')}
                   </p>
                 </div>
                 <div className="flex flex-col items-end">
-                  <span className="text-[9px] text-white/30 font-bold uppercase tracking-widest">Submitted On</span>
-                  <span className="text-xs text-white/70 font-medium">
+                  <span className="text-[10px] text-primary-foreground/55 font-medium">Submitted on</span>
+                  <span className="text-xs text-primary-foreground/80 font-medium">
                     {submission?.submitted_at && format(new Date(submission.submitted_at), 'MMM d, yyyy • h:mm a')}
                   </span>
                 </div>
@@ -229,23 +231,23 @@ export function SubmissionReviewModal({
                 { label: 'AI Suggestion', value: `${aiScore}%`, hint: submission?.ai_feedback ? 'AI analysis available' : 'No AI analysis yet' },
               ].map((item) => (
                 <div key={item.label} className="rounded-2xl border border-white/10 bg-white/5 px-4 py-3 backdrop-blur-sm">
-                  <p className="text-[10px] font-black uppercase tracking-[0.18em] text-white/40">{item.label}</p>
-                  <p className="mt-1 text-xl font-black text-white">{item.value}</p>
-                  <p className="mt-1 text-xs text-white/60">{item.hint}</p>
+                  <p className="text-[10px] font-semibold text-primary-foreground/60">{item.label}</p>
+                  <p className="mt-1 text-xl font-semibold text-primary-foreground">{item.value}</p>
+                  <p className="mt-1 text-xs text-primary-foreground/75">{item.hint}</p>
                 </div>
               ))}
             </div>
           </div>
-        </DialogHeader>
+        </div>
 
         <div className="flex-1 overflow-hidden flex flex-col xl:flex-row divide-y xl:divide-y-0 xl:divide-x divide-border">
           <div className="flex-1 min-w-0 p-8 space-y-10 bg-background overflow-y-auto">
             <div>
-              <h3 className="text-[10px] font-black uppercase tracking-[0.2em] text-muted-foreground flex items-center gap-2 mb-8 border-b border-border pb-4">
+              <h3 className="text-xs font-semibold text-muted-foreground flex items-center gap-2 mb-8 border-b border-border pb-4">
                 <div className="h-6 w-6 rounded-lg bg-muted flex items-center justify-center">
                   <User className="h-3.5 w-3.5" />
                 </div>
-                Detailed Student Responses
+                Detailed student responses
               </h3>
               
               <div className="space-y-12">
@@ -261,15 +263,15 @@ export function SubmissionReviewModal({
                                 <span className="flex h-9 w-9 items-center justify-center rounded-2xl bg-primary text-primary-foreground font-black text-xs shadow-md shadow-primary/20">
                                   {answer.question_order || index + 1}
                                 </span>
-                                <Badge variant="outline" className="border-border bg-background text-muted-foreground font-bold text-[10px] uppercase tracking-wider">
+                                <Badge variant="outline" className="border-border bg-background text-muted-foreground font-semibold text-[10px]">
                                   {answer.is_attended ? 'Answered' : 'Not attended'}
                                 </Badge>
-                                <Badge variant="outline" className="border-border bg-background text-muted-foreground font-bold text-[10px] uppercase tracking-wider">
+                                <Badge variant="outline" className="border-border bg-background text-muted-foreground font-semibold text-[10px]">
                                   Max {answer.max_marks} marks
                                 </Badge>
                               </div>
                               <div>
-                                <p className="mb-1 text-[10px] font-black uppercase tracking-[0.18em] text-muted-foreground">Question Prompt</p>
+                                <p className="mb-1 text-[10px] font-semibold text-muted-foreground">Question prompt</p>
                                 <div className="text-[15px] text-foreground font-medium leading-relaxed">
                                   {answer.question_text}
                                 </div>
@@ -278,7 +280,7 @@ export function SubmissionReviewModal({
                                 <Button 
                                   size="sm" 
                                   variant="ghost" 
-                                  className="h-8 w-fit rounded-xl px-3 text-[10px] font-black uppercase tracking-[0.1em] text-primary hover:bg-primary/10 hover:text-primary gap-1.5"
+                                  className="h-8 w-fit rounded-xl px-3 text-[10px] font-semibold text-primary hover:bg-primary/10 hover:text-primary gap-1.5"
                                   onClick={() => handleTriggerQuestionAI(answer.id)}
                                   disabled={evaluatingQuestionIds.includes(answer.id)}
                                 >
@@ -292,18 +294,18 @@ export function SubmissionReviewModal({
                               )}
                             </div>
                             <div className="shrink-0 rounded-2xl border border-border bg-background p-4 lg:w-36">
-                              <Label className="text-[9px] font-black uppercase text-muted-foreground">Awarded Marks</Label>
+                              <Label className="text-[10px] font-semibold text-muted-foreground">Awarded marks</Label>
                               <div className="relative mt-2">
                                 <Input 
                                   type="number" 
                                   step="0.5"
                                   max={answer.max_marks}
                                   min="0"
-                                  className="h-12 border-border bg-background pr-3 text-right text-2xl font-black rounded-xl"
+                                  className="h-12 border-border bg-background pr-3 text-right text-2xl font-semibold rounded-xl"
                                   value={qMarks[answer.id] || '0'}
                                   onChange={(e) => setQMarks({...qMarks, [answer.id]: e.target.value})}
                                 />
-                                <div className="absolute left-3 top-1/2 -translate-y-1/2 text-[10px] font-black text-muted-foreground pointer-events-none uppercase">
+                                <div className="absolute left-3 top-1/2 -translate-y-1/2 text-[10px] font-semibold text-muted-foreground pointer-events-none">
                                   Pts
                                 </div>
                               </div>
@@ -312,7 +314,7 @@ export function SubmissionReviewModal({
                         </div>
                         <div className="space-y-5 p-6">
                           <div className="flex flex-col gap-2">
-                            <Label className="text-[10px] font-black uppercase tracking-widest text-primary/70">Student Response</Label>
+                            <Label className="text-[10px] font-semibold text-primary/70">Student response</Label>
                             {answer.is_attended ? (
                               answer.answer_text ? (
                                 <div className="whitespace-pre-wrap text-[15px] text-foreground leading-relaxed font-medium bg-background p-4 rounded-2xl border border-dashed border-border">
@@ -331,7 +333,7 @@ export function SubmissionReviewModal({
                           </div>
                           {answer.answer_file && (
                             <div className="pt-1">
-                              <Label className="text-[10px] font-black uppercase tracking-widest text-primary/70 mb-2 block">Attachment</Label>
+                              <Label className="text-[10px] font-semibold text-primary/70 mb-2 block">Attachment</Label>
                               <a href={answer.answer_file} target="_blank" rel="noreferrer" className="flex items-center gap-4 px-4 py-3 rounded-2xl bg-background border border-border group/file hover:border-primary/50 transition-all shadow-sm">
                                 <div className="h-10 w-10 rounded-xl bg-primary/10 flex items-center justify-center text-primary transition-transform group-hover/file:scale-110">
                                   <Paperclip className="h-5 w-5" />
@@ -347,9 +349,9 @@ export function SubmissionReviewModal({
                           {answer.ai_feedback && (
                             <div className="rounded-2xl border border-primary/15 bg-primary/[0.04] p-4">
                               <div className="mb-2 flex items-center gap-2">
-                                <span className="inline-flex items-center gap-1 rounded-full bg-primary px-2 py-1 text-[9px] font-black uppercase tracking-widest text-primary-foreground">
+                                <span className="inline-flex items-center gap-1 rounded-full bg-primary px-2 py-1 text-[10px] font-semibold text-primary-foreground">
                                   <Zap className="h-3 w-3 fill-current" />
-                                  AI Insight
+                                  AI insight
                                 </span>
                                 <span className="text-xs font-semibold text-muted-foreground">
                                   {answer.ai_score}/{answer.max_marks}
@@ -380,17 +382,17 @@ export function SubmissionReviewModal({
 
           <div className="w-full xl:w-[430px] 2xl:w-[460px] p-8 space-y-8 shrink-0 bg-muted/20 overflow-y-auto xl:border-l border-border">
             <div>
-              <h3 className="text-[10px] font-black uppercase tracking-[0.2em] text-muted-foreground flex items-center gap-2 mb-6">
+              <h3 className="text-xs font-semibold text-muted-foreground flex items-center gap-2 mb-6">
                 <div className="h-6 w-6 rounded-lg bg-background border border-border flex items-center justify-center">
                   <Zap className="h-3.5 w-3.5" />
                 </div>
-                Review Summary
+                Review summary
               </h3>
               <div className="space-y-6">
                 <div className="rounded-[28px] border border-border bg-background p-6 shadow-sm">
                   <div className="mb-5 flex items-center justify-between gap-3">
                     <div>
-                      <p className="text-[10px] font-black uppercase tracking-[0.18em] text-muted-foreground">AI Evaluation</p>
+                      <p className="text-[10px] font-semibold text-muted-foreground">AI evaluation</p>
                       <p className="mt-1 text-sm text-foreground font-semibold">Suggested grading support</p>
                     </div>
                     <Button size="sm" variant="outline" className="h-9 rounded-xl text-xs font-bold" onClick={handleTriggerAI} disabled={isEvaluating}>
@@ -400,13 +402,13 @@ export function SubmissionReviewModal({
                   </div>
                   <div className="grid grid-cols-2 gap-3">
                     <div className="rounded-2xl bg-muted/40 p-4">
-                      <p className="text-[10px] font-black uppercase tracking-[0.16em] text-muted-foreground">AI Score</p>
-                      <p className="mt-2 text-3xl font-black text-foreground">{aiScore}</p>
+                      <p className="text-[10px] font-semibold text-muted-foreground">AI score</p>
+                      <p className="mt-2 text-3xl font-semibold text-foreground">{aiScore}</p>
                       <p className="text-xs text-muted-foreground">Suggested / 100</p>
                     </div>
                     <div className="rounded-2xl bg-muted/40 p-4">
-                      <p className="text-[10px] font-black uppercase tracking-[0.16em] text-muted-foreground">Review Status</p>
-                      <p className="mt-2 text-lg font-black text-foreground capitalize">{submission?.status?.replace('_', ' ')}</p>
+                      <p className="text-[10px] font-semibold text-muted-foreground">Review status</p>
+                      <p className="mt-2 text-lg font-semibold text-foreground capitalize">{submission?.status?.replace('_', ' ')}</p>
                       <p className="text-xs text-muted-foreground">{submission?.ai_feedback ? 'AI notes available' : 'No AI notes yet'}</p>
                     </div>
                   </div>
@@ -414,17 +416,17 @@ export function SubmissionReviewModal({
                     {submission?.ai_feedback ? (
                       submission.ai_feedback.includes('AI Evaluation Error') || submission.ai_feedback.includes('Catastrophic failure') ? (
                         <div className="space-y-2">
-                          <p className="text-[10px] font-black uppercase tracking-[0.16em] text-destructive">Analysis failed</p>
+                          <p className="text-[10px] font-semibold text-destructive">Analysis failed</p>
                           <p className="text-sm italic text-destructive/80">"{submission.ai_feedback}"</p>
                         </div>
                       ) : (
                         <div className="space-y-2">
-                          <p className="text-[10px] font-black uppercase tracking-[0.16em] text-muted-foreground">AI Insight</p>
+                          <p className="text-[10px] font-semibold text-muted-foreground">AI insight</p>
                           <p className="text-sm leading-relaxed text-foreground/90 italic">"{submission.ai_feedback}"</p>
                         </div>
                       )
                     ) : (
-                      <div className="flex h-full items-center justify-center text-center text-xs font-semibold uppercase tracking-[0.14em] text-muted-foreground">
+                      <div className="flex h-full items-center justify-center text-center text-xs font-medium text-muted-foreground">
                         AI evaluation not started
                       </div>
                     )}
@@ -434,10 +436,10 @@ export function SubmissionReviewModal({
                 <div className="space-y-6">
                   <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-1">
                     <div className="rounded-2xl border border-border bg-background p-5 shadow-sm">
-                      <Label className="text-[10px] font-black uppercase text-muted-foreground tracking-[0.2em]">Final Graded Score</Label>
+                      <Label className="text-[10px] font-semibold text-muted-foreground">Final graded score</Label>
                       <div className="mt-3 flex items-end gap-2">
-                        <span className="text-4xl font-black text-foreground">{overallPercentage.toFixed(1)}</span>
-                        <span className="pb-1 text-xl font-black text-muted-foreground">%</span>
+                        <span className="text-4xl font-semibold text-foreground">{overallPercentage.toFixed(1)}</span>
+                        <span className="pb-1 text-xl font-semibold text-muted-foreground">%</span>
                       </div>
                       <div className="mt-3 h-2 rounded-full bg-muted overflow-hidden">
                         <div className={cn("h-full rounded-full transition-all", isReadyToPass ? "bg-emerald-500" : "bg-amber-500")} style={{ width: `${Math.min(overallPercentage, 100)}%` }} />
@@ -446,7 +448,7 @@ export function SubmissionReviewModal({
                     </div>
 
                     <div className="rounded-2xl border border-border bg-background p-5 shadow-sm">
-                      <Label className="text-[10px] font-black uppercase text-muted-foreground tracking-[0.2em]">Publishing Outcome</Label>
+                      <Label className="text-[10px] font-semibold text-muted-foreground">Publishing outcome</Label>
                       <p className="mt-3 text-sm font-semibold text-foreground">
                         {isReadyToPass ? 'This student is currently on track to pass.' : 'This student is currently below the pass threshold.'}
                       </p>
@@ -455,15 +457,15 @@ export function SubmissionReviewModal({
                   </div>
 
                   <div className="space-y-3">
-                    <Label className="text-[10px] font-black uppercase text-muted-foreground tracking-[0.2em] ml-1">Evaluator Comments</Label>
+                    <Label className="text-[10px] font-semibold text-muted-foreground ml-1">Evaluator comments</Label>
                     <Textarea placeholder="Summarize the student's strengths, gaps, and what they should improve next." className="min-h-[180px] bg-background border border-border rounded-2xl text-[14px] font-medium resize-none focus:ring-primary/20 focus:border-primary transition-all p-5" value={remarks} onChange={(e) => setRemarks(e.target.value)} />
                   </div>
                 </div>
 
                 <div className="pt-6 border-t border-border space-y-4">
-                   <Button className="w-full h-14 rounded-2xl text-xs font-black uppercase tracking-[0.15em] shadow-lg shadow-primary/20 transition-all active:scale-95" onClick={() => handleUpdateStatus('published')} disabled={isSaving}>
+                   <Button variant="gradient" className="w-full h-12 rounded-2xl text-sm font-bold shadow-none hover:shadow-none transition-all active:scale-95" onClick={() => handleUpdateStatus('published')} disabled={isSaving}>
                      {isSaving ? <Loader2 className="h-5 w-5 animate-spin" /> : <CheckIcon className="h-5 w-5 mr-3" />}
-                     Confirm & Publish
+                     Confirm and publish
                    </Button>
                 </div>
               </div>

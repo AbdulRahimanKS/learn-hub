@@ -124,15 +124,15 @@ export function WeeklyTestResults({
           </div>
         </div>
 
-        <div className="flex-1 overflow-y-auto p-4 md:p-6 space-y-6 scrollbar-hide">
+        <div className="flex-1 overflow-y-auto bg-background p-4 md:p-6 space-y-6 scrollbar-hide">
           {/* Status Message */}
           {!isPublished && (
-            <div className="bg-indigo-500/5 dark:bg-indigo-500/[0.03] border border-indigo-500/10 dark:border-indigo-500/20 rounded-2xl p-5 flex flex-col items-center text-center space-y-2 animate-in fade-in slide-in-from-top-2 duration-500">
-               <div className="h-10 w-10 rounded-xl bg-indigo-500/10 flex items-center justify-center text-indigo-600 dark:text-indigo-400 mb-1">
+            <div className="rounded-2xl border border-border bg-muted/30 p-5 flex flex-col items-center text-center space-y-2 animate-in fade-in slide-in-from-top-2 duration-500">
+               <div className="h-10 w-10 rounded-xl bg-primary/10 flex items-center justify-center text-primary mb-1">
                  <Hourglass className="h-5 w-5 animate-[spin_4s_linear_infinite]" />
                </div>
-               <h4 className="text-base font-bold text-slate-900 dark:text-white tracking-tight">Evaluation is currently pending.</h4>
-               <p className="text-xs text-slate-500 dark:text-white/40 max-w-sm leading-relaxed">
+               <h4 className="text-base font-semibold text-foreground tracking-tight">Evaluation is currently pending.</h4>
+               <p className="text-xs text-muted-foreground max-w-sm leading-relaxed">
                  You'll be notified once your instructor reviews views and publishes your results.
                </p>
             </div>
@@ -140,18 +140,18 @@ export function WeeklyTestResults({
 
           {/* Questions Section */}
           <div className="space-y-4">
-            <h3 className="flex items-center gap-3 text-xs font-semibold tracking-tight text-slate-500 dark:text-white/35">
-              <span className="h-px flex-1 bg-slate-100 dark:bg-white/5" />
+            <h3 className="flex items-center gap-3 text-xs font-semibold tracking-tight text-muted-foreground">
+              <span className="h-px flex-1 bg-border" />
               {isPublished ? 'Performance summary' : 'Questions submitted'}
-              <span className="h-px flex-1 bg-slate-100 dark:bg-white/5" />
+              <span className="h-px flex-1 bg-border" />
             </h3>
 
             {submission.answers && submission.answers.length > 0 ? (
               <div className="grid gap-4">
                 {submission.answers.map((answer: any, idx: number) => (
                   <Card key={answer.id} className={cn(
-                    "bg-slate-50/50 dark:bg-white/[0.02] border border-slate-200 dark:border-white/5 rounded-2xl overflow-hidden group transition-all",
-                    !answer.is_attended && "opacity-80 border-dashed border-slate-300 dark:border-white/10"
+                    "bg-card border border-border/60 rounded-2xl overflow-hidden group transition-all",
+                    !answer.is_attended && "opacity-80 border-dashed border-border"
                   )}>
                     <CardContent className="p-4 md:p-5 space-y-4">
                       <div className="flex flex-col md:flex-row md:items-start justify-between gap-3">
@@ -166,17 +166,17 @@ export function WeeklyTestResults({
                               </Badge>
                             )}
                           </div>
-                          <h4 className="text-[13px] md:text-sm font-bold text-slate-800 dark:text-white leading-relaxed">
+                          <h4 className="text-[13px] md:text-sm font-semibold text-foreground leading-relaxed">
                             {answer.question_text}
                           </h4>
                         </div>
                         {isPublished && answer.is_attended && (
                           <div className="text-right shrink-0">
-                            <div className="flex items-baseline justify-end gap-1 font-black text-lg text-slate-900 dark:text-white">
+                            <div className="flex items-baseline justify-end gap-1 font-semibold text-lg text-foreground">
                               {answer.marks_obtained ?? 0}
-                              <span className="text-slate-400 dark:text-white/20 text-xs font-bold">/ {answer.max_marks}</span>
+                              <span className="text-muted-foreground text-xs font-semibold">/ {answer.max_marks}</span>
                             </div>
-                            <div className="mt-1.5 h-1 w-20 bg-slate-200 dark:bg-white/5 rounded-full ml-auto overflow-hidden">
+                            <div className="mt-1.5 h-1 w-20 bg-muted rounded-full ml-auto overflow-hidden">
                                <div 
                                  className="h-full bg-emerald-500 transition-all duration-700"
                                  style={{ width: `${( (answer.marks_obtained || 0) / answer.max_marks) * 100}%` }}
@@ -191,8 +191,8 @@ export function WeeklyTestResults({
                         <div className={cn(
                           "p-3 rounded-xl border font-medium whitespace-pre-wrap leading-relaxed shadow-sm text-[12px]",
                           answer.is_attended 
-                            ? "bg-white dark:bg-white/[0.03] border-slate-100 dark:border-white/5 text-slate-600 dark:text-white/60"
-                            : "bg-slate-100/30 dark:bg-white/[0.01] border-dashed border-slate-200 dark:border-white/5 text-slate-400 dark:text-white/20 italic"
+                            ? "bg-background border-border/60 text-foreground/80"
+                            : "bg-muted/30 border-dashed border-border text-muted-foreground italic"
                         )}>
                           {!answer.is_attended ? "This question was not attended by the student." : answer.answer_text}
                         </div>
@@ -204,21 +204,21 @@ export function WeeklyTestResults({
                            {/* Question Resources */}
                            {(answer.question_file || (answer.attachments && answer.attachments.length > 0)) && (
                              <div className="space-y-2">
-                               <div className="flex items-center gap-2 text-xs font-semibold tracking-tight text-slate-500 dark:text-white/35">
+                               <div className="flex items-center gap-2 text-xs font-semibold tracking-tight text-muted-foreground">
                                  <HelpCircle className="h-3 w-3 shrink-0" /> Reference materials
                                </div>
                                <div className="grid grid-cols-1 gap-2">
                                   {answer.question_file && (
-                                    <div className="flex items-center justify-between p-2.5 rounded-xl bg-slate-100/50 dark:bg-white/5 border border-slate-200 dark:border-white/5 group/file hover:bg-slate-100 dark:hover:bg-white/[0.08] transition-all shadow-sm">
+                                    <div className="flex items-center justify-between p-2.5 rounded-xl bg-muted/30 border border-border group/file hover:bg-muted/45 transition-all shadow-sm">
                                        <div className="flex items-center gap-2.5 min-w-0">
                                           <div className="h-8 w-8 rounded-lg bg-indigo-50 dark:bg-indigo-500/10 flex items-center justify-center shrink-0">
                                             <FileText className="h-4 w-4 text-indigo-500 dark:text-indigo-400" />
                                           </div>
                                           <div className="min-w-0">
-                                             <p className="text-[11px] font-bold text-slate-800 dark:text-white truncate" title={shortName(answer.question_file)}>
+                                             <p className="text-[11px] font-semibold text-foreground truncate" title={shortName(answer.question_file)}>
                                                {shortName(answer.question_file)}
                                              </p>
-                                             <p className="text-[10px] font-medium text-slate-400 dark:text-white/30">Question resource</p>
+                                             <p className="text-[10px] font-medium text-muted-foreground">Question resource</p>
                                           </div>
                                        </div>
                                        <div className="flex items-center gap-1 opacity-40 group-hover/file:opacity-100 transition-opacity">
@@ -236,16 +236,16 @@ export function WeeklyTestResults({
                                     </div>
                                   )}
                                   {(answer.attachments || []).map((att: any) => (
-                                    <div key={att.id} className="flex items-center justify-between p-2.5 rounded-xl bg-slate-100/50 dark:bg-white/5 border border-slate-200 dark:border-white/5 group/file hover:bg-slate-100 dark:hover:bg-white/[0.08] transition-all shadow-sm">
+                                    <div key={att.id} className="flex items-center justify-between p-2.5 rounded-xl bg-muted/30 border border-border group/file hover:bg-muted/45 transition-all shadow-sm">
                                        <div className="flex items-center gap-2.5 min-w-0">
                                           <div className="h-8 w-8 rounded-lg bg-indigo-50 dark:bg-indigo-500/10 flex items-center justify-center shrink-0">
                                             <FileText className="h-4 w-4 text-indigo-500 dark:text-indigo-400" />
                                           </div>
                                           <div className="min-w-0">
-                                             <p className="text-[11px] font-bold text-slate-800 dark:text-white truncate" title={att.name || att.file}>
+                                             <p className="text-[11px] font-semibold text-foreground truncate" title={att.name || att.file}>
                                                {att.name || shortName(att.file)}
                                              </p>
-                                             <p className="text-[10px] font-medium text-slate-400 dark:text-white/30">Additional asset</p>
+                                             <p className="text-[10px] font-medium text-muted-foreground">Additional asset</p>
                                           </div>
                                        </div>
                                        <div className="flex items-center gap-1 opacity-40 group-hover/file:opacity-100 transition-opacity">
@@ -278,7 +278,7 @@ export function WeeklyTestResults({
                                        <FileText className="h-4 w-4 text-emerald-600 dark:text-emerald-400" />
                                      </div>
                                      <div className="min-w-0">
-                                        <p className="text-[11px] font-bold text-slate-800 dark:text-white truncate" title={shortName(answer.answer_file)}>
+                                        <p className="text-[11px] font-semibold text-foreground truncate" title={shortName(answer.answer_file)}>
                                           {shortName(answer.answer_file)}
                                         </p>
                                         <p className="text-[10px] font-medium text-emerald-600 dark:text-emerald-400/60">Student solution</p>
@@ -305,8 +305,8 @@ export function WeeklyTestResults({
                       {/* Feedback (if exists and published) */}
                       {isPublished && (answer.ai_feedback || answer.grader_remarks) && (
                         <div className="relative pt-3 flex flex-col gap-2">
-                           <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-slate-200 dark:via-white/5 to-transparent" />
-                           <p className="text-[13px] text-indigo-600 dark:text-emerald-400/80 font-bold leading-relaxed italic">
+                           <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-border to-transparent" />
+                           <p className="text-[13px] text-primary font-semibold leading-relaxed italic">
                              "{answer.grader_remarks || answer.ai_feedback}"
                            </p>
                         </div>
@@ -317,7 +317,7 @@ export function WeeklyTestResults({
               </div>
             ) : (
               <div className="py-12 text-center">
-                 <p className="text-slate-400 dark:text-white/20 text-sm font-bold italic">No questions found for this submission.</p>
+                 <p className="text-muted-foreground text-sm font-semibold italic">No questions found for this submission.</p>
               </div>
             )}
           </div>
