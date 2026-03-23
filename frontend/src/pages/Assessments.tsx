@@ -401,49 +401,41 @@ export default function Assessments() {
                             </div>
                           </div>
                         </div>
-                        <div className="flex flex-col gap-4 border-t border-border/50 pt-4 sm:flex-row sm:items-center sm:justify-between sm:gap-6 sm:border-t-0 sm:pt-0 xl:shrink-0 xl:justify-end">
-                          <div className="sm:text-right">
-                            <p className="mb-1 text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
-                              AI suggestion
-                            </p>
-                            <div className="flex justify-start sm:justify-end">
-                              {item.status === 'evaluating' || evaluatingIds.includes(item.id) ? (
-                                <Badge className="animate-pulse border-none bg-primary/10 text-primary">
-                                  Evaluating…
-                                </Badge>
-                              ) : item.status === 'pending' ? (
-                                <Badge
-                                  variant="outline"
-                                  className="border-dashed border-muted-foreground/30 text-[10px] text-muted-foreground"
-                                >
-                                  Waiting for trigger
-                                </Badge>
-                              ) : (
-                                <p className="text-xl font-bold text-foreground">
+                        <div className="flex flex-col gap-2 border-t border-border/50 pt-4 sm:border-t-0 sm:pt-0 xl:shrink-0 xl:items-end">
+                          <div className="flex items-center gap-2">
+                            {item.status === 'evaluating' && (
+                              <Badge className="h-7 rounded-full border-none bg-primary/10 px-2.5 text-primary animate-pulse">
+                                <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />
+                                AI suggestion: Evaluating
+                              </Badge>
+                            )}
+                            {item.status !== 'pending' && item.status !== 'evaluating' && !evaluatingIds.includes(item.id) && (
+                              <Badge className="pointer-events-none h-7 rounded-full border border-primary/20 bg-primary/[0.08] px-2.5 text-primary/80 shadow-none transition-none">
+                                <Zap className="mr-1.5 h-3.5 w-3.5 text-primary/70" />
+                                AI suggestion:
+                                <span className="ml-1.5 text-sm font-bold tabular-nums text-foreground/95">
                                   {(item.ai_score || item.marks_obtained || 0).toFixed(1)}%
-                                </p>
-                              )}
-                            </div>
-                          </div>
-                          <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+                                </span>
+                              </Badge>
+                            )}
                             {item.status === 'pending' ? (
                               <>
                                 <Button
-                                  variant="outline"
-                                  className="h-10 rounded-xl border-primary/25 px-4 font-bold text-primary hover:bg-primary hover:text-primary-foreground dark:border-primary/40"
+                                  variant="gradient"
+                                  className="h-9 rounded-xl px-3 text-xs font-semibold shadow-none hover:shadow-none"
                                   onClick={() => handleTriggerAI(item.id)}
                                   disabled={evaluatingIds.includes(item.id)}
                                 >
                                   {evaluatingIds.includes(item.id) ? (
                                     <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                                   ) : (
-                                    <Zap className="mr-2 h-4 w-4 fill-primary" />
+                                    <Zap className="mr-2 h-4 w-4" />
                                   )}
-                                  Evaluate via AI
+                                  {evaluatingIds.includes(item.id) ? 'Evaluating...' : 'Evaluate AI'}
                                 </Button>
                                 <Button
                                   variant="gradient"
-                                  className="h-10 rounded-xl px-4 font-bold shadow-lg shadow-primary/20"
+                                  className="h-9 rounded-xl px-3 text-xs font-semibold shadow-none hover:shadow-none"
                                   onClick={() => {
                                     setReviewId(item.id);
                                     setIsReviewOpen(true);
@@ -456,10 +448,7 @@ export default function Assessments() {
                             ) : (
                               <Button
                                 variant={item.status === 'pending_review' ? 'gradient' : 'outline'}
-                                className={cn(
-                                  'h-10 rounded-xl px-6 font-bold',
-                                  item.status === 'pending_review' ? 'shadow-lg shadow-primary/20' : '',
-                                )}
+                                className="h-9 rounded-xl px-3 text-xs font-semibold shadow-none hover:shadow-none"
                                 onClick={() => {
                                   setReviewId(item.id);
                                   setIsReviewOpen(true);
