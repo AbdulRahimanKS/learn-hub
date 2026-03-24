@@ -20,7 +20,7 @@ from apps.courses.ai_services import AIEvaluationService
 from utils.pagination import CustomPageNumberPagination
 from django.contrib.contenttypes.models import ContentType
 from apps.users.models import Notification
-from utils.common import format_success_response, ServiceError
+from utils.common import format_success_response, ServiceError, handle_serializer_errors
 from utils.constants import UserTypeConstants
 from drf_spectacular.utils import extend_schema
 from apps.courses.tasks import run_ai_evaluation_for_submission
@@ -309,36 +309,32 @@ class TestSubmissionDetailView(generics.RetrieveUpdateAPIView):
                 raise ServiceError(detail="Test submission not found.", status_code=status.HTTP_404_NOT_FOUND)
             
             old_status = instance.status
-            
+
             serializer = self.get_serializer(instance, data=request.data, partial=partial, context={'request': request})
-            serializer.is_valid(raise_exception=True)
-            
-            # Admin is reviewing/updating
+            if not serializer.is_valid():
+                raise ServiceError(detail=handle_serializer_errors(serializer), status_code=status.HTTP_400_BAD_REQUEST)
+
             new_status = serializer.validated_data.get('status')
-            if new_status and new_status != old_status:
-                # Updating status dynamically
-                if new_status == TestSubmission.Status.PUBLISHED:
-                    instance.graded_at = timezone.now()
-                    instance.graded_by = request.user
-                    
-            self.perform_update(serializer)
-            
-            # Fire notifications
-            if new_status and new_status != old_status:
+            if new_status and new_status != old_status and new_status == TestSubmission.Status.PUBLISHED:
+                instance.graded_at = timezone.now()
+                instance.graded_by = request.user
+
+            instance = serializer.save()
+
+            if new_status and new_status != old_status and new_status == TestSubmission.Status.PUBLISHED:
                 student = instance.enrollment.student
-                ct = ContentType.objects.get_for_model(TestSubmission)
-                
-                if new_status == TestSubmission.Status.PUBLISHED:
-                    Notification.objects.create(
-                        user=student,
-                        title="Test Results Published",
-                        message=f"Your result for Test Attempt {instance.attempt_number} has been published by the instructor. Marks: {instance.marks_obtained}%",
-                        notification_type=Notification.NotificationType.SUCCESS,
-                        content_type=ct,
-                        object_id=instance.id,
-                        action_url=f"/progress" # Example URL
-                    )
-                    
+                test_title = instance.batch_weekly_test.title if instance.batch_weekly_test else "your test"
+                Notification.objects.create(
+                    user=student,
+                    title="Test results published",
+                    message=(
+                        f"Your instructor published results for {test_title} "
+                        f"(attempt {instance.attempt_number}). Score: {instance.marks_obtained}% — "
+                        f"{'Passed' if instance.is_passed else 'Not passed'}."
+                    ),
+                    notification_type=Notification.NotificationType.SUCCESS,
+                )
+
             return format_success_response(
                 message="Test submission updated successfully",
                 data=TestSubmissionSerializer(instance, context={'request': request}).data

@@ -29,6 +29,7 @@ import { useToast } from '@/hooks/use-toast';
 import { apiClient } from '@/lib/api';
 import { cn } from '@/lib/utils';
 import { format } from 'date-fns';
+import { getFriendlyAiErrorMessage, isAiEvaluationFailureText } from '@/lib/ai-error-message';
 
 /** Display marks with up to 2 decimals (no unnecessary trailing zeros). */
 function formatMarkDisplay(n: number): string {
@@ -674,18 +675,38 @@ export function SubmissionReviewModal({
                             </div>
                           )}
                           {answer.ai_feedback && (
-                            <div className="rounded-2xl border border-primary/15 bg-primary/[0.04] p-4">
-                              <div className="mb-2 flex items-center gap-2">
-                                <span className="inline-flex items-center gap-1 rounded-full bg-primary px-2 py-1 text-[10px] font-semibold text-primary-foreground">
-                                  <Zap className="h-3 w-3 fill-current" />
-                                  AI note
-                                </span>
-                                <span className="text-xs font-semibold text-muted-foreground">
-                                  Suggested: {formatMarkDisplay(Number(answer.ai_score) || 0)} /{' '}
-                                  {formatMarkDisplay(Number(answer.max_marks) || 0)}
-                                </span>
-                              </div>
-                              <p className="text-sm leading-relaxed text-foreground/90 italic">"{answer.ai_feedback}"</p>
+                            <div
+                              className={cn(
+                                'rounded-2xl border p-4',
+                                isAiEvaluationFailureText(answer.ai_feedback)
+                                  ? 'border-destructive/25 bg-destructive/[0.06]'
+                                  : 'border-primary/15 bg-primary/[0.04]',
+                              )}
+                            >
+                              {isAiEvaluationFailureText(answer.ai_feedback) ? (
+                                <div className="space-y-2">
+                                  <p className="text-[10px] font-semibold text-destructive">Analysis failed</p>
+                                  <p className="text-sm leading-relaxed text-destructive/90">
+                                    {getFriendlyAiErrorMessage(answer.ai_feedback)}
+                                  </p>
+                                </div>
+                              ) : (
+                                <>
+                                  <div className="mb-2 flex items-center gap-2">
+                                    <span className="inline-flex items-center gap-1 rounded-full bg-primary px-2 py-1 text-[10px] font-semibold text-primary-foreground">
+                                      <Zap className="h-3 w-3 fill-current" />
+                                      AI note
+                                    </span>
+                                    <span className="text-xs font-semibold text-muted-foreground">
+                                      Suggested: {formatMarkDisplay(Number(answer.ai_score) || 0)} /{' '}
+                                      {formatMarkDisplay(Number(answer.max_marks) || 0)}
+                                    </span>
+                                  </div>
+                                  <p className="text-sm leading-relaxed text-foreground/90 italic">
+                                    &ldquo;{answer.ai_feedback}&rdquo;
+                                  </p>
+                                </>
+                              )}
                             </div>
                           )}
                         </div>
@@ -768,15 +789,19 @@ export function SubmissionReviewModal({
                   </p>
                   <div className="rounded-2xl border border-border bg-muted/20 p-4 min-h-28">
                     {submission?.ai_feedback ? (
-                      submission.ai_feedback.includes('AI Evaluation Error') || submission.ai_feedback.includes('Catastrophic failure') ? (
+                      isAiEvaluationFailureText(submission.ai_feedback) ? (
                         <div className="space-y-2">
                           <p className="text-[10px] font-semibold text-destructive">Analysis failed</p>
-                          <p className="text-sm italic text-destructive/80">"{submission.ai_feedback}"</p>
+                          <p className="text-sm leading-relaxed text-destructive/90">
+                            {getFriendlyAiErrorMessage(submission.ai_feedback)}
+                          </p>
                         </div>
                       ) : (
                         <div className="space-y-2">
                           <p className="text-[10px] font-semibold text-muted-foreground">AI explanation (auto-generated)</p>
-                          <p className="text-sm leading-relaxed text-foreground/90 italic">"{submission.ai_feedback}"</p>
+                          <p className="text-sm leading-relaxed text-foreground/90 italic">
+                            &ldquo;{submission.ai_feedback}&rdquo;
+                          </p>
                         </div>
                       )
                     ) : (

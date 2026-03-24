@@ -40,6 +40,7 @@ import { cn } from '@/lib/utils';
 import { format } from 'date-fns';
 import { BatchFilterCombobox } from '@/components/BatchFilterCombobox';
 import type { Batch } from '@/lib/batch-api';
+import { getFriendlyAiErrorMessage } from '@/lib/ai-error-message';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 
 function StudentSubmissionAvatar({
@@ -111,24 +112,6 @@ export default function Assessments() {
       .replace(/_/g, ' ')
       .toLowerCase()
       .replace(/\b\w/g, (c) => c.toUpperCase());
-  };
-
-  const getShortAiError = (raw?: string | null) => {
-    const text = (raw || '').toLowerCase();
-    if (!text) return 'AI evaluation failed. Please retry.';
-    if (text.includes('invalid api key') || text.includes('invalid_api_key')) {
-      return 'AI evaluation failed. Check provider API key configuration.';
-    }
-    if (text.includes('rate') && text.includes('limit')) {
-      return 'AI evaluation failed due to provider rate limits. Please retry.';
-    }
-    if (text.includes('timeout')) {
-      return 'AI evaluation timed out. Please retry.';
-    }
-    if (text.includes('provider is not configured')) {
-      return 'AI provider is not configured. Contact admin.';
-    }
-    return 'AI evaluation failed. Please retry or grade manually.';
   };
 
   useEffect(() => {
@@ -479,7 +462,7 @@ export default function Assessments() {
                               <Badge
                                 variant="outline"
                                 className="h-7 rounded-full border-rose-500/30 bg-rose-500/10 px-2.5 text-rose-500"
-                                title={getShortAiError(item.ai_error_message)}
+                                title={getFriendlyAiErrorMessage(item.ai_error_message)}
                               >
                                 <AlertCircle className="mr-1.5 h-3.5 w-3.5" />
                                 AI failed
