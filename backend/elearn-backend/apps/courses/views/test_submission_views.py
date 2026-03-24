@@ -284,7 +284,10 @@ class TestSubmissionDetailView(generics.RetrieveUpdateAPIView):
     permission_classes = [IsAuthenticated]
 
     def get_queryset(self):
-        return TestSubmission.objects.filter(enrollment__batch_id=self.kwargs.get('batch_id')).all()
+        return (
+            TestSubmission.objects.filter(enrollment__batch_id=self.kwargs.get('batch_id'))
+            .select_related('batch_weekly_test', 'enrollment__student', 'enrollment__student__profile', 'graded_by')
+        )
 
     def get_serializer_class(self):
         if self.request.method in ['PUT', 'PATCH']:

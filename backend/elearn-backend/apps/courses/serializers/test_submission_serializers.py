@@ -32,6 +32,7 @@ class TestSubmissionSerializer(serializers.ModelSerializer):
     batch_name = serializers.CharField(source='enrollment.batch.name', read_only=True)
     week_number = serializers.SerializerMethodField()
     test_title = serializers.CharField(source='batch_weekly_test.title', read_only=True)
+    pass_percentage = serializers.FloatField(source='batch_weekly_test.pass_percentage', read_only=True)
     graded_by_name = serializers.CharField(source='graded_by.fullname', read_only=True)
 
     class Meta:
@@ -39,7 +40,7 @@ class TestSubmissionSerializer(serializers.ModelSerializer):
         fields = [
             'id', 'batch_weekly_test', 'enrollment', 'attempt_number', 'student_name', 'student_profile_picture',
             'student_email',
-            'batch_name', 'week_number', 'test_title',
+            'batch_name', 'week_number', 'test_title', 'pass_percentage',
             'submitted_at', 'marks_obtained', 'is_passed', 'grader_remarks', 
             'graded_at', 'graded_by', 'graded_by_name', 'status',
             'ai_score', 'ai_feedback', 'ai_evaluated_at', 'ai_job_status', 'ai_error_message',
@@ -111,6 +112,15 @@ class TestSubmissionUpdateSerializer(serializers.ModelSerializer):
     class Meta:
         model = TestSubmission
         fields = ['marks_obtained', 'is_passed', 'grader_remarks', 'status', 'answers']
+
+    def validate(self, attrs):
+        """Derive pass/fail from batch test config when overall percentage is submitted (ignore client is_passed)."""
+        instance = self.instance
+        if instance and 'marks_obtained' in attrs and attrs['marks_obtained'] is not None:
+            test = instance.batch_weekly_test
+            threshold = float(test.pass_percentage) if test else 70.0
+            attrs['is_passed'] = float(attrs['marks_obtained']) >= threshold
+        return attrs
 
     def update(self, instance, validated_data):
         answers_data = validated_data.pop('answers', None)

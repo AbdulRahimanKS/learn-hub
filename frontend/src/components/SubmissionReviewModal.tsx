@@ -193,7 +193,7 @@ export function SubmissionReviewModal({
         status,
         grader_remarks: remarks,
         marks_obtained: parseFloat(percentage.toFixed(2)),
-        is_passed: percentage >= (submission?.batch_weekly_test?.pass_percentage || 50),
+        is_passed: percentage >= Number(submission?.pass_percentage ?? 70),
         answers: answersUpdate
       };
 
@@ -311,7 +311,8 @@ export function SubmissionReviewModal({
     aiScoreValue !== null &&
     totalPossible > 0 &&
     Math.abs(sumPerQuestionAiSuggested - aiScoreValue) > 0.051;
-  const passPercentage = submission?.batch_weekly_test?.pass_percentage || 50;
+  /** From API: `BatchWeeklyTest.pass_percentage` on submission. Fallback matches Django model default (70). */
+  const passPercentage = Number(submission?.pass_percentage ?? 70);
   const isReadyToPass = overallPercentage >= passPercentage;
   const canRunSubmissionAI = submission?.status === 'pending';
   /** Backend sets this while the async full-submission AI job is running (Celery). */
