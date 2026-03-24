@@ -102,10 +102,9 @@ class AIEvaluationService:
         answers = submission.answers.all()
         if not answers.exists():
             submission.status = TestSubmission.Status.PENDING_REVIEW
-            submission.grader_remarks = "No answers submitted for evaluation."
             submission.ai_job_status = TestSubmission.AIJobStatus.FAILED
             submission.ai_error_message = "No answers submitted for evaluation."
-            submission.save(update_fields=['status', 'grader_remarks', 'ai_job_status', 'ai_error_message'])
+            submission.save(update_fields=['status', 'ai_job_status', 'ai_error_message'])
             return
 
         test = submission.batch_weekly_test
@@ -140,10 +139,9 @@ class AIEvaluationService:
             # If it fails, move to PENDING_REVIEW but with clear error so they can retry
             submission.status = TestSubmission.Status.PENDING_REVIEW
             submission.ai_feedback = f"AI Evaluation Error: {str(e)}"
-            submission.grader_remarks = f"System Error during AI evaluation. You can try refreshing the AI analysis specifically for this submission."
             submission.ai_job_status = TestSubmission.AIJobStatus.FAILED
             submission.ai_error_message = str(e)
-            submission.save(update_fields=['status', 'ai_feedback', 'grader_remarks', 'ai_job_status', 'ai_error_message'])
+            submission.save(update_fields=['status', 'ai_feedback', 'ai_job_status', 'ai_error_message'])
 
     def _prepare_prompt(self, test, answers, answer_key_content=""):
         """
