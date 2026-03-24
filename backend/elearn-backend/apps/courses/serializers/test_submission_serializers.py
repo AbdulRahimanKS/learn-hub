@@ -27,6 +27,7 @@ class TestSubmissionAnswerSerializer(serializers.ModelSerializer):
 class TestSubmissionSerializer(serializers.ModelSerializer):
     answers = serializers.SerializerMethodField()
     student_name = serializers.CharField(source='enrollment.student.fullname', read_only=True)
+    student_profile_picture = serializers.SerializerMethodField()
     student_email = serializers.CharField(source='enrollment.student.email', read_only=True)
     batch_name = serializers.CharField(source='enrollment.batch.name', read_only=True)
     week_number = serializers.SerializerMethodField()
@@ -36,7 +37,8 @@ class TestSubmissionSerializer(serializers.ModelSerializer):
     class Meta:
         model = TestSubmission
         fields = [
-            'id', 'batch_weekly_test', 'enrollment', 'attempt_number', 'student_name', 'student_email',
+            'id', 'batch_weekly_test', 'enrollment', 'attempt_number', 'student_name', 'student_profile_picture',
+            'student_email',
             'batch_name', 'week_number', 'test_title',
             'submitted_at', 'marks_obtained', 'is_passed', 'grader_remarks', 
             'graded_at', 'graded_by', 'graded_by_name', 'status',
@@ -44,6 +46,20 @@ class TestSubmissionSerializer(serializers.ModelSerializer):
             'answers'
         ]
         read_only_fields = ['id', 'batch_weekly_test', 'enrollment', 'submitted_at', 'graded_at', 'graded_by']
+
+    @extend_schema_field(OpenApiTypes.URI)
+    def get_student_profile_picture(self, obj):
+        request = self.context.get('request')
+        try:
+            student = obj.enrollment.student
+            pic = student.profile.profile_picture
+            if pic and request:
+                return request.build_absolute_uri(pic.url)
+            if pic:
+                return pic.url
+        except Exception:
+            pass
+        return None
 
     @extend_schema_field(serializers.ListField(child=serializers.DictField()))
     def get_answers(self, obj):

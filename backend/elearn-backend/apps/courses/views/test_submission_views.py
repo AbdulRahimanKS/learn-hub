@@ -3,7 +3,9 @@ import random
 from rest_framework import generics, status
 from utils.permissions import IsSuperAdminAdminOrTeacher, IsAuthenticated
 from rest_framework.views import APIView
+from django.conf import settings
 from django.utils import timezone
+from django.db.models import Sum
 from apps.courses.models import (
     TestSubmission,
     TestSubmissionAnswer,
@@ -14,6 +16,7 @@ from apps.courses.models import (
 from apps.courses.serializers.test_submission_serializers import (
     TestSubmissionSerializer, TestSubmissionUpdateSerializer, TestSubmissionAnswerSerializer
 )
+from apps.courses.ai_services import AIEvaluationService
 from utils.pagination import CustomPageNumberPagination
 from django.contrib.contenttypes.models import ContentType
 from apps.users.models import Notification
@@ -240,7 +243,11 @@ class BatchTestSubmissionListView(generics.ListAPIView):
         return qs
 
     def get_queryset(self):
-        qs = self._base_queryset().order_by('-submitted_at')
+        qs = (
+            self._base_queryset()
+            .select_related('enrollment__student__profile', 'batch_weekly_test__batch_week')
+            .order_by('-submitted_at')
+        )
         scope = (self.request.query_params.get('scope') or '').strip().lower()
         if scope == TestSubmission.Status.PENDING:
             return qs.filter(status__in=[TestSubmission.Status.PENDING, TestSubmission.Status.EVALUATING, TestSubmission.Status.PENDING_REVIEW])
@@ -385,36 +392,78 @@ class TriggerAIEvaluationView(APIView):
 
 @extend_schema(tags=["Test Submissions"], summary="Trigger AI evaluation for a specific test answer", description="Allows a teacher to trigger AI evaluation for a specific test answer.")
 class TriggerAnswerAIEvaluationView(APIView):
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsSuperAdminAdminOrTeacher]
     serializer_class = TestSubmissionAnswerSerializer
 
     def post(self, request, batch_id, submission_pk, answer_pk):
         try:
-            answer = TestSubmissionAnswer.objects.get(
-                pk=answer_pk,
-                submission_id=submission_pk,
-                submission__enrollment__batch_id=batch_id,
+            batch = _get_batch_or_404(batch_id)
+            if not _can_list_all_submissions_for_batch(request.user, batch):
+                raise ServiceError(detail="You are not allowed to trigger AI evaluation for this batch.", status_code=status.HTTP_403_FORBIDDEN)
+
+            try:
+                answer = TestSubmissionAnswer.objects.get(
+                    pk=answer_pk,
+                    submission_id=submission_pk,
+                    submission__enrollment__batch_id=batch_id,
+                )
+            except TestSubmissionAnswer.DoesNotExist:
+                raise ServiceError(detail="Answer not found.", status_code=status.HTTP_404_NOT_FOUND)
+
+            submission = answer.submission
+            if submission.status == TestSubmission.Status.EVALUATING:
+                raise ServiceError(
+                    detail="Full submission AI is currently running. Please wait and try again.",
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                )
+            if submission.status == TestSubmission.Status.PUBLISHED:
+                raise ServiceError(
+                    detail="Cannot run per-question AI after results are published.",
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                )
+
+            ai_service = AIEvaluationService()
+            ai_service.evaluate_single_answer(answer.id)
+
+            answer.refresh_from_db()
+            # Keep submission-level AI aggregate in sync with per-question re-runs.
+            aggregate_ai = (
+                submission.answers.exclude(ai_score__isnull=True)
+                .aggregate(total=Sum('ai_score'))
+                .get('total')
+                or 0
             )
-        except TestSubmissionAnswer.DoesNotExist:
-            raise ServiceError(detail="Answer not found.", status_code=status.HTTP_404_NOT_FOUND)
+            submission.ai_score = aggregate_ai
+            submission.ai_evaluated_at = timezone.now()
+            submission.save(update_fields=['ai_score', 'ai_evaluated_at'])
 
-        from apps.courses.ai_services import AIEvaluationService
-        ai_service = AIEvaluationService()
-        ai_service.evaluate_single_answer(answer.id)
+            return format_success_response(
+                message="AI analysis for this question complete.",
+                data=TestSubmissionAnswerSerializer(answer).data
+            )
         
-        answer.refresh_from_db()
-        
-        return format_success_response(
-            message="AI analysis for this question complete.",
-            data=TestSubmissionAnswerSerializer(answer).data
-        )
+        except ServiceError:
+            raise
+        except Exception as e:
+            logger.error(f"Error triggering AI evaluation for test answer: {str(e)}")
+            raise ServiceError(detail="An error occurred while triggering AI evaluation for the test answer.", status_code=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
-@extend_schema(tags=["Test Submissions"], summary="Simulate AI evaluation complete", description="Allows a teacher to simulate AI evaluation complete.")
+
+@extend_schema(
+    tags=["Test Submissions"],
+    summary="Simulate AI evaluation complete (DEBUG only)",
+    description="Development-only. Fakes completion of AI evaluation; disabled when DEBUG=False.",
+)
 class SimulateAIEvaluationCompleteView(APIView):
     permission_classes = [IsAuthenticated]
     serializer_class = TestSubmissionSerializer
 
     def post(self, request, batch_id, pk):
+        if not settings.DEBUG:
+            raise ServiceError(
+                detail="Simulate AI complete is only available in development.",
+                status_code=status.HTTP_403_FORBIDDEN,
+            )
         try:
             submission = TestSubmission.objects.get(pk=pk, enrollment__batch_id=batch_id)
         except TestSubmission.DoesNotExist:
@@ -451,6 +500,7 @@ class SimulateAIEvaluationCompleteView(APIView):
             data=TestSubmissionSerializer(submission).data
         )
 
+
 @extend_schema(tags=["Test Submissions"], summary="List all test submissions for the authenticated student", description="Allows a student to list all test submissions for the authenticated student.")
 class MyTestSubmissionsListView(generics.ListAPIView):
     permission_classes = [IsAuthenticated]
@@ -475,7 +525,11 @@ class MyTestSubmissionsListView(generics.ListAPIView):
         return qs
 
     def get_queryset(self):
-        qs = self._base_queryset().order_by('-submitted_at')
+        qs = (
+            self._base_queryset()
+            .select_related('enrollment__student__profile', 'batch_weekly_test__batch_week')
+            .order_by('-submitted_at')
+        )
         scope = (self.request.query_params.get('scope') or '').strip().lower()
         if scope == TestSubmission.Status.PENDING:
             return qs.filter(status__in=[TestSubmission.Status.PENDING, TestSubmission.Status.EVALUATING, TestSubmission.Status.PENDING_REVIEW])

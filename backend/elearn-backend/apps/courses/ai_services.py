@@ -336,17 +336,33 @@ class AIEvaluationService:
     def evaluate_single_answer(self, answer_id):
         """
         Evaluates a single question answer.
+        Uses the same material as full submission evaluation: answer key, test instructions,
+        question file, question reference attachments, student text, and extracted answer file.
         """
         try:
-            answer = TestSubmissionAnswer.objects.get(pk=answer_id)
+            answer = (
+                TestSubmissionAnswer.objects.select_related(
+                    'submission',
+                    'submission__batch_weekly_test',
+                    'question',
+                )
+                .prefetch_related('question__attachments')
+                .get(pk=answer_id)
+            )
         except TestSubmissionAnswer.DoesNotExist:
+            logger.error(f"Answer {answer_id} not found.")
             return
 
         submission = answer.submission
+        if not submission:
+            logger.error(f"Submission for answer {answer_id} not found.")
+            return
         test = submission.batch_weekly_test
+        if not test:
+            logger.error(f"Batch weekly test for submission {submission.id} not found.")
+            return
         q = answer.question
 
-        # Prepare context
         answer_key_content = ""
         if test.answer_key:
             answer_key_content = self._extract_file_content(test.answer_key)
@@ -355,30 +371,49 @@ class AIEvaluationService:
         if q.question_file:
             main_q_file_content = self._extract_file_content(q.question_file)
 
+        q_attachments_content = []
+        for attachment in q.attachments.all():
+            att_content = self._extract_file_content(attachment.file)
+            q_attachments_content.append({
+                "name": attachment.name or getattr(attachment.file, "name", "") or "attachment",
+                "content": att_content,
+            })
+
         extracted_answer_file_content = ""
         if answer.answer_file:
             extracted_answer_file_content = self._extract_file_content(answer.answer_file)
 
-        prompt = f"""
-        Evaluate the following answer for a specific question.
-        
-        CONTEXT:
-        Test: {test.title}
-        Answer Key Reference: {answer_key_content}
-        
-        QUESTION:
-        Text: {q.text}
-        Max Marks: {q.marks}
-        Question File Content: {main_q_file_content}
-        
-        STUDENT ANSWER:
-        Text: {answer.answer_text}
-        Extracted File Content: {extracted_answer_file_content}
-        
-        TASK:
-        Provide a score (integer or float, 0 to {q.marks}) and concise feedback.
-        Return as JSON with keys 'score' and 'feedback'.
-        """
+        instructions = (test.instructions or "").strip() or "(none provided)"
+
+        question_payload = {
+            "id": q.id,
+            "text": q.text,
+            "max_marks": q.marks,
+            "main_question_file_content": main_q_file_content or "(none — no main question file)",
+            "question_attachments": q_attachments_content,
+            "student_answer_text": answer.answer_text if answer.answer_text else "(no text answer)",
+            "extracted_answer_file_content": extracted_answer_file_content or "(none — no file or empty extraction)",
+            "has_answer_file": bool(answer.answer_file),
+            "file_name": answer.answer_file.name if answer.answer_file else None,
+        }
+
+        prompt = (
+            "Evaluate this single student answer for one question in a batch weekly test.\n"
+            "Use 'answer_key_content' as the ground truth for correct solutions where applicable.\n\n"
+            f"Test title: {test.title}\n"
+            f"Test instructions: {instructions}\n\n"
+            "The JSON block uses the same shape as full-submission evaluation for one question:\n"
+            "- main_question_file_content: optional text extracted from the question's primary file.\n"
+            "- question_attachments: optional reference files (datasets, PDFs, etc.); if this list is non-empty, "
+            "use them when judging the answer.\n"
+            "- student_answer_text and extracted_answer_file_content: the student's response; if has_answer_file is "
+            "true but extraction is empty or a placeholder, say so in your feedback (instructor may need to open the file).\n\n"
+            f"{json.dumps({'answer_key_content': answer_key_content, 'question': question_payload}, indent=2)}\n\n"
+            f"TASK:\n"
+            f"Return a JSON object with keys 'score' (number from 0 to {q.marks}) and 'feedback' (concise).\n"
+            "In feedback, explicitly note whether you relied on question attachments and/or the student's uploaded file content, "
+            "and how the answer aligns with the answer key and question context."
+        )
 
         if not self.client:
             if self.allow_mock:
@@ -395,10 +430,18 @@ class AIEvaluationService:
             response = self.client.chat.completions.create(
                 model=self.model,
                 messages=[
-                    {"role": "system", "content": "You are a technical grader. Evaluate the provided answer accurately based on the question and context."},
-                    {"role": "user", "content": prompt}
+                    {
+                        "role": "system",
+                        "content": (
+                            "You are a technical instructor grader. Evaluate using the question text, optional question "
+                            "file and reference attachments, the answer key, and the student's text and any extracted "
+                            "file content. If reference attachments are present, incorporate them. If the student "
+                            "uploaded a file but content could not be read, state that clearly."
+                        ),
+                    },
+                    {"role": "user", "content": prompt},
                 ],
-                response_format={"type": "json_object"}
+                response_format={"type": "json_object"},
             )
             result = json.loads(response.choices[0].message.content)
             answer.ai_score = result.get('score', 0)
@@ -408,4 +451,4 @@ class AIEvaluationService:
         except Exception as e:
             logger.error(f"Single answer AI evaluation failed: {str(e)}")
             answer.ai_feedback = f"AI Error: {str(e)}"
-            answer.save()
+            answer.save(update_fields=['ai_feedback'])

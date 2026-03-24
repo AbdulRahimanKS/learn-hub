@@ -40,6 +40,29 @@ import { cn } from '@/lib/utils';
 import { format } from 'date-fns';
 import { BatchFilterCombobox } from '@/components/BatchFilterCombobox';
 import type { Batch } from '@/lib/batch-api';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+
+function StudentSubmissionAvatar({
+  name,
+  photoUrl,
+  variant = 'primary',
+}: {
+  name?: string | null;
+  photoUrl?: string | null;
+  variant?: 'primary' | 'success';
+}) {
+  const initial = (name && name.charAt(0)) || '?';
+  const fallbackClass =
+    variant === 'success'
+      ? 'rounded-full border border-success/15 bg-success/10 text-sm font-bold text-success'
+      : 'rounded-full bg-primary/10 text-base font-bold text-primary';
+  return (
+    <Avatar className="h-11 w-11 shrink-0">
+      {photoUrl ? <AvatarImage src={photoUrl} alt={name ? `${name} profile` : 'Student profile'} /> : null}
+      <AvatarFallback className={fallbackClass}>{initial}</AvatarFallback>
+    </Avatar>
+  );
+}
 
 export default function Assessments() {
   const { user } = useAuth();
@@ -263,7 +286,11 @@ export default function Assessments() {
         `/api/courses/v1/batches/${selectedBatch}/test-submissions/${id}/trigger-ai/`,
       );
       if (res.data?.success) {
-        toast({ title: 'AI evaluation queued', description: 'Background job started. Status will refresh shortly.', variant: 'success' });
+        toast({
+          title: 'AI review started',
+          description: 'We are preparing AI suggestions now. You can continue reviewing while this updates.',
+          variant: 'success',
+        });
         // Refresh local data
         if (selectedBatch) void loadAdminPending();
       }
@@ -430,9 +457,7 @@ export default function Assessments() {
                         className="group flex flex-col gap-4 rounded-xl border border-border bg-muted/40 p-4 transition-all hover:bg-accent/20 hover:shadow-sm xl:flex-row xl:items-center xl:justify-between"
                       >
                         <div className="flex min-w-0 flex-1 items-center gap-3">
-                          <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-primary/10 text-base font-bold text-primary">
-                            {item.student_name?.charAt(0)}
-                          </div>
+                          <StudentSubmissionAvatar name={item.student_name} photoUrl={item.student_profile_picture} />
                           <div className="min-w-0 space-y-0.5">
                             <p className="font-medium text-foreground">{item.student_name}</p>
                             <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs font-medium text-muted-foreground">
@@ -577,9 +602,11 @@ export default function Assessments() {
                         className="group flex flex-col gap-4 rounded-xl border border-border bg-muted/40 p-4 transition-all hover:bg-accent/20 hover:shadow-sm sm:flex-row sm:items-center sm:justify-between"
                       >
                         <div className="flex min-w-0 flex-1 items-center gap-3">
-                          <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full border border-success/15 bg-success/10 text-sm font-bold text-success">
-                            {item.student_name?.charAt(0)}
-                          </div>
+                          <StudentSubmissionAvatar
+                            name={item.student_name}
+                            photoUrl={item.student_profile_picture}
+                            variant="success"
+                          />
                           <div className="min-w-0">
                             <p className="font-medium text-foreground">{item.student_name}</p>
                             <p className="text-sm text-muted-foreground">

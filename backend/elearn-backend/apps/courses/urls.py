@@ -132,7 +132,6 @@ urlpatterns = [
     path("batches/<int:batch_id>/test-submissions/<int:pk>/", TestSubmissionDetailView.as_view(), name="submission-detail"),
     path("batches/<int:batch_id>/test-submissions/<int:pk>/trigger-ai/", TriggerAIEvaluationView.as_view(), name="trigger-ai-evaluation"),
     path("batches/<int:batch_id>/test-submissions/<int:submission_pk>/answers/<int:answer_pk>/trigger-ai/", TriggerAnswerAIEvaluationView.as_view(), name="trigger-answer-ai-evaluation"),
-    path("batches/<int:batch_id>/test-submissions/<int:pk>/simulate-ai-complete/", SimulateAIEvaluationCompleteView.as_view(), name="simulate-ai-evaluation-complete"),
 
     # Webinars
     path("batches/<int:batch_id>/webinars/", ScheduledWebinarListCreateView.as_view(), name="batch-webinar-list-create"),
