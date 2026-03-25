@@ -802,7 +802,13 @@ export default function Assessments() {
             </div>
           ) : (
             <div className="space-y-4">
-              {studentSubmissions.map((assessment) => (
+              {studentSubmissions.map((assessment) => {
+                const rawPassPercentage = Number(assessment.pass_percentage);
+                const passPercentage =
+                  Number.isFinite(rawPassPercentage) && rawPassPercentage > 0 && rawPassPercentage <= 100
+                    ? rawPassPercentage
+                    : 70;
+                return (
                 <div
                   key={assessment.id}
                   className="group flex flex-col gap-4 rounded-xl border border-border bg-muted/40 p-4 transition-all hover:bg-accent/20 hover:shadow-sm sm:flex-row sm:items-center sm:justify-between"
@@ -823,7 +829,22 @@ export default function Assessments() {
                       )}
                     </div>
                     <div className="min-w-0 space-y-1">
-                      <p className="font-medium text-foreground">{assessment.test_title}</p>
+                      <div className="flex items-center gap-2">
+                        <p className="font-medium text-foreground">{assessment.test_title}</p>
+                        {assessment.status === 'published' && (
+                          <Badge
+                            variant="outline"
+                            className={cn(
+                              "rounded-lg px-2 py-0.5 text-[10px] font-black shadow-sm",
+                              assessment.is_passed
+                                ? "border-success/30 bg-success/10 text-success"
+                                : "border-rose-500/30 bg-rose-500/10 text-rose-500",
+                            )}
+                          >
+                            {assessment.is_passed ? 'Passed' : 'Failed'}
+                          </Badge>
+                        )}
+                      </div>
                       <div className="flex flex-wrap items-center gap-2">
                         <Badge
                           variant="outline"
@@ -835,31 +856,16 @@ export default function Assessments() {
                           Attempt {assessment.attempt_number}
                         </span>
                       </div>
-                      {assessment.grader_remarks && assessment.status === 'published' && (
-                        <p className="mt-2 line-clamp-2 max-w-2xl text-sm font-medium italic leading-relaxed text-muted-foreground">
-                          &ldquo;{assessment.grader_remarks}&rdquo;
-                        </p>
-                      )}
                     </div>
                   </div>
                   <div className="flex shrink-0 flex-col items-stretch gap-3 sm:flex-row sm:items-center sm:justify-end sm:gap-4">
                     {assessment.status === 'published' ? (
                       <div className="flex flex-col items-end gap-1 sm:text-right">
-                        <div className="flex items-center gap-2">
-                          <p className="text-2xl font-bold text-foreground">{assessment.marks_obtained}%</p>
-                          <Badge
-                            className={cn(
-                              'border-none px-2 py-0.5 text-[8px] font-semibold',
-                              assessment.is_passed
-                                ? 'bg-emerald-500/20 text-emerald-600 dark:text-emerald-400'
-                                : 'bg-rose-500/20 text-rose-600 dark:text-rose-400',
-                            )}
-                          >
-                            {assessment.is_passed ? 'Passed' : 'Failed'}
-                          </Badge>
-                        </div>
-                        <p className="text-[10px] font-medium text-muted-foreground">
-                          Your score
+                        <p className="text-xs font-semibold text-foreground">
+                          Score: {Number(assessment.marks_obtained ?? 0).toFixed(1)}%
+                        </p>
+                        <p className="text-[11px] font-medium text-muted-foreground">
+                          Pass percentage: {passPercentage.toFixed(0)}%
                         </p>
                       </div>
                     ) : (
@@ -889,14 +895,14 @@ export default function Assessments() {
                       }}
                     >
                       {assessment.status === 'published' && assessment.is_passed
-                        ? 'View submission'
+                        ? 'View results'
                         : assessment.status === 'published' && !assessment.is_passed
                           ? 'Retake Test'
-                          : 'View submission'}
+                          : 'View results'}
                     </Button>
                   </div>
                 </div>
-              ))}
+              )})}
             </div>
           )}
         </CardContent>
