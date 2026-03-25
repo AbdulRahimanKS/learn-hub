@@ -273,6 +273,8 @@ class AIEvaluationService:
 
         submission.ai_score = total_ai_score
         submission.ai_feedback = result.get('overall_feedback', '')
+        # Pre-fill instructor remarks from AI so reviewers can edit before publishing.
+        submission.grader_remarks = submission.ai_feedback or ""
         submission.ai_response = result
         submission.ai_evaluated_at = timezone.now()
         
@@ -293,7 +295,7 @@ class AIEvaluationService:
         submission.ai_error_message = ""
         submission.save(update_fields=[
             'ai_score', 'ai_feedback', 'ai_response', 'ai_evaluated_at',
-            'marks_obtained', 'is_passed', 'status', 'ai_job_status', 'ai_error_message'
+            'grader_remarks', 'marks_obtained', 'is_passed', 'status', 'ai_job_status', 'ai_error_message'
         ])
 
     def _mock_evaluation(self, submission):
@@ -312,6 +314,7 @@ class AIEvaluationService:
 
         submission.ai_score = total_score
         submission.ai_feedback = "Evaluation complete (Mocked)."
+        submission.grader_remarks = submission.ai_feedback
         submission.ai_evaluated_at = timezone.now()
         submission.marks_obtained = total_score
         
@@ -328,7 +331,7 @@ class AIEvaluationService:
         submission.ai_error_message = ""
         submission.save(update_fields=[
             'ai_score', 'ai_feedback', 'ai_evaluated_at',
-            'marks_obtained', 'is_passed', 'status', 'ai_job_status', 'ai_error_message'
+            'grader_remarks', 'marks_obtained', 'is_passed', 'status', 'ai_job_status', 'ai_error_message'
         ])
 
     def evaluate_single_answer(self, answer_id):

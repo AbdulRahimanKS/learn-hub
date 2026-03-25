@@ -138,6 +138,7 @@ export function SubmissionReviewModal({
   // Editable fields
   const [remarks, setRemarks] = useState('');
   const [qMarks, setQMarks] = useState<Record<string, string>>({});
+  const [qFeedback, setQFeedback] = useState<Record<string, string>>({});
 
   useEffect(() => {
     if (open && submissionId) {
@@ -157,6 +158,7 @@ export function SubmissionReviewModal({
         setRemarks(data.grader_remarks || '');
         
         const marksMap: Record<string, string> = {};
+        const feedbackMap: Record<string, string> = {};
         data.answers?.forEach((ans: any) => {
           if (typeof ans.id === 'string' && ans.id.startsWith('unattended-')) return;
           const raw = ans.marks_obtained ?? ans.ai_score ?? 0;
@@ -164,8 +166,10 @@ export function SubmissionReviewModal({
           let num = Math.round((parseFloat(String(raw)) || 0) * 100) / 100;
           num = Math.max(0, Math.min(num, maxM));
           marksMap[String(ans.id)] = formatMarkDisplay(num);
+          feedbackMap[String(ans.id)] = String(ans.ai_feedback || '');
         });
         setQMarks(marksMap);
+        setQFeedback(feedbackMap);
       }
     } catch (err) {
       toast({ title: 'Error', description: 'Failed to fetch submission details.', variant: 'destructive' });
@@ -177,11 +181,13 @@ export function SubmissionReviewModal({
   const handleUpdateStatus = async (status: string) => {
     setIsSaving(true);
     try {
+      const wasPublished = submission?.status === 'published';
       const answersUpdate = Object.entries(qMarks)
         .filter(([id]) => !id.startsWith('unattended-'))
         .map(([id, marks]) => ({
           id: parseInt(id, 10),
           marks_obtained: Math.round((parseFloat(marks) || 0) * 100) / 100,
+          ai_feedback: String(qFeedback[id] || '').trim(),
         }))
         .filter(row => !Number.isNaN(row.id));
 
@@ -198,7 +204,11 @@ export function SubmissionReviewModal({
       };
 
       await apiClient.patch(`${submissionBase}/`, payload);
-      toast({ title: 'Success', description: `Submission ${status.replace('_', ' ')} successfully.`, variant: 'success' });
+      toast({
+        title: 'Success',
+        description: wasPublished ? 'Submission updated successfully.' : `Submission ${status.replace('_', ' ')} successfully.`,
+        variant: 'success',
+      });
       onUpdated();
       onClose();
     } catch (err) {
@@ -240,6 +250,9 @@ export function SubmissionReviewModal({
           ...prev,
           answers: prev.answers.map((a: any) => (a.id === answerId ? { ...a, ...updatedAnswer } : a)),
         }));
+        if (updatedAnswer.ai_feedback !== undefined) {
+          setQFeedback(prev => ({ ...prev, [idKey]: String(updatedAnswer.ai_feedback || '') }));
+        }
         // Also update qMarks if AI suggested a score
         if (updatedAnswer.ai_score !== null && updatedAnswer.ai_score !== undefined) {
           const maxM = Number(updatedAnswer.max_marks) || 0;
@@ -544,8 +557,8 @@ export function SubmissionReviewModal({
                                   disabled={perQuestionAiDisabled(String(answer.id))}
                                   title={
                                     hasQuestionAi
-                                      ? 'Replace this question’s AI note and suggested marks using the latest answer text.'
-                                      : 'Generate an AI note and suggested marks for this answer.'
+                                      ? 'Replace this question feedback draft and suggested marks using the latest answer text.'
+                                      : 'Generate a feedback draft and suggested marks for this answer.'
                                   }
                                 >
                                   {evaluatingQuestionIds.includes(String(answer.id)) ? (
@@ -692,22 +705,32 @@ export function SubmissionReviewModal({
                                   </p>
                                 </div>
                               ) : (
-                                <>
-                                  <div className="mb-2 flex items-center gap-2">
-                                    <span className="inline-flex items-center gap-1 rounded-full bg-primary px-2 py-1 text-[10px] font-semibold text-primary-foreground">
-                                      <Zap className="h-3 w-3 fill-current" />
-                                      AI note
-                                    </span>
-                                    <span className="text-xs font-semibold text-muted-foreground">
-                                      Suggested: {formatMarkDisplay(Number(answer.ai_score) || 0)} /{' '}
-                                      {formatMarkDisplay(Number(answer.max_marks) || 0)}
-                                    </span>
-                                  </div>
-                                  <p className="text-sm leading-relaxed text-foreground/90 italic">
-                                    &ldquo;{answer.ai_feedback}&rdquo;
-                                  </p>
-                                </>
+                                <div className="mb-2 flex items-center gap-2">
+                                  <span className="inline-flex items-center gap-1 rounded-full bg-primary px-2 py-1 text-[10px] font-semibold text-primary-foreground">
+                                    <Zap className="h-3 w-3 fill-current" />
+                                    AI draft
+                                  </span>
+                                  <span className="text-xs font-semibold text-muted-foreground">
+                                    Suggested: {formatMarkDisplay(Number(answer.ai_score) || 0)} /{' '}
+                                    {formatMarkDisplay(Number(answer.max_marks) || 0)}
+                                  </span>
+                                </div>
                               )}
+                            </div>
+                          )}
+                          {typeof answer.id !== 'string' && (
+                            <div className="space-y-2">
+                              <Label className="text-[10px] font-semibold text-muted-foreground">
+                                Feedback
+                              </Label>
+                              <Textarea
+                                placeholder="Feedback for this question (auto-filled from AI if available)."
+                                className="min-h-[90px] bg-background border border-border rounded-xl text-[13px] font-medium resize-y focus:ring-primary/20 focus:border-primary"
+                                value={qFeedback[String(answer.id)] ?? ''}
+                                onChange={(e) =>
+                                  setQFeedback((prev) => ({ ...prev, [String(answer.id)]: e.target.value }))
+                                }
+                              />
                             </div>
                           )}
                         </div>
@@ -832,7 +855,7 @@ export function SubmissionReviewModal({
                 <div className="pt-6 border-t border-border space-y-4">
                    <Button variant="gradient" className="w-full h-12 rounded-2xl text-sm font-bold shadow-none hover:shadow-none transition-all active:scale-95" onClick={() => handleUpdateStatus('published')} disabled={isSaving}>
                      {isSaving ? <Loader2 className="h-5 w-5 animate-spin" /> : <CheckIcon className="h-5 w-5 mr-3" />}
-                     Confirm and publish
+                     {submission?.status === 'published' ? 'Save changes' : 'Confirm and publish'}
                    </Button>
                 </div>
               </div>

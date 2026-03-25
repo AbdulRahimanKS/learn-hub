@@ -35,7 +35,6 @@ import { apiClient } from '@/lib/api';
 import { useToast } from '@/hooks/use-toast';
 import { SubmissionReviewModal } from '@/components/SubmissionReviewModal';
 import { WeeklyTestResults } from '@/components/WeeklyTestResults';
-import { WeeklyTestSubmission } from '@/components/WeeklyTestSubmission';
 import { cn } from '@/lib/utils';
 import { format } from 'date-fns';
 import { BatchFilterCombobox } from '@/components/BatchFilterCombobox';
@@ -100,11 +99,6 @@ export default function Assessments() {
   const [viewingSubmission, setViewingSubmission] = useState<any>(null);
   const [isResultsOpen, setIsResultsOpen] = useState(false);
 
-  // Retake State
-  const [isSubmissionOpen, setIsSubmissionOpen] = useState(false);
-  const [retakeTest, setRetakeTest] = useState<any>(null);
-  const [selectedWeekId, setSelectedWeekId] = useState<number | null>(null);
-  const [selectedBatchId, setSelectedBatchId] = useState<number | null>(null);
   const [evaluatingIds, setEvaluatingIds] = useState<number[]>([]);
 
   const formatStatusLabel = (raw?: string | null) => {
@@ -831,7 +825,7 @@ export default function Assessments() {
                     <div className="min-w-0 space-y-1">
                       <div className="flex items-center gap-2">
                         <p className="font-medium text-foreground">{assessment.test_title}</p>
-                        {assessment.status === 'published' && (
+                        {assessment.status === 'published' ? (
                           <Badge
                             variant="outline"
                             className={cn(
@@ -842,6 +836,13 @@ export default function Assessments() {
                             )}
                           >
                             {assessment.is_passed ? 'Passed' : 'Failed'}
+                          </Badge>
+                        ) : (
+                          <Badge
+                            variant="outline"
+                            className="rounded-lg border-primary/25 bg-primary/10 px-2 py-0.5 text-[10px] font-black text-primary"
+                          >
+                            {formatStatusLabel(assessment.status)}
                           </Badge>
                         )}
                       </div>
@@ -854,6 +855,9 @@ export default function Assessments() {
                         </Badge>
                         <span className="rounded bg-muted px-2 py-0.5 text-[10px] font-medium text-muted-foreground">
                           Attempt {assessment.attempt_number}
+                        </span>
+                        <span className="rounded bg-muted px-2 py-0.5 text-[10px] font-medium text-muted-foreground">
+                          Submitted {assessment.submitted_at && format(new Date(assessment.submitted_at), 'MMM d, h:mm a')}
                         </span>
                       </div>
                     </div>
@@ -868,16 +872,7 @@ export default function Assessments() {
                           Pass percentage: {passPercentage.toFixed(0)}%
                         </p>
                       </div>
-                    ) : (
-                      <div className="flex flex-col items-end gap-1 sm:text-right">
-                        <Badge
-                          variant="outline"
-                          className="border-primary/25 px-3 py-1 text-[10px] font-semibold bg-primary/10 text-primary hover:bg-primary/10"
-                        >
-                          {formatStatusLabel(assessment.status)}
-                        </Badge>
-                      </div>
-                    )}
+                    ) : null}
                     <Button
                       variant={assessment.status === 'published' ? 'outline' : 'gradient'}
                       size="sm"
@@ -886,19 +881,11 @@ export default function Assessments() {
                         assessment.status !== 'published' ? "shadow-none hover:shadow-none" : ""
                       )}
                       onClick={() => {
-                        if (assessment.status === 'published' && !assessment.is_passed) {
-                          handleRetake(assessment);
-                        } else {
-                          setViewingSubmission(assessment);
-                          setIsResultsOpen(true);
-                        }
+                        setViewingSubmission(assessment);
+                        setIsResultsOpen(true);
                       }}
                     >
-                      {assessment.status === 'published' && assessment.is_passed
-                        ? 'View results'
-                        : assessment.status === 'published' && !assessment.is_passed
-                          ? 'Retake Test'
-                          : 'View results'}
+                      {assessment.status === 'published' ? 'View results' : 'View submission'}
                     </Button>
                   </div>
                 </div>
@@ -934,26 +921,6 @@ export default function Assessments() {
       )}
     </div>
   );
-
-  const handleRetake = async (submission: any) => {
-    setIsLoading(true);
-    try {
-      const batchId = submission.enrollment_batch_id || submission.batch_id; 
-      const weekId = submission.batch_week_id; 
-      
-      const res = await apiClient.get(`/api/courses/v1/batches/${batchId}/weeks/${weekId}/test/`);
-      if (res.data?.success) {
-        setRetakeTest(res.data.data);
-        setSelectedWeekId(weekId);
-        setSelectedBatchId(batchId);
-        setIsSubmissionOpen(true);
-      }
-    } catch (err) {
-      toast({ title: 'Error', description: 'Failed to fetch test details for retake.', variant: 'destructive' });
-    } finally {
-      setIsLoading(false);
-    }
-  };
 
    return (
     <DashboardLayout>
@@ -994,19 +961,6 @@ export default function Assessments() {
           />
         )}
 
-        {/* Retake Submission Modal */}
-        {retakeTest && selectedBatchId && selectedWeekId && (
-          <WeeklyTestSubmission
-            open={isSubmissionOpen}
-            onClose={() => { setIsSubmissionOpen(false); setRetakeTest(null); }}
-            test={retakeTest}
-            batchId={selectedBatchId}
-            weekId={selectedWeekId}
-            onSubmitted={() => {
-              if (selectedBatch) fetchStudentSubmissions(currentPage, selectedWeek, selectedBatch);
-            }}
-          />
-        )}
       </div>
     </DashboardLayout>
   );

@@ -133,7 +133,13 @@ class TestSubmissionUpdateSerializer(serializers.ModelSerializer):
             for ans_data in answers_data:
                 ans_id = ans_data.get('id')
                 marks = ans_data.get('marks_obtained')
-                if ans_id is not None and marks is not None:
-                    TestSubmissionAnswer.objects.filter(id=ans_id, submission=instance).update(marks_obtained=marks)
+                feedback = ans_data.get('ai_feedback')
+                updates = {}
+                if marks is not None:
+                    updates['marks_obtained'] = marks
+                if feedback is not None:
+                    updates['ai_feedback'] = str(feedback).strip()
+                if ans_id is not None and updates:
+                    TestSubmissionAnswer.objects.filter(id=ans_id, submission=instance).update(**updates)
         
         return instance

@@ -38,6 +38,12 @@ export function WeeklyTestResults({
 }: WeeklyTestResultsProps) {
   if (!submission) return null;
 
+  const formatStatusLabel = (raw?: string | null) =>
+    String(raw || '')
+      .replace(/_/g, ' ')
+      .toLowerCase()
+      .replace(/\b\w/g, (c) => c.toUpperCase());
+
   const isPassed = submission.is_passed;
   const score = submission.marks_obtained;
   const status = submission.status;
@@ -80,7 +86,7 @@ export function WeeklyTestResults({
                   ) : (
                     <span className="inline-flex w-fit items-center gap-2 rounded-full border border-white/15 bg-white/10 px-3 py-1 text-xs font-semibold tracking-tight text-primary-foreground backdrop-blur-md">
                       <Clock className="h-3.5 w-3.5 shrink-0" />
-                      Pending review
+                      {formatStatusLabel(status)}
                     </span>
                   )}
                 </div>
@@ -125,6 +131,17 @@ export function WeeklyTestResults({
         </div>
 
         <div className="flex-1 overflow-y-auto bg-background p-4 md:p-6 space-y-6 scrollbar-hide">
+          {isPublished && String(submission.grader_remarks || '').trim() && (
+            <Card className="border border-primary/20 bg-primary/[0.04] rounded-2xl">
+              <CardContent className="p-4 md:p-5 space-y-2">
+                <Label className="text-[11px] font-semibold text-primary">Overall feedback</Label>
+                <p className="text-sm leading-relaxed text-foreground/90 whitespace-pre-wrap">
+                  {submission.grader_remarks}
+                </p>
+              </CardContent>
+            </Card>
+          )}
+
           {/* Status Message */}
           {!isPublished && (
             <div className="rounded-2xl border border-border bg-muted/30 p-5 flex flex-col items-center text-center space-y-2 animate-in fade-in slide-in-from-top-2 duration-500">
@@ -302,12 +319,13 @@ export function WeeklyTestResults({
                         </div>
                       )}
 
-                      {/* Feedback (if exists and published) */}
-                      {isPublished && (answer.ai_feedback || answer.grader_remarks) && (
+                      {/* Per-question feedback (published) */}
+                      {isPublished && String(answer.ai_feedback || '').trim() && (
                         <div className="relative pt-3 flex flex-col gap-2">
                            <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-border to-transparent" />
-                           <p className="text-[13px] text-primary font-semibold leading-relaxed italic">
-                             "{answer.grader_remarks || answer.ai_feedback}"
+                           <Label className="text-[10px] font-semibold text-primary">Feedback</Label>
+                           <p className="text-[13px] text-primary font-semibold leading-relaxed whitespace-pre-wrap">
+                             {answer.ai_feedback}
                            </p>
                         </div>
                       )}
