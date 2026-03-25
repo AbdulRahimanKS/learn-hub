@@ -579,7 +579,13 @@ export default function Assessments() {
               ) : (
                 <>
                 <div className="space-y-4">
-                  {publishedSubmissions.map((item) => (
+                  {publishedSubmissions.map((item) => {
+                      const rawPassPercentage = Number(item.pass_percentage);
+                      const passPercentage =
+                        Number.isFinite(rawPassPercentage) && rawPassPercentage > 0 && rawPassPercentage <= 100
+                          ? rawPassPercentage
+                          : 70;
+                      return (
                       <div
                         key={item.id}
                         className="group flex flex-col gap-4 rounded-xl border border-border bg-muted/40 p-4 transition-all hover:bg-accent/20 hover:shadow-sm sm:flex-row sm:items-center sm:justify-between"
@@ -591,7 +597,20 @@ export default function Assessments() {
                             variant="success"
                           />
                           <div className="min-w-0">
-                            <p className="font-medium text-foreground">{item.student_name}</p>
+                            <div className="flex items-center gap-2">
+                              <p className="font-medium text-foreground">{item.student_name}</p>
+                              <Badge
+                                variant="outline"
+                                className={cn(
+                                  "rounded-lg px-2 py-0.5 text-[10px] font-black shadow-sm",
+                                  item.is_passed
+                                    ? "border-success/30 bg-success/10 text-success"
+                                    : "border-rose-500/30 bg-rose-500/10 text-rose-500",
+                                )}
+                              >
+                                {item.is_passed ? 'Passed' : 'Failed'}
+                              </Badge>
+                            </div>
                             <p className="text-sm text-muted-foreground">
                               Week {item.week_number} • {item.test_title}
                             </p>
@@ -601,12 +620,14 @@ export default function Assessments() {
                           </div>
                         </div>
                         <div className="flex shrink-0 flex-col items-stretch gap-3 sm:flex-row sm:items-center sm:gap-4">
-                          <Badge
-                            variant="outline"
-                            className="w-fit rounded-lg border-success/30 bg-success/5 px-2 py-1 text-xs font-black text-success shadow-sm"
-                          >
-                            {item.marks_obtained}%
-                          </Badge>
+                          <div className="flex flex-col gap-1.5 sm:items-end sm:text-right">
+                            <p className="text-xs font-semibold text-foreground">
+                              Score: {Number(item.marks_obtained ?? 0).toFixed(1)}%
+                            </p>
+                            <p className="text-[11px] font-medium text-muted-foreground">
+                              Pass percentage: {passPercentage.toFixed(0)}%
+                            </p>
+                          </div>
                           <Button
                             variant="outline"
                             size="sm"
@@ -621,7 +642,7 @@ export default function Assessments() {
                           </Button>
                         </div>
                       </div>
-                    ))}
+                    )})}
                 </div>
                 {!loadingPublished && publishedSubmissions.length > 0 && publishedTotalPages > 1 && (
                   <div className="mt-8 flex items-center justify-center gap-2">
