@@ -132,7 +132,6 @@ export function SubmissionReviewModal({
   const [submission, setSubmission] = useState<any>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
-  const [isEvaluating, setIsEvaluating] = useState(false);
   const [evaluatingQuestionIds, setEvaluatingQuestionIds] = useState<string[]>([]);
 
   // Editable fields
@@ -148,14 +147,18 @@ export function SubmissionReviewModal({
 
   const submissionBase = `/api/courses/v1/batches/${batchId}/test-submissions/${submissionId}`;
 
-  const fetchSubmission = async () => {
+  const fetchSubmission = async (options?: { preserveLocalMarks?: boolean; preserveRemarks?: boolean }) => {
     setIsLoading(true);
     try {
       const res = await apiClient.get(`${submissionBase}/`);
       if (res.data?.success) {
         const data = res.data.data;
         setSubmission(data);
-        setRemarks(data.grader_remarks || '');
+        if (options?.preserveRemarks) {
+          setRemarks((prev) => (String(prev || '').trim() ? prev : data.grader_remarks || ''));
+        } else {
+          setRemarks(data.grader_remarks || '');
+        }
         
         const marksMap: Record<string, string> = {};
         const feedbackMap: Record<string, string> = {};
@@ -168,7 +171,11 @@ export function SubmissionReviewModal({
           marksMap[String(ans.id)] = formatMarkDisplay(num);
           feedbackMap[String(ans.id)] = String(ans.ai_feedback || '');
         });
-        setQMarks(marksMap);
+        if (options?.preserveLocalMarks) {
+          setQMarks((prev) => ({ ...marksMap, ...prev }));
+        } else {
+          setQMarks(marksMap);
+        }
         setQFeedback(feedbackMap);
       }
     } catch (err) {
@@ -206,7 +213,7 @@ export function SubmissionReviewModal({
       await apiClient.patch(`${submissionBase}/`, payload);
       toast({
         title: 'Success',
-        description: wasPublished ? 'Submission updated successfully.' : `Submission ${status.replace('_', ' ')} successfully.`,
+        description: wasPublished ? 'Published result updated successfully.' : `Submission ${status.replace('_', ' ')} successfully.`,
         variant: 'success',
       });
       onUpdated();
@@ -215,25 +222,6 @@ export function SubmissionReviewModal({
       toast({ title: 'Error', description: 'Failed to update submission.', variant: 'destructive' });
     } finally {
       setIsSaving(false);
-    }
-  };
-
-  const handleTriggerAI = async () => {
-    setIsEvaluating(true);
-    try {
-      const res = await apiClient.post(`${submissionBase}/trigger-ai/`);
-      if (res.data?.success) {
-        toast({
-          title: 'AI evaluation queued',
-          description: 'The submission is processing. Refresh this view in a moment for results.',
-          variant: 'success',
-        });
-        fetchSubmission();
-      }
-    } catch (err) {
-      toast({ title: 'AI Error', description: 'AI evaluation failed.', variant: 'destructive' });
-    } finally {
-      setIsEvaluating(false);
     }
   };
 
@@ -260,6 +248,8 @@ export function SubmissionReviewModal({
           v = Math.max(0, Math.min(v, maxM));
           setQMarks(prev => ({ ...prev, [idKey]: formatMarkDisplay(v) }));
         }
+        // Re-sync from DB so any backend-side writes are reflected without closing modal.
+        await fetchSubmission({ preserveLocalMarks: true, preserveRemarks: true });
       }
     } catch (err) {
       toast({ title: 'AI Error', description: 'Failed to analyze this question.', variant: 'destructive' });
@@ -327,14 +317,10 @@ export function SubmissionReviewModal({
   /** From API: `BatchWeeklyTest.pass_percentage` on submission. Fallback matches Django model default (70). */
   const passPercentage = Number(submission?.pass_percentage ?? 70);
   const isReadyToPass = overallPercentage >= passPercentage;
-  const canRunSubmissionAI = submission?.status === 'pending';
   /** Backend sets this while the async full-submission AI job is running (Celery). */
   const isSubmissionAiJobRunning = submission?.status === 'evaluating';
-  const anyQuestionAiRunning = evaluatingQuestionIds.length > 0;
-  const runFullAiDisabled =
-    isEvaluating || anyQuestionAiRunning || isSubmissionAiJobRunning || !canRunSubmissionAI;
   const perQuestionAiDisabled = (answerId: string) =>
-    isEvaluating || isSubmissionAiJobRunning || evaluatingQuestionIds.includes(answerId);
+    isSubmissionAiJobRunning || evaluatingQuestionIds.includes(answerId);
 
   if (isLoading && !submission) {
     return (
@@ -436,7 +422,7 @@ export function SubmissionReviewModal({
 
               <div
                 className="flex min-h-[132px] flex-col rounded-2xl border border-white/15 bg-white/[0.07] p-4 backdrop-blur-sm lg:col-span-4"
-                title="From “Run AI review”: the sum of each question’s AI score (0 to that question’s max) from that run."
+                title="From full AI review (triggered in submissions list): the sum of each question’s AI score (0 to that question’s max) from that run."
               >
                 <p className={heroStatTitleClass}>AI suggested total</p>
                 <p className="mt-0.5 text-[10px] leading-snug text-primary-foreground/50">
@@ -769,43 +755,19 @@ export function SubmissionReviewModal({
                       <p className="text-[10px] font-semibold text-muted-foreground">AI evaluation</p>
                       <p className="mt-1 text-sm text-foreground font-semibold">Optional grading assistant</p>
                     </div>
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      className="h-9 rounded-xl text-xs font-bold"
-                      onClick={handleTriggerAI}
-                      disabled={runFullAiDisabled}
-                      title="Runs AI evaluation for the full submission (all attended answers)"
-                    >
-                      {isEvaluating ? <Loader2 className="h-3.5 w-3.5 animate-spin mr-2" /> : <Zap className="h-3.5 w-3.5 mr-2" />}
-                      Run AI Review
-                    </Button>
                   </div>
                   <p className="mb-3 text-[11px] leading-relaxed text-muted-foreground">
-                    <span className="font-semibold text-foreground/90">Run AI review</span> asks the model for each
+                    Full AI review (from the submissions list) asks the model for each
                     question’s score (0 to that question’s max) in one go; the server <span className="font-semibold text-foreground/90">sums</span>{' '}
                     them into the blue header total and saves per-card “Suggested” lines. It does{' '}
                     <span className="font-semibold text-foreground/90">not</span> publish grades.{' '}
                     <span className="font-semibold text-foreground/90">Refresh AI for this question</span> updates only
                     that row until you run full AI again.
                   </p>
-                  {(isEvaluating || isSubmissionAiJobRunning) && (
+                  {isSubmissionAiJobRunning && (
                     <p className="mb-3 rounded-xl border border-violet-500/25 bg-violet-500/10 px-3 py-2 text-[11px] text-muted-foreground">
                       <Loader2 className="mr-1.5 inline h-3.5 w-3.5 animate-spin align-middle text-violet-600 dark:text-violet-300" />
                       Full submission AI running — question-level AI is paused until it finishes.
-                    </p>
-                  )}
-                  {anyQuestionAiRunning && !isEvaluating && !isSubmissionAiJobRunning && (
-                    <p className="mb-3 text-[11px] text-muted-foreground">
-                      Question AI running — <span className="font-semibold">Run AI review</span> is paused briefly.
-                    </p>
-                  )}
-                  {!canRunSubmissionAI && (
-                    <p className="mb-3 text-[11px] leading-relaxed text-muted-foreground">
-                      Full <span className="font-semibold">Run AI review</span> only from{' '}
-                      <span className="font-semibold">pending</span>. In{' '}
-                      <span className="font-semibold">pending review</span>, use per-question AI unless a full job is
-                      active (<span className="font-semibold">AI evaluating</span>).
                     </p>
                   )}
                   <p className="mb-4 text-[11px] text-muted-foreground">
@@ -836,8 +798,8 @@ export function SubmissionReviewModal({
                         <div className="max-w-[240px] space-y-1">
                           <p className="text-sm font-semibold text-foreground">No overall AI summary yet</p>
                           <p className="text-[11px] leading-relaxed text-muted-foreground">
-                            Use <span className="font-medium text-foreground/90">Run AI review</span> when status is
-                            pending. For each question, use <span className="font-medium text-foreground/90">Run AI for this question</span> on the card.
+                            Trigger full AI review from the submissions list when status is pending.
+                            For each question here, use <span className="font-medium text-foreground/90">Run AI for this question</span>.
                           </p>
                         </div>
                       </div>
@@ -855,7 +817,7 @@ export function SubmissionReviewModal({
                 <div className="pt-6 border-t border-border space-y-4">
                    <Button variant="gradient" className="w-full h-12 rounded-2xl text-sm font-bold shadow-none hover:shadow-none transition-all active:scale-95" onClick={() => handleUpdateStatus('published')} disabled={isSaving}>
                      {isSaving ? <Loader2 className="h-5 w-5 animate-spin" /> : <CheckIcon className="h-5 w-5 mr-3" />}
-                     {submission?.status === 'published' ? 'Save changes' : 'Confirm and publish'}
+                     {submission?.status === 'published' ? 'Update published result' : 'Confirm and publish'}
                    </Button>
                 </div>
               </div>
