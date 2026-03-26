@@ -174,7 +174,11 @@ export const batchApi = {
     return response.data;
   },
 
-  getBatchStudents: async (batchId: number, params?: { page?: number; page_size?: number; search?: string; status?: string }) => {
+  getBatchStudents: async (
+    batchId: number,
+    params?: { page?: number; page_size?: number; search?: string; status?: string },
+    axiosConfig?: { signal?: AbortSignal },
+  ) => {
     const response = await apiClient.get<{ 
       data: any[]; 
       success: boolean; 
@@ -183,9 +187,7 @@ export const batchApi = {
       total_pages?: number;
       current_page?: number;
       stats?: { total: number; active: number; completed: number; dropped: number };
-    }>(
-      `/api/courses/v1/batches/${batchId}/students/`, { params }
-    );
+    }>(`/api/courses/v1/batches/${batchId}/students/`, { ...(params ? { params } : {}), ...(axiosConfig || {}) });
     return response.data;
   },
 

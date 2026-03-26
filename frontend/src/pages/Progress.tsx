@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { BatchFilterCombobox } from '@/components/BatchFilterCombobox';
 import { useAuth } from '@/contexts/AuthContext';
 import { DashboardLayout } from '@/components/layout/DashboardLayout';
@@ -67,6 +67,8 @@ export default function Progress() {
   
   // Shared loading
   const [loading, setLoading] = useState(true);
+  const adminSearchAbortRef = useRef<AbortController | null>(null);
+  const adminSearchRequestIdRef = useRef(0);
 
   // --- Admin State ---
   const [students, setStudents] = useState<any[]>([]);
@@ -96,7 +98,7 @@ export default function Progress() {
     const timer = setTimeout(() => {
       setDebouncedSearch(search);
       setCurrentPage(1); // Reset page on search
-    }, 500);
+    }, 200);
     return () => clearTimeout(timer);
   }, [search]);
 
@@ -111,22 +113,40 @@ export default function Progress() {
   // Fetch Students for Admin
   const fetchAdminData = useCallback(async () => {
     if (!selectedBatchId) return;
+    // Abort any in-flight request so fast typing doesn't cause UI to "stick" or show stale results.
+    adminSearchAbortRef.current?.abort();
+    const controller = new AbortController();
+    adminSearchAbortRef.current = controller;
+    const requestId = ++adminSearchRequestIdRef.current;
     setLoading(true);
     try {
       const res = await batchApi.getBatchStudents(selectedBatchId, { 
         page: currentPage, 
         page_size: 10,
         search: debouncedSearch
-      });
+      }, { signal: controller.signal });
+      if (controller.signal.aborted) return;
+      // Ignore stale responses from older requests.
+      if (requestId !== adminSearchRequestIdRef.current) return;
+
       if (res.success) {
         setStudents(res.data || []);
         setTotalPages(res.total_pages || 1);
         setStats(res.stats || null);
       }
     } catch (err) {
+      const anyErr = err as any;
+      const isCanceled =
+        anyErr?.code === 'ERR_CANCELED' ||
+        anyErr?.name === 'CanceledError' ||
+        anyErr?.message === 'canceled';
+      if (isCanceled) return;
       toast({ title: 'Error', description: 'Failed to fetch student progress', variant: 'destructive' });
     } finally {
-      setLoading(false);
+      // Only the latest request should control loading state.
+      if (requestId === adminSearchRequestIdRef.current && !controller.signal.aborted) {
+        setLoading(false);
+      }
     }
   }, [selectedBatchId, currentPage, debouncedSearch, toast]);
 
@@ -387,13 +407,24 @@ export default function Progress() {
                    <TableRow>
                      <TableCell colSpan={6} className="py-12 text-center">
                        <Loader2 className="h-8 w-8 animate-spin mx-auto text-primary opacity-50 mb-2" />
-                       <p className="text-sm text-muted-foreground">Loading progress...</p>
                      </TableCell>
                    </TableRow>
                 ) : students.length === 0 ? (
                    <TableRow>
-                     <TableCell colSpan={6} className="py-12 text-center text-muted-foreground">
-                       No students found in this batch matching your criteria.
+                     <TableCell colSpan={6} className="h-[300px]">
+                       <div className="text-center py-12 text-muted-foreground border-2 border-dashed border-border rounded-xl mx-2">
+                         <User className="h-12 w-12 mx-auto mb-4 opacity-50" />
+                         <h3 className="text-lg font-medium mb-1">
+                           {debouncedSearch
+                             ? `No students matching "${debouncedSearch}"`
+                             : 'No students found'}
+                         </h3>
+                         <p className="max-w-sm mx-auto">
+                           {debouncedSearch
+                             ? `We couldn't find any students matching "${debouncedSearch}". Try different keywords.`
+                             : 'There is no student progress data to display for this batch yet.'}
+                         </p>
+                       </div>
                      </TableCell>
                    </TableRow>
                 ) : students.map((enrollment: any) => (

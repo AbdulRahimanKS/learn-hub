@@ -60,7 +60,6 @@ from apps.courses.views.test_submission_views import (
     TestSubmissionDetailView,
     TriggerAIEvaluationView,
     TriggerAnswerAIEvaluationView,
-    SimulateAIEvaluationCompleteView,
     TestSubmissionCreateView,
     MyTestSubmissionsListView,
 )
