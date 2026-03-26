@@ -312,6 +312,11 @@ class TestSubmissionDetailView(generics.RetrieveUpdateAPIView):
                 raise ServiceError(detail="Test submission not found.", status_code=status.HTTP_404_NOT_FOUND)
             
             old_status = instance.status
+            if old_status == TestSubmission.Status.PUBLISHED:
+                raise ServiceError(
+                    detail="Published submissions are locked and cannot be modified.",
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                )
 
             serializer = self.get_serializer(instance, data=request.data, partial=partial, context={'request': request})
             if not serializer.is_valid():

@@ -312,6 +312,17 @@ export function WeeklyTestSubmission({
                     <Upload className="h-4 w-4 shrink-0 text-muted-foreground" aria-hidden />
                     Upload solution
                   </Label>
+                  <p className="text-[11px] text-muted-foreground">
+                    Need a template?{' '}
+                    <a
+                      href="/samples/student-answer-solution-template.ipynb"
+                      download="student-answer-solution-template.ipynb"
+                      className="text-primary hover:underline"
+                    >
+                      Download sample solution format
+                    </a>
+                    .
+                  </p>
                   <input
                     type="file"
                     accept={STUDENT_ANSWER_FILE_ACCEPT}

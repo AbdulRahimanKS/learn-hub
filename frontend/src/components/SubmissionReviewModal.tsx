@@ -10,6 +10,16 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent } from '@/components/ui/card';
 import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
+import {
   FileText,
   Loader2,
   Zap,
@@ -133,6 +143,7 @@ export function SubmissionReviewModal({
   const [isLoading, setIsLoading] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [evaluatingQuestionIds, setEvaluatingQuestionIds] = useState<string[]>([]);
+  const [isPublishConfirmOpen, setIsPublishConfirmOpen] = useState(false);
 
   // Editable fields
   const [remarks, setRemarks] = useState('');
@@ -319,8 +330,9 @@ export function SubmissionReviewModal({
   const isReadyToPass = overallPercentage >= passPercentage;
   /** Backend sets this while the async full-submission AI job is running (Celery). */
   const isSubmissionAiJobRunning = submission?.status === 'evaluating';
+  const isPublishedLocked = submission?.status === 'published';
   const perQuestionAiDisabled = (answerId: string) =>
-    isSubmissionAiJobRunning || evaluatingQuestionIds.includes(answerId);
+    isPublishedLocked || isSubmissionAiJobRunning || evaluatingQuestionIds.includes(answerId);
 
   if (isLoading && !submission) {
     return (
@@ -565,6 +577,7 @@ export function SubmissionReviewModal({
                                   autoComplete="off"
                                   className="h-12 rounded-xl border-border bg-background pr-3 text-right text-2xl font-semibold tabular-nums"
                                   value={qMarks[String(answer.id)] ?? '0'}
+                                  disabled={isPublishedLocked}
                                   onChange={e =>
                                     handleMarkChange(
                                       String(answer.id),
@@ -713,6 +726,7 @@ export function SubmissionReviewModal({
                                 placeholder="Feedback for this question (auto-filled from AI if available)."
                                 className="min-h-[90px] bg-background border border-border rounded-xl text-[13px] font-medium resize-y focus:ring-primary/20 focus:border-primary"
                                 value={qFeedback[String(answer.id)] ?? ''}
+                                disabled={isPublishedLocked}
                                 onChange={(e) =>
                                   setQFeedback((prev) => ({ ...prev, [String(answer.id)]: e.target.value }))
                                 }
@@ -810,21 +824,56 @@ export function SubmissionReviewModal({
                 <div className="space-y-6">
                   <div className="space-y-3">
                     <Label className="text-[10px] font-semibold text-muted-foreground ml-1">Instructor feedback (published to student)</Label>
-                    <Textarea placeholder="Share final feedback for the student (strengths, mistakes, and next steps)." className="min-h-[180px] bg-background border border-border rounded-2xl text-[14px] font-medium resize-none focus:ring-primary/20 focus:border-primary transition-all p-5" value={remarks} onChange={(e) => setRemarks(e.target.value)} />
+                    <Textarea placeholder="Share final feedback for the student (strengths, mistakes, and next steps)." className="min-h-[180px] bg-background border border-border rounded-2xl text-[14px] font-medium resize-none focus:ring-primary/20 focus:border-primary transition-all p-5" value={remarks} disabled={isPublishedLocked} onChange={(e) => setRemarks(e.target.value)} />
                   </div>
                 </div>
 
                 <div className="pt-6 border-t border-border space-y-4">
-                   <Button variant="gradient" className="w-full h-12 rounded-2xl text-sm font-bold shadow-none hover:shadow-none transition-all active:scale-95" onClick={() => handleUpdateStatus('published')} disabled={isSaving}>
-                     {isSaving ? <Loader2 className="h-5 w-5 animate-spin" /> : <CheckIcon className="h-5 w-5 mr-3" />}
-                     {submission?.status === 'published' ? 'Update published result' : 'Confirm and publish'}
-                   </Button>
+                  {isPublishedLocked ? (
+                    <p className="text-xs text-muted-foreground text-center">
+                      Published results are locked and cannot be edited.
+                    </p>
+                  ) : (
+                    <Button
+                      variant="gradient"
+                      className="w-full h-12 rounded-2xl text-sm font-bold shadow-none hover:shadow-none transition-all active:scale-95"
+                      onClick={() => setIsPublishConfirmOpen(true)}
+                      disabled={isSaving}
+                    >
+                      {isSaving ? <Loader2 className="h-5 w-5 animate-spin" /> : <CheckIcon className="h-5 w-5 mr-3" />}
+                      Confirm and publish
+                    </Button>
+                  )}
                 </div>
               </div>
             </div>
           </div>
         </div>
       </DialogContent>
+
+      <AlertDialog open={isPublishConfirmOpen} onOpenChange={setIsPublishConfirmOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Publish results now?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This will publish the marks and feedback to the student. This action is not reversible.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={isSaving}>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              disabled={isSaving}
+              onClick={(e) => {
+                e.preventDefault();
+                setIsPublishConfirmOpen(false);
+                void handleUpdateStatus('published');
+              }}
+            >
+              Yes, publish
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </Dialog>
   );
 }
