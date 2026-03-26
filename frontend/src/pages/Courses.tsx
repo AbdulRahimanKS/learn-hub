@@ -183,8 +183,11 @@ export default function Courses() {
       if (res.success) {
         setWeeks(res.data);
         if (res.data.length > 0) {
-          const firstUnlocked = res.data.find((w: CourseWeek) => !getWeekLockInfoFromData(w, course).is_locked);
-          const target = firstUnlocked || res.data[0];
+          const nextAction = getNextWeekAction(res.data, course);
+          const target =
+            nextAction?.week ||
+            res.data.find((w: CourseWeek) => !getWeekLockInfoFromData(w, course).is_locked) ||
+            res.data[0];
           setActiveWeekId(target.id);
           setExpandedWeeks(new Set([target.id]));
         }
@@ -194,6 +197,8 @@ export default function Courses() {
     } finally {
       setLoadingWeeks(false);
     }
+  // `getNextWeekAction` is a pure local helper; keeping this callback stable avoids render loops.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [toast]);
 
   useEffect(() => {
@@ -293,6 +298,42 @@ export default function Courses() {
     return getWeekLockInfoFromData(week, selectedCourse);
   };
 
+  type NextWeekAction =
+    | { type: 'session'; week: CourseWeek; session: ClassSession }
+    | { type: 'test_submit'; week: CourseWeek; test: WeeklyTest }
+    | { type: 'test_results'; week: CourseWeek; test: WeeklyTest };
+
+  function getNextWeekAction(weekRows: CourseWeek[], course: Course | null): NextWeekAction | null {
+    for (let i = 0; i < weekRows.length; i++) {
+      const week = weekRows[i];
+      const lockInfo = getWeekLockInfoFromData(week, course);
+      if (lockInfo.is_locked) break;
+
+      const sessions: ClassSession[] = week.class_sessions || [];
+      const incompleteSession = sessions.find((s) => !s.is_completed);
+      if (incompleteSession) {
+        return { type: 'session', week, session: incompleteSession };
+      }
+
+      const weeklyTest = week.weekly_test as (WeeklyTest & {
+        has_attempted?: boolean;
+        latest_submission?: { status?: string };
+        is_passed?: boolean;
+      }) | null | undefined;
+      if (!weeklyTest) continue;
+
+      const hasAttempted = !!weeklyTest.has_attempted;
+      const latestStatus = weeklyTest.latest_submission?.status;
+      const isPass = !!weeklyTest.is_passed;
+
+      if (!hasAttempted) return { type: 'test_submit', week, test: weeklyTest };
+      if (!isPass && latestStatus === 'published') return { type: 'test_submit', week, test: weeklyTest };
+      if (latestStatus && latestStatus !== 'published') return { type: 'test_results', week, test: weeklyTest };
+      if (!isPass) return { type: 'test_results', week, test: weeklyTest };
+    }
+    return null;
+  }
+
   const toggleWeekExpand = (weekId: number) => {
     setActiveWeekId(weekId);
     setExpandedWeeks(prev => {
@@ -305,24 +346,26 @@ export default function Courses() {
 
   const handleStartLearning = () => {
     if (weeks.length === 0) return;
-    for (let i = 0; i < weeks.length; i++) {
-      const lockInfo = getWeekLockInfo(weeks[i]);
-      if (!lockInfo.is_locked) {
-        const sessions: ClassSession[] = weeks[i].class_sessions || [];
-        const incompleteSession = sessions.find((s) => !s.is_completed);
-        if (incompleteSession) {
-          setActiveWeekId(weeks[i].id);
-          setExpandedWeeks(new Set([weeks[i].id]));
-          handlePlaySession(weeks[i].id, incompleteSession);
-          return;
-        }
-        continue;
+    const nextAction = getNextWeekAction(weeks, selectedCourse);
+    if (nextAction) {
+      setActiveWeekId(nextAction.week.id);
+      setExpandedWeeks(new Set([nextAction.week.id]));
+      if (nextAction.type === 'session') {
+        handlePlaySession(nextAction.week.id, nextAction.session);
       } else {
-        break;
+        setActiveTest(nextAction.test);
+        setActiveTestWeek(nextAction.week.id);
+        if (nextAction.type === 'test_submit') {
+          setIsTestSubmissionOpen(true);
+        } else {
+          setIsResultsOpen(true);
+        }
       }
+      return;
     }
-    setActiveWeekId(weeks[0].id);
-    setExpandedWeeks(new Set([weeks[0].id]));
+    const firstUnlocked = weeks.find((w) => !getWeekLockInfo(w).is_locked) || weeks[0];
+    setActiveWeekId(firstUnlocked.id);
+    setExpandedWeeks(new Set([firstUnlocked.id]));
   };
 
   const toggleSessionCompletion = async (weekId: number, sessionId: number, currentlyCompleted: boolean) => {
