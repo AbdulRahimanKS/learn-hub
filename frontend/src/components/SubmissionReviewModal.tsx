@@ -242,9 +242,19 @@ export function SubmissionReviewModal({
     try {
       const res = await apiClient.post(`${submissionBase}/answers/${answerId}/trigger-ai/`);
       if (res.data?.success) {
-        toast({ title: 'Question Analyzed', description: 'AI has evaluated this specific question.', variant: 'success' });
-        // Update local state for just this answer
         const updatedAnswer = res.data.data;
+        const feedbackText = String(updatedAnswer?.ai_feedback || '');
+        const hasAiFailure = isAiEvaluationFailureText(feedbackText);
+
+        toast({
+          title: hasAiFailure ? 'AI Error' : 'Question analyzed',
+          description: hasAiFailure
+            ? getFriendlyAiErrorMessage(feedbackText)
+            : 'AI has evaluated this specific question.',
+          variant: hasAiFailure ? 'destructive' : 'success',
+        });
+
+        // Update local state for just this answer
         setSubmission((prev: any) => ({
           ...prev,
           answers: prev.answers.map((a: any) => (a.id === answerId ? { ...a, ...updatedAnswer } : a)),
@@ -252,8 +262,8 @@ export function SubmissionReviewModal({
         if (updatedAnswer.ai_feedback !== undefined) {
           setQFeedback(prev => ({ ...prev, [idKey]: String(updatedAnswer.ai_feedback || '') }));
         }
-        // Also update qMarks if AI suggested a score
-        if (updatedAnswer.ai_score !== null && updatedAnswer.ai_score !== undefined) {
+        // Only apply suggested marks when AI run succeeded.
+        if (!hasAiFailure && updatedAnswer.ai_score !== null && updatedAnswer.ai_score !== undefined) {
           const maxM = Number(updatedAnswer.max_marks) || 0;
           let v = Math.round((Number(updatedAnswer.ai_score) || 0) * 100) / 100;
           v = Math.max(0, Math.min(v, maxM));
@@ -262,8 +272,18 @@ export function SubmissionReviewModal({
         // Re-sync from DB so any backend-side writes are reflected without closing modal.
         await fetchSubmission({ preserveLocalMarks: true, preserveRemarks: true });
       }
-    } catch (err) {
-      toast({ title: 'AI Error', description: 'Failed to analyze this question.', variant: 'destructive' });
+    } catch (err: unknown) {
+      const maybeErr = err as { response?: { data?: { detail?: string; message?: string; error?: string } } };
+      const raw =
+        maybeErr?.response?.data?.detail ||
+        maybeErr?.response?.data?.message ||
+        maybeErr?.response?.data?.error ||
+        'Failed to analyze this question.';
+      toast({
+        title: 'AI Error',
+        description: getFriendlyAiErrorMessage(String(raw)),
+        variant: 'destructive',
+      });
     } finally {
       setEvaluatingQuestionIds(prev => prev.filter(id => id !== idKey));
     }

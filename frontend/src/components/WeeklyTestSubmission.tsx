@@ -324,11 +324,16 @@ export function WeeklyTestSubmission({
                     .
                   </p>
                   <input
+                    key={activeQuestion.id}
                     type="file"
                     accept={STUDENT_ANSWER_FILE_ACCEPT}
                     className="hidden"
                     ref={(el) => (fileInputRefs.current[activeQuestion.id] = el)}
-                    onChange={(e) => handleFileChange(activeQuestion.id, e.target.files?.[0] || null)}
+                    onChange={(e) => {
+                      handleFileChange(activeQuestion.id, e.target.files?.[0] || null);
+                      // Allow selecting the same file again (same/different question) to re-trigger change events.
+                      e.currentTarget.value = '';
+                    }}
                   />
                   <div
                     role="button"

@@ -427,7 +427,12 @@ class TriggerAnswerAIEvaluationView(APIView):
                 )
 
             ai_service = AIEvaluationService()
-            ai_service.evaluate_single_answer(answer.id)
+            ai_result = ai_service.evaluate_single_answer(answer.id)
+            if not ai_result or not ai_result.get("ok", False):
+                raise ServiceError(
+                    detail=(ai_result or {}).get("error", "AI evaluation failed for this question."),
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                )
 
             answer.refresh_from_db()
             # Keep submission-level AI aggregate in sync with per-question re-runs.

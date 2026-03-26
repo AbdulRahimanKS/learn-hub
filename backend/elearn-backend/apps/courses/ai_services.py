@@ -352,16 +352,16 @@ class AIEvaluationService:
             )
         except TestSubmissionAnswer.DoesNotExist:
             logger.error(f"Answer {answer_id} not found.")
-            return
+            return {"ok": False, "error": "Answer not found."}
 
         submission = answer.submission
         if not submission:
             logger.error(f"Submission for answer {answer_id} not found.")
-            return
+            return {"ok": False, "error": "Submission not found for this answer."}
         test = submission.batch_weekly_test
         if not test:
             logger.error(f"Batch weekly test for submission {submission.id} not found.")
-            return
+            return {"ok": False, "error": "Batch weekly test not found for this submission."}
         q = answer.question
 
         answer_key_content = ""
@@ -422,10 +422,8 @@ class AIEvaluationService:
                 answer.ai_score = random.uniform(0, q.marks)
                 answer.ai_feedback = "Mocked single question feedback."
                 answer.save()
-                return
-            answer.ai_feedback = "AI provider is not configured for single-answer evaluation."
-            answer.save(update_fields=['ai_feedback'])
-            return
+                return {"ok": True}
+            return {"ok": False, "error": "AI provider is not configured for single-answer evaluation."}
 
         try:
             response = self.client.chat.completions.create(
@@ -449,7 +447,7 @@ class AIEvaluationService:
             answer.ai_feedback = result.get('feedback', '')
             answer.ai_response = result
             answer.save()
+            return {"ok": True}
         except Exception as e:
             logger.error(f"Single answer AI evaluation failed: {str(e)}")
-            answer.ai_feedback = f"AI Error: {str(e)}"
-            answer.save(update_fields=['ai_feedback'])
+            return {"ok": False, "error": str(e)}
