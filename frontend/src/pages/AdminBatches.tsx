@@ -635,7 +635,7 @@ export default function AdminBatches() {
         ) : (
           <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
             {batches.map(batch => (
-              <Card key={batch.id} className="shadow-card hover:shadow-lg transition-shadow flex flex-col">
+              <Card key={batch.id} className="group shadow-card hover:shadow-lg transition-shadow flex flex-col">
                 <CardHeader className="pb-3">
                   <div className="flex items-start justify-between gap-4">
                     <div className="space-y-1 flex-1 min-w-0">
@@ -676,13 +676,15 @@ export default function AdminBatches() {
                       {/* Progress */}
                       <div className="space-y-2 mt-2">
                         <div className="flex items-center justify-between text-sm">
-                          <span className="text-muted-foreground">Progress</span>
-                          <div className="flex items-center gap-1 text-muted-foreground">
+                          <span className="text-muted-foreground cursor-help" title={`${Math.round(batch.progress_percent || 0)}% complete`}>
+                            Progress
+                          </span>
+                          <div className="flex items-center gap-3 text-muted-foreground">
                             <BookOpen className="h-3.5 w-3.5" />
                             <span>{(batch as any).weeks_count ?? 0} week{((batch as any).weeks_count ?? 0) !== 1 ? 's' : ''}</span>
                           </div>
                         </div>
-                        <Progress value={batch.progress_percent} className="h-2" />
+                        <Progress value={batch.progress_percent} className="h-2" title={`${Math.round(batch.progress_percent || 0)}% complete`} />
                       </div>
 
                       {/* Stats row: enrolled + date */}

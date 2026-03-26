@@ -794,13 +794,13 @@ export default function AdminBatchStudents() {
                       </div>
 
                       {/* Unified Stats Area */}
-                      <div className="flex-1 grid grid-cols-2 md:grid-cols-3 gap-x-8 gap-y-3 mt-4 md:mt-0 items-end">
+                      <div className="flex-1 grid grid-cols-2 md:grid-cols-4 gap-x-8 gap-y-3 mt-4 md:mt-0 items-end">
                         <div className="flex flex-col gap-1 w-full group">
                           <div className="flex justify-between items-baseline mb-0.5">
                             <span className="text-[10px] text-muted-foreground font-bold tracking-tight group-hover:text-foreground transition-colors">Deliverable weeks</span>
                             <span className="text-xs font-bold">{enrollment.weeks_completed} <span className="text-[10px] text-muted-foreground font-normal">/ {enrollment.total_weeks}</span></span>
                           </div>
-                          <Progress value={enrollment.total_weeks ? (enrollment.weeks_completed / enrollment.total_weeks) * 100 : 0} className="h-1 bg-primary/10" />
+                          <Progress value={enrollment.total_weeks ? (enrollment.weeks_completed / enrollment.total_weeks) * 100 : 0} className="h-1 bg-blue-100 dark:bg-blue-900/30 [&>div]:bg-blue-500" />
                         </div>
                         
                         <div className="flex flex-col gap-1 w-full group">
@@ -809,6 +809,14 @@ export default function AdminBatchStudents() {
                             <span className="text-xs font-bold">{enrollment.weekly_tests_submitted} <span className="text-[10px] text-muted-foreground font-normal">/ {enrollment.total_weekly_tests}</span></span>
                           </div>
                           <Progress value={enrollment.total_weekly_tests ? (enrollment.weekly_tests_submitted / enrollment.total_weekly_tests) * 100 : 0} className="h-1 bg-success/20 [&>div]:bg-success" />
+                        </div>
+
+                        <div className="flex flex-col gap-1 w-full group">
+                          <div className="flex justify-between items-baseline mb-0.5">
+                            <span className="text-[10px] text-muted-foreground font-bold tracking-tight group-hover:text-foreground transition-colors">Videos</span>
+                            <span className="text-xs font-bold">{enrollment.videos_watched} <span className="text-[10px] text-muted-foreground font-normal">/ {enrollment.total_videos}</span></span>
+                          </div>
+                          <Progress value={enrollment.total_videos ? (enrollment.videos_watched / enrollment.total_videos) * 100 : 0} className="h-1 bg-violet-100 dark:bg-violet-900/30 [&>div]:bg-violet-500" />
                         </div>
 
                         <div className="flex flex-col gap-1 w-full group col-span-2 md:col-span-1">
@@ -823,8 +831,8 @@ export default function AdminBatchStudents() {
                               enrollment.overall_progress >= 80
                                 ? "[&>div]:bg-emerald-500"
                                 : enrollment.overall_progress >= 50
-                                  ? "[&>div]:bg-indigo-500"
-                                  : "[&>div]:bg-blue-500"
+                                  ? "[&>div]:bg-cyan-500"
+                                  : "[&>div]:bg-sky-500"
                             )}
                           />
                         </div>
