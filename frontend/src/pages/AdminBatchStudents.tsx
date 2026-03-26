@@ -753,6 +753,9 @@ export default function AdminBatchStudents() {
               <div className="flex flex-col divide-y divide-border/40">
                 {enrolledStudents.map((enrollment) => {
                   const isExpanded = expandedStudentId === enrollment.id;
+                  const weekStatusRows = Array.isArray(enrollment.weeks_access_status)
+                    ? [...enrollment.weeks_access_status].sort((a: any, b: any) => (a.week_number || 0) - (b.week_number || 0))
+                    : [];
                   
                   return (
                   <div key={enrollment.id} className="bg-card overflow-hidden transition-all duration-300">
@@ -794,7 +797,7 @@ export default function AdminBatchStudents() {
                       <div className="flex-1 grid grid-cols-2 md:grid-cols-3 gap-x-8 gap-y-3 mt-4 md:mt-0 items-end">
                         <div className="flex flex-col gap-1 w-full group">
                           <div className="flex justify-between items-baseline mb-0.5">
-                            <span className="text-[10px] text-muted-foreground font-bold uppercase tracking-tight group-hover:text-foreground transition-colors">Weeks</span>
+                            <span className="text-[10px] text-muted-foreground font-bold tracking-tight group-hover:text-foreground transition-colors">Deliverable weeks</span>
                             <span className="text-xs font-bold">{enrollment.weeks_completed} <span className="text-[10px] text-muted-foreground font-normal">/ {enrollment.total_weeks}</span></span>
                           </div>
                           <Progress value={enrollment.total_weeks ? (enrollment.weeks_completed / enrollment.total_weeks) * 100 : 0} className="h-1 bg-primary/10" />
@@ -802,7 +805,7 @@ export default function AdminBatchStudents() {
                         
                         <div className="flex flex-col gap-1 w-full group">
                           <div className="flex justify-between items-baseline mb-0.5">
-                            <span className="text-[10px] text-muted-foreground font-bold uppercase tracking-tight group-hover:text-foreground transition-colors">Tests</span>
+                            <span className="text-[10px] text-muted-foreground font-bold tracking-tight group-hover:text-foreground transition-colors">Tests</span>
                             <span className="text-xs font-bold">{enrollment.weekly_tests_submitted} <span className="text-[10px] text-muted-foreground font-normal">/ {enrollment.total_weekly_tests}</span></span>
                           </div>
                           <Progress value={enrollment.total_weekly_tests ? (enrollment.weekly_tests_submitted / enrollment.total_weekly_tests) * 100 : 0} className="h-1 bg-success/20 [&>div]:bg-success" />
@@ -810,10 +813,20 @@ export default function AdminBatchStudents() {
 
                         <div className="flex flex-col gap-1 w-full group col-span-2 md:col-span-1">
                           <div className="flex justify-between items-baseline mb-0.5">
-                            <span className="text-[10px] text-muted-foreground font-bold uppercase tracking-tight group-hover:text-foreground transition-colors">Progress</span>
+                            <span className="text-[10px] text-muted-foreground font-bold tracking-tight group-hover:text-foreground transition-colors">Progress</span>
                             <span className="text-xs font-bold">{Math.round(enrollment.overall_progress || 0)}%</span>
                           </div>
-                          <Progress value={enrollment.overall_progress || 0} className="h-1 bg-accent/20 [&>div]:bg-accent" />
+                          <Progress
+                            value={enrollment.overall_progress || 0}
+                            className={cn(
+                              "h-1 bg-slate-200/80 dark:bg-slate-700/60",
+                              enrollment.overall_progress >= 80
+                                ? "[&>div]:bg-emerald-500"
+                                : enrollment.overall_progress >= 50
+                                  ? "[&>div]:bg-indigo-500"
+                                  : "[&>div]:bg-blue-500"
+                            )}
+                          />
                         </div>
                       </div>
                       
@@ -904,25 +917,24 @@ export default function AdminBatchStudents() {
                         {/* Granular Week Access Card */}
                         <div className="flex-1">
                           <div className="flex items-center justify-between mb-4">
-                            <h4 className="text-sm font-bold uppercase tracking-wider text-muted-foreground flex items-center gap-2">
-                               Course Access Control
+                            <h4 className="text-sm font-bold tracking-tight text-muted-foreground flex items-center gap-2">
+                               Course access control
                             </h4>
                             <div className="flex items-center gap-3">
                               <div className="flex items-center gap-1.5">
                                 <div className="h-2 w-2 rounded-full bg-success" />
-                                <span className="text-[10px] font-medium text-muted-foreground uppercase">Unlocked</span>
+                                <span className="text-[10px] font-medium text-muted-foreground">Unlocked</span>
                               </div>
                               <div className="flex items-center gap-1.5">
                                 <div className="h-2 w-2 rounded-full bg-muted-foreground/30" />
-                                <span className="text-[10px] font-medium text-muted-foreground uppercase">Locked</span>
+                                <span className="text-[10px] font-medium text-muted-foreground">Locked</span>
                               </div>
                             </div>
                           </div>
 
                           <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                            {Array.from({ length: enrollment.total_weeks || 0 }).map((_, i) => {
-                              const weekNo = i + 1;
-                              const weekStatus = (enrollment.weeks_access_status || []).find((s: any) => s.week_number === weekNo);
+                            {weekStatusRows.map((weekStatus: any) => {
+                              const weekNo = weekStatus?.week_number;
                               
                               const isManual = weekStatus?.is_manually_unlocked;
                               const isSystem = weekStatus?.is_system_unlocked;
@@ -966,7 +978,7 @@ export default function AdminBatchStudents() {
                                         size="sm"
                                         variant="ghost"
                                         className={cn(
-                                          "h-8 px-3 text-[11px] font-bold uppercase tracking-wider",
+                                          "h-8 px-3 text-[11px] font-bold",
                                           isRevokable && !isDropped ? "text-destructive hover:bg-destructive/10 hover:text-destructive" : "text-muted-foreground opacity-50 cursor-not-allowed"
                                         )}
                                         onClick={() => isRevokable && !isDropped && handleToggleWeekUnlock(enrollment.id, weekNo, 'revoke')}
@@ -980,7 +992,7 @@ export default function AdminBatchStudents() {
                                         size="sm"
                                         variant="outline"
                                         className={cn(
-                                          "h-8 border-primary/25 px-3 text-[11px] font-bold uppercase tracking-wider text-primary",
+                                          "h-8 border-primary/25 px-3 text-[11px] font-bold text-primary",
                                           "hover:bg-primary hover:text-primary-foreground dark:border-primary/40",
                                           isDropped && "opacity-50 cursor-not-allowed"
                                         )}
@@ -996,7 +1008,7 @@ export default function AdminBatchStudents() {
                             })}
                           </div>
                           
-                          {(!enrollment.total_weeks || enrollment.total_weeks === 0) && (
+                          {weekStatusRows.length === 0 && (
                             <div className="p-8 text-center bg-muted/5 rounded-2xl border border-dashed border-border">
                               <Info className="h-8 w-8 mx-auto mb-2 text-muted-foreground opacity-30" />
                               <p className="text-sm font-medium text-muted-foreground">No weeks configured for this course yet.</p>
@@ -1006,7 +1018,7 @@ export default function AdminBatchStudents() {
                           <div className="mt-6 flex items-start gap-3 bg-primary/5 p-4 rounded-xl border border-primary/10">
                             <Info className="h-4 w-4 text-primary mt-0.5 shrink-0" />
                             <div className="text-xs text-primary/80 leading-relaxed">
-                              <p className="font-bold mb-1 uppercase tracking-tight">Access Rules Help</p>
+                              <p className="font-bold mb-1 tracking-tight">Access rules help</p>
                               <ul className="list-disc pl-4 space-y-1">
                                 <li><strong>Standard Access:</strong> Automatically granted based on start date and previous week assessment results.</li>
                                 <li><strong>Manual Access:</strong> Explicitly granted by an admin/teacher. These bypass standard requirements.</li>
