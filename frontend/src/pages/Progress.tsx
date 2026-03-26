@@ -30,6 +30,9 @@ import {
   CheckCircle,
   Clock,
   Lock,
+  UserPlus,
+  Users,
+  UserX,
   Play,
   FileText,
   Download,
@@ -98,7 +101,7 @@ export default function Progress() {
     const timer = setTimeout(() => {
       setDebouncedSearch(search);
       setCurrentPage(1); // Reset page on search
-    }, 200);
+    }, 500);
     return () => clearTimeout(timer);
   }, [search]);
 
@@ -122,7 +125,7 @@ export default function Progress() {
     try {
       const res = await batchApi.getBatchStudents(selectedBatchId, { 
         page: currentPage, 
-        page_size: 10,
+        page_size: 6,
         search: debouncedSearch
       }, { signal: controller.signal });
       if (controller.signal.aborted) return;
@@ -277,7 +280,7 @@ export default function Progress() {
     }
   };
 
-  const AdminProgress = () => (
+  const renderAdminProgress = () => (
     <div className="space-y-6">
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div className="flex-1">
@@ -312,7 +315,7 @@ export default function Progress() {
             <CardContent className="p-6">
               <div className="flex items-center gap-4">
                 <div className="p-3 rounded-xl bg-primary/10">
-                  <TrendingUp className="h-6 w-6 text-primary" />
+                  <UserPlus className="h-6 w-6 text-primary" />
                 </div>
                 <div>
                   <p className="text-2xl font-bold text-foreground">{stats.total}</p>
@@ -338,7 +341,7 @@ export default function Progress() {
             <CardContent className="p-6">
               <div className="flex items-center gap-4">
                 <div className="p-3 rounded-xl bg-info/10">
-                  <Award className="h-6 w-6 text-info" />
+                  <Users className="h-6 w-6 text-info" />
                 </div>
                 <div>
                   <p className="text-2xl font-bold text-foreground">{stats.active}</p>
@@ -351,7 +354,7 @@ export default function Progress() {
             <CardContent className="p-6">
               <div className="flex items-center gap-4">
                 <div className="p-3 rounded-xl bg-destructive/10">
-                  <Clock className="h-6 w-6 text-destructive" />
+                  <UserX className="h-6 w-6 text-destructive" />
                 </div>
                 <div>
                   <p className="text-2xl font-bold text-foreground">{stats.dropped}</p>
@@ -396,6 +399,7 @@ export default function Progress() {
                 <TableRow>
                   <TableHead className="py-4">Student</TableHead>
                   <TableHead>Enrollment Status</TableHead>
+                  <TableHead>Deliverable weeks</TableHead>
                   <TableHead>Videos</TableHead>
                   <TableHead>Tests Passed</TableHead>
                   <TableHead>Overall Progress</TableHead>
@@ -405,13 +409,13 @@ export default function Progress() {
               <TableBody>
                 {loading ? (
                    <TableRow>
-                     <TableCell colSpan={6} className="py-12 text-center">
+                     <TableCell colSpan={7} className="py-12 text-center">
                        <Loader2 className="h-8 w-8 animate-spin mx-auto text-primary opacity-50 mb-2" />
                      </TableCell>
                    </TableRow>
                 ) : students.length === 0 ? (
                    <TableRow>
-                     <TableCell colSpan={6} className="h-[300px]">
+                    <TableCell colSpan={7} className="h-[300px]">
                        <div className="text-center py-12 text-muted-foreground border-2 border-dashed border-border rounded-xl mx-2">
                          <User className="h-12 w-12 mx-auto mb-4 opacity-50" />
                          <h3 className="text-lg font-medium mb-1">
@@ -427,82 +431,119 @@ export default function Progress() {
                        </div>
                      </TableCell>
                    </TableRow>
-                ) : students.map((enrollment: any) => (
-                  <TableRow 
-                    key={enrollment.id} 
-                    className="cursor-pointer hover:bg-muted/30 transition-colors" 
-                    onClick={() => setSelectedEnrollment(enrollment)}
-                  >
-                    <TableCell>
-                      <div className="flex items-center gap-3 py-1">
-                        <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center shrink-0 border border-primary/20">
-                          <span className="text-sm font-bold text-primary">
-                            {enrollment.student_name.charAt(0)}
+                ) : students.map((enrollment: any) => {
+                  const weeksCompleted = Number(enrollment.weeks_completed || 0);
+                  const totalWeeks = Number(enrollment.total_weeks || 0);
+
+                  return (
+                    <TableRow
+                      key={enrollment.id}
+                      className="cursor-pointer hover:bg-muted/30 transition-colors"
+                      onClick={() => setSelectedEnrollment(enrollment)}
+                    >
+                      <TableCell>
+                        <div className="flex items-center gap-3 py-1">
+                          <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center shrink-0 border border-primary/20 overflow-hidden">
+                            {enrollment.profile_picture ? (
+                              <img
+                                src={enrollment.profile_picture}
+                                alt=""
+                                className="h-full w-full object-cover"
+                              />
+                            ) : (
+                              <span className="text-sm font-bold text-primary">
+                                {enrollment.student_name?.charAt(0)}
+                              </span>
+                            )}
+                          </div>
+                          <div className="min-w-0">
+                            <p className="font-bold text-foreground truncate">{enrollment.student_name}</p>
+                            <p className="text-xs text-muted-foreground truncate">{enrollment.student_email}</p>
+                          </div>
+                        </div>
+                      </TableCell>
+                      <TableCell>
+                        <Badge
+                          variant="outline"
+                          className={cn(
+                            "text-[10px] h-5 py-0 px-2 tracking-wide font-bold capitalize",
+                            enrollment.status === 'active'
+                              ? "bg-success/10 text-success border-success/30"
+                              : enrollment.status === 'completed'
+                                ? "bg-primary/10 text-primary border-primary/30"
+                                : enrollment.status === 'dropped'
+                                  ? "bg-destructive/10 text-destructive border-destructive/30"
+                                  : "bg-muted text-muted-foreground border-border",
+                          )}
+                        >
+                          {enrollment.status}
+                        </Badge>
+                      </TableCell>
+                      <TableCell className="max-w-[220px]">
+                        <div className="flex items-center">
+                          <span className="font-medium tabular-nums">
+                            {weeksCompleted}
+                          </span>
+                          <span className="text-muted-foreground text-xs ml-1 tabular-nums">
+                            / {totalWeeks}
                           </span>
                         </div>
-                        <div className="min-w-0">
-                           <p className="font-bold text-foreground truncate">{enrollment.student_name}</p>
-                           <p className="text-xs text-muted-foreground truncate">{enrollment.student_email}</p>
+                      </TableCell>
+                      <TableCell>
+                        <span className="font-medium">{enrollment.videos_watched || 0}</span>
+                        <span className="text-muted-foreground text-xs ml-1">/ {enrollment.total_videos || 0}</span>
+                      </TableCell>
+                      <TableCell>
+                        <span className="font-medium">{enrollment.weekly_tests_submitted || 0}</span>
+                        <span className="text-muted-foreground text-xs ml-1">/ {enrollment.total_weekly_tests || 0}</span>
+                      </TableCell>
+                      <TableCell className="w-1/4">
+                        <div className="flex items-center gap-3">
+                          <div className="w-24 h-2 bg-muted rounded-full overflow-hidden shrink-0">
+                            <div
+                              className={`h-full rounded-full ${
+                                enrollment.overall_progress >= 100 ? 'bg-success' : 'bg-primary'
+                              }`}
+                              style={{ width: `${Math.min(100, enrollment.overall_progress || 0)}%` }}
+                            />
+                          </div>
+                          <span className="text-sm font-bold w-12 text-foreground">
+                            {enrollment.overall_progress || 0}%
+                          </span>
                         </div>
-                      </div>
-                    </TableCell>
-                    <TableCell>
-                      <Badge variant="outline" className={cn(
-                        "text-[10px] h-5 py-0 px-2 tracking-wide font-bold capitalize",
-                        enrollment.status === 'active' ? "bg-success/10 text-success border-success/30" : 
-                        enrollment.status === 'completed' ? "bg-primary/10 text-primary border-primary/30" :
-                        enrollment.status === 'dropped' ? "bg-destructive/10 text-destructive border-destructive/30" :
-                        "bg-muted text-muted-foreground border-border"
-                      )}>
-                         {enrollment.status}
-                      </Badge>
-                    </TableCell>
-                    <TableCell>
-                       <span className="font-medium">
-                         {enrollment.videos_watched || 0}
-                       </span>
-                       <span className="text-muted-foreground text-xs ml-1">
-                         / {enrollment.total_videos || 0}
-                       </span>
-                    </TableCell>
-                    <TableCell>
-                       <span className="font-medium">
-                         {enrollment.weekly_tests_submitted || 0}
-                       </span>
-                       <span className="text-muted-foreground text-xs ml-1">
-                         / {enrollment.total_weekly_tests || 0}
-                       </span>
-                    </TableCell>
-                    <TableCell className="w-1/4">
-                      <div className="flex items-center gap-3">
-                        <div className="w-24 h-2 bg-muted rounded-full overflow-hidden shrink-0">
-                          <div
-                            className={`h-full rounded-full ${
-                              enrollment.overall_progress >= 100 ? 'bg-success' : 'bg-primary'
-                            }`}
-                            style={{ width: `${Math.min(100, enrollment.overall_progress || 0)}%` }}
-                          />
-                        </div>
-                        <span className="text-sm font-bold w-12 text-foreground">
-                          {enrollment.overall_progress || 0}%
-                        </span>
-                      </div>
-                    </TableCell>
-                    <TableCell className="text-right text-muted-foreground text-sm">
-                       {new Date(enrollment.enrolled_at).toLocaleDateString()}
-                    </TableCell>
-                  </TableRow>
-                ))}
+                      </TableCell>
+                      <TableCell className="text-right text-muted-foreground text-sm">
+                        {new Date(enrollment.enrolled_at).toLocaleDateString()}
+                      </TableCell>
+                    </TableRow>
+                  );
+                })}
               </TableBody>
             </Table>
           </div>
           
           {/* Pagination */}
           {!loading && students.length > 0 && totalPages > 1 && (
-            <div className="flex items-center justify-center gap-3 p-4 border-t">
-              <Button variant="outline" size="sm" onClick={() => setCurrentPage(p => Math.max(1, p - 1))} disabled={currentPage === 1}>Previous</Button>
-              <span className="text-sm font-medium text-muted-foreground w-20 text-center">Page {currentPage} of {totalPages}</span>
-              <Button variant="outline" size="sm" onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))} disabled={currentPage === totalPages}>Next</Button>
+            <div className="flex w-full items-center justify-center gap-2 mt-6 px-6 py-4 border-t border-border/50">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+                disabled={currentPage === 1}
+              >
+                Previous
+              </Button>
+              <div className="text-sm font-medium text-muted-foreground px-4">
+                Page {currentPage} of {totalPages}
+              </div>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
+                disabled={currentPage === totalPages}
+              >
+                Next
+              </Button>
             </div>
           )}
         </CardContent>
@@ -531,7 +572,15 @@ export default function Progress() {
             <SheetHeader>
               <div className="flex items-start gap-4">
                 <div className="h-16 w-16 rounded-2xl bg-white/20 border border-white/30 flex items-center justify-center shrink-0 shadow-lg">
-                  <span className="text-2xl font-black">{e.student_name?.charAt(0).toUpperCase()}</span>
+                  {e.profile_picture ? (
+                    <img
+                      src={e.profile_picture}
+                      alt=""
+                      className="h-full w-full object-cover"
+                    />
+                  ) : (
+                    <span className="text-2xl font-black">{e.student_name?.charAt(0).toUpperCase()}</span>
+                  )}
                 </div>
                 <div className="flex-1 min-w-0">
                   <SheetTitle className="text-white text-xl font-black truncate">{e.student_name}</SheetTitle>
@@ -1003,7 +1052,7 @@ export default function Progress() {
       <div className="space-y-6 pb-10">
          {/* Content Layer based on Role */}
          <div className="animate-in fade-in slide-in-from-bottom-2 duration-500 delay-100">
-           {isStudent ? <StudentProgress /> : <AdminProgress />}
+           {isStudent ? <StudentProgress /> : renderAdminProgress()}
          </div>
       </div>
       {/* Student Detail Slide-out Panel */}
