@@ -59,12 +59,20 @@ import * as XLSX from 'xlsx';
 import { apiClient } from '@/lib/api';
 import { cn } from '@/lib/utils';
 import { formatTestScorePercent } from '@/lib/format-test-score';
+import { format } from 'date-fns';
 
 function formatEnrolledDate(iso: string | null | undefined): string {
   if (!iso) return '—';
   const d = new Date(iso);
   if (Number.isNaN(d.getTime())) return '—';
   return d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
+}
+
+function formatSubmissionStatusLabel(raw?: string | null) {
+  return String(raw || '')
+    .replace(/_/g, ' ')
+    .toLowerCase()
+    .replace(/\b\w/g, (c) => c.toUpperCase());
 }
 
 export default function Progress() {
@@ -811,9 +819,8 @@ export default function Progress() {
       </div>
 
       {loading ? (
-        <div className="py-20 flex flex-col items-center justify-center gap-4 border rounded-2xl bg-card">
-           <Loader2 className="h-8 w-8 animate-spin text-primary opacity-50" />
-           <p className="text-muted-foreground font-medium">Calculating progress...</p>
+        <div className="flex items-center justify-center py-16">
+          <Loader2 className="h-8 w-8 animate-spin text-primary" />
         </div>
       ) : (
         <>
@@ -867,10 +874,10 @@ export default function Progress() {
                   <CardDescription className="mt-0.5">Complete each week's content to unlock the next</CardDescription>
                 </div>
                 {selectedBatchId && (
-                  <Button 
-                    variant="outline" 
+                  <Button
+                    variant="outline"
                     size="sm"
-                    className="shrink-0 gap-1.5 border-primary/40 text-primary hover:bg-primary hover:text-primary-foreground dark:border-primary/50"
+                    className="h-10 shrink-0 gap-1.5 rounded-xl border-border bg-background font-bold"
                     onClick={() => {
                       if (selectedBatchCourseId) {
                         navigate(`/courses/${selectedBatchCourseId}`);
@@ -887,11 +894,11 @@ export default function Progress() {
             </CardHeader>
             <CardContent className="pt-0">
               {weeks.length === 0 ? (
-                <div className="py-12 border-2 border-dashed border-border/50 text-center rounded-2xl">
+                <div className="rounded-xl border border-border bg-muted/40 px-6 py-12 text-center">
                   <p className="text-muted-foreground">No weeks have been published for this batch yet.</p>
                 </div>
               ) : (
-                <div className="space-y-2">
+                <div className="space-y-4">
                   {weeks.slice(0, 5).map((week) => {
                     const totalWeekVids = week.class_sessions?.length || 0;
                     const completedWeekVids = week.class_sessions?.filter(s => s.is_completed).length || 0;
@@ -902,80 +909,85 @@ export default function Progress() {
                       totalWeekVids === 0 || completedWeekVids >= totalWeekVids;
                     const testRequirementMet = !hasWeeklyTest || testPassed;
                     const weekComplete = videosComplete && testRequirementMet;
-                    const showWeekPassed = week.is_unlocked && weekComplete;
-                    const vidPct = totalWeekVids > 0 ? Math.round((completedWeekVids / totalWeekVids) * 100) : 0;
+                    /* Match course page: use student_lock_status, not calendar-only is_unlocked */
+                    const studentLocked =
+                      week.student_lock_status != null
+                        ? week.student_lock_status.is_locked
+                        : !week.is_unlocked;
+                    const showWeekPassed = !studentLocked && weekComplete;
 
                     return (
                       <div
                         key={week.id}
                         className={cn(
-                          "flex items-center gap-4 px-4 py-3.5 rounded-xl border transition-all",
-                          week.is_unlocked 
-                            ? "bg-card border-border hover:border-primary/30 hover:bg-muted/20" 
-                            : "bg-muted/20 border-border/30 opacity-60"
+                          'group flex flex-col gap-3 rounded-xl border border-border bg-muted/40 p-4 transition-all hover:bg-accent/20 hover:shadow-sm sm:flex-row sm:items-center sm:justify-between',
+                          studentLocked && 'opacity-80',
                         )}
                       >
-                        {/* Week Icon */}
-                        <div className={cn(
-                          "flex h-10 w-10 shrink-0 items-center justify-center rounded-xl font-black text-sm transition-colors",
-                          showWeekPassed
-                            ? 'bg-success/10 text-success' 
-                            : week.is_unlocked 
-                              ? 'bg-primary/10 text-primary' 
-                              : 'bg-muted text-muted-foreground border border-border'
-                        )}>
-                          {showWeekPassed ? (
-                            <CheckCircle className="h-5 w-5" />
-                          ) : week.is_unlocked ? (
-                            <span className="font-black">{week.week_number}</span>
-                          ) : (
-                            <Lock className="h-4 w-4" />
-                          )}
-                        </div>
-
-                        {/* Week Info */}
-                        <div className="flex-1 min-w-0">
-                          <div className="flex items-center gap-2 flex-wrap">
-                            <p className={cn("font-bold text-sm truncate", week.is_unlocked ? 'text-foreground' : 'text-muted-foreground')}>
-                              Week {week.week_number}: {week.title}
-                            </p>
-                            {showWeekPassed && (
-                              <Badge className="h-4 shrink-0 bg-success px-1.5 text-[9px] font-semibold capitalize text-white">
-                                Passed
-                              </Badge>
+                        <div className="flex min-w-0 flex-1 items-start gap-3">
+                          <div
+                            className={cn(
+                              'flex h-10 w-10 shrink-0 items-center justify-center rounded-lg text-sm font-black transition-colors',
+                              showWeekPassed
+                                ? 'bg-success/10 text-success group-hover:bg-success/15'
+                                : !studentLocked
+                                  ? 'bg-primary/10 text-primary group-hover:bg-primary/15'
+                                  : 'bg-muted text-muted-foreground',
+                            )}
+                          >
+                            {showWeekPassed ? (
+                              <CheckCircle className="h-5 w-5" />
+                            ) : !studentLocked ? (
+                              <span className="font-black">{week.week_number}</span>
+                            ) : (
+                              <Lock className="h-4 w-4" />
                             )}
                           </div>
-                          <div className="flex items-center gap-4 mt-1 text-xs text-muted-foreground">
-                            <span className="flex items-center gap-1">
-                              <VideoIcon className="h-3 w-3" />
-                              {completedWeekVids}/{totalWeekVids} videos
-                            </span>
-                            {week.weekly_test && (
-                              <span className="flex items-center gap-1">
-                                <FileText className="h-3 w-3" />
-                                {weekTestScore !== undefined && weekTestScore !== null ? (
-                                  <span className={testPassed ? 'text-success font-bold' : 'text-warning font-bold'}>
-                                    Test: {formatTestScorePercent(weekTestScore)}%
-                                  </span>
-                                ) : 'Test: Not Attempted'}
-                              </span>
-                            )}
-                          </div>
-                        </div>
-
-                        {/* Right section: Progress bar OR Locked badge */}
-                        <div className="shrink-0 flex items-center gap-3">
-                          {week.is_unlocked ? (
-                            <div className="w-28 hidden sm:block">
-                              <ProgressBar value={vidPct} className="h-1.5" />
+                          <div className="min-w-0 flex-1 space-y-1">
+                            <div className="flex flex-wrap items-center gap-2">
+                              <p
+                                className={cn(
+                                  'truncate font-medium text-foreground',
+                                  studentLocked && 'text-muted-foreground',
+                                )}
+                              >
+                                Week {week.week_number}: {week.title}
+                              </p>
+                              {showWeekPassed && (
+                                <Badge
+                                  variant="outline"
+                                  className="rounded-lg border-success/30 bg-success/10 px-2 py-0.5 text-[10px] font-black text-success shadow-sm"
+                                >
+                                  Passed
+                                </Badge>
+                              )}
                             </div>
-                          ) : (
-                            <span className="text-xs font-medium text-muted-foreground flex items-center gap-1">
-                              <Lock className="h-3 w-3" />
-                              Locked
-                            </span>
-                          )}
+                            <div className="flex flex-wrap items-center gap-2 text-[10px] text-muted-foreground">
+                              <span className="inline-flex items-center gap-1 rounded-md bg-muted px-2 py-0.5 font-medium">
+                                <VideoIcon className="h-3 w-3 shrink-0" />
+                                {completedWeekVids}/{totalWeekVids} videos
+                              </span>
+                              {week.weekly_test && (
+                                <span className="inline-flex items-center gap-1 rounded-md bg-muted px-2 py-0.5 font-medium">
+                                  <FileText className="h-3 w-3 shrink-0" />
+                                  {weekTestScore !== undefined && weekTestScore !== null ? (
+                                    <span className={testPassed ? 'font-bold text-success' : 'font-bold text-warning'}>
+                                      Test: {formatTestScorePercent(weekTestScore)}%
+                                    </span>
+                                  ) : (
+                                    'Test: Not attempted'
+                                  )}
+                                </span>
+                              )}
+                            </div>
+                          </div>
                         </div>
+                        {studentLocked ? (
+                          <div className="flex shrink-0 items-center gap-1.5 text-xs font-medium text-muted-foreground sm:self-center">
+                            <Lock className="h-3.5 w-3.5" />
+                            Locked
+                          </div>
+                        ) : null}
                       </div>
                     );
                   })}
@@ -984,99 +996,140 @@ export default function Progress() {
             </CardContent>
           </Card>
 
-          {/* Assessment List Card */}
-          <Card className="shadow-card mt-6">
-            <CardHeader className="pb-3">
-              <div className="flex items-center justify-between">
-                <div>
-                  <CardTitle className="flex items-center gap-2 text-xl font-display font-black">
-                    <FileText className="h-5 w-5 text-primary" />
-                    Assessments
-                  </CardTitle>
-                  <CardDescription className="mt-0.5">Review your test submissions and scores</CardDescription>
-                </div>
-                <Button 
-                  variant="outline" 
-                  size="sm"
-                  className="shrink-0 gap-1.5 border-primary/40 text-primary hover:bg-primary hover:text-primary-foreground dark:border-primary/50"
-                  onClick={() => navigate('/assessments')}
-                >
-                  View All
-                  <ChevronRight className="h-4 w-4" />
-                </Button>
+          {/* Assessment list — same row pattern as Assessments page (student view) */}
+          <Card className="mt-6 shadow-card">
+            <CardHeader className="flex flex-col gap-1 sm:flex-row sm:items-start sm:justify-between">
+              <div>
+                <CardTitle className="flex items-center gap-2 text-xl font-display font-bold">
+                  <FileText className="h-5 w-5 text-primary" />
+                  Assessments
+                </CardTitle>
+                <CardDescription className="mt-0.5">
+                  Review your test submissions and scores
+                </CardDescription>
               </div>
+              <Button
+                variant="outline"
+                size="sm"
+                className="h-10 shrink-0 gap-1.5 rounded-xl border-border bg-background font-bold sm:mt-0"
+                onClick={() => navigate('/assessments')}
+              >
+                View All
+                <ChevronRight className="h-4 w-4" />
+              </Button>
             </CardHeader>
-            <CardContent className="pt-0">
+            <CardContent>
               {isSubmissionsLoading ? (
-                <div className="py-12 flex flex-col items-center justify-center gap-4">
-                  <Loader2 className="h-6 w-6 animate-spin text-primary opacity-50" />
-                  <p className="text-muted-foreground text-sm">Loading assessments...</p>
+                <div className="flex items-center justify-center py-16">
+                  <Loader2 className="h-8 w-8 animate-spin text-primary" />
                 </div>
               ) : submissions.length === 0 ? (
-                <div className="py-12 border-2 border-dashed border-border/50 text-center rounded-2xl">
-                  <p className="text-muted-foreground">No assessments found for this batch.</p>
+                <div className="rounded-xl border border-border bg-muted/40 px-6 py-16 text-center">
+                  <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-lg bg-warning/10">
+                    <FileText className="h-6 w-6 text-warning" />
+                  </div>
+                  <h3 className="text-lg font-semibold text-foreground">No assessments yet</h3>
+                  <p className="mx-auto mt-2 max-w-md text-sm text-muted-foreground">
+                    Complete lessons and weekly tests for this batch. Submissions will appear here and on the Assessments page.
+                  </p>
                 </div>
               ) : (
-                <div className="space-y-3">
-                  {submissions.slice(0, 5).map((assessment) => (
-                    <div
-                      key={assessment.id}
-                      className="flex flex-col md:flex-row md:items-center justify-between p-4 rounded-xl border bg-card hover:border-primary/30 hover:bg-muted/10 transition-all cursor-pointer"
-                      onClick={() => navigate('/assessments')}
-                    >
-                      <div className="flex items-start gap-4">
-                        <div className={cn(
-                          "p-2.5 rounded-xl shrink-0 transition-colors",
-                          assessment.status === 'published' 
-                            ? "bg-success/10 text-success" 
-                            : "bg-warning/10 text-warning"
-                        )}>
-                          {assessment.status === 'published' ? (
-                            <CheckCircle className="h-5 w-5" />
-                          ) : (
-                            <Clock className="h-5 w-5" />
-                          )}
-                        </div>
-                        <div className="space-y-1">
-                          <h3 className="font-bold text-sm text-foreground">{assessment.test_title}</h3>
-                          <div className="flex items-center gap-2">
-                             <Badge variant="outline" className="border-border text-muted-foreground font-bold text-[8px] uppercase tracking-wider px-1.5 h-4">
-                               Week {assessment.week_number}
-                             </Badge>
-                             <span className="text-[10px] text-muted-foreground font-medium uppercase">
-                               Attempt {assessment.attempt_number}
-                             </span>
+                <div className="space-y-4">
+                  {submissions.slice(0, 5).map((assessment) => {
+                    const rawPassPercentage = Number(assessment.pass_percentage);
+                    const passPercentage =
+                      Number.isFinite(rawPassPercentage) && rawPassPercentage > 0 && rawPassPercentage <= 100
+                        ? rawPassPercentage
+                        : 70;
+                    return (
+                      <div
+                        key={assessment.id}
+                        className="group flex flex-col gap-4 rounded-xl border border-border bg-muted/40 p-4 transition-all hover:bg-accent/20 hover:shadow-sm sm:flex-row sm:items-center sm:justify-between"
+                      >
+                        <div className="flex min-w-0 flex-1 items-start gap-3">
+                          <div
+                            className={cn(
+                              'shrink-0 rounded-lg p-2.5 transition-colors',
+                              assessment.status === 'published'
+                                ? 'bg-success/10 text-success group-hover:bg-success/15'
+                                : 'bg-warning/10 text-warning group-hover:bg-warning/15',
+                            )}
+                          >
+                            {assessment.status === 'published' ? (
+                              <CheckCircle className="h-5 w-5" />
+                            ) : (
+                              <Clock className="h-5 w-5" />
+                            )}
                           </div>
-                        </div>
-                      </div>
-
-                      <div className="flex items-center gap-6 mt-4 md:mt-0 pt-3 md:pt-0 border-t md:border-t-0 border-border/50">
-                        {assessment.status === 'published' ? (
-                          <div className="flex items-center gap-3">
-                            <div className="text-right">
-                              <p className="text-lg font-black text-foreground tabular-nums">
-                                {formatTestScorePercent(assessment.marks_obtained)}%
-                              </p>
-                              <p className="text-[8px] font-bold uppercase tracking-widest text-muted-foreground">Score</p>
+                          <div className="min-w-0 space-y-1">
+                            <div className="flex flex-wrap items-center gap-2">
+                              <p className="font-medium text-foreground">{assessment.test_title}</p>
+                              {assessment.status === 'published' ? (
+                                <Badge
+                                  variant="outline"
+                                  className={cn(
+                                    'rounded-lg px-2 py-0.5 text-[10px] font-black shadow-sm',
+                                    assessment.is_passed
+                                      ? 'border-success/30 bg-success/10 text-success'
+                                      : 'border-rose-500/30 bg-rose-500/10 text-rose-500',
+                                  )}
+                                >
+                                  {assessment.is_passed ? 'Passed' : 'Failed'}
+                                </Badge>
+                              ) : (
+                                <Badge
+                                  variant="outline"
+                                  className="rounded-lg border-primary/25 bg-primary/10 px-2 py-0.5 text-[10px] font-black text-primary"
+                                >
+                                  {formatSubmissionStatusLabel(assessment.status)}
+                                </Badge>
+                              )}
                             </div>
-                            <Badge className={cn(
-                              "font-black uppercase text-[8px] px-1.5 h-4 border-none shrink-0",
-                              assessment.is_passed 
-                                ? "bg-emerald-500/20 text-emerald-600" 
-                                : "bg-rose-500/20 text-rose-600"
-                            )}>
-                              {assessment.is_passed ? 'Passed' : 'Failed'}
-                            </Badge>
+                            <div className="flex flex-wrap items-center gap-2">
+                              <Badge
+                                variant="outline"
+                                className="border-border px-2 text-[10px] font-semibold text-muted-foreground"
+                              >
+                                Week {assessment.week_number}
+                              </Badge>
+                              <span className="rounded bg-muted px-2 py-0.5 text-[10px] font-medium text-muted-foreground">
+                                Attempt {assessment.attempt_number}
+                              </span>
+                              <span className="rounded bg-muted px-2 py-0.5 text-[10px] font-medium text-muted-foreground">
+                                Submitted{' '}
+                                {assessment.submitted_at
+                                  ? format(new Date(assessment.submitted_at), 'MMM d, h:mm a')
+                                  : '—'}
+                              </span>
+                            </div>
                           </div>
-                        ) : (
-                          <Badge className="bg-warning text-warning-foreground font-bold uppercase text-[9px] h-5 px-2">
-                            {assessment.status.replace('_', ' ')}
-                          </Badge>
-                        )}
-                        <ChevronRight className="h-4 w-4 text-muted-foreground shrink-0" />
+                        </div>
+                        <div className="flex shrink-0 flex-col items-stretch gap-3 sm:flex-row sm:items-center sm:justify-end sm:gap-4">
+                          {assessment.status === 'published' ? (
+                            <div className="flex flex-col items-end gap-1 sm:text-right">
+                              <p className="text-xs font-semibold tabular-nums text-foreground">
+                                Score: {formatTestScorePercent(assessment.marks_obtained)}%
+                              </p>
+                              <p className="text-[11px] font-medium text-muted-foreground">
+                                Pass percentage: {passPercentage.toFixed(0)}%
+                              </p>
+                            </div>
+                          ) : null}
+                          <Button
+                            variant={assessment.status === 'published' ? 'outline' : 'gradient'}
+                            size="sm"
+                            className={cn(
+                              'h-10 rounded-xl px-6 font-bold sm:w-auto',
+                              assessment.status !== 'published' ? 'shadow-none hover:shadow-none' : '',
+                            )}
+                            onClick={() => navigate('/assessments')}
+                          >
+                            {assessment.status === 'published' ? 'View results' : 'View submission'}
+                          </Button>
+                        </div>
                       </div>
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
               )}
             </CardContent>
