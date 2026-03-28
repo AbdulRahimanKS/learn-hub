@@ -29,9 +29,9 @@ const adminNavItems = [
   { icon: Library, label: 'Courses', path: '/admin-courses' },
   { icon: GraduationCap, label: 'Batches', path: '/batches' },
   { icon: ClipboardCheck, label: 'Assessments', path: '/assessments' },
+  { icon: BarChart3, label: 'Progress', path: '/progress' },
   { icon: Video, label: 'Live Sessions', path: '/live-sessions' },
   { icon: PlayCircle, label: 'Special Sessions', path: '/special-sessions' },
-  { icon: BarChart3, label: 'Progress', path: '/progress' },
   { icon: MessageSquare, label: 'Chat', path: '/chat' },
   { icon: Mail, label: 'Email Configuration', path: '/email-config' },
 ];
@@ -41,9 +41,9 @@ const teacherNavItems = [
   { icon: Library, label: 'Courses', path: '/admin-courses' },
   { icon: GraduationCap, label: 'My Batches', path: '/batches' },
   { icon: ClipboardCheck, label: 'Assessments', path: '/assessments' },
+  { icon: BarChart3, label: 'Progress', path: '/progress' },
   { icon: Video, label: 'Live Sessions', path: '/live-sessions' },
   { icon: PlayCircle, label: 'Special Sessions', path: '/special-sessions' },
-  { icon: BarChart3, label: 'Progress', path: '/progress' },
   { icon: MessageSquare, label: 'Chat', path: '/chat' },
 ];
 
@@ -51,9 +51,9 @@ const studentNavItems = [
   { icon: LayoutDashboard, label: 'Dashboard', path: '/dashboard' },
   { icon: BookOpen, label: 'My Courses', path: '/courses' },
   { icon: ClipboardCheck, label: 'Assessments', path: '/assessments' },
+  { icon: BarChart3, label: 'My Progress', path: '/progress' },
   { icon: Video, label: 'Live Sessions', path: '/live-sessions' },
   { icon: PlayCircle, label: 'Special Sessions', path: '/special-sessions' },
-  { icon: BarChart3, label: 'My Progress', path: '/progress' },
   { icon: MessageSquare, label: 'Chat', path: '/chat' },
 ];
 

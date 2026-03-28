@@ -521,33 +521,33 @@ export default function Progress() {
               </TableBody>
             </Table>
           </div>
-          
-          {/* Pagination */}
-          {!loading && students.length > 0 && totalPages > 1 && (
-            <div className="flex w-full items-center justify-center gap-2 mt-6 px-6 py-4 border-t border-border/50">
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
-                disabled={currentPage === 1}
-              >
-                Previous
-              </Button>
-              <div className="text-sm font-medium text-muted-foreground px-4">
-                Page {currentPage} of {totalPages}
-              </div>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
-                disabled={currentPage === totalPages}
-              >
-                Next
-              </Button>
-            </div>
-          )}
         </CardContent>
       </Card>
+
+      {/* Pagination - outside the card, matching user management page */}
+      {!loading && students.length > 0 && totalPages > 1 && (
+        <div className="flex w-full items-center justify-center gap-2 py-2">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+            disabled={currentPage === 1}
+          >
+            Previous
+          </Button>
+          <div className="text-sm font-medium text-muted-foreground px-4">
+            Page {currentPage} of {totalPages}
+          </div>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
+            disabled={currentPage === totalPages}
+          >
+            Next
+          </Button>
+        </div>
+      )}
     </div>
   );
 
