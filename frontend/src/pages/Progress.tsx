@@ -58,23 +58,13 @@ import {
 import * as XLSX from 'xlsx';
 import { apiClient } from '@/lib/api';
 import { cn } from '@/lib/utils';
+import { formatTestScorePercent } from '@/lib/format-test-score';
 
 function formatEnrolledDate(iso: string | null | undefined): string {
   if (!iso) return '—';
   const d = new Date(iso);
   if (Number.isNaN(d.getTime())) return '—';
   return d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
-}
-
-/** Test scores are stored as floats; show at least one decimal place when whole. */
-function formatTestScorePercent(score: number | string | null | undefined): string {
-  if (score === null || score === undefined || score === '') return '—';
-  const n = typeof score === 'string' ? parseFloat(score) : Number(score);
-  if (Number.isNaN(n)) return '—';
-  return new Intl.NumberFormat('en-US', {
-    minimumFractionDigits: 1,
-    maximumFractionDigits: 2,
-  }).format(n);
 }
 
 export default function Progress() {
@@ -1075,7 +1065,9 @@ export default function Progress() {
                         {assessment.status === 'published' ? (
                           <div className="flex items-center gap-3">
                             <div className="text-right">
-                              <p className="text-lg font-black text-foreground">{assessment.marks_obtained}%</p>
+                              <p className="text-lg font-black text-foreground tabular-nums">
+                                {formatTestScorePercent(assessment.marks_obtained)}%
+                              </p>
                               <p className="text-[8px] font-bold uppercase tracking-widest text-muted-foreground">Score</p>
                             </div>
                             <Badge className={cn(

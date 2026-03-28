@@ -19,6 +19,7 @@ import {
   HelpCircle,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { formatTestScorePercent } from '@/lib/format-test-score';
 import { format } from 'date-fns';
 
 interface WeeklyTestResultsProps {
@@ -101,7 +102,7 @@ export function WeeklyTestResults({
                   </p>
                   <div className="flex items-baseline gap-1">
                     <span className="text-3xl font-bold tabular-nums tracking-tight text-primary-foreground">
-                      {Math.round(score)}
+                      {formatTestScorePercent(score)}
                     </span>
                     <span className="text-sm font-semibold text-primary-foreground/50">%</span>
                   </div>
@@ -116,7 +117,9 @@ export function WeeklyTestResults({
                         'h-full rounded-full transition-all duration-1000',
                         isPassed ? 'bg-emerald-400' : 'bg-rose-400',
                       )}
-                      style={{ width: `${score}%` }}
+                      style={{
+                        width: `${Math.min(100, Math.max(0, Number(score) || 0))}%`,
+                      }}
                     />
                   </div>
                 </div>

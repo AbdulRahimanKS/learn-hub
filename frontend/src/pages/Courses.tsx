@@ -43,6 +43,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { Input } from '@/components/ui/input';
+import { formatTestScorePercent } from '@/lib/format-test-score';
 import { courseApi, Course, CourseMySummary } from '@/lib/course-api';
 import { courseModuleApi, CourseWeek, ClassSession } from '@/lib/course-module-api';
 import { batchContentApi } from '@/lib/batch-api';
@@ -1258,10 +1259,13 @@ export default function Courses() {
                                             | null
                                             | undefined;
                                           const latest = weeklyTest?.latest_submission;
-                                          if (latest?.status === 'published' && typeof latest.marks_obtained === 'number') {
+                                          if (
+                                            latest?.status === 'published' &&
+                                            formatTestScorePercent(latest.marks_obtained) !== '—'
+                                          ) {
                                             return (
                                               <span className="text-[10px] font-bold text-foreground">
-                                                Score: {latest.marks_obtained}%
+                                                Score: {formatTestScorePercent(latest.marks_obtained)}%
                                               </span>
                                             );
                                           }
