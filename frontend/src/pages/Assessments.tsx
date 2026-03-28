@@ -316,7 +316,7 @@ export default function Assessments() {
                 setPublishedPage(1);
               }}
             >
-              <SelectTrigger className="h-11 max-w-full bg-background rounded-xl font-bold">
+              <SelectTrigger className="h-11 max-w-full rounded-xl font-bold border-primary text-primary">
                 <SelectValue placeholder="All Weeks" />
               </SelectTrigger>
               <SelectContent className="rounded-xl">
@@ -340,7 +340,7 @@ export default function Assessments() {
               selectedLabel={selectedBatchName}
               onValueChange={handleAssessmentBatchChange}
               placeholder="Select a batch"
-              className="h-11 border-border bg-background font-bold"
+              className="h-11 border-primary text-primary font-bold"
             />
           </div>
         </div>

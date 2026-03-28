@@ -441,7 +441,7 @@ export default function SpecialSessions() {
               defaultSelectFirst={selectedBatchId === null}
               onReady={() => setLoadingBatches(false)}
               placeholder="Select course batch"
-              className="h-11 border-border bg-background font-semibold"
+              className="h-11 border-primary text-primary font-semibold"
             />
           </div>
         </div>

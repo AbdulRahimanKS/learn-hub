@@ -165,7 +165,7 @@ export function BatchFilterCombobox({
           className={cn(
             // Match SelectTrigger: neutral border/text (outline variant uses text-primary / border-primary)
             'h-11 w-full max-w-full justify-between rounded-xl border border-input bg-background px-3 font-bold text-foreground shadow-sm',
-            'ring-offset-background hover:bg-muted/60 hover:text-foreground',
+            'ring-offset-background hover:bg-primary/10 hover:text-primary',
             'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2',
             !selectedLabel && !value && 'text-muted-foreground',
             className,
