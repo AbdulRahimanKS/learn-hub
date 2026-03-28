@@ -916,9 +916,22 @@ export default function Progress() {
                   {weeks.slice(0, 5).map((week) => {
                     const totalWeekVids = week.class_sessions?.length || 0;
                     const completedWeekVids = week.class_sessions?.filter(s => s.is_completed).length || 0;
-                    const weekTestScore = week.weekly_test?.latest_submission?.score;
+                    const weeklyTest = week.weekly_test as
+                      | {
+                          is_passed?: boolean;
+                          has_attempted?: boolean;
+                          latest_submission?: {
+                            status?: string;
+                            marks_obtained?: number | null;
+                          } | null;
+                        }
+                      | undefined;
+                    const latestSub = weeklyTest?.latest_submission;
+                    /* API uses marks_obtained on TestSubmission, not score (Courses page uses the same). */
+                    const weekTestMarks = latestSub?.marks_obtained;
                     const hasWeeklyTest = !!week.weekly_test;
-                    const testPassed = !!week.weekly_test?.is_passed;
+                    const testPassed = !!weeklyTest?.is_passed;
+                    const testAttempted = !!weeklyTest?.has_attempted;
                     const videosComplete =
                       totalWeekVids === 0 || completedWeekVids >= totalWeekVids;
                     const testRequirementMet = !hasWeeklyTest || testPassed;
@@ -984,13 +997,38 @@ export default function Progress() {
                               {week.weekly_test && (
                                 <span className="inline-flex items-center gap-1 rounded-md bg-muted px-2 py-0.5 font-medium">
                                   <FileText className="h-3 w-3 shrink-0" />
-                                  {weekTestScore !== undefined && weekTestScore !== null ? (
-                                    <span className={testPassed ? 'font-bold text-success' : 'font-bold text-warning'}>
-                                      Test: {formatTestScorePercent(weekTestScore)}%
-                                    </span>
-                                  ) : (
-                                    'Test: Not attempted'
-                                  )}
+                                  {(() => {
+                                    const hasMarks =
+                                      weekTestMarks !== undefined &&
+                                      weekTestMarks !== null &&
+                                      formatTestScorePercent(weekTestMarks) !== '—';
+                                    if (testPassed) {
+                                      return hasMarks ? (
+                                        <span className="font-bold text-success">
+                                          Test: {formatTestScorePercent(weekTestMarks)}%
+                                        </span>
+                                      ) : (
+                                        <span className="font-bold text-success">Test: Passed</span>
+                                      );
+                                    }
+                                    if (testAttempted && latestSub) {
+                                      if (latestSub.status === 'published') {
+                                        return hasMarks ? (
+                                          <span className="font-bold text-warning">
+                                            Test: {formatTestScorePercent(weekTestMarks)}%
+                                          </span>
+                                        ) : (
+                                          <span className="font-bold text-warning">Test: Failed</span>
+                                        );
+                                      }
+                                      return (
+                                        <span className="font-medium text-muted-foreground">
+                                          Test: {formatSubmissionStatusLabel(latestSub.status)}
+                                        </span>
+                                      );
+                                    }
+                                    return 'Test: Not attempted';
+                                  })()}
                                 </span>
                               )}
                             </div>
