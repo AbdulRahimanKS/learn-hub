@@ -393,7 +393,7 @@ export default function Progress() {
             onReady={() => setLoading(false)}
             placeholder="Filter by batch"
             triggerIcon={<Filter className="h-4 w-4 text-primary" />}
-            className="h-10 border-primary font-semibold text-primary"
+            className="h-10 border-primary text-primary"
           />
         </div>
       </div>
@@ -782,7 +782,7 @@ export default function Progress() {
             onReady={() => setLoading(false)}
             placeholder="Select course batch"
             triggerIcon={<BookOpen className="h-4 w-4 text-primary" />}
-            className="h-10 border-primary font-semibold text-primary"
+            className="h-10 border-primary text-primary"
           />
         </div>
       </div>

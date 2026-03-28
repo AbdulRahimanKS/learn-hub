@@ -267,7 +267,7 @@ export default function LiveSessions() {
               selectedLabel={selectedBatchName}
               onValueChange={handleLiveBatchChange}
               placeholder="Select course batch"
-              className="h-11 border-primary text-primary font-semibold"
+              className="h-11 border-primary text-primary"
             />
           </div>
         </div>
