@@ -66,6 +66,17 @@ function formatEnrolledDate(iso: string | null | undefined): string {
   return d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
 }
 
+/** Test scores are stored as floats; show at least one decimal place when whole. */
+function formatTestScorePercent(score: number | string | null | undefined): string {
+  if (score === null || score === undefined || score === '') return '—';
+  const n = typeof score === 'string' ? parseFloat(score) : Number(score);
+  if (Number.isNaN(n)) return '—';
+  return new Intl.NumberFormat('en-US', {
+    minimumFractionDigits: 1,
+    maximumFractionDigits: 2,
+  }).format(n);
+}
+
 export default function Progress() {
   const { user } = useAuth();
   const { toast } = useToast();
@@ -681,9 +692,13 @@ export default function Progress() {
               ) : (
                 <div className="space-y-3">
                   {weekDetails.map((week: any) => {
-                    const isPassed = week.test?.is_passed;
                     const hasTest = week.test?.exists;
                     const isAttempted = week.test?.attempted;
+                    const testPassed = !!week.test?.is_passed;
+                    const videosComplete =
+                      week.total_videos === 0 || week.videos_watched >= week.total_videos;
+                    const testRequirementMet = !hasTest || (isAttempted && testPassed);
+                    const weekPassed = videosComplete && testRequirementMet;
                     const vidPct = week.total_videos > 0 ? Math.round((week.videos_watched / week.total_videos) * 100) : 0;
 
                     return (
@@ -691,15 +706,17 @@ export default function Progress() {
                         <div className="flex items-center gap-3 mb-3">
                           <div className={cn(
                             "h-9 w-9 rounded-xl flex items-center justify-center shrink-0 text-sm font-black",
-                            isPassed ? 'bg-success/10 text-success' : 'bg-primary/10 text-primary'
+                            weekPassed ? 'bg-success/10 text-success' : 'bg-primary/10 text-primary'
                           )}>
-                            {isPassed ? <CheckCircle className="h-5 w-5" /> : week.week_number}
+                            {weekPassed ? <CheckCircle className="h-5 w-5" /> : week.week_number}
                           </div>
                           <div className="flex-1 min-w-0">
                             <div className="flex items-center gap-2">
                               <p className="font-bold text-sm text-foreground truncate">Week {week.week_number}: {week.title}</p>
-                              {isPassed && (
-                                <Badge className="bg-success text-white text-[9px] h-4 px-1.5 shrink-0">PASSED</Badge>
+                              {weekPassed && (
+                                <Badge className="h-4 shrink-0 bg-success px-1.5 text-[9px] font-semibold capitalize text-white">
+                                  Passed
+                                </Badge>
                               )}
                             </div>
                           </div>
@@ -730,9 +747,12 @@ export default function Progress() {
                               ) : (
                                 <span className={cn(
                                   "text-xs font-bold",
-                                  isPassed ? 'text-success' : 'text-destructive'
+                                  testPassed ? 'text-success' : 'text-destructive'
                                 )}>
-                                  {week.test.score !== null ? `${week.test.score}%` : '—'} {isPassed ? '✓ Passed' : '✗ Failed'}
+                                  {week.test.score !== null && week.test.score !== undefined
+                                    ? `${formatTestScorePercent(week.test.score)}%`
+                                    : '—'}{' '}
+                                  {testPassed ? '✓ Passed' : '✗ Failed'}
                                 </span>
                               )}
                             </div>
@@ -875,7 +895,13 @@ export default function Progress() {
                     const totalWeekVids = week.class_sessions?.length || 0;
                     const completedWeekVids = week.class_sessions?.filter(s => s.is_completed).length || 0;
                     const weekTestScore = week.weekly_test?.latest_submission?.score;
-                    const isWeekPassed = week.weekly_test?.is_passed;
+                    const hasWeeklyTest = !!week.weekly_test;
+                    const testPassed = !!week.weekly_test?.is_passed;
+                    const videosComplete =
+                      totalWeekVids === 0 || completedWeekVids >= totalWeekVids;
+                    const testRequirementMet = !hasWeeklyTest || testPassed;
+                    const weekComplete = videosComplete && testRequirementMet;
+                    const showWeekPassed = week.is_unlocked && weekComplete;
                     const vidPct = totalWeekVids > 0 ? Math.round((completedWeekVids / totalWeekVids) * 100) : 0;
 
                     return (
@@ -891,13 +917,13 @@ export default function Progress() {
                         {/* Week Icon */}
                         <div className={cn(
                           "flex h-10 w-10 shrink-0 items-center justify-center rounded-xl font-black text-sm transition-colors",
-                          isWeekPassed 
+                          showWeekPassed
                             ? 'bg-success/10 text-success' 
                             : week.is_unlocked 
                               ? 'bg-primary/10 text-primary' 
                               : 'bg-muted text-muted-foreground border border-border'
                         )}>
-                          {isWeekPassed ? (
+                          {showWeekPassed ? (
                             <CheckCircle className="h-5 w-5" />
                           ) : week.is_unlocked ? (
                             <span className="font-black">{week.week_number}</span>
@@ -912,8 +938,10 @@ export default function Progress() {
                             <p className={cn("font-bold text-sm truncate", week.is_unlocked ? 'text-foreground' : 'text-muted-foreground')}>
                               Week {week.week_number}: {week.title}
                             </p>
-                            {isWeekPassed && (
-                              <Badge className="bg-success text-white text-[9px] h-4 px-1.5 shrink-0 font-black">PASSED</Badge>
+                            {showWeekPassed && (
+                              <Badge className="h-4 shrink-0 bg-success px-1.5 text-[9px] font-semibold capitalize text-white">
+                                Passed
+                              </Badge>
                             )}
                           </div>
                           <div className="flex items-center gap-4 mt-1 text-xs text-muted-foreground">
@@ -925,8 +953,8 @@ export default function Progress() {
                               <span className="flex items-center gap-1">
                                 <FileText className="h-3 w-3" />
                                 {weekTestScore !== undefined && weekTestScore !== null ? (
-                                  <span className={isWeekPassed ? 'text-success font-bold' : 'text-warning font-bold'}>
-                                    Test: {weekTestScore}%
+                                  <span className={testPassed ? 'text-success font-bold' : 'text-warning font-bold'}>
+                                    Test: {formatTestScorePercent(weekTestScore)}%
                                   </span>
                                 ) : 'Test: Not Attempted'}
                               </span>

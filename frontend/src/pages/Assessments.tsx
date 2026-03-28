@@ -240,7 +240,7 @@ export default function Assessments() {
     }
     setIsLoading(true);
     try {
-      let url = `/api/courses/v1/batches/${batchId}/test-submissions/my-submissions/?page=${page}`;
+      let url = `/api/courses/v1/batches/${batchId}/test-submissions/my-submissions/?page=${page}&page_size=6`;
       if (week !== 'all') url += `&week_number=${week}`;
 
       const res = await apiClient.get(url);
