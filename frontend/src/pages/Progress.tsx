@@ -99,8 +99,7 @@ export default function Progress() {
     videosWatched: 0,
     totalTests: 0,
     testsPassed: 0,
-    avgScore: 0,
-    overallProgress: 0
+    overallProgress: 0,
   });
   const [submissions, setSubmissions] = useState<any[]>([]);
   const [isSubmissionsLoading, setIsSubmissionsLoading] = useState(false);
@@ -176,8 +175,6 @@ export default function Progress() {
         let vWatched = 0;
         let tTests = 0;
         let tPassed = 0;
-        let totalScore = 0;
-        let scoredTests = 0;
 
         fetchedWeeks.forEach(w => {
           const sessions = w.class_sessions || [];
@@ -187,11 +184,6 @@ export default function Progress() {
           if (w.weekly_test) {
             tTests++;
             if (w.weekly_test.is_passed) tPassed++;
-            const score = w.weekly_test.latest_submission?.score;
-            if (score !== undefined && score !== null) {
-              totalScore += score;
-              scoredTests++;
-            }
           }
         });
 
@@ -204,8 +196,7 @@ export default function Progress() {
           videosWatched: vWatched,
           totalTests: tTests,
           testsPassed: tPassed,
-          avgScore: scoredTests > 0 ? Math.round(totalScore / scoredTests) : 0,
-          overallProgress: overall
+          overallProgress: overall,
         });
       }
     } catch (err) {
@@ -826,40 +817,38 @@ export default function Progress() {
         </div>
       ) : (
         <>
-          {/* Overall Stats Banner */}
-          <Card className="shadow-xl gradient-primary text-primary-foreground overflow-hidden border-none rounded-2xl">
-            <CardContent className="p-6 md:p-8 relative">
-              <div className="absolute top-0 right-0 p-8 pointer-events-none opacity-5 hidden md:block">
-                 <TrendingUp className="h-48 w-48" />
-              </div>
-              <div className="grid gap-6 sm:grid-cols-4 relative z-10">
+          {/* Overall stats — match course detail hero: gradient-primary, border, soft blurs */}
+          <Card className="relative overflow-hidden rounded-2xl border border-primary/20 bg-transparent shadow-card gradient-primary text-primary-foreground backdrop-blur-none">
+            <div className="pointer-events-none absolute inset-0 overflow-hidden">
+              <div className="absolute top-0 right-0 h-64 w-64 rounded-full bg-white/5 blur-3xl" />
+              <div className="absolute bottom-0 left-0 h-32 w-32 rounded-full bg-primary/20 blur-2xl" />
+            </div>
+            <CardContent className="relative z-10 p-6 md:p-8">
+              <div className="grid gap-8 sm:grid-cols-3 sm:gap-6">
                 <div className="sm:border-r sm:border-white/20 sm:pr-6">
-                  <p className="text-primary-foreground/70 text-xs font-bold tracking-widest uppercase">Overall Progress</p>
-                  <div className="flex items-end gap-2 mt-1.5">
-                    <p className="text-4xl md:text-5xl font-black font-display">{studentStats.overallProgress}%</p>
+                  <p className="text-sm font-semibold text-primary-foreground/80">Overall progress</p>
+                  <div className="mt-1.5 flex items-end gap-2">
+                    <p className="font-display text-4xl font-black md:text-5xl">{studentStats.overallProgress}%</p>
                   </div>
-                  <ProgressBar value={studentStats.overallProgress} className="mt-3 h-1.5 bg-white/20" />
-                </div>
-                <div>
-                  <p className="text-primary-foreground/70 text-xs font-bold tracking-widest uppercase">Videos Watched</p>
-                  <div className="flex items-baseline gap-1 mt-1.5">
-                     <p className="text-3xl md:text-4xl font-black font-display">{studentStats.videosWatched}</p>
-                     <p className="text-primary-foreground/60 font-bold text-lg">/{studentStats.totalVideos}</p>
+                  <div className="mt-3 h-2 w-full max-w-full overflow-hidden rounded-full border border-white/10 bg-white/10">
+                    <div
+                      className="h-full rounded-full bg-gradient-to-r from-emerald-400 to-emerald-500 shadow-[0_0_10px_rgba(52,211,153,0.35)] transition-all duration-500"
+                      style={{ width: `${Math.min(100, Math.max(0, studentStats.overallProgress))}%` }}
+                    />
                   </div>
                 </div>
-                <div>
-                  <p className="text-primary-foreground/70 text-xs font-bold tracking-widest uppercase">Tests Passed</p>
-                  <div className="flex items-baseline gap-1 mt-1.5">
-                     <p className="text-3xl md:text-4xl font-black font-display">{studentStats.testsPassed}</p>
-                     <p className="text-primary-foreground/60 font-bold text-lg">/{studentStats.totalTests}</p>
+                <div className="sm:border-r sm:border-white/20 sm:pr-6">
+                  <p className="text-sm font-semibold text-primary-foreground/80">Videos watched</p>
+                  <div className="mt-1.5 flex items-baseline gap-1">
+                    <p className="font-display text-3xl font-black md:text-4xl">{studentStats.videosWatched}</p>
+                    <p className="text-lg font-bold text-primary-foreground/60">/{studentStats.totalVideos}</p>
                   </div>
                 </div>
                 <div>
-                  <p className="text-primary-foreground/70 text-xs font-bold tracking-widest uppercase">Average Score</p>
-                  <div className="flex items-baseline gap-1 mt-1.5">
-                     <p className="text-3xl md:text-4xl font-black font-display">
-                       {studentStats.avgScore > 0 ? `${studentStats.avgScore}%` : '—'}
-                     </p>
+                  <p className="text-sm font-semibold text-primary-foreground/80">Tests passed</p>
+                  <div className="mt-1.5 flex items-baseline gap-1">
+                    <p className="font-display text-3xl font-black md:text-4xl">{studentStats.testsPassed}</p>
+                    <p className="text-lg font-bold text-primary-foreground/60">/{studentStats.totalTests}</p>
                   </div>
                 </div>
               </div>
