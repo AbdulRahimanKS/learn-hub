@@ -560,7 +560,7 @@ export default function Progress() {
   );
 
   // --- Student Detail Sheet ---
-  const StudentDetailSheet = () => {
+  const renderStudentDetailSheet = () => {
     const e = selectedEnrollment;
     if (!e) return null;
 
@@ -766,7 +766,7 @@ export default function Progress() {
     );
   };
 
-  const StudentProgress = () => (
+  const renderStudentProgress = () => (
     <div className="space-y-6">
       {/* Header with Batch Selector */}
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
@@ -795,35 +795,35 @@ export default function Progress() {
       ) : (
         <>
           {/* Overall Stats Banner */}
-          <Card className="shadow-xl bg-gradient-to-br from-[#1a237e] via-[#283593] to-[#3949ab] text-white overflow-hidden border-none rounded-2xl">
+          <Card className="shadow-xl gradient-primary text-primary-foreground overflow-hidden border-none rounded-2xl">
             <CardContent className="p-6 md:p-8 relative">
               <div className="absolute top-0 right-0 p-8 pointer-events-none opacity-5 hidden md:block">
                  <TrendingUp className="h-48 w-48" />
               </div>
               <div className="grid gap-6 sm:grid-cols-4 relative z-10">
                 <div className="sm:border-r sm:border-white/20 sm:pr-6">
-                  <p className="text-white/70 text-xs font-bold tracking-widest uppercase">Overall Progress</p>
+                  <p className="text-primary-foreground/70 text-xs font-bold tracking-widest uppercase">Overall Progress</p>
                   <div className="flex items-end gap-2 mt-1.5">
                     <p className="text-4xl md:text-5xl font-black font-display">{studentStats.overallProgress}%</p>
                   </div>
                   <ProgressBar value={studentStats.overallProgress} className="mt-3 h-1.5 bg-white/20" />
                 </div>
                 <div>
-                  <p className="text-white/70 text-xs font-bold tracking-widest uppercase">Videos Watched</p>
+                  <p className="text-primary-foreground/70 text-xs font-bold tracking-widest uppercase">Videos Watched</p>
                   <div className="flex items-baseline gap-1 mt-1.5">
                      <p className="text-3xl md:text-4xl font-black font-display">{studentStats.videosWatched}</p>
-                     <p className="text-white/60 font-bold text-lg">/{studentStats.totalVideos}</p>
+                     <p className="text-primary-foreground/60 font-bold text-lg">/{studentStats.totalVideos}</p>
                   </div>
                 </div>
                 <div>
-                  <p className="text-white/70 text-xs font-bold tracking-widest uppercase">Tests Passed</p>
+                  <p className="text-primary-foreground/70 text-xs font-bold tracking-widest uppercase">Tests Passed</p>
                   <div className="flex items-baseline gap-1 mt-1.5">
                      <p className="text-3xl md:text-4xl font-black font-display">{studentStats.testsPassed}</p>
-                     <p className="text-white/60 font-bold text-lg">/{studentStats.totalTests}</p>
+                     <p className="text-primary-foreground/60 font-bold text-lg">/{studentStats.totalTests}</p>
                   </div>
                 </div>
                 <div>
-                  <p className="text-white/70 text-xs font-bold tracking-widest uppercase">Average Score</p>
+                  <p className="text-primary-foreground/70 text-xs font-bold tracking-widest uppercase">Average Score</p>
                   <div className="flex items-baseline gap-1 mt-1.5">
                      <p className="text-3xl md:text-4xl font-black font-display">
                        {studentStats.avgScore > 0 ? `${studentStats.avgScore}%` : '—'}
@@ -1060,11 +1060,11 @@ export default function Progress() {
       <div className="space-y-6 pb-10">
          {/* Content Layer based on Role */}
          <div className="animate-in fade-in slide-in-from-bottom-2 duration-500 delay-100">
-           {isStudent ? <StudentProgress /> : renderAdminProgress()}
+           {isStudent ? renderStudentProgress() : renderAdminProgress()}
          </div>
       </div>
       {/* Student Detail Slide-out Panel */}
-      {!isStudent && <StudentDetailSheet />}
+      {!isStudent && renderStudentDetailSheet()}
     </DashboardLayout>
   );
 }
