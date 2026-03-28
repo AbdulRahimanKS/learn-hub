@@ -58,6 +58,13 @@ import * as XLSX from 'xlsx';
 import { apiClient } from '@/lib/api';
 import { cn } from '@/lib/utils';
 
+function formatEnrolledDate(iso: string | null | undefined): string {
+  if (!iso) return '—';
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return '—';
+  return d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
+}
+
 export default function Progress() {
   const { user } = useAuth();
   const { toast } = useToast();
@@ -394,16 +401,16 @@ export default function Progress() {
       <Card className="shadow-card border-border/50">
         <CardContent className="p-0">
           <div className="overflow-x-auto">
-            <Table>
+            <Table className="table-fixed">
               <TableHeader className="bg-muted/30">
                 <TableRow>
-                  <TableHead className="py-4">Student</TableHead>
-                  <TableHead>Enrollment Status</TableHead>
-                  <TableHead>Deliverable weeks</TableHead>
-                  <TableHead>Videos</TableHead>
-                  <TableHead>Tests Passed</TableHead>
-                  <TableHead>Overall Progress</TableHead>
-                  <TableHead className="text-right">Enrolled At</TableHead>
+                  <TableHead className="w-[22%] py-4">Student</TableHead>
+                  <TableHead className="w-[12%]">Enrollment Status</TableHead>
+                  <TableHead className="w-[11%]">Deliverable weeks</TableHead>
+                  <TableHead className="w-[10%]">Videos</TableHead>
+                  <TableHead className="w-[10%]">Tests Passed</TableHead>
+                  <TableHead className="w-[20%]">Overall Progress</TableHead>
+                  <TableHead className="w-[15%] text-right">Enrolled At</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -441,8 +448,8 @@ export default function Progress() {
                       className="cursor-pointer hover:bg-muted/30 transition-colors"
                       onClick={() => setSelectedEnrollment(enrollment)}
                     >
-                      <TableCell>
-                        <div className="flex items-center gap-3 py-1">
+                      <TableCell className="min-w-0">
+                        <div className="flex min-w-0 items-center gap-3 py-1">
                           <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center shrink-0 border border-primary/20 overflow-hidden">
                             {enrollment.profile_picture ? (
                               <img
@@ -479,7 +486,7 @@ export default function Progress() {
                           {enrollment.status}
                         </Badge>
                       </TableCell>
-                      <TableCell className="max-w-[220px]">
+                      <TableCell>
                         <div className="flex items-center">
                           <span className="font-medium tabular-nums">
                             {weeksCompleted}
@@ -497,9 +504,9 @@ export default function Progress() {
                         <span className="font-medium">{enrollment.weekly_tests_submitted || 0}</span>
                         <span className="text-muted-foreground text-xs ml-1">/ {enrollment.total_weekly_tests || 0}</span>
                       </TableCell>
-                      <TableCell className="w-1/4">
-                        <div className="flex items-center gap-3">
-                          <div className="w-24 h-2 bg-muted rounded-full overflow-hidden shrink-0">
+                      <TableCell>
+                        <div className="flex min-w-0 items-center gap-2">
+                          <div className="h-2 min-w-0 flex-1 rounded-full bg-muted overflow-hidden">
                             <div
                               className={`h-full rounded-full ${
                                 enrollment.overall_progress >= 100 ? 'bg-success' : 'bg-primary'
@@ -507,13 +514,13 @@ export default function Progress() {
                               style={{ width: `${Math.min(100, enrollment.overall_progress || 0)}%` }}
                             />
                           </div>
-                          <span className="text-sm font-bold w-12 text-foreground">
+                          <span className="text-sm font-bold tabular-nums text-foreground shrink-0">
                             {enrollment.overall_progress || 0}%
                           </span>
                         </div>
                       </TableCell>
-                      <TableCell className="text-right text-muted-foreground text-sm">
-                        {new Date(enrollment.enrolled_at).toLocaleDateString()}
+                      <TableCell className="text-right text-muted-foreground text-sm tabular-nums whitespace-nowrap">
+                        {formatEnrolledDate(enrollment.enrolled_at)}
                       </TableCell>
                     </TableRow>
                   );
@@ -591,7 +598,7 @@ export default function Progress() {
                   <div className="flex items-center gap-1.5 mt-1">
                     <CalendarDays className="h-3.5 w-3.5 opacity-80" />
                     <span className="text-white/80 text-sm">
-                      Joined {new Date(e.enrolled_at).toLocaleDateString('en-US', { day: 'numeric', month: 'short', year: 'numeric' })}
+                      Joined {formatEnrolledDate(e.enrolled_at)}
                     </span>
                   </div>
                   <div className="mt-2">
