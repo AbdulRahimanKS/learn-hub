@@ -614,10 +614,10 @@ export default function Progress() {
                       className={cn(
                         'inline-flex items-center rounded-full border px-3 py-1 text-xs font-semibold capitalize backdrop-blur-md',
                         e.status === 'active'
-                          ? 'border-success/40 bg-success/20 text-primary-foreground'
+                          ? 'border-emerald-400/70 bg-emerald-500/40 text-white'
                           : e.status === 'completed'
-                            ? 'border-white/20 bg-white/15 text-primary-foreground'
-                            : 'border-destructive/45 bg-destructive/25 text-primary-foreground',
+                            ? 'border-white/50 bg-white/30 text-white'
+                            : 'border-rose-400/70 bg-rose-500/40 text-white',
                       )}
                     >
                       {e.status}
