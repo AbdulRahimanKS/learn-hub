@@ -576,6 +576,12 @@ export default function Progress() {
     if (!e) return null;
 
     const weekDetails: any[] = e.week_details || [];
+    const accessByWeekNumber = new Map<number, { is_manually_unlocked?: boolean; is_system_unlocked?: boolean }>(
+      (Array.isArray(e.weeks_access_status) ? e.weeks_access_status : []).map((row: any) => [
+        Number(row.week_number),
+        row,
+      ]),
+    );
     return (
       <Sheet open={!!selectedEnrollment} onOpenChange={(open) => { if (!open) setSelectedEnrollment(null); }}>
         <SheetContent
@@ -695,10 +701,26 @@ export default function Progress() {
                     const hasTest = week.test?.exists;
                     const isAttempted = week.test?.attempted;
                     const testPassed = !!week.test?.is_passed;
+                    const hasDeliverables =
+                      typeof week.has_deliverables === 'boolean'
+                        ? week.has_deliverables
+                        : week.total_videos > 0 || hasTest;
+                    const accessRow = accessByWeekNumber.get(Number(week.week_number));
+                    const reachableFallback =
+                      accessRow != null &&
+                      !!(accessRow.is_manually_unlocked || accessRow.is_system_unlocked);
+                    const studentWeekReachable =
+                      typeof week.student_week_reachable === 'boolean'
+                        ? week.student_week_reachable
+                        : reachableFallback;
                     const videosComplete =
                       week.total_videos === 0 || week.videos_watched >= week.total_videos;
                     const testRequirementMet = !hasTest || (isAttempted && testPassed);
-                    const weekPassed = videosComplete && testRequirementMet;
+                    const weekPassed =
+                      hasDeliverables &&
+                      studentWeekReachable &&
+                      videosComplete &&
+                      testRequirementMet;
                     const vidPct = week.total_videos > 0 ? Math.round((week.videos_watched / week.total_videos) * 100) : 0;
 
                     return (

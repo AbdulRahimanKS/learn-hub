@@ -17,6 +17,39 @@ from utils.progress_utils import (
 )
 
 
+def _prev_weeks_satisfied_for_unlock(enrollment, batch, week_number):
+    """
+    Same rules as student week unlock: every prior week must have all sessions completed
+    and any weekly test passed (published).
+    """
+    if week_number <= 1:
+        return True
+    prev_weeks = batch.batch_weeks.filter(week_number__lt=week_number).order_by('week_number')
+    for pw in prev_weeks:
+        total_sessions = BatchClassSession.objects.filter(batch_week=pw).count()
+        if total_sessions > 0:
+            completed_sessions = StudentSessionView.objects.filter(
+                enrollment=enrollment,
+                batch_session__batch_week=pw,
+                is_completed=True,
+            ).count()
+            if completed_sessions < total_sessions:
+                return False
+        try:
+            weekly_test = pw.weekly_test
+        except Exception:
+            weekly_test = None
+        if weekly_test:
+            if not TestSubmission.objects.filter(
+                enrollment=enrollment,
+                batch_weekly_test=weekly_test,
+                status=TestSubmission.Status.PUBLISHED,
+                is_passed=True,
+            ).exists():
+                return False
+    return True
+
+
 class BatchListSerializer(serializers.ModelSerializer):
     """
     Lightweight serializer for listing batches.
@@ -202,33 +235,12 @@ class BatchEnrollmentSerializer(serializers.ModelSerializer):
         status_list = []
         for week in weeks:
             is_manually_unlocked = week.id in manual_unlocked_ids
-            
-            is_system_unlocked = False
-            if week.is_unlocked:
-                is_system_unlocked = True
-                if week.week_number > 1:
-                    prev_weeks = obj.batch.batch_weeks.filter(week_number__lt=week.week_number).order_by('week_number')
-                    for pw in prev_weeks:
-                        # A. Check Sessions
-                        total_sessions = BatchClassSession.objects.filter(batch_week=pw).count()
-                        if total_sessions > 0:
-                            completed_sessions = StudentSessionView.objects.filter(
-                                enrollment=obj, 
-                                batch_session__batch_week=pw, 
-                                is_completed=True
-                            ).count()
-                            if completed_sessions < total_sessions:
-                                is_system_unlocked = False
-                                break
-                        
-                        # B. Check Test
-                        if hasattr(pw, 'weekly_test') and pw.weekly_test:
-                            if not TestSubmission.objects.filter(
-                                enrollment=obj, batch_weekly_test=pw.weekly_test, status=TestSubmission.Status.PUBLISHED, is_passed=True
-                            ).exists():
-                                is_system_unlocked = False
-                                break
-            
+
+            is_system_unlocked = bool(
+                week.is_unlocked
+                and _prev_weeks_satisfied_for_unlock(obj, obj.batch, week.week_number)
+            )
+
             is_revokable = is_manually_unlocked
             if is_revokable:
                 has_session_progress = StudentSessionView.objects.filter(
@@ -280,6 +292,7 @@ class BatchEnrollmentSerializer(serializers.ModelSerializer):
     @extend_schema_field(serializers.ListField(child=serializers.DictField()))
     def get_week_details(self, obj):
         weeks = BatchWeek.objects.filter(batch=obj.batch).order_by('week_number')
+        manual_unlocked_ids = set(obj.manual_unlocks.values_list('batch_week_id', flat=True))
         result = []
         for week in weeks:
             total_vids = BatchClassSession.objects.filter(batch_week=week).count()
@@ -310,11 +323,23 @@ class BatchEnrollmentSerializer(serializers.ModelSerializer):
             else:
                 test_info = {'exists': False, 'is_passed': False, 'score': None, 'attempted': False}
 
+            is_manually_unlocked = week.id in manual_unlocked_ids
+            is_system_unlocked = bool(
+                week.is_unlocked
+                and _prev_weeks_satisfied_for_unlock(obj, obj.batch, week.week_number)
+            )
+            # Student can open this week (same as weeks_access_status), but unpublished weeks don't count for "Passed".
+            student_week_reachable = is_manually_unlocked or (bool(week.is_published) and is_system_unlocked)
+            has_deliverables = total_vids > 0 or bool(weekly_test)
+
             result.append({
                 'week_number': week.week_number,
                 'title': week.title,
                 'total_videos': total_vids,
                 'videos_watched': watched_vids,
                 'test': test_info,
+                'is_published': week.is_published,
+                'has_deliverables': has_deliverables,
+                'student_week_reachable': student_week_reachable,
             })
         return result
