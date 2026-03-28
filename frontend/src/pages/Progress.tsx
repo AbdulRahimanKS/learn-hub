@@ -3,6 +3,7 @@ import { BatchFilterCombobox } from '@/components/BatchFilterCombobox';
 import { useAuth } from '@/contexts/AuthContext';
 import { DashboardLayout } from '@/components/layout/DashboardLayout';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Progress as ProgressBar } from '@/components/ui/progress';
@@ -564,52 +565,63 @@ export default function Progress() {
     if (!e) return null;
 
     const weekDetails: any[] = e.week_details || [];
-    const avgScore = (() => {
-      const attempted = weekDetails.filter((w: any) => w.test?.attempted && w.test?.score !== null);
-      if (!attempted.length) return null;
-      const sum = attempted.reduce((acc: number, w: any) => acc + (w.test.score || 0), 0);
-      return Math.round(sum / attempted.length);
-    })();
-
     return (
       <Sheet open={!!selectedEnrollment} onOpenChange={(open) => { if (!open) setSelectedEnrollment(null); }}>
-        <SheetContent side="right" className="w-full sm:max-w-[540px] overflow-y-auto p-0">
-          {/* Header */}
-          <div className="bg-gradient-to-br from-primary/90 to-primary p-6 text-white">
-            <SheetHeader>
+        <SheetContent
+          side="right"
+          className={cn(
+            'w-full sm:max-w-[540px] overflow-y-auto border-l border-border p-0',
+            /* Close: neutral on gradient header; kill Radix open/hover bg (light mode gray pill) and hover flash */
+            '[&>button]:right-4 [&>button]:top-4 [&>button]:z-10 [&>button]:flex [&>button]:h-9 [&>button]:w-9 [&>button]:items-center [&>button]:justify-center [&>button]:rounded-full',
+            '[&>button]:border-0 [&>button]:bg-transparent [&>button]:shadow-none [&>button]:backdrop-blur-0',
+            '[&>button]:text-primary-foreground [&>button]:opacity-85',
+            '[&>button]:transition-none [&>button]:hover:bg-transparent [&>button]:hover:opacity-85',
+            '[&>button]:data-[state=open]:bg-transparent',
+            '[&>button]:focus:outline-none [&>button]:focus:ring-2 [&>button]:focus:ring-primary-foreground/35 [&>button]:focus:ring-offset-0',
+            '[&>button>svg]:h-4 [&>button>svg]:w-4 [&>button>svg]:stroke-[2.25]',
+          )}
+        >
+          {/* Header — same token as course detail hero (`gradient-primary` in index.css) */}
+          <div className="relative overflow-hidden gradient-primary text-primary-foreground shadow-card border-b border-white/10">
+            <div className="pointer-events-none absolute inset-0 overflow-hidden">
+              <div className="absolute top-0 right-0 h-64 w-64 rounded-full bg-white/5 blur-3xl" />
+              <div className="absolute bottom-0 left-0 h-32 w-32 rounded-full bg-primary/20 blur-2xl" />
+            </div>
+            <SheetHeader className="relative space-y-0 p-6 pb-6 pr-14 pt-5 text-left">
               <div className="flex items-start gap-4">
-                <div className="h-16 w-16 rounded-2xl bg-white/20 border border-white/30 flex items-center justify-center shrink-0 shadow-lg">
-                  {e.profile_picture ? (
-                    <img
-                      src={e.profile_picture}
-                      alt=""
-                      className="h-full w-full object-cover"
-                    />
-                  ) : (
-                    <span className="text-2xl font-black">{e.student_name?.charAt(0).toUpperCase()}</span>
-                  )}
-                </div>
-                <div className="flex-1 min-w-0">
-                  <SheetTitle className="text-white text-xl font-black truncate">{e.student_name}</SheetTitle>
-                  <div className="flex items-center gap-1.5 mt-1">
-                    <Mail className="h-3.5 w-3.5 opacity-80" />
-                    <span className="text-white/80 text-sm truncate">{e.student_email}</span>
+                <Avatar className="h-20 w-20 shrink-0 border-2 border-white/25 shadow-lg ring-4 ring-white/10">
+                  <AvatarImage src={e.profile_picture || undefined} alt="" className="object-cover" />
+                  <AvatarFallback className="bg-white/20 text-lg font-black text-primary-foreground">
+                    {e.student_name?.charAt(0).toUpperCase()}
+                  </AvatarFallback>
+                </Avatar>
+                <div className="min-w-0 flex-1">
+                  <SheetTitle className="truncate text-xl font-bold tracking-tight text-primary-foreground">
+                    {e.student_name}
+                  </SheetTitle>
+                  <div className="mt-1 flex items-center gap-1.5">
+                    <Mail className="h-3.5 w-3.5 shrink-0 opacity-85" />
+                    <span className="truncate text-sm text-primary-foreground/85">{e.student_email}</span>
                   </div>
-                  <div className="flex items-center gap-1.5 mt-1">
-                    <CalendarDays className="h-3.5 w-3.5 opacity-80" />
-                    <span className="text-white/80 text-sm">
+                  <div className="mt-1 flex items-center gap-1.5">
+                    <CalendarDays className="h-3.5 w-3.5 shrink-0 opacity-85" />
+                    <span className="text-sm text-primary-foreground/85">
                       Joined {formatEnrolledDate(e.enrolled_at)}
                     </span>
                   </div>
-                  <div className="mt-2">
-                    <Badge className={cn(
-                      "text-[10px] font-black capitalize border-0",
-                      e.status === 'active' ? 'bg-success/30 text-white' :
-                      e.status === 'completed' ? 'bg-white/30 text-white' :
-                      'bg-destructive/40 text-white'
-                    )}>
+                  <div className="mt-3">
+                    <span
+                      className={cn(
+                        'inline-flex items-center rounded-full border px-3 py-1 text-xs font-semibold capitalize backdrop-blur-md',
+                        e.status === 'active'
+                          ? 'border-success/40 bg-success/20 text-primary-foreground'
+                          : e.status === 'completed'
+                            ? 'border-white/20 bg-white/15 text-primary-foreground'
+                            : 'border-destructive/45 bg-destructive/25 text-primary-foreground',
+                      )}
+                    >
                       {e.status}
-                    </Badge>
+                    </span>
                   </div>
                 </div>
               </div>
@@ -618,12 +630,12 @@ export default function Progress() {
 
           <div className="p-6 space-y-6">
             {/* Top Stat Cards */}
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
               <Card className="shadow-card">
                 <CardContent className="p-4">
                   <div className="flex items-center gap-2 mb-1">
                     <TrendingUp className="h-4 w-4 text-primary" />
-                    <span className="text-xs font-bold text-muted-foreground uppercase tracking-wide">Progress</span>
+                    <span className="text-xs font-semibold text-muted-foreground">Progress</span>
                   </div>
                   <p className="text-2xl font-black text-foreground">{e.overall_progress || 0}%</p>
                   <ProgressBar value={e.overall_progress || 0} className="h-1.5 mt-2" />
@@ -633,7 +645,7 @@ export default function Progress() {
                 <CardContent className="p-4">
                   <div className="flex items-center gap-2 mb-1">
                     <VideoIcon className="h-4 w-4 text-info" />
-                    <span className="text-xs font-bold text-muted-foreground uppercase tracking-wide">Videos</span>
+                    <span className="text-xs font-semibold text-muted-foreground">Videos</span>
                   </div>
                   <p className="text-2xl font-black text-foreground">
                     {e.videos_watched || 0}
@@ -645,22 +657,11 @@ export default function Progress() {
                 <CardContent className="p-4">
                   <div className="flex items-center gap-2 mb-1">
                     <FileText className="h-4 w-4 text-success" />
-                    <span className="text-xs font-bold text-muted-foreground uppercase tracking-wide">Tests Passed</span>
+                    <span className="text-xs font-semibold text-muted-foreground">Tests passed</span>
                   </div>
                   <p className="text-2xl font-black text-foreground">
                     {e.weekly_tests_submitted || 0}
                     <span className="text-sm font-medium text-muted-foreground"> / {e.total_weekly_tests || 0}</span>
-                  </p>
-                </CardContent>
-              </Card>
-              <Card className="shadow-card">
-                <CardContent className="p-4">
-                  <div className="flex items-center gap-2 mb-1">
-                    <Award className="h-4 w-4 text-warning" />
-                    <span className="text-xs font-bold text-muted-foreground uppercase tracking-wide">Avg Score</span>
-                  </div>
-                  <p className="text-2xl font-black text-foreground">
-                    {avgScore !== null ? `${avgScore}%` : '—'}
                   </p>
                 </CardContent>
               </Card>
