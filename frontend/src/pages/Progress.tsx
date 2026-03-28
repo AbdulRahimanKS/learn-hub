@@ -612,12 +612,12 @@ export default function Progress() {
                   <div className="mt-3">
                     <span
                       className={cn(
-                        'inline-flex items-center rounded-full border px-3 py-1 text-xs font-semibold capitalize backdrop-blur-md',
+                        'inline-flex items-center rounded-full border px-3 py-1 text-xs font-bold capitalize',
                         e.status === 'active'
-                          ? 'border-emerald-400/70 bg-emerald-500/40 text-white'
+                          ? 'bg-emerald-500 text-white border-emerald-600'
                           : e.status === 'completed'
-                            ? 'border-white/50 bg-white/30 text-white'
-                            : 'border-rose-400/70 bg-rose-500/40 text-white',
+                            ? 'bg-white/25 text-white border-white/50'
+                            : 'bg-rose-500 text-white border-rose-600',
                       )}
                     >
                       {e.status}
