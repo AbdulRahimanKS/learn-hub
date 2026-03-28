@@ -195,16 +195,30 @@ export default function Progress() {
           }
         });
 
-        const overall = (tVideos + tTests) > 0 
-          ? Math.round(((vWatched + tPassed) / (tVideos + tTests)) * 100) 
-          : 0;
+        /* Match course detail + admin table: backend week_based_progress_percent (consecutive deliverable weeks). */
+        let overallProgress = 0;
+        if (selectedBatchCourseId) {
+          try {
+            const cr = await apiClient.get<{
+              success?: boolean;
+              data?: { progress_percent?: number };
+            }>(`/api/courses/v1/courses/${selectedBatchCourseId}/`, {
+              params: { batch_id: selectedBatchId },
+            });
+            if (cr.data?.success && cr.data.data && typeof cr.data.data.progress_percent === 'number') {
+              overallProgress = cr.data.data.progress_percent;
+            }
+          } catch {
+            /* leave 0 */
+          }
+        }
 
         setStudentStats({
           totalVideos: tVideos,
           videosWatched: vWatched,
           totalTests: tTests,
           testsPassed: tPassed,
-          overallProgress: overall,
+          overallProgress,
         });
       }
     } catch (err) {
@@ -212,7 +226,7 @@ export default function Progress() {
     } finally {
       setLoading(false);
     }
-  }, [selectedBatchId, toast]);
+  }, [selectedBatchId, selectedBatchCourseId, toast]);
 
   const fetchStudentSubmissions = useCallback(async () => {
     if (!selectedBatchId) return;
@@ -240,7 +254,7 @@ export default function Progress() {
         fetchAdminData();
       }
     }
-  }, [selectedBatchId, isStudent, fetchAdminData, fetchStudentData, fetchStudentSubmissions]);
+  }, [selectedBatchId, selectedBatchCourseId, isStudent, fetchAdminData, fetchStudentData, fetchStudentSubmissions]);
 
   // Export full report
   const handleExportBatchProgress = async (format: 'csv' | 'xlsx') => {
