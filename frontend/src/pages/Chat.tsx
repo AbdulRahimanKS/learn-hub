@@ -295,7 +295,7 @@ export default function Chat() {
       <div className="h-[calc(100vh-8rem)]">
         <div className="flex flex-col h-full gap-6 lg:flex-row">
           {/* Sidebar - Batch List */}
-          <Card className="shadow-card lg:w-80 flex-shrink-0 flex flex-col min-h-0">
+          <Card className="shadow-card flex h-full min-h-0 flex-shrink-0 flex-col lg:max-h-full lg:w-80">
             <CardHeader className="pb-3 flex-shrink-0">
               <CardTitle className="flex items-center gap-2">
                 <Users className="h-5 w-5" />
@@ -312,25 +312,31 @@ export default function Chat() {
                   className="pl-10"
                 />
               </div>
-              <ScrollArea className="flex-1" onScrollCapture={handleSidebarScroll}>
+              {/* Native scroll so overflow + onScroll (load more) work reliably; Radix ScrollArea scrolls an inner viewport */}
+              <div
+                className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden pr-1"
+                onScroll={handleSidebarScroll}
+              >
                 {isLoadingBatches ? (
                   <div className="flex justify-center p-4"><Loader2 className="h-6 w-6 animate-spin text-muted-foreground" /></div>
                 ) : batches.length === 0 ? (
                   <p className="text-sm text-muted-foreground text-center py-4">No batches found.</p>
                 ) : (
-                  <div className="space-y-2 pr-3">
+                  <div className="space-y-2">
                     {batches.map((batch) => (
                       <button
                         key={batch.id}
+                        type="button"
                         onClick={() => setSelectedBatch(batch)}
+                        title={batch.name}
                         className={cn(
-                          'w-full flex items-center justify-between p-3 rounded-lg transition-colors text-left',
+                          'w-full min-w-0 max-w-full overflow-hidden flex items-center gap-2 p-3 rounded-lg transition-colors text-left',
                           selectedBatch?.id === batch.id
                             ? 'bg-primary text-primary-foreground'
                             : 'hover:bg-muted'
                         )}
                       >
-                        <div className="flex items-center gap-3 min-w-0">
+                        <div className="flex flex-1 min-w-0 items-center gap-3 overflow-hidden">
                           <div className={cn(
                             'h-10 w-10 shrink-0 rounded-full flex items-center justify-center',
                             selectedBatch?.id === batch.id
@@ -342,13 +348,15 @@ export default function Chat() {
                               selectedBatch?.id === batch.id ? 'text-primary-foreground' : 'text-primary'
                             )} />
                           </div>
-                          <div className="flex flex-col overflow-hidden min-w-0">
-                             <span className="text-sm font-medium truncate">{batch.name}</span>
-                             {batch.course_name && <span className="text-[10px] opacity-80 truncate">{batch.course_name}</span>}
+                          <div className="flex min-w-0 flex-1 flex-col overflow-hidden text-left">
+                            <span className="block truncate text-sm font-medium">{batch.name}</span>
+                            {batch.course_name ? (
+                              <span className="block truncate text-[10px] opacity-80">{batch.course_name}</span>
+                            ) : null}
                           </div>
                         </div>
                         {(batch.unread_count || 0) > 0 ? (
-                          <Badge className="bg-destructive text-destructive-foreground rounded-full h-5 min-w-5 flex items-center justify-center px-1 text-[10px] border-none flex-shrink-0">
+                          <Badge className="shrink-0 bg-destructive text-destructive-foreground rounded-full h-5 min-w-5 flex items-center justify-center px-1 text-[10px] border-none">
                             {batch.unread_count}
                           </Badge>
                         ) : null}
@@ -356,7 +364,7 @@ export default function Chat() {
                     ))}
                   </div>
                 )}
-              </ScrollArea>
+              </div>
             </CardContent>
           </Card>
 
@@ -364,11 +372,17 @@ export default function Chat() {
           <Card className="shadow-card flex-1 flex flex-col min-h-0 bg-background">
             {selectedBatch ? (
               <>
-                <CardHeader className="border-b flex-shrink-0 bg-background/50 backdrop-blur-md">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <CardTitle>{selectedBatch.name}</CardTitle>
-                      {selectedBatch.course_name && <p className="text-sm text-muted-foreground mt-1">{selectedBatch.course_name}</p>}
+                <CardHeader className="border-b flex-shrink-0 bg-background/50 backdrop-blur-md min-w-0">
+                  <div className="flex min-w-0 items-center justify-between gap-2">
+                    <div className="min-w-0 flex-1">
+                      <CardTitle className="truncate" title={selectedBatch.name}>
+                        {selectedBatch.name}
+                      </CardTitle>
+                      {selectedBatch.course_name ? (
+                        <p className="mt-1 truncate text-sm text-muted-foreground" title={selectedBatch.course_name}>
+                          {selectedBatch.course_name}
+                        </p>
+                      ) : null}
                     </div>
                   </div>
                 </CardHeader>
