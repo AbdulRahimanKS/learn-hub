@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { DashboardLayout } from '@/components/layout/DashboardLayout';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -105,6 +105,7 @@ export default function LiveSessions() {
   const [editingSession, setEditingSession] = useState<LiveSession | null>(null);
   const [sessionToDelete, setSessionToDelete] = useState<LiveSession | null>(null);
   const [submitting, setSubmitting] = useState(false);
+  const timeInputRef = useRef<HTMLInputElement | null>(null);
 
   const form = useForm<LiveSessionFormValues>({
     resolver: zodResolver(liveSessionSchema),
@@ -389,7 +390,7 @@ export default function LiveSessions() {
                               <Button
                                 variant={"outline"}
                                 className={cn(
-                                  "w-full h-10 px-3 text-left font-normal bg-background border-input hover:bg-background hover:text-foreground focus:ring-1 focus:ring-ring focus:border-primary",
+                                  "w-full h-10 px-3 text-left font-normal bg-background border-input text-foreground hover:bg-background hover:text-foreground focus:ring-1 focus:ring-ring focus:border-primary",
                                   !field.value && "text-muted-foreground"
                                 )}
                               >
@@ -425,11 +426,36 @@ export default function LiveSessions() {
                       <FormItem className="flex flex-col">
                         <FormLabel>Time</FormLabel>
                         <FormControl>
-                          <Input 
-                            type="time" 
-                            {...field} 
-                            className="h-10 w-full"
-                          />
+                          <div className="relative w-full">
+                            <Input
+                              type="time"
+                              name={field.name}
+                              value={field.value}
+                              onChange={field.onChange}
+                              onBlur={field.onBlur}
+                              ref={(node) => {
+                                field.ref(node);
+                                timeInputRef.current = node;
+                              }}
+                              className="h-10 w-full block pr-10 [color-scheme:light] dark:[color-scheme:dark] [&::-webkit-calendar-picker-indicator]:cursor-pointer [&::-webkit-calendar-picker-indicator]:opacity-0"
+                            />
+                            <button
+                              type="button"
+                              aria-label="Open time picker"
+                              className="absolute right-2.5 top-1/2 -translate-y-1/2 rounded-sm p-0.5 text-muted-foreground/70 hover:text-foreground focus:outline-none"
+                              onClick={() => {
+                                const inputEl = timeInputRef.current as (HTMLInputElement & { showPicker?: () => void }) | null;
+                                if (!inputEl) return;
+                                if (typeof inputEl.showPicker === 'function') {
+                                  inputEl.showPicker();
+                                } else {
+                                  inputEl.focus();
+                                }
+                              }}
+                            >
+                              <Clock className="h-4 w-4" />
+                            </button>
+                          </div>
                         </FormControl>
                         <FormMessage />
                       </FormItem>
@@ -567,8 +593,8 @@ function SessionList({ sessions, loading, isAdmin, onEdit, onDelete, onJoin, act
                 <div className="flex flex-col sm:flex-row sm:items-center gap-2 mb-1">
                   <h3 className="font-bold text-foreground truncate text-lg">{session.title}</h3>
                   {session.is_live && (
-                    <Badge className="w-fit mx-auto sm:mx-0 bg-red-500 text-white animate-pulse border-none text-[10px] h-5 px-2">
-                       LIVE NOW
+                    <Badge className="w-fit mx-auto sm:mx-0 bg-primary text-primary-foreground animate-pulse border-none text-[10px] h-5 px-2">
+                      Live Now
                     </Badge>
                   )}
                 </div>

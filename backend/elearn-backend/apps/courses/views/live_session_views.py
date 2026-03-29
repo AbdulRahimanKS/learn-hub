@@ -87,9 +87,10 @@ class LiveSessionListCreateView(APIView):
     )
     def post(self, request, batch_id):
         try:
-            user_role = getattr(request.user.user_type, 'name', '').lower()
-            if user_role not in [UserTypeConstants.ADMIN, UserTypeConstants.TEACHER, UserTypeConstants.SUPERADMIN]:
-                raise ServiceError(detail="Permission denied.", status_code=status.HTTP_403_FORBIDDEN)
+            user_role = getattr(request.user.user_type, 'name', '')
+            allowed_roles = {UserTypeConstants.ADMIN, UserTypeConstants.TEACHER, UserTypeConstants.SUPERADMIN}
+            if user_role not in allowed_roles:
+                raise ServiceError(detail=f"Permission denied. You are not authorized to create a live session for this batch.", status_code=status.HTTP_403_FORBIDDEN)
 
             try:
                 batch = Batch.objects.get(id=batch_id)
