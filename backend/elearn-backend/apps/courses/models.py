@@ -911,7 +911,6 @@ class BatchPostSessionChoice(models.Model):
 
 # LiveSession
 class LiveSession(models.Model):
-
     batch = models.ForeignKey(
         Batch, on_delete=models.CASCADE, related_name='live_sessions',
         null=True, blank=True
