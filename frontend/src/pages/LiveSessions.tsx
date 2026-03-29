@@ -289,26 +289,34 @@ export default function LiveSessions() {
               </TabsList>
 
               <TabsContent value="upcoming" className="mt-0">
-                <SessionList 
-                   sessions={sessions} 
-                   loading={loading} 
-                   isAdmin={true} 
-                   onEdit={openEditDialog} 
-                   onDelete={setSessionToDelete}
-                   onJoin={handleJoin}
-                   activeTab={activeTab}
-                />
+                <Card className="shadow-card">
+                  <CardContent className="pt-6">
+                    <SessionList
+                      sessions={sessions}
+                      loading={loading}
+                      isAdmin={true}
+                      onEdit={openEditDialog}
+                      onDelete={setSessionToDelete}
+                      onJoin={handleJoin}
+                      activeTab={activeTab}
+                    />
+                  </CardContent>
+                </Card>
               </TabsContent>
               <TabsContent value="past" className="mt-0">
-                <SessionList 
-                   sessions={sessions} 
-                   loading={loading} 
-                   isAdmin={true} 
-                   onEdit={openEditDialog} 
-                   onDelete={setSessionToDelete}
-                   onJoin={handleJoin}
-                   activeTab={activeTab}
-                />
+                <Card className="shadow-card">
+                  <CardContent className="pt-6">
+                    <SessionList
+                      sessions={sessions}
+                      loading={loading}
+                      isAdmin={true}
+                      onEdit={openEditDialog}
+                      onDelete={setSessionToDelete}
+                      onJoin={handleJoin}
+                      activeTab={activeTab}
+                    />
+                  </CardContent>
+                </Card>
               </TabsContent>
             </Tabs>
           ) : (
@@ -317,15 +325,19 @@ export default function LiveSessions() {
                 <CalendarIcon className="h-5 w-5 text-primary" />
                 <h2 className="text-xl font-bold text-foreground">Upcoming Sessions</h2>
               </div>
-              <SessionList 
-                sessions={sessions} 
-                loading={loading} 
-                isAdmin={false} 
-                onEdit={() => {}} 
-                onDelete={() => {}}
-                onJoin={handleJoin}
-                activeTab="upcoming"
-              />
+              <Card className="shadow-card">
+                <CardContent className="pt-6">
+                  <SessionList
+                    sessions={sessions}
+                    loading={loading}
+                    isAdmin={false}
+                    onEdit={() => {}}
+                    onDelete={() => {}}
+                    onJoin={handleJoin}
+                    activeTab="upcoming"
+                  />
+                </CardContent>
+              </Card>
             </div>
           )}
 
@@ -571,8 +583,7 @@ function SessionList({ sessions, loading, isAdmin, onEdit, onDelete, onJoin, act
         const canEdit = isAdmin && !isPast;
 
         return (
-          <Card key={session.id} className="shadow-card overflow-hidden group hover:shadow-md transition-all duration-300 bg-card border border-border/50">
-            <div className="flex flex-col sm:flex-row items-center p-4 gap-4">
+          <div key={session.id} className="group flex flex-col gap-4 rounded-xl border border-border bg-muted/40 p-4 transition-all hover:bg-accent/20 hover:shadow-sm sm:flex-row sm:items-center sm:justify-between">
               {/* Left: Icon */}
               <div className="flex shrink-0">
                 <div 
@@ -622,13 +633,13 @@ function SessionList({ sessions, loading, isAdmin, onEdit, onDelete, onJoin, act
               </div>
 
               {/* Right: Actions */}
-              <div className="flex items-center gap-3 shrink-0 ml-auto w-full sm:w-auto justify-center sm:justify-end border-t sm:border-t-0 pt-4 sm:pt-0">
+              <div className="flex items-center gap-3 shrink-0 ml-auto w-full sm:w-auto justify-center sm:justify-end border-t border-border/50 pt-4 sm:border-t-0 sm:pt-0">
                 {canEdit && (
                   <div className="flex items-center gap-1">
-                    <Button variant="ghost" size="icon" className="h-9 w-9 text-muted-foreground hover:text-foreground" onClick={() => onEdit(session)}>
+                    <Button variant="ghost" size="icon" className="h-9 w-9 rounded-xl text-muted-foreground hover:bg-accent hover:text-foreground" onClick={() => onEdit(session)}>
                       <Edit className="h-4 w-4" />
                     </Button>
-                    <Button variant="ghost" size="icon" className="h-9 w-9 text-muted-foreground hover:text-destructive hover:bg-destructive/10" onClick={() => onDelete(session)}>
+                    <Button variant="ghost" size="icon" className="h-9 w-9 rounded-xl text-muted-foreground hover:bg-destructive/10 hover:text-destructive" onClick={() => onDelete(session)}>
                       <Trash2 className="h-4 w-4" />
                     </Button>
                   </div>
@@ -639,7 +650,7 @@ function SessionList({ sessions, loading, isAdmin, onEdit, onDelete, onJoin, act
                     onClick={() => onJoin(session)}
                     variant="gradient" 
                     size="sm" 
-                    className="gap-2 px-8 h-9 rounded-lg shadow-sm font-bold"
+                    className="h-10 rounded-xl px-6 font-bold shadow-none hover:shadow-none"
                   >
                     <Play className="h-3.5 w-3.5 fill-current" />
                     Join Now
@@ -648,7 +659,7 @@ function SessionList({ sessions, loading, isAdmin, onEdit, onDelete, onJoin, act
                   <Button 
                     variant="secondary" 
                     size="sm" 
-                    className="gap-2 px-6 h-9 rounded-lg cursor-not-allowed opacity-70 font-bold"
+                    className="h-10 rounded-xl px-6 cursor-not-allowed font-bold opacity-70"
                     disabled
                   >
                     {isUpcoming ? (
@@ -659,8 +670,7 @@ function SessionList({ sessions, loading, isAdmin, onEdit, onDelete, onJoin, act
                   </Button>
                 )}
               </div>
-            </div>
-          </Card>
+          </div>
         );
       })}
     </div>
