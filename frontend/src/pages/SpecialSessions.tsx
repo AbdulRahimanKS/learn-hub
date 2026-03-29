@@ -117,8 +117,29 @@ export default function SpecialSessions() {
     video_file: null as File | null,
   });
 
+  const parseLocalDateTime = (value?: string) => {
+    if (!value) return null;
+    const [datePart, timePart] = value.split('T');
+    if (!datePart || !timePart) return null;
+    const [year, month, day] = datePart.split('-').map(Number);
+    const [hours, minutes] = timePart.split(':').map(Number);
+    if (
+      [year, month, day, hours, minutes].some((n) => !Number.isFinite(n))
+    ) {
+      return null;
+    }
+    const dt = new Date(year, month - 1, day, hours, minutes, 0, 0);
+    return Number.isNaN(dt.getTime()) ? null : dt;
+  };
+
+  const getTimeValue = (value?: string) => {
+    const parsed = parseLocalDateTime(value);
+    if (!parsed) return "";
+    return format(parsed, "HH:mm");
+  };
+
   useEffect(() => {
-    if (!selectedBatchId) return;
+    if (!selectedBatchId || !isAdminOrTeacher) return;
     batchApi
       .getBatch(selectedBatchId)
       .then((res) => {
@@ -126,7 +147,7 @@ export default function SpecialSessions() {
         if (name) setSelectedBatchName(String(name));
       })
       .catch(() => {});
-  }, [selectedBatchId]);
+  }, [selectedBatchId, isAdminOrTeacher]);
 
   const handleSpecialBatchChange = useCallback((id: string, batch: Batch) => {
     setSelectedBatchId(Number(id));
@@ -210,6 +231,15 @@ export default function SpecialSessions() {
     if (!formData.title.trim()) errors.title = 'Title is required';
     if (!formData.unlock_at) errors.unlock_at = 'Unlock time is required';
     if (!formData.video_file && !editWebinar?.video_file) errors.video_file = 'Video session is required.';
+    if (formData.video_file && formData.video_file.type !== 'video/mp4') {
+      errors.video_file = 'Only MP4 videos are allowed';
+    }
+    if (formData.unlock_at) {
+      const unlockAtDate = parseLocalDateTime(formData.unlock_at);
+      if (!unlockAtDate || unlockAtDate < new Date()) {
+        errors.unlock_at = 'Release date/time cannot be in the past';
+      }
+    }
 
     setFormErrors(errors);
     if (Object.keys(errors).length > 0) return;
@@ -407,7 +437,7 @@ export default function SpecialSessions() {
           </div>
           
           {isAdminOrTeacher && (
-            <Button onClick={() => handleOpenModal()} variant="gradient" className="gap-2 shadow-lg shadow-primary/20">
+            <Button onClick={() => handleOpenModal()} variant="gradient" className="gap-2">
               <Plus className="h-4 w-4" />
               Add Session
             </Button>
@@ -534,107 +564,208 @@ export default function SpecialSessions() {
 
         {/* Create/Edit Modal */}
         <Dialog open={isModalOpen} onOpenChange={setIsModalOpen}>
-          <DialogContent className="sm:max-w-[550px] p-0 overflow-hidden rounded-3xl" onOpenAutoFocus={(e) => e.preventDefault()}>
-            <form onSubmit={handleSubmit}>
-              <DialogHeader className="p-6 bg-muted/30 pb-4 border-b">
-                <DialogTitle className="text-2xl font-bold">{editWebinar ? 'Edit Session' : 'Add Session'}</DialogTitle>
-                <DialogDescription>Details for the special session or video resource.</DialogDescription>
-              </DialogHeader>
-              
-              <div className="p-6 space-y-5">
-                <div className="grid gap-2 relative pb-2">
-                  <Label htmlFor="title" className="text-sm font-semibold">Session Title <span className="text-destructive">*</span></Label>
-                  <Input 
-                    id="title" 
-                    placeholder="e.g. Guest Lecture: Industry Insights" 
-                    value={formData.title}
-                    onChange={e => setFormData({...formData, title: e.target.value})}
-                    className={cn("h-11 rounded-xl", formErrors.title && "border-destructive")}
-                  />
-                </div>
+          <DialogContent className="sm:max-w-lg" onOpenAutoFocus={(e) => e.preventDefault()}>
+            <DialogHeader>
+              <DialogTitle>{editWebinar ? 'Edit Session' : 'Add Session'}</DialogTitle>
+              <DialogDescription>Details for the special session or video resource.</DialogDescription>
+            </DialogHeader>
 
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="grid gap-2">
-                    <Label htmlFor="type" className="text-sm font-semibold">Type</Label>
-                    <Select value={formData.session_type} onValueChange={(v: any) => setFormData({...formData, session_type: v})}>
-                      <SelectTrigger className="h-11 rounded-xl">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="webinar">Webinar</SelectItem>
-                        <SelectItem value="special_session">Special Session</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  
-                  <div className="grid gap-2">
-                    <Label className="text-sm font-semibold">Release Date/Time <span className="text-destructive">*</span></Label>
-                    <Popover modal={true}>
-                      <PopoverTrigger asChild>
-                        <button type="button" className={cn("flex w-full justify-start items-center h-11 px-3 text-sm border rounded-xl bg-background", !formData.unlock_at && "text-muted-foreground", formErrors.unlock_at && "border-destructive")}>
-                          <Calendar className="mr-2 h-4 w-4 opacity-50" />
-                          {formData.unlock_at ? format(new Date(formData.unlock_at), "PPP p") : "Pick time"}
-                        </button>
-                      </PopoverTrigger>
-                      <PopoverContent className="w-auto p-0" align="start">
-                        <CalendarUI
-                          mode="single"
-                          selected={formData.unlock_at ? new Date(formData.unlock_at) : undefined}
-                          onSelect={(date) => {
-                            if (!date) return;
-                            const current = formData.unlock_at ? new Date(formData.unlock_at) : new Date();
-                            date.setHours(current.getHours());
-                            date.setMinutes(current.getMinutes());
-                            setFormData(p => ({ ...p, unlock_at: format(date, "yyyy-MM-dd'T'HH:mm") }));
-                          }}
-                        />
-                        <div className="p-3 border-t flex items-center gap-2">
-                          <Clock className="h-4 w-4" />
-                          <Input type="time" value={formData.unlock_at ? format(new Date(formData.unlock_at), "HH:mm") : ""} onChange={(e) => {
-                            const [h, m] = e.target.value.split(':');
-                            const current = formData.unlock_at ? new Date(formData.unlock_at) : new Date();
-                            current.setHours(parseInt(h));
-                            current.setMinutes(parseInt(m));
-                            setFormData(p => ({ ...p, unlock_at: format(current, "yyyy-MM-dd'T'HH:mm") }));
-                          }} className="h-9" />
-                        </div>
-                      </PopoverContent>
-                    </Popover>
-                  </div>
-                </div>
-
-                <div className="grid gap-2">
-                  <Label htmlFor="description" className="text-sm font-semibold">Description</Label>
-                  <Textarea id="description" rows={3} value={formData.description} onChange={e => setFormData({...formData, description: e.target.value})} className="rounded-xl resize-none" />
-                </div>
-
-                <div className="grid gap-2">
-                  <Label className="text-sm font-semibold">Video File (.mp4) <span className="text-destructive">*</span></Label>
-                  <div className={cn("border-2 border-dashed rounded-xl p-6 text-center cursor-pointer transition-all", formData.video_file || editWebinar?.video_file ? "bg-primary/5 border-primary/20" : "hover:bg-muted/50")} onClick={() => fileInputRef.current?.click()}>
-                    <input type="file" ref={fileInputRef} className="hidden" accept="video/mp4" onChange={(e) => e.target.files?.[0] && setFormData({...formData, video_file: e.target.files[0]})} />
-                    <div className="flex flex-col items-center gap-2">
-                      {formData.video_file ? (
-                        <><CheckCircle className="h-8 w-8 text-primary" /><p className="text-sm font-medium">{formData.video_file.name}</p></>
-                      ) : editWebinar?.video_file ? (
-                        <><CheckCircle className="h-8 w-8 text-primary" /><p className="text-sm font-medium">Video Available</p><p className="text-xs text-muted-foreground">Click to replace</p></>
-                      ) : (
-                        <><Upload className="h-8 w-8 text-muted-foreground" /><p className="text-sm font-medium">Click to upload video</p></>
-                      )}
-                    </div>
-                  </div>
-                </div>
-
-                {uploadProgress >= 0 && (
-                  <div className="space-y-2">
-                    <div className="flex justify-between text-xs font-bold"><span className="text-primary uppercase tracking-widest">Uploading</span><span>{uploadProgress}%</span></div>
-                    <div className="h-1.5 w-full bg-muted rounded-full overflow-hidden"><div className="h-full bg-primary transition-all duration-300" style={{ width: `${uploadProgress}%` }} /></div>
-                  </div>
-                )}
+            <form onSubmit={handleSubmit} className="space-y-4 py-4">
+              <div className="grid gap-2">
+                <Label htmlFor="title" className="text-sm font-semibold">Session Title <span className="text-destructive">*</span></Label>
+                <Input
+                  id="title"
+                  placeholder="e.g. Guest Lecture: Industry Insights"
+                  value={formData.title}
+                  onChange={(e) => {
+                    const value = e.target.value;
+                    setFormData({ ...formData, title: value });
+                    if (value.trim()) {
+                      setFormErrors((prev) => {
+                        const next = { ...prev };
+                        delete next.title;
+                        return next;
+                      });
+                    }
+                  }}
+                  className={cn("h-11 rounded-xl", formErrors.title && "border-destructive")}
+                />
+                {formErrors.title && <p className="text-sm text-destructive">{formErrors.title}</p>}
               </div>
 
-              <DialogFooter className="p-6 bg-muted/30 border-t gap-2">
-                <Button type="button" variant="ghost" onClick={() => setIsModalOpen(false)} disabled={isSubmitting} className="rounded-xl">Cancel</Button>
-                <Button type="submit" disabled={isSubmitting} className="rounded-xl px-8 bg-primary hover:bg-primary/90 text-primary-foreground font-bold">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div className="grid gap-2">
+                  <Label htmlFor="type" className="text-sm font-semibold">Type</Label>
+                  <Select value={formData.session_type} onValueChange={(v: any) => setFormData({ ...formData, session_type: v })}>
+                    <SelectTrigger className="h-11 rounded-xl">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="webinar">Webinar</SelectItem>
+                      <SelectItem value="special_session">Special Session</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  <p className="min-h-5 text-sm text-transparent" aria-hidden="true">
+                    {'\u00A0'}
+                  </p>
+                </div>
+
+                <div className="grid gap-2">
+                  <Label className="text-sm font-semibold">Release Date/Time <span className="text-destructive">*</span></Label>
+                  <Popover modal={true}>
+                    <PopoverTrigger asChild>
+                      <button
+                        type="button"
+                        className={cn(
+                          "flex w-full justify-start items-center h-11 px-3 text-sm border rounded-xl bg-background",
+                          !formData.unlock_at && "text-muted-foreground",
+                          formErrors.unlock_at && "border-destructive"
+                        )}
+                      >
+                        <Calendar className="mr-2 h-4 w-4 opacity-50" />
+                        {formData.unlock_at ? format(new Date(formData.unlock_at), "PPP p") : "Pick time"}
+                      </button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-auto p-0" align="start">
+                      <CalendarUI
+                        mode="single"
+                        selected={formData.unlock_at ? new Date(formData.unlock_at) : undefined}
+                        disabled={(date) =>
+                          date < new Date(new Date().setHours(0, 0, 0, 0))
+                        }
+                        onSelect={(date) => {
+                          if (!date) return;
+                          const current = parseLocalDateTime(formData.unlock_at) || new Date();
+                          date.setHours(current.getHours());
+                          date.setMinutes(current.getMinutes());
+                          if (date < new Date()) {
+                            setFormErrors((prev) => ({ ...prev, unlock_at: 'Release date/time cannot be in the past' }));
+                          } else {
+                            setFormErrors((prev) => {
+                              const next = { ...prev };
+                              delete next.unlock_at;
+                              return next;
+                            });
+                          }
+                          setFormData(p => ({ ...p, unlock_at: format(date, "yyyy-MM-dd'T'HH:mm") }));
+                        }}
+                      />
+                      <div className="p-3 border-t flex items-center gap-2">
+                        <Clock className="h-4 w-4" />
+                        <Input
+                          type="time"
+                          value={getTimeValue(formData.unlock_at)}
+                          onChange={(e) => {
+                            const raw = e.target.value;
+                            if (!raw) {
+                              setFormData((p) => ({ ...p, unlock_at: "" }));
+                              setFormErrors((prev) => ({ ...prev, unlock_at: 'Unlock time is required' }));
+                              return;
+                            }
+                            const [h, m] = raw.split(':');
+                            if (h == null || m == null || h === "" || m === "") return;
+                            const current = parseLocalDateTime(formData.unlock_at) || new Date();
+                            const hours = Number(h);
+                            const minutes = Number(m);
+                            if (!Number.isFinite(hours) || !Number.isFinite(minutes)) return;
+                            current.setHours(hours);
+                            current.setMinutes(minutes);
+                            if (Number.isNaN(current.getTime())) return;
+                            if (current < new Date()) {
+                              setFormErrors((prev) => ({ ...prev, unlock_at: 'Release date/time cannot be in the past' }));
+                            } else {
+                              setFormErrors((prev) => {
+                                const next = { ...prev };
+                                if (next.unlock_at === 'Release date/time cannot be in the past') delete next.unlock_at;
+                                return next;
+                              });
+                            }
+                            setFormData(p => ({ ...p, unlock_at: format(current, "yyyy-MM-dd'T'HH:mm") }));
+                          }}
+                          className="h-9"
+                        />
+                      </div>
+                    </PopoverContent>
+                  </Popover>
+                  <p
+                    className={cn(
+                      "min-h-5 text-sm",
+                      formErrors.unlock_at ? "text-destructive" : "text-transparent"
+                    )}
+                  >
+                    {formErrors.unlock_at || '\u00A0'}
+                  </p>
+                </div>
+              </div>
+
+              <div className="grid gap-2">
+                <Label htmlFor="description" className="text-sm font-semibold">Description</Label>
+                <Textarea
+                  id="description"
+                  rows={3}
+                  value={formData.description}
+                  onChange={e => setFormData({ ...formData, description: e.target.value })}
+                  className="rounded-xl resize-none"
+                />
+              </div>
+
+              <div className="grid gap-2">
+                <Label className="text-sm font-semibold">Video File (.mp4) <span className="text-destructive">*</span></Label>
+                <div
+                  className={cn(
+                    "border-2 border-dashed rounded-xl p-6 text-center cursor-pointer transition-all",
+                    formErrors.video_file && "border-destructive",
+                    formData.video_file || editWebinar?.video_file ? "bg-primary/5 border-primary/20" : "hover:bg-muted/50"
+                  )}
+                  onClick={() => fileInputRef.current?.click()}
+                >
+                  <input
+                    type="file"
+                    ref={fileInputRef}
+                    className="hidden"
+                    accept="video/mp4"
+                    onChange={(e) => {
+                      const file = e.target.files?.[0];
+                      if (!file) return;
+                      if (file.type !== 'video/mp4') {
+                        setFormErrors((prev) => ({ ...prev, video_file: 'Only MP4 videos are allowed' }));
+                        return;
+                      }
+                      setFormData({ ...formData, video_file: file });
+                      setFormErrors((prev) => {
+                        const next = { ...prev };
+                        delete next.video_file;
+                        return next;
+                      });
+                    }}
+                  />
+                  <div className="flex flex-col items-center gap-2">
+                    {formData.video_file ? (
+                      <><CheckCircle className="h-8 w-8 text-primary" /><p className="text-sm font-medium">{formData.video_file.name}</p></>
+                    ) : editWebinar?.video_file ? (
+                      <><CheckCircle className="h-8 w-8 text-primary" /><p className="text-sm font-medium">Video Available</p><p className="text-xs text-muted-foreground">Click to replace</p></>
+                    ) : (
+                      <>
+                        <Upload className="h-8 w-8 text-muted-foreground" />
+                        <p className="text-sm font-medium">Click to upload video</p>
+                        <p className="text-xs text-muted-foreground">Only MP4 videos are accepted.</p>
+                      </>
+                    )}
+                  </div>
+                </div>
+                {formErrors.video_file && <p className="text-sm text-destructive">{formErrors.video_file}</p>}
+              </div>
+
+              {uploadProgress >= 0 && (
+                <div className="space-y-2">
+                  <div className="flex justify-between text-xs font-bold"><span className="text-primary uppercase tracking-widest">Uploading</span><span>{uploadProgress}%</span></div>
+                  <div className="h-1.5 w-full bg-muted rounded-full overflow-hidden"><div className="h-full bg-primary transition-all duration-300" style={{ width: `${uploadProgress}%` }} /></div>
+                </div>
+              )}
+
+              <DialogFooter className="gap-2">
+                <Button type="button" variant="outline" onClick={() => setIsModalOpen(false)} disabled={isSubmitting}>Cancel</Button>
+                <Button type="submit" variant="gradient" disabled={isSubmitting}>
                   {isSubmitting ? <><Loader2 className="h-4 w-4 animate-spin mr-2" />Processing...</> : editWebinar ? 'Update Session' : 'Save Session'}
                 </Button>
               </DialogFooter>

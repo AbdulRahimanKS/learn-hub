@@ -6,6 +6,7 @@ from django.conf import settings
 from apps.courses.models import (
     Batch, BatchWeek, BatchClassSession, CourseClassSession, CourseWeek,
     BatchWeeklyTest, BatchTestQuestion, BatchTestQuestionAttachment,
+    ScheduledWebinar,
     BatchPostSessionQuestion, BatchPostSessionChoice
 )
 from apps.courses.views.upload_views import get_s3_client
@@ -149,7 +150,8 @@ def extend_batch_timeline(batch_id, days):
 
 def delete_unused_video_from_storage(video_key):
     """
-    Checks if a video file key is used anywhere else in CourseClassSession or BatchClassSession.
+    Checks if a video file key is used anywhere else in CourseClassSession,
+    BatchClassSession, or ScheduledWebinar.
     If it is not used, it deletes the object from the AWS/R2 storage bucket.
     """
     if not video_key:
@@ -158,8 +160,9 @@ def delete_unused_video_from_storage(video_key):
     # Check references across both models
     is_used_in_course = CourseClassSession.objects.filter(video_file=video_key).exists()
     is_used_in_batch = BatchClassSession.objects.filter(video_file=video_key).exists()
+    is_used_in_webinar = ScheduledWebinar.objects.filter(video_file=video_key).exists()
 
-    if not is_used_in_course and not is_used_in_batch:
+    if not is_used_in_course and not is_used_in_batch and not is_used_in_webinar:
         try:
             s3_client = get_s3_client()
             s3_client.delete_object(

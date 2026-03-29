@@ -8,6 +8,7 @@ from drf_spectacular.types import OpenApiTypes
 
 from apps.courses.models import ScheduledWebinar, Batch, BatchEnrollment
 from apps.courses.serializers.scheduled_webinar_serializers import ScheduledWebinarSerializer
+from apps.courses.services import delete_unused_video_from_storage
 from utils.permissions import IsSuperAdminAdminOrTeacher, IsAuthenticated
 from utils.common import format_success_response, handle_serializer_errors, ServiceError
 from utils.pagination import CustomPageNumberPagination
@@ -154,7 +155,10 @@ class ScheduledWebinarDetailView(APIView):
     def delete(self, request, batch_id, webinar_id):
         try:
             webinar = self.get_object(batch_id, webinar_id)
+            video_file_key = webinar.video_file
             webinar.delete()
+            if video_file_key:
+                delete_unused_video_from_storage(video_file_key)
             return format_success_response(message="Webinar deleted successfully")
         except ServiceError:
             raise
