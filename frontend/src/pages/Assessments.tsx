@@ -700,7 +700,7 @@ export default function Assessments() {
         <div className="flex min-w-0 w-full flex-1 items-center gap-3 sm:w-auto sm:justify-end">
           <div className="w-[min(180px,100%)] shrink-0">
             <Select value={selectedWeek} onValueChange={(val) => { setSelectedWeek(val); setCurrentPage(1); }}>
-              <SelectTrigger className="h-11 max-w-full bg-background rounded-xl font-bold">
+              <SelectTrigger className="h-11 max-w-full rounded-xl border-primary text-primary">
                 <SelectValue placeholder="All Weeks" />
               </SelectTrigger>
               <SelectContent className="rounded-xl">
@@ -724,7 +724,7 @@ export default function Assessments() {
               selectedLabel={selectedBatchName}
               onValueChange={handleAssessmentBatchChange}
               placeholder="Select a batch"
-              className="h-11 border-border bg-background font-bold"
+              className="h-11 border-primary text-primary"
             />
           </div>
         </div>
