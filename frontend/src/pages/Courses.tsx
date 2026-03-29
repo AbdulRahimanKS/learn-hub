@@ -121,7 +121,6 @@ export default function Courses() {
       try {
         const params: Parameters<typeof courseApi.getCourses>[0] = {
           paginate: true,
-          is_active: true,
           page: currentPage,
           page_size: COURSE_PAGE_SIZE,
         };
