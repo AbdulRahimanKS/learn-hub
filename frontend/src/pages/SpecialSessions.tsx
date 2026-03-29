@@ -136,7 +136,7 @@ export default function SpecialSessions() {
   const fetchAvailable = useCallback(async (batchId: number, page = 1) => {
     try {
       setAvailableLoading(true);
-      const res = await webinarApi.getWebinars(batchId, { tab: 'passed', page, page_size: 6 });
+      const res = await webinarApi.getWebinars(batchId, { tab: 'passed', page, page_size: 5 });
       if (res.success) {
         setAvailableWebinars(res.data);
         setAvailableTotalPages(res.total_pages);
@@ -153,7 +153,7 @@ export default function SpecialSessions() {
   const fetchUpcoming = useCallback(async (batchId: number, page = 1) => {
     try {
       setUpcomingLoading(true);
-      const res = await webinarApi.getWebinars(batchId, { tab: 'scheduled', page, page_size: 6 });
+      const res = await webinarApi.getWebinars(batchId, { tab: 'scheduled', page, page_size: 5 });
       if (res.success) {
         setUpcomingWebinars(res.data);
         setUpcomingTotalPages(res.total_pages);
@@ -305,8 +305,7 @@ export default function SpecialSessions() {
     const isLocked = isUpcoming && !isAdminOrTeacher;
     
     return (
-      <Card className="shadow-card overflow-hidden group hover:shadow-md transition-all duration-300 bg-card border border-border/50">
-        <div className="flex flex-col sm:flex-row items-center p-4 gap-4">
+      <div className="group flex flex-col gap-4 rounded-xl border border-border bg-muted/40 p-4 transition-all hover:bg-accent/20 hover:shadow-sm sm:flex-row sm:items-center sm:justify-between">
           {/* Left: Icon */}
           <div className="flex shrink-0">
             <div 
@@ -356,15 +355,15 @@ export default function SpecialSessions() {
           </div>
 
           {/* Right: Actions */}
-          <div className="flex items-center gap-3 shrink-0 ml-auto w-full sm:w-auto justify-center sm:justify-end border-t sm:border-t-0 pt-4 sm:pt-0">
+          <div className="flex items-center gap-3 shrink-0 ml-auto w-full sm:w-auto justify-center sm:justify-end border-t border-border/50 pt-4 sm:border-t-0 sm:pt-0">
             {canEdit && isAdminOrTeacher && (
               <div className="flex items-center gap-1">
                 {isUpcoming && (
-                  <Button variant="ghost" size="icon" className="h-9 w-9 text-muted-foreground hover:text-foreground" onClick={() => handleOpenModal(webinar)}>
+                  <Button variant="ghost" size="icon" className="h-9 w-9 rounded-xl text-muted-foreground hover:bg-accent hover:text-foreground" onClick={() => handleOpenModal(webinar)}>
                     <Edit className="h-4 w-4" />
                   </Button>
                 )}
-                <Button variant="ghost" size="icon" className="h-9 w-9 text-muted-foreground hover:text-destructive hover:bg-destructive/10" onClick={() => setDeleteWebinarId(webinar.id)}>
+                <Button variant="ghost" size="icon" className="h-9 w-9 rounded-xl text-muted-foreground hover:bg-destructive/10 hover:text-destructive" onClick={() => setDeleteWebinarId(webinar.id)}>
                   <Trash2 className="h-4 w-4" />
                 </Button>
               </div>
@@ -375,7 +374,7 @@ export default function SpecialSessions() {
                 onClick={() => webinar.video_presigned_url && setPlayingVideoUrl(webinar.video_presigned_url)}
                 variant="gradient" 
                 size="sm" 
-                className="gap-2 px-6 h-9 rounded-lg shadow-sm font-bold"
+                className="h-10 rounded-xl px-6 font-bold shadow-none hover:shadow-none"
                 disabled={!webinar.video_presigned_url}
               >
                 <Play className="h-3.5 w-3.5 fill-current" />
@@ -383,9 +382,9 @@ export default function SpecialSessions() {
               </Button>
             ) : (
               <Button 
-                variant="secondary" 
+                variant="outline"
                 size="sm" 
-                className="gap-2 px-6 h-9 rounded-lg cursor-not-allowed opacity-70 font-bold"
+                className="h-10 rounded-xl border-border/70 bg-muted/40 px-5 text-muted-foreground cursor-not-allowed font-semibold opacity-90"
                 disabled
               >
                 <LockIcon className="h-3.5 w-3.5" />
@@ -393,8 +392,7 @@ export default function SpecialSessions() {
               </Button>
             )}
           </div>
-        </div>
-      </Card>
+      </div>
     );
   };
 
@@ -470,24 +468,27 @@ export default function SpecialSessions() {
           </TabsList>
 
           <TabsContent value="available" className="mt-0">
-            {availableLoading ? (
-              <div className="flex flex-col items-center justify-center py-20 gap-3">
-                <Loader2 className="h-10 w-10 animate-spin text-primary" />
-                <p className="text-sm font-medium text-muted-foreground">Loading sessions...</p>
-              </div>
-            ) : availableWebinars.length === 0 ? (
-              <div className="text-center py-16 text-muted-foreground border-2 border-dashed border-muted-foreground/30 rounded-xl bg-card/50">
-                <Archive className="h-12 w-12 mx-auto mb-4 opacity-50 text-muted-foreground" />
-                <h3 className="text-lg font-bold mb-1">No sessions available</h3>
-                <p className="max-w-sm mx-auto">Once special sessions are uploaded and released, they will appear here in your list.</p>
-              </div>
-            ) : (
-              <div className="flex flex-col gap-4">
-                {availableWebinars.map(w => (
-                  <RecordingCard key={w.id} webinar={w} canEdit={isAdminOrTeacher} />
-                ))}
-              </div>
-            )}
+            <Card className="shadow-card">
+              <CardContent className="pt-6">
+                {availableLoading ? (
+                  <div className="flex items-center justify-center py-16">
+                    <Loader2 className="h-8 w-8 animate-spin text-primary" />
+                  </div>
+                ) : availableWebinars.length === 0 ? (
+                  <div className="text-center py-16 text-muted-foreground border-2 border-dashed border-muted-foreground/30 rounded-xl bg-card/50">
+                    <Archive className="h-12 w-12 mx-auto mb-4 opacity-50 text-muted-foreground" />
+                    <h3 className="text-lg font-bold mb-1">No sessions available</h3>
+                    <p className="max-w-sm mx-auto">Once special sessions are uploaded and released, they will appear here in your list.</p>
+                  </div>
+                ) : (
+                  <div className="flex flex-col gap-4">
+                    {availableWebinars.map(w => (
+                      <RecordingCard key={w.id} webinar={w} canEdit={isAdminOrTeacher} />
+                    ))}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
             
             {availableTotalPages > 1 && (
               <div className="flex items-center justify-center gap-3 pt-8">
@@ -499,24 +500,27 @@ export default function SpecialSessions() {
           </TabsContent>
 
           <TabsContent value="upcoming" className="mt-0">
-            {upcomingLoading ? (
-              <div className="flex flex-col items-center justify-center py-20 gap-3">
-                <Loader2 className="h-10 w-10 animate-spin text-primary" />
-                <p className="text-sm font-medium text-muted-foreground">Fetching upcoming sessions...</p>
-              </div>
-            ) : upcomingWebinars.length === 0 ? (
-              <div className="text-center py-16 text-muted-foreground border-2 border-dashed border-muted-foreground/30 rounded-xl bg-card/50">
-                <Clock className="h-12 w-12 mx-auto mb-4 opacity-50 text-muted-foreground" />
-                <h3 className="text-lg font-bold mb-1">Nothing scheduled yet</h3>
-                <p className="max-w-sm mx-auto">No upcoming special sessions are currently planned for this batch.</p>
-              </div>
-            ) : (
-              <div className="flex flex-col gap-4">
-                {upcomingWebinars.map(w => (
-                  <RecordingCard key={w.id} webinar={w} canEdit={isAdminOrTeacher} isUpcoming={true} />
-                ))}
-              </div>
-            )}
+            <Card className="shadow-card">
+              <CardContent className="pt-6">
+                {upcomingLoading ? (
+                  <div className="flex items-center justify-center py-16">
+                    <Loader2 className="h-8 w-8 animate-spin text-primary" />
+                  </div>
+                ) : upcomingWebinars.length === 0 ? (
+                  <div className="text-center py-16 text-muted-foreground border-2 border-dashed border-muted-foreground/30 rounded-xl bg-card/50">
+                    <Clock className="h-12 w-12 mx-auto mb-4 opacity-50 text-muted-foreground" />
+                    <h3 className="text-lg font-bold mb-1">Nothing scheduled yet</h3>
+                    <p className="max-w-sm mx-auto">No upcoming special sessions are currently planned for this batch.</p>
+                  </div>
+                ) : (
+                  <div className="flex flex-col gap-4">
+                    {upcomingWebinars.map(w => (
+                      <RecordingCard key={w.id} webinar={w} canEdit={isAdminOrTeacher} isUpcoming={true} />
+                    ))}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
             
             {upcomingTotalPages > 1 && (
               <div className="flex items-center justify-center gap-3 pt-8">

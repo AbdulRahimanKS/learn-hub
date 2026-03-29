@@ -1,7 +1,5 @@
 import logging
-from datetime import timedelta
 from django.utils import timezone
-from django.db.models import ExpressionWrapper, DurationField, F, DateTimeField
 from rest_framework import status
 from rest_framework.views import APIView
 from rest_framework.parsers import MultiPartParser, FormParser, JSONParser
@@ -10,12 +8,13 @@ from drf_spectacular.types import OpenApiTypes
 
 from apps.courses.models import ScheduledWebinar, Batch, BatchEnrollment
 from apps.courses.serializers.scheduled_webinar_serializers import ScheduledWebinarSerializer
-from utils.permissions import IsAdminOrTeacher, IsAuthenticated
+from utils.permissions import IsSuperAdminAdminOrTeacher, IsAuthenticated
 from utils.common import format_success_response, handle_serializer_errors, ServiceError
 from utils.pagination import CustomPageNumberPagination
 from utils.constants import UserTypeConstants
 
 logger = logging.getLogger(__name__)
+
 
 @extend_schema(tags=["Webinars"])
 class ScheduledWebinarListCreateView(APIView):
@@ -26,31 +25,48 @@ class ScheduledWebinarListCreateView(APIView):
         summary="List webinars for a specific batch",
         parameters=[
             OpenApiParameter("tab", OpenApiTypes.STR, description="Filter: 'scheduled' (upcoming) or 'passed' (past). Default: all."),
-            OpenApiParameter("page", OpenApiTypes.INT, description="Page number"),
-            OpenApiParameter("page_size", OpenApiTypes.INT, description="Results per page (default 6, max 100)"),
+            OpenApiParameter("paginate", OpenApiTypes.BOOL, description="Set to false to return all results without pagination (default: true)"),
+            OpenApiParameter("page", OpenApiTypes.INT, description="Page number (when paginated)"),
+            OpenApiParameter("page_size", OpenApiTypes.INT, description="Results per page, default 10, max 100 (when paginated)"),
         ],
         responses={200: ScheduledWebinarSerializer(many=True)}
     )
     def get(self, request, batch_id):
-        now = timezone.now()
-        if getattr(request.user.user_type, 'name', '') == UserTypeConstants.STUDENT:
-            if not BatchEnrollment.objects.filter(batch_id=batch_id, student=request.user, status=BatchEnrollment.Status.ACTIVE).exists():
-                raise ServiceError(detail="Access denied. You are not an active student in this batch.", status_code=status.HTTP_403_FORBIDDEN)
+        try:
+            now = timezone.now()
+            if getattr(request.user.user_type, 'name', '') == UserTypeConstants.STUDENT:
+                if not BatchEnrollment.objects.filter(
+                    batch_id=batch_id,
+                    student=request.user,
+                    status__in=[BatchEnrollment.Status.ACTIVE, BatchEnrollment.Status.COMPLETED],
+                ).exists():
+                    raise ServiceError(
+                        detail="Access denied. You are not an active or completed student in this batch.",
+                        status_code=status.HTTP_403_FORBIDDEN,
+                    )
 
-        qs = ScheduledWebinar.objects.filter(batch_id=batch_id).order_by('unlock_at')
-        tab = request.query_params.get('tab', '').strip().lower()
-        if tab == 'scheduled':
-            # Upcoming: unlock_at is in the future
-            qs = qs.filter(unlock_at__gt=now)
-        elif tab == 'passed':
-            # Past: unlock_at has arrived
-            qs = qs.filter(unlock_at__lte=now).order_by('-unlock_at')
+            qs = ScheduledWebinar.objects.filter(batch_id=batch_id).order_by('unlock_at')
+            tab = request.query_params.get('tab', '').strip().lower()
+            if tab == 'scheduled':
+                qs = qs.filter(unlock_at__gt=now)
+            elif tab == 'passed':
+                qs = qs.filter(unlock_at__lte=now).order_by('-unlock_at')
 
-        paginator = CustomPageNumberPagination()
-        paginator.page_size = 6
-        page = paginator.paginate_queryset(qs, request)
-        serializer = ScheduledWebinarSerializer(page, many=True, context={'request': request})
-        return paginator.get_paginated_response(serializer.data, message="Webinars retrieved successfully")
+            paginate_param = request.query_params.get('paginate', 'true').strip().lower()
+            if paginate_param != 'false':
+                paginator = CustomPageNumberPagination()
+                page = paginator.paginate_queryset(qs, request)
+                serializer = ScheduledWebinarSerializer(page, many=True, context={'request': request})
+                return paginator.get_paginated_response(serializer.data, message="Webinars retrieved successfully")
+
+            serializer = ScheduledWebinarSerializer(qs, many=True, context={'request': request})
+            return format_success_response(message="Webinars retrieved successfully", data=serializer.data)
+        
+        except ServiceError:
+            raise
+        except Exception as e:
+            logger.error(f"Error listing webinars for batch {batch_id}: {str(e)}")
+            raise ServiceError(detail=str(e), status_code=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
     @extend_schema(
@@ -59,30 +75,42 @@ class ScheduledWebinarListCreateView(APIView):
         responses={201: ScheduledWebinarSerializer}
     )
     def post(self, request, batch_id):
-        if not request.user.user_type or request.user.user_type.name not in ['admin', 'teacher']:
-             # Double check permission manually if needed, but IsAdminOrTeacher should handle it
-             pass
-
         try:
-            batch = Batch.objects.get(id=batch_id)
-        except Batch.DoesNotExist:
-            raise ServiceError(detail="Batch not found.", status_code=status.HTTP_404_NOT_FOUND)
+            user_role = getattr(request.user.user_type, 'name', '')
+            allowed_roles = {UserTypeConstants.ADMIN, UserTypeConstants.TEACHER, UserTypeConstants.SUPERADMIN}
+            if user_role not in allowed_roles:
+                raise ServiceError(
+                    detail=f"Permission denied. You are not authorized to create a webinar for this batch.",
+                    status_code=status.HTTP_403_FORBIDDEN,
+                )
 
-        serializer = ScheduledWebinarSerializer(data=request.data, context={'request': request})
-        if not serializer.is_valid():
-            error_str = handle_serializer_errors(serializer)
-            raise ServiceError(detail=error_str, status_code=status.HTTP_400_BAD_REQUEST)
+            try:
+                batch = Batch.objects.get(id=batch_id)
+            except Batch.DoesNotExist:
+                raise ServiceError(detail="Batch not found.", status_code=status.HTTP_404_NOT_FOUND)
 
-        webinar = serializer.save(batch=batch, created_by=request.user)
-        return format_success_response(
-            message="Webinar created successfully",
-            data=ScheduledWebinarSerializer(webinar, context={'request': request}).data,
-            status_code=status.HTTP_201_CREATED
-        )
+            serializer = ScheduledWebinarSerializer(data=request.data, context={'request': request})
+            if not serializer.is_valid():
+                error_str = handle_serializer_errors(serializer)
+                raise ServiceError(detail=error_str, status_code=status.HTTP_400_BAD_REQUEST)
+
+            webinar = serializer.save(batch=batch, created_by=request.user)
+            return format_success_response(
+                message="Webinar created successfully",
+                data=ScheduledWebinarSerializer(webinar, context={'request': request}).data,
+                status_code=status.HTTP_201_CREATED
+            )
+        
+        except ServiceError:
+            raise
+        except Exception as e:
+            logger.error(f"Error creating webinar for batch {batch_id}: {str(e)}")
+            raise ServiceError(detail=str(e), status_code=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
 
 @extend_schema(tags=["Webinars"])
 class ScheduledWebinarDetailView(APIView):
-    permission_classes = [IsAdminOrTeacher]
+    permission_classes = [IsSuperAdminAdminOrTeacher]
     parser_classes = [MultiPartParser, FormParser, JSONParser]
     serializer_class = ScheduledWebinarSerializer
 
@@ -94,27 +122,42 @@ class ScheduledWebinarDetailView(APIView):
 
     @extend_schema(summary="Retrieve a webinar", responses={200: ScheduledWebinarSerializer})
     def get(self, request, batch_id, webinar_id):
-        webinar = self.get_object(batch_id, webinar_id)
-        serializer = ScheduledWebinarSerializer(webinar, context={'request': request})
-        return format_success_response(message="Webinar retrieved", data=serializer.data)
+        try:
+            webinar = self.get_object(batch_id, webinar_id)
+            serializer = ScheduledWebinarSerializer(webinar, context={'request': request})
+            return format_success_response(message="Webinar retrieved", data=serializer.data)
+        except ServiceError:
+            raise
+        except Exception as e:
+            logger.error(f"Error retrieving webinar for batch {batch_id} and webinar {webinar_id}: {str(e)}")
+            raise ServiceError(detail=str(e), status_code=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
     @extend_schema(summary="Update a webinar", request=ScheduledWebinarSerializer)
     def patch(self, request, batch_id, webinar_id):
-        webinar = self.get_object(batch_id, webinar_id)
+        try:
+            webinar = self.get_object(batch_id, webinar_id)
         
-        # Logic to prevent editing past webinars could be added here
-        # But for now, we'll allow it if needed, or implement it as per requirements
-        
-        serializer = ScheduledWebinarSerializer(webinar, data=request.data, partial=True, context={'request': request})
-        if not serializer.is_valid():
-            error_str = handle_serializer_errors(serializer)
-            raise ServiceError(detail=error_str, status_code=status.HTTP_400_BAD_REQUEST)
-        
-        serializer.save()
-        return format_success_response(message="Webinar updated successfully")
+            serializer = ScheduledWebinarSerializer(webinar, data=request.data, partial=True, context={'request': request})
+            if not serializer.is_valid():
+                error_str = handle_serializer_errors(serializer)
+                raise ServiceError(detail=error_str, status_code=status.HTTP_400_BAD_REQUEST)
+            
+            serializer.save()
+            return format_success_response(message="Webinar updated successfully")
+        except ServiceError:
+            raise
+        except Exception as e:
+            logger.error(f"Error updating webinar for batch {batch_id} and webinar {webinar_id}: {str(e)}")
+            raise ServiceError(detail=str(e), status_code=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
     @extend_schema(summary="Delete a webinar")
     def delete(self, request, batch_id, webinar_id):
-        webinar = self.get_object(batch_id, webinar_id)
-        webinar.delete()
-        return format_success_response(message="Webinar deleted successfully")
+        try:
+            webinar = self.get_object(batch_id, webinar_id)
+            webinar.delete()
+            return format_success_response(message="Webinar deleted successfully")
+        except ServiceError:
+            raise
+        except Exception as e:
+            logger.error(f"Error deleting webinar for batch {batch_id} and webinar {webinar_id}: {str(e)}")
+            raise ServiceError(detail=str(e), status_code=status.HTTP_500_INTERNAL_SERVER_ERROR)
