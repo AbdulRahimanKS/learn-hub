@@ -585,7 +585,7 @@ function SessionList({ sessions, loading, isAdmin, onEdit, onDelete, onJoin, act
       {sessions.map((session) => {
         const isUpcoming = new Date(session.scheduled_at) > new Date();
         const isPast = activeTab === 'past';
-        const canEdit = isAdmin && !isPast && !session.is_live;
+        const canEdit = isAdmin && !isPast && !session.can_join;
 
         return (
           <div key={session.id} className="group flex flex-col gap-4 rounded-xl border border-border bg-muted/40 p-4 transition-all hover:bg-accent/20 hover:shadow-sm sm:flex-row sm:items-center sm:justify-between">
