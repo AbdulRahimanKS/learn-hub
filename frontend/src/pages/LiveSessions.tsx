@@ -130,7 +130,7 @@ export default function LiveSessions() {
       const res = await liveSessionApi.getSessions(batchId, {
         tab,
         page,
-        page_size: 6,
+        page_size: 5,
       });
       setSessions(res.data || []);
       setTotalPages(res.total_pages || 1);
@@ -449,7 +449,7 @@ export default function LiveSessions() {
                                 field.ref(node);
                                 timeInputRef.current = node;
                               }}
-                              className="h-10 w-full block pr-10 [color-scheme:light] dark:[color-scheme:dark] [&::-webkit-calendar-picker-indicator]:cursor-pointer [&::-webkit-calendar-picker-indicator]:opacity-0"
+                              className="h-10 w-full block pr-10 dark:[color-scheme:dark] [&::-webkit-calendar-picker-indicator]:cursor-pointer [&::-webkit-calendar-picker-indicator]:opacity-0 [&::-webkit-calendar-picker-indicator]:pointer-events-none"
                             />
                             <button
                               type="button"
@@ -458,11 +458,16 @@ export default function LiveSessions() {
                               onClick={() => {
                                 const inputEl = timeInputRef.current as (HTMLInputElement & { showPicker?: () => void }) | null;
                                 if (!inputEl) return;
-                                if (typeof inputEl.showPicker === 'function') {
-                                  inputEl.showPicker();
-                                } else {
-                                  inputEl.focus();
+                                inputEl.focus();
+                                try {
+                                  if (typeof inputEl.showPicker === 'function') {
+                                    inputEl.showPicker();
+                                    return;
+                                  }
+                                } catch {
+                                  // Some browsers/modes can throw for showPicker; fall back to click.
                                 }
+                                inputEl.click();
                               }}
                             >
                               <Clock className="h-4 w-4" />
