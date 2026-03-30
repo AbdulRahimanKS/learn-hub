@@ -3,6 +3,8 @@ from channels.generic.websocket import AsyncWebsocketConsumer
 from apps.courses.models import Batch, BatchChatMessage
 from django.contrib.auth import get_user_model
 from channels.db import database_sync_to_async
+from utils.constants import UserTypeConstants
+from apps.courses.models import BatchEnrollment
 
 User = get_user_model()
 
@@ -36,14 +38,14 @@ class BatchChatConsumer(AsyncWebsocketConsumer):
             batch = Batch.objects.get(id=batch_id)
             user = User.objects.get(id=user_id)
             
-            if user.user_type.name in ['Admin', 'Superadmin']:
+            if user.user_type.name in [UserTypeConstants.ADMIN, UserTypeConstants.SUPERADMIN]:
                 return True
                 
-            if user.user_type.name == 'Teacher':
+            if user.user_type.name == UserTypeConstants.TEACHER:
                 return batch.teacher_id == user.id or batch.co_teachers.filter(id=user.id).exists()
                 
-            if user.user_type.name == 'Student':
-                return batch.enrollments.filter(student=user, status='active').exists()
+            if user.user_type.name == UserTypeConstants.STUDENT:
+                return batch.enrollments.filter(student=user, status__in=[BatchEnrollment.Status.ACTIVE, BatchEnrollment.Status.COMPLETED]).exists()
             
             return False
         except (Batch.DoesNotExist, User.DoesNotExist):

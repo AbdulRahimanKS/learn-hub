@@ -1,5 +1,7 @@
+import json
 import logging
 from rest_framework import status
+from rest_framework.renderers import JSONRenderer
 from rest_framework.views import APIView
 from rest_framework.parsers import MultiPartParser, FormParser, JSONParser
 from drf_spectacular.utils import extend_schema, OpenApiParameter
@@ -132,8 +134,11 @@ class BatchChatMessageListCreateView(APIView):
             from asgiref.sync import async_to_sync
             channel_layer = get_channel_layer()
             
-            # Use serializer data to send fully populated user details
-            serialized_message = BatchChatMessageSerializer(message_instance, context={'request': request}).data
+            # Use serializer data to send fully populated user details.
+            # serializer.data is a ReturnDict that keeps a ref to the serializer -> request -> FILES
+            # (open BufferedRandom handles). Channel layers pickle the event; strip refs via JSON round-trip.
+            raw_message = BatchChatMessageSerializer(message_instance, context={'request': request}).data
+            serialized_message = json.loads(JSONRenderer().render(raw_message))
 
             async_to_sync(channel_layer.group_send)(
                 f'chat_batch_{batch.id}',
@@ -141,7 +146,7 @@ class BatchChatMessageListCreateView(APIView):
                     'type': 'chat_message',
                     'message': message_instance.message,
                     'user_id': request.user.id,
-                    'serialized_data': serialized_message
+                    'serialized_data': serialized_message,
                 }
             )
 
@@ -155,6 +160,7 @@ class BatchChatMessageListCreateView(APIView):
         except Exception as e:
             logger.error(f"Error sending message: {str(e)}")
             raise ServiceError(detail=str(e), status_code=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
 
 @extend_schema(tags=["Chat"])
 class ChatMarkReadView(APIView):

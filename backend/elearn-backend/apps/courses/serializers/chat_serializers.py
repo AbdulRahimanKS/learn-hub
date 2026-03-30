@@ -1,8 +1,10 @@
 from drf_spectacular.utils import extend_schema_field
 from drf_spectacular.types import OpenApiTypes
 from rest_framework import serializers
-from apps.courses.models import BatchChatMessage, Batch
+from apps.courses.models import BatchChatMessage
 from apps.users.serializers.user_management_serializers import UserManagementSerializer
+from rest_framework import status
+from utils.common import ServiceError
 
 class BatchChatMessageSerializer(serializers.ModelSerializer):
     sender = UserManagementSerializer(read_only=True)
@@ -28,9 +30,7 @@ class BatchChatMessageSerializer(serializers.ModelSerializer):
         if value:
             max_size = 100 * 1024 * 1024  # 100MB
             if value.size > max_size:
-                raise serializers.ValidationError(
-                    f"File too large. Size should not exceed 100MB. Current size: {value.size / (1024*1024):.2f}MB"
-                )
+                raise ServiceError(detail="File too large. Size should not exceed 100MB. Current size: {value.size / (1024*1024):.2f}MB", status_code=status.HTTP_400_BAD_REQUEST)
         return value
 
     def create(self, validated_data):
