@@ -196,6 +196,8 @@ export default function SpecialSessions() {
   }, [selectedBatchId, fetchAvailable, fetchUpcoming]);
 
   const handleOpenModal = (webinar?: Webinar) => {
+    setUploadProgress(-1);
+    setIsSubmitting(false);
     if (webinar) {
       setEditWebinar(webinar);
       const existingUnlockAt = webinar.unlock_at ? new Date(webinar.unlock_at) : null;
@@ -379,6 +381,12 @@ export default function SpecialSessions() {
                 <div className="flex items-center gap-1.5 text-primary">
                   <Clock className="h-3.5 w-3.5" />
                   <span>Available at {format(new Date(webinar.unlock_at), "h:mm a")}</span>
+                </div>
+              )}
+              {!isUpcoming && (
+                <div className="flex items-center gap-1.5 text-primary">
+                  <Clock className="h-3.5 w-3.5" />
+                  <span>Released at {format(new Date(webinar.unlock_at), "h:mm a")}</span>
                 </div>
               )}
             </div>
@@ -757,7 +765,7 @@ export default function SpecialSessions() {
                 </div>
               )}
 
-              {uploadProgress >= 0 && (
+              {!editWebinar && uploadProgress >= 0 && (
                 <div className="space-y-2">
                   <div className="flex justify-between text-xs font-bold"><span className="text-primary uppercase tracking-widest">Uploading</span><span>{uploadProgress}%</span></div>
                   <div className="h-1.5 w-full bg-muted rounded-full overflow-hidden"><div className="h-full bg-primary transition-all duration-300" style={{ width: `${uploadProgress}%` }} /></div>
