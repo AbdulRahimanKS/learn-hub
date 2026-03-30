@@ -119,36 +119,39 @@ class BatchChatMessageListCreateView(APIView):
     def post(self, request, batch_id):
         try:
             batch = self.check_batch_access(request.user, batch_id)
-            # Force context to know batch
-            data = request.data.copy()
-            data['batch'] = batch.id
-            
-            serializer = BatchChatMessageSerializer(data=data, context={'request': request})
+            # Do not copy multipart request.data (can deep-copy temp upload handles).
+            serializer = BatchChatMessageSerializer(data=request.data, context={'request': request})
             if not serializer.is_valid():
                 raise ServiceError(detail=handle_serializer_errors(serializer), status_code=status.HTTP_400_BAD_REQUEST)
 
-            message_instance = serializer.save()
+            # Force server-side batch assignment (ignore any client-sent batch id).
+            message_instance = serializer.save(batch=batch)
 
-            # Optional: Broadcast to WebSocket group
+            # Build API response data with request context (absolute urls / is_current_user).
+            response_message = BatchChatMessageSerializer(message_instance, context={'request': request}).data
+            serialized_message = json.loads(JSONRenderer().render(response_message))
+
+            # Optional: Broadcast to WebSocket group.
+            # Use context-free serializer for WS payload so it never references multipart request/files.
             from channels.layers import get_channel_layer
             from asgiref.sync import async_to_sync
             channel_layer = get_channel_layer()
-            
-            # Use serializer data to send fully populated user details.
-            # serializer.data is a ReturnDict that keeps a ref to the serializer -> request -> FILES
-            # (open BufferedRandom handles). Channel layers pickle the event; strip refs via JSON round-trip.
-            raw_message = BatchChatMessageSerializer(message_instance, context={'request': request}).data
-            serialized_message = json.loads(JSONRenderer().render(raw_message))
+            ws_message = BatchChatMessageSerializer(message_instance).data
+            ws_serialized_message = json.loads(JSONRenderer().render(ws_message))
 
-            async_to_sync(channel_layer.group_send)(
-                f'chat_batch_{batch.id}',
-                {
-                    'type': 'chat_message',
-                    'message': message_instance.message,
-                    'user_id': request.user.id,
-                    'serialized_data': serialized_message,
-                }
-            )
+            try:
+                async_to_sync(channel_layer.group_send)(
+                    f'chat_batch_{batch.id}',
+                    {
+                        'type': 'chat_message',
+                        'message': message_instance.message,
+                        'user_id': request.user.id,
+                        'serialized_data': ws_serialized_message,
+                    }
+                )
+            except Exception:
+                # Message is already saved; avoid failing API response due to realtime fanout issue.
+                logger.exception("Chat message saved, but WebSocket broadcast failed.")
 
             return format_success_response(
                 message="Message sent successfully",

@@ -18,6 +18,9 @@ class BatchChatMessageSerializer(serializers.ModelSerializer):
             'is_edited', 'edited_at', 'sent_at', 'is_current_user'
         ]
         read_only_fields = ['sender', 'is_edited', 'edited_at', 'sent_at']
+        extra_kwargs = {
+            'batch': {'required': False},
+        }
 
     @extend_schema_field(OpenApiTypes.BOOL)
     def get_is_current_user(self, obj):
