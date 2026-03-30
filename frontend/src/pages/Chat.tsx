@@ -37,6 +37,7 @@ export default function Chat() {
   // Loading and Pagination
   const [isLoadingBatches, setIsLoadingBatches] = useState(true);
   const [isLoadingMessages, setIsLoadingMessages] = useState(false);
+  const [isSocketOnline, setIsSocketOnline] = useState(false);
   const [page, setPage] = useState(1);
   const [hasMore, setHasMore] = useState(false);
   const [batchesPage, setBatchesPage] = useState(1);
@@ -45,6 +46,7 @@ export default function Chat() {
   // References
   const scrollAreaRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const allowedAttachmentExtensions = ['ppt', 'pptx', 'pdf', 'doc', 'docx', 'ipynb', 'jpg', 'jpeg'];
 
   const fetchBatches = async (pageNum = 1, append = false) => {
     setIsLoadingBatches(true);
@@ -97,6 +99,7 @@ export default function Chat() {
     if (!selectedBatch) return;
 
     chatSocket.connect(selectedBatch.id);
+    const unsubscribeConnectionStatus = chatSocket.subscribeConnectionStatus(setIsSocketOnline);
 
     const handleNewMessage = (msg: ChatMessage) => {
       setMessages(prev => {
@@ -166,6 +169,7 @@ export default function Chat() {
 
     return () => {
       unsubscribe();
+      unsubscribeConnectionStatus();
       chatSocket.disconnect();
     };
   }, [selectedBatch]);
@@ -372,14 +376,33 @@ export default function Chat() {
           <Card className="shadow-card flex-1 flex flex-col min-h-0 bg-background">
             {selectedBatch ? (
               <>
-                <CardHeader className="border-b flex-shrink-0 bg-background/50 backdrop-blur-md min-w-0">
+                <CardHeader className="border-b flex-shrink-0 bg-background/50 backdrop-blur-md min-w-0 py-4">
                   <div className="flex min-w-0 items-center justify-between gap-2">
-                    <div className="min-w-0 flex-1">
+                    <div className="min-w-0 flex-1 space-y-1">
                       <CardTitle className="truncate" title={selectedBatch.name}>
                         {selectedBatch.name}
                       </CardTitle>
+                      <div>
+                        <Badge
+                          variant="outline"
+                          className={cn(
+                            "h-5 rounded-full px-2 text-[10px] font-medium",
+                            isSocketOnline
+                              ? "border-success/30 bg-success/10 text-success"
+                              : "border-muted-foreground/30 bg-muted text-muted-foreground"
+                          )}
+                        >
+                          <span
+                            className={cn(
+                              "mr-1.5 inline-block h-1.5 w-1.5 rounded-full",
+                              isSocketOnline ? "bg-success" : "bg-muted-foreground"
+                            )}
+                          />
+                          {isSocketOnline ? "Online" : "Connecting..."}
+                        </Badge>
+                      </div>
                       {selectedBatch.course_name ? (
-                        <p className="mt-1 truncate text-sm text-muted-foreground" title={selectedBatch.course_name}>
+                        <p className="truncate text-sm text-muted-foreground" title={selectedBatch.course_name}>
                           {selectedBatch.course_name}
                         </p>
                       ) : null}
@@ -533,9 +556,16 @@ export default function Chat() {
                       type="file" 
                       className="hidden" 
                       ref={fileInputRef} 
+                      accept=".ppt,.pptx,.pdf,.doc,.docx,.ipynb,.jpg,.jpeg"
                       onChange={(e) => {
                         const selected = e.target.files?.[0];
                         if (selected) {
+                           const extension = selected.name.split('.').pop()?.toLowerCase() || '';
+                           if (!allowedAttachmentExtensions.includes(extension)) {
+                               alert("Unsupported file type. Allowed: ppt, pptx, pdf, doc, docx, ipynb, jpg, jpeg");
+                               if (fileInputRef.current) fileInputRef.current.value = '';
+                               return;
+                           }
                            if (selected.size > 100 * 1024 * 1024) {
                                alert("File exceeds maximum allowed size of 100MB");
                                if (fileInputRef.current) fileInputRef.current.value = '';

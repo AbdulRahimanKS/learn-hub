@@ -1,13 +1,16 @@
 import { ChatMessage } from './chat-api';
 
 type MessageCallback = (message: ChatMessage) => void;
+type ConnectionStatusCallback = (isConnected: boolean) => void;
 
 class ChatSocketClient {
   private socket: WebSocket | null = null;
   private batchId: number | string | null = null;
   private messageCallbacks: Set<MessageCallback> = new Set();
+  private connectionCallbacks: Set<ConnectionStatusCallback> = new Set();
   private reconnectAttempts = 0;
   private maxReconnectAttempts = 5;
+  private isConnected = false;
 
   connect(batchId: number | string) {
     if (this.socket && this.batchId === batchId) return;
@@ -38,6 +41,8 @@ class ChatSocketClient {
     this.socket.onopen = () => {
       console.log(`WebSocket connected for batch ${this.batchId}`);
       this.reconnectAttempts = 0;
+      this.isConnected = true;
+      this.notifyConnectionSubscribers(true);
     };
 
     this.socket.onmessage = (event) => {
@@ -54,6 +59,8 @@ class ChatSocketClient {
 
     this.socket.onclose = (event) => {
         console.log(`WebSocket disconnected.`, event);
+        this.isConnected = false;
+        this.notifyConnectionSubscribers(false);
         if (this.reconnectAttempts < this.maxReconnectAttempts && this.batchId) {
             setTimeout(() => {
                 this.reconnectAttempts++;
@@ -65,6 +72,8 @@ class ChatSocketClient {
 
     this.socket.onerror = (error) => {
       console.error('WebSocket error:', error);
+      this.isConnected = false;
+      this.notifyConnectionSubscribers(false);
     };
   }
 
@@ -74,6 +83,8 @@ class ChatSocketClient {
       this.socket = null;
     }
     this.batchId = null;
+    this.isConnected = false;
+    this.notifyConnectionSubscribers(false);
   }
 
   subscribe(callback: MessageCallback) {
@@ -85,8 +96,26 @@ class ChatSocketClient {
     this.messageCallbacks.delete(callback);
   }
 
+  subscribeConnectionStatus(callback: ConnectionStatusCallback) {
+    this.connectionCallbacks.add(callback);
+    callback(this.isConnected);
+    return () => this.unsubscribeConnectionStatus(callback);
+  }
+
+  unsubscribeConnectionStatus(callback: ConnectionStatusCallback) {
+    this.connectionCallbacks.delete(callback);
+  }
+
+  getConnectionStatus() {
+    return this.isConnected;
+  }
+
   private notifySubscribers(message: ChatMessage) {
     this.messageCallbacks.forEach(callback => callback(message));
+  }
+
+  private notifyConnectionSubscribers(isConnected: boolean) {
+    this.connectionCallbacks.forEach(callback => callback(isConnected));
   }
 }
 
