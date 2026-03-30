@@ -66,5 +66,10 @@ export const chatApi = {
   markAsRead: async (batchId: number | string) => {
     const response = await api.post(`/api/courses/v1/chat/batches/${batchId}/mark-read/`);
     return response.data;
-  }
+  },
+
+  deleteMessage: async (batchId: number | string, messageId: number) => {
+    const response = await api.delete(`/api/courses/v1/chat/batches/${batchId}/messages/${messageId}/`);
+    return response.data;
+  },
 };

@@ -20,6 +20,31 @@ from utils.constants import UserTypeConstants
 
 logger = logging.getLogger(__name__)
 
+
+def check_batch_access_for_chat(user, batch_id):
+    """Return Batch if user may access this batch chat; raise ServiceError otherwise."""
+    try:
+        batch = Batch.objects.get(pk=batch_id)
+    except Batch.DoesNotExist:
+        raise ServiceError(detail="Batch not found.", status_code=status.HTTP_404_NOT_FOUND)
+
+    if getattr(user, 'user_type', None):
+        if user.user_type.name in [UserTypeConstants.ADMIN, UserTypeConstants.SUPERADMIN]:
+            return batch
+        if user.user_type.name == UserTypeConstants.TEACHER:
+            if batch.teacher == user or batch.co_teachers.filter(pk=user.pk).exists():
+                return batch
+            raise ServiceError(detail="Access denied.", status_code=status.HTTP_403_FORBIDDEN)
+        if user.user_type.name == UserTypeConstants.STUDENT:
+            if batch.enrollments.filter(
+                student=user,
+                status__in=[BatchEnrollment.Status.ACTIVE, BatchEnrollment.Status.COMPLETED],
+            ).exists():
+                return batch
+            raise ServiceError(detail="Access denied.", status_code=status.HTTP_403_FORBIDDEN)
+    return batch
+
+
 @extend_schema(tags=["Chat"])
 class ChatBatchListView(APIView):
     permission_classes = [IsAuthenticated]
@@ -61,23 +86,7 @@ class BatchChatMessageListCreateView(APIView):
     parser_classes = [MultiPartParser, FormParser, JSONParser]
 
     def check_batch_access(self, user, batch_id):
-        try:
-            batch = Batch.objects.get(pk=batch_id)
-        except Batch.DoesNotExist:
-            raise ServiceError(detail="Batch not found.", status_code=status.HTTP_404_NOT_FOUND)
-
-        if getattr(user, 'user_type', None):
-            if user.user_type.name in [UserTypeConstants.ADMIN, UserTypeConstants.SUPERADMIN]:
-                return batch
-            elif user.user_type.name == UserTypeConstants.TEACHER:
-                if batch.teacher == user or batch.co_teachers.filter(pk=user.pk).exists():
-                    return batch
-                raise ServiceError(detail="Access denied.", status_code=status.HTTP_403_FORBIDDEN)
-            elif user.user_type.name == UserTypeConstants.STUDENT:
-                if batch.enrollments.filter(student=user, status__in=[BatchEnrollment.Status.ACTIVE, BatchEnrollment.Status.COMPLETED]).exists():
-                    return batch
-                raise ServiceError(detail="Access denied.", status_code=status.HTTP_403_FORBIDDEN)
-        return batch
+        return check_batch_access_for_chat(user, batch_id)
 
     @extend_schema(
         summary="List paginated chat messages for a batch",
@@ -90,7 +99,11 @@ class BatchChatMessageListCreateView(APIView):
     def get(self, request, batch_id):
         try:
             batch = self.check_batch_access(request.user, batch_id)
-            qs = BatchChatMessage.objects.filter(batch=batch).select_related('sender').order_by('-sent_at')
+            qs = BatchChatMessage.objects.filter(batch=batch).select_related(
+                'sender',
+                'sender__profile',
+                'sender__user_type',
+            ).order_by('-sent_at')
 
             paginator = CustomPageNumberPagination()
             # Set a higher default page size for chat (e.g., 50)
@@ -131,13 +144,15 @@ class BatchChatMessageListCreateView(APIView):
             response_message = BatchChatMessageSerializer(message_instance, context={'request': request}).data
             serialized_message = json.loads(JSONRenderer().render(response_message))
 
-            # Optional: Broadcast to WebSocket group.
-            # Use context-free serializer for WS payload so it never references multipart request/files.
+            # WebSocket: same payload as API (profile URLs, etc.) but never broadcast
+            # is_current_user — it is true only for the HTTP sender and would make every
+            # client render every message as "mine" on the right.
+            ws_payload = dict(serialized_message)
+            ws_payload.pop('is_current_user', None)
+
             from channels.layers import get_channel_layer
             from asgiref.sync import async_to_sync
             channel_layer = get_channel_layer()
-            ws_message = BatchChatMessageSerializer(message_instance).data
-            ws_serialized_message = json.loads(JSONRenderer().render(ws_message))
 
             try:
                 async_to_sync(channel_layer.group_send)(
@@ -146,7 +161,7 @@ class BatchChatMessageListCreateView(APIView):
                         'type': 'chat_message',
                         'message': message_instance.message,
                         'user_id': request.user.id,
-                        'serialized_data': ws_serialized_message,
+                        'serialized_data': ws_payload,
                     }
                 )
             except Exception:
@@ -162,6 +177,55 @@ class BatchChatMessageListCreateView(APIView):
             raise
         except Exception as e:
             logger.error(f"Error sending message: {str(e)}")
+            raise ServiceError(detail=str(e), status_code=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+@extend_schema(tags=["Chat"])
+class BatchChatMessageDeleteView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    @extend_schema(
+        summary="Delete own chat message",
+        responses={200: OpenApiTypes.OBJECT},
+    )
+    def delete(self, request, batch_id, message_id):
+        try:
+            batch = check_batch_access_for_chat(request.user, batch_id)
+            try:
+                msg = BatchChatMessage.objects.get(pk=message_id, batch_id=batch.id)
+            except BatchChatMessage.DoesNotExist:
+                raise ServiceError(detail="Message not found.", status_code=status.HTTP_404_NOT_FOUND)
+
+            if msg.sender_id != request.user.id:
+                raise ServiceError(
+                    detail="You can only delete your own messages.",
+                    status_code=status.HTTP_403_FORBIDDEN,
+                )
+
+            if msg.attachment:
+                msg.attachment.delete(save=False)
+            msg.delete()
+
+            from channels.layers import get_channel_layer
+            from asgiref.sync import async_to_sync
+
+            channel_layer = get_channel_layer()
+            try:
+                async_to_sync(channel_layer.group_send)(
+                    f'chat_batch_{batch.id}',
+                    {
+                        'type': 'chat_message_deleted',
+                        'message_id': message_id,
+                    },
+                )
+            except Exception:
+                logger.exception("Chat message deleted, but WebSocket broadcast failed.")
+
+            return format_success_response(message="Message deleted successfully")
+        except ServiceError:
+            raise
+        except Exception as e:
+            logger.error(f"Error deleting chat message: {str(e)}")
             raise ServiceError(detail=str(e), status_code=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 

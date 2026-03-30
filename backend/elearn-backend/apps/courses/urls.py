@@ -53,6 +53,7 @@ from apps.courses.views import (
 from apps.courses.views.chat_views import (
     ChatBatchListView,
     BatchChatMessageListCreateView,
+    BatchChatMessageDeleteView,
     ChatMarkReadView,
 )
 from apps.courses.views.test_submission_views import (
@@ -142,6 +143,11 @@ urlpatterns = [
 
     # Chat
     path("chat/batches/", ChatBatchListView.as_view(), name="chat-batch-list"),
+    path(
+        "chat/batches/<int:batch_id>/messages/<int:message_id>/",
+        BatchChatMessageDeleteView.as_view(),
+        name="chat-message-delete",
+    ),
     path("chat/batches/<int:batch_id>/messages/", BatchChatMessageListCreateView.as_view(), name="chat-messages"),
     path("chat/batches/<int:batch_id>/mark-read/", ChatMarkReadView.as_view(), name="chat-mark-read"),
 ]

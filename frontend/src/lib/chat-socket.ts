@@ -1,12 +1,14 @@
 import { ChatMessage } from './chat-api';
 
 type MessageCallback = (message: ChatMessage) => void;
+type MessageDeletedCallback = (messageId: number) => void;
 type ConnectionStatusCallback = (isConnected: boolean) => void;
 
 class ChatSocketClient {
   private socket: WebSocket | null = null;
   private batchId: number | string | null = null;
   private messageCallbacks: Set<MessageCallback> = new Set();
+  private messageDeletedCallbacks: Set<MessageDeletedCallback> = new Set();
   private connectionCallbacks: Set<ConnectionStatusCallback> = new Set();
   private reconnectAttempts = 0;
   private maxReconnectAttempts = 5;
@@ -48,7 +50,11 @@ class ChatSocketClient {
     this.socket.onmessage = (event) => {
       try {
         const data = JSON.parse(event.data);
-        if (data.id && data.message !== undefined) {
+        if (data.deleted === true && typeof data.message_id === 'number') {
+          this.notifyDeleteSubscribers(data.message_id);
+          return;
+        }
+        if (data.id != null && data.message !== undefined) {
           // This matches the ChatMessage structure we broadcast from backend
           this.notifySubscribers(data as ChatMessage);
         }
@@ -96,6 +102,11 @@ class ChatSocketClient {
     this.messageCallbacks.delete(callback);
   }
 
+  subscribeMessageDeleted(callback: MessageDeletedCallback) {
+    this.messageDeletedCallbacks.add(callback);
+    return () => this.messageDeletedCallbacks.delete(callback);
+  }
+
   subscribeConnectionStatus(callback: ConnectionStatusCallback) {
     this.connectionCallbacks.add(callback);
     callback(this.isConnected);
@@ -112,6 +123,10 @@ class ChatSocketClient {
 
   private notifySubscribers(message: ChatMessage) {
     this.messageCallbacks.forEach(callback => callback(message));
+  }
+
+  private notifyDeleteSubscribers(messageId: number) {
+    this.messageDeletedCallbacks.forEach(callback => callback(messageId));
   }
 
   private notifyConnectionSubscribers(isConnected: boolean) {

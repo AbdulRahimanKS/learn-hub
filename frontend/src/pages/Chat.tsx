@@ -7,11 +7,12 @@ import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { useAuth } from '@/contexts/AuthContext';
 import { cn } from '@/lib/utils';
-import { Send, Users, MessageSquare, Search, Paperclip, Download, Loader2, X } from 'lucide-react';
+import { Send, Users, MessageSquare, Search, Paperclip, Download, Loader2, X, Trash2 } from 'lucide-react';
 import { chatApi, ChatMessage } from '@/lib/chat-api';
 import { chatSocket } from '@/lib/chat-socket';
 import { CircularProgressbar, buildStyles } from 'react-circular-progressbar';
 import 'react-circular-progressbar/dist/styles.css';
+import { useToast } from '@/hooks/use-toast';
 
 interface Batch {
   id: number;
@@ -23,6 +24,7 @@ interface Batch {
 
 export default function Chat() {
   const { user } = useAuth();
+  const { toast } = useToast();
   const [batches, setBatches] = useState<Batch[]>([]);
   const [selectedBatch, setSelectedBatch] = useState<Batch | null>(null);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
@@ -42,6 +44,7 @@ export default function Chat() {
   const [hasMore, setHasMore] = useState(false);
   const [batchesPage, setBatchesPage] = useState(1);
   const [hasMoreBatches, setHasMoreBatches] = useState(false);
+  const [deletingId, setDeletingId] = useState<number | null>(null);
 
   // References
   const scrollAreaRef = useRef<HTMLDivElement>(null);
@@ -121,6 +124,9 @@ export default function Chat() {
     };
 
     const unsubscribe = chatSocket.subscribe(handleNewMessage);
+    const unsubscribeDeleted = chatSocket.subscribeMessageDeleted((messageId) => {
+      setMessages((prev) => prev.filter((m) => m.id !== messageId));
+    });
 
     const fetchMessages = async () => {
       setIsLoadingMessages(true);
@@ -169,10 +175,28 @@ export default function Chat() {
 
     return () => {
       unsubscribe();
+      unsubscribeDeleted();
       unsubscribeConnectionStatus();
       chatSocket.disconnect();
     };
   }, [selectedBatch]);
+
+  const handleDeleteMessage = async (msg: ChatMessage) => {
+    if (!selectedBatch || !window.confirm('Delete this message?')) return;
+    setDeletingId(msg.id);
+    try {
+      await chatApi.deleteMessage(selectedBatch.id, msg.id);
+      setMessages((prev) => prev.filter((m) => m.id !== msg.id));
+    } catch (err: unknown) {
+      const msgText =
+        err && typeof err === 'object' && 'response' in err
+          ? (err as { response?: { data?: { message?: string } } }).response?.data?.message
+          : undefined;
+      toast({ title: 'Could not delete', description: msgText || 'Try again.', variant: 'destructive' });
+    } finally {
+      setDeletingId(null);
+    }
+  };
 
   const loadMoreMessages = async () => {
     if (!selectedBatch || isLoadingMessages || !hasMore) return;
@@ -437,12 +461,15 @@ export default function Chat() {
                            </span>
                         </div>
                         {msgs.map((msg) => {
-                          const isCurrentUser = msg.sender?.email === user?.email;
+                          // Never rely on is_current_user from WebSocket (it reflects the sender only).
+                          const isCurrentUser =
+                            (user?.id != null && msg.sender?.id === user.id) ||
+                            (!!user?.email && msg.sender?.email === user.email);
                           return (
                           <div
                             key={msg.id}
                             className={cn(
-                              'flex gap-3',
+                              'group flex gap-3',
                               isCurrentUser && 'flex-row-reverse'
                             )}
                           >
@@ -514,6 +541,26 @@ export default function Chat() {
                                   </div>
                                 )}
                                 {msg.message && <p className="text-sm whitespace-pre-wrap text-left leading-relaxed">{msg.message}</p>}
+                                {isCurrentUser && (
+                                  <button
+                                    type="button"
+                                    title="Delete"
+                                    disabled={deletingId === msg.id}
+                                    className={cn(
+                                      'absolute -top-1 right-0 h-6 w-6 rounded p-0 flex items-center justify-center',
+                                      'text-primary-foreground/60 hover:text-primary-foreground',
+                                      'opacity-70 sm:opacity-0 sm:group-hover:opacity-100 sm:transition-opacity',
+                                      deletingId === msg.id && 'opacity-100'
+                                    )}
+                                    onClick={() => void handleDeleteMessage(msg)}
+                                  >
+                                    {deletingId === msg.id ? (
+                                      <Loader2 className="h-3 w-3 animate-spin" />
+                                    ) : (
+                                      <Trash2 className="h-3 w-3" />
+                                    )}
+                                  </button>
+                                )}
                               </div>
                             </div>
                           </div>

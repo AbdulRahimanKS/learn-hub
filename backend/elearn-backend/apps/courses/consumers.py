@@ -106,3 +106,13 @@ class BatchChatConsumer(AsyncWebsocketConsumer):
                 'message': message,
                 'user_id': event.get('user_id')
             }))
+
+    async def chat_message_deleted(self, event):
+        await self.send(
+            text_data=json.dumps(
+                {
+                    'deleted': True,
+                    'message_id': event['message_id'],
+                }
+            )
+        )
