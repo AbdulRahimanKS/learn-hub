@@ -12,6 +12,15 @@ import { chatApi, ChatMessage } from '@/lib/chat-api';
 import { chatSocket } from '@/lib/chat-socket';
 import { CircularProgressbar, buildStyles } from 'react-circular-progressbar';
 import 'react-circular-progressbar/dist/styles.css';
+import {
+  AlertDialog,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 import { useToast } from '@/hooks/use-toast';
 
 interface Batch {
@@ -45,6 +54,7 @@ export default function Chat() {
   const [batchesPage, setBatchesPage] = useState(1);
   const [hasMoreBatches, setHasMoreBatches] = useState(false);
   const [deletingId, setDeletingId] = useState<number | null>(null);
+  const [messageToDelete, setMessageToDelete] = useState<ChatMessage | null>(null);
 
   // References
   const scrollAreaRef = useRef<HTMLDivElement>(null);
@@ -181,12 +191,14 @@ export default function Chat() {
     };
   }, [selectedBatch]);
 
-  const handleDeleteMessage = async (msg: ChatMessage) => {
-    if (!selectedBatch || !window.confirm('Delete this message?')) return;
-    setDeletingId(msg.id);
+  const confirmDeleteMessage = async () => {
+    if (!selectedBatch || !messageToDelete) return;
+    const id = messageToDelete.id;
+    setDeletingId(id);
     try {
-      await chatApi.deleteMessage(selectedBatch.id, msg.id);
-      setMessages((prev) => prev.filter((m) => m.id !== msg.id));
+      await chatApi.deleteMessage(selectedBatch.id, id);
+      setMessages((prev) => prev.filter((m) => m.id !== id));
+      setMessageToDelete(null);
     } catch (err: unknown) {
       const msgText =
         err && typeof err === 'object' && 'response' in err
@@ -510,56 +522,66 @@ export default function Chat() {
                                   {new Intl.DateTimeFormat('default', { hour: 'numeric', minute: 'numeric' }).format(new Date(msg.sent_at))}
                                 </span>
                               </div>
-                              <div className={cn(
-                                'inline-block p-3 rounded-2xl shadow-sm relative text-sm',
-                                isCurrentUser
-                                  ? 'bg-primary bg-gradient-to-br from-primary to-primary/80 text-primary-foreground rounded-tr-sm'
-                                  : 'bg-background border border-border/40 rounded-tl-sm'
-                              )}>
-                                {msg.attachment && (
-                                  <div className="mb-2">
-                                     <div className={cn(
-                                       "flex items-center gap-3 p-2 rounded-xl border",
-                                       isCurrentUser ? "bg-primary-foreground/10 border-primary-foreground/20" : "bg-muted border-border/40"
-                                     )}>
-                                        <div className="p-2 bg-background/20 rounded-lg">
-                                           <Paperclip className="h-5 w-5" />
-                                        </div>
-                                        <div className="flex-1 overflow-hidden min-w-0 text-left">
-                                           <p className="text-xs font-medium truncate">{msg.attachment_name || 'Attached File'}</p>
-                                        </div>
-                                        <Button 
-                                          title="Download"
-                                          size="icon" 
-                                          variant="ghost" 
-                                          className={cn("h-8 w-8 hover:bg-background/20", isCurrentUser ? "text-primary-foreground" : "text-foreground")}
-                                          onClick={() => downloadFile(msg.attachment as string, msg.attachment_name || 'download')}
-                                        >
-                                           <Download className="h-4 w-4" />
-                                        </Button>
-                                     </div>
-                                  </div>
+                              <div
+                                className={cn(
+                                  'flex items-end gap-1.5',
+                                  isCurrentUser ? 'justify-end' : 'justify-start'
                                 )}
-                                {msg.message && <p className="text-sm whitespace-pre-wrap text-left leading-relaxed">{msg.message}</p>}
+                              >
+                                <div
+                                  className={cn(
+                                    'inline-block max-w-full p-3 rounded-2xl shadow-sm text-sm',
+                                    isCurrentUser
+                                      ? 'bg-primary bg-gradient-to-br from-primary to-primary/80 text-primary-foreground rounded-tr-sm'
+                                      : 'bg-background border border-border/40 rounded-tl-sm'
+                                  )}
+                                >
+                                  {msg.attachment && (
+                                    <div className="mb-2">
+                                       <div className={cn(
+                                         "flex items-center gap-3 p-2 rounded-xl border",
+                                         isCurrentUser ? "bg-primary-foreground/10 border-primary-foreground/20" : "bg-muted border-border/40"
+                                       )}>
+                                          <div className="p-2 bg-background/20 rounded-lg">
+                                             <Paperclip className="h-5 w-5" />
+                                          </div>
+                                          <div className="flex-1 overflow-hidden min-w-0 text-left">
+                                             <p className="text-xs font-medium truncate">{msg.attachment_name || 'Attached File'}</p>
+                                          </div>
+                                          <Button 
+                                            title="Download"
+                                            size="icon" 
+                                            variant="ghost" 
+                                            className={cn("h-8 w-8 hover:bg-background/20", isCurrentUser ? "text-primary-foreground" : "text-foreground")}
+                                            onClick={() => downloadFile(msg.attachment as string, msg.attachment_name || 'download')}
+                                          >
+                                             <Download className="h-4 w-4" />
+                                          </Button>
+                                       </div>
+                                    </div>
+                                  )}
+                                  {msg.message && <p className="text-sm whitespace-pre-wrap text-left leading-relaxed">{msg.message}</p>}
+                                </div>
                                 {isCurrentUser && (
-                                  <button
+                                  <Button
                                     type="button"
-                                    title="Delete"
+                                    variant="ghost"
+                                    size="icon"
+                                    title="Delete message"
                                     disabled={deletingId === msg.id}
                                     className={cn(
-                                      'absolute -top-1 right-0 h-6 w-6 rounded p-0 flex items-center justify-center',
-                                      'text-primary-foreground/60 hover:text-primary-foreground',
-                                      'opacity-70 sm:opacity-0 sm:group-hover:opacity-100 sm:transition-opacity',
+                                      'h-8 w-8 shrink-0 rounded-lg text-muted-foreground hover:bg-destructive/10 hover:text-destructive',
+                                      'opacity-80 sm:opacity-0 sm:group-hover:opacity-100 sm:transition-opacity',
                                       deletingId === msg.id && 'opacity-100'
                                     )}
-                                    onClick={() => void handleDeleteMessage(msg)}
+                                    onClick={() => setMessageToDelete(msg)}
                                   >
                                     {deletingId === msg.id ? (
-                                      <Loader2 className="h-3 w-3 animate-spin" />
+                                      <Loader2 className="h-4 w-4 animate-spin" />
                                     ) : (
-                                      <Trash2 className="h-3 w-3" />
+                                      <Trash2 className="h-4 w-4" />
                                     )}
-                                  </button>
+                                  </Button>
                                 )}
                               </div>
                             </div>
@@ -677,6 +699,41 @@ export default function Chat() {
           </Card>
         </div>
       </div>
+
+      <AlertDialog
+        open={!!messageToDelete}
+        onOpenChange={(open) => {
+          if (!open && deletingId == null) setMessageToDelete(null);
+        }}
+      >
+        <AlertDialogContent className="rounded-2xl">
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete this message?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This will remove the message for everyone in this chat. This cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={deletingId != null}>Cancel</AlertDialogCancel>
+            <Button
+              type="button"
+              variant="destructive"
+              disabled={deletingId != null}
+              className="sm:mt-0"
+              onClick={() => void confirmDeleteMessage()}
+            >
+              {deletingId != null ? (
+                <span className="inline-flex items-center gap-2">
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                  Deleting…
+                </span>
+              ) : (
+                'Delete'
+              )}
+            </Button>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </DashboardLayout>
   );
 }
