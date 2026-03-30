@@ -710,52 +710,52 @@ export default function SpecialSessions() {
                 />
               </div>
 
-              <div className="grid gap-2">
-                <Label className="text-sm font-semibold">Video File (.mp4) <span className="text-destructive">*</span></Label>
-                <div
-                  className={cn(
-                    "border-2 border-dashed rounded-xl p-6 text-center cursor-pointer transition-all",
-                    formErrors.video_file && "border-destructive",
-                    formData.video_file || editWebinar?.video_file ? "bg-primary/5 border-primary/20" : "hover:bg-muted/50"
-                  )}
-                  onClick={() => fileInputRef.current?.click()}
-                >
-                  <input
-                    type="file"
-                    ref={fileInputRef}
-                    className="hidden"
-                    accept="video/mp4"
-                    onChange={(e) => {
-                      const file = e.target.files?.[0];
-                      if (!file) return;
-                      if (file.type !== 'video/mp4') {
-                        setFormErrors((prev) => ({ ...prev, video_file: 'Only MP4 videos are allowed' }));
-                        return;
-                      }
-                      setFormData({ ...formData, video_file: file });
-                      setFormErrors((prev) => {
-                        const next = { ...prev };
-                        delete next.video_file;
-                        return next;
-                      });
-                    }}
-                  />
-                  <div className="flex flex-col items-center gap-2">
-                    {formData.video_file ? (
-                      <><CheckCircle className="h-8 w-8 text-primary" /><p className="text-sm font-medium">{formData.video_file.name}</p></>
-                    ) : editWebinar?.video_file ? (
-                      <><CheckCircle className="h-8 w-8 text-primary" /><p className="text-sm font-medium">Video Available</p><p className="text-xs text-muted-foreground">Click to replace</p></>
-                    ) : (
-                      <>
-                        <Upload className="h-8 w-8 text-muted-foreground" />
-                        <p className="text-sm font-medium">Click to upload video</p>
-                        <p className="text-xs text-muted-foreground">Only MP4 videos are accepted.</p>
-                      </>
+              {!editWebinar && (
+                <div className="grid gap-2">
+                  <Label className="text-sm font-semibold">Video File (.mp4) <span className="text-destructive">*</span></Label>
+                  <div
+                    className={cn(
+                      "border-2 border-dashed rounded-xl p-6 text-center cursor-pointer transition-all",
+                      formErrors.video_file && "border-destructive",
+                      formData.video_file ? "bg-primary/5 border-primary/20" : "hover:bg-muted/50"
                     )}
+                    onClick={() => fileInputRef.current?.click()}
+                  >
+                    <input
+                      type="file"
+                      ref={fileInputRef}
+                      className="hidden"
+                      accept="video/mp4"
+                      onChange={(e) => {
+                        const file = e.target.files?.[0];
+                        if (!file) return;
+                        if (file.type !== 'video/mp4') {
+                          setFormErrors((prev) => ({ ...prev, video_file: 'Only MP4 videos are allowed' }));
+                          return;
+                        }
+                        setFormData({ ...formData, video_file: file });
+                        setFormErrors((prev) => {
+                          const next = { ...prev };
+                          delete next.video_file;
+                          return next;
+                        });
+                      }}
+                    />
+                    <div className="flex flex-col items-center gap-2">
+                      {formData.video_file ? (
+                        <><CheckCircle className="h-8 w-8 text-primary" /><p className="text-sm font-medium">{formData.video_file.name}</p></>
+                      ) : (
+                        <>
+                          <Upload className="h-8 w-8 text-muted-foreground" />
+                          <p className="text-sm font-medium">Click to upload video</p>
+                          <p className="text-xs text-muted-foreground">Only MP4 videos are accepted.</p>
+                        </>
+                      )}
+                    </div>
                   </div>
+                  {formErrors.video_file && <p className="text-sm text-destructive">{formErrors.video_file}</p>}
                 </div>
-                {formErrors.video_file && <p className="text-sm text-destructive">{formErrors.video_file}</p>}
-              </div>
+              )}
 
               {uploadProgress >= 0 && (
                 <div className="space-y-2">
