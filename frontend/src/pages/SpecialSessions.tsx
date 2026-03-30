@@ -703,6 +703,7 @@ export default function SpecialSessions() {
                 <Textarea
                   id="description"
                   rows={3}
+                  placeholder="Brief description of the session"
                   value={formData.description}
                   onChange={e => setFormData({ ...formData, description: e.target.value })}
                   className="rounded-xl resize-none"
