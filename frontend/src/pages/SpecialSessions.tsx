@@ -376,7 +376,7 @@ export default function SpecialSessions() {
                 <span>{format(new Date(webinar.unlock_at), "MMM d, yyyy")}</span>
               </div>
               {isUpcoming && (
-                <div className="flex items-center gap-1.5 text-amber-600">
+                <div className="flex items-center gap-1.5 text-primary">
                   <Clock className="h-3.5 w-3.5" />
                   <span>Available at {format(new Date(webinar.unlock_at), "h:mm a")}</span>
                 </div>
