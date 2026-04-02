@@ -222,7 +222,7 @@ function AdminDashboard() {
         {/* Batch table */}
         <Card className="shadow-card lg:col-span-2">
           <CardHeader className="flex flex-row items-center justify-between pb-3">
-            <div>
+            <div className="space-y-1.5">
               <CardTitle>Batch Overview</CardTitle>
               <CardDescription>Active batches at a glance</CardDescription>
             </div>
@@ -339,7 +339,7 @@ function AdminDashboard() {
         {/* Performance */}
         <Card className="shadow-card lg:col-span-3">
           <CardHeader className="flex flex-row items-center justify-between pb-3">
-            <div>
+            <div className="space-y-1.5">
               <CardTitle>Student Performance</CardTitle>
               <CardDescription>Avg marks & pass rate per batch</CardDescription>
             </div>
@@ -391,7 +391,7 @@ function AdminDashboard() {
         {/* E. Upcoming Events */}
         <Card className="shadow-card lg:col-span-2">
           <CardHeader className="flex flex-row items-center justify-between pb-3">
-            <div>
+            <div className="space-y-1.5">
               <CardTitle>Upcoming Events</CardTitle>
               <CardDescription>Next 14 days</CardDescription>
             </div>
