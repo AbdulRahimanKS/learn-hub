@@ -13,8 +13,6 @@ export interface DashboardBatchOverview {
   name: string;
   course_name: string | null;
   student_count: number;
-  current_week: number;
-  total_weeks: number;
   progress_pct: number;
   next_unlock_date: string | null;
   status: string;

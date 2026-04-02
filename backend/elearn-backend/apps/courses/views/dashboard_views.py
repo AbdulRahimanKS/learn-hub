@@ -117,20 +117,8 @@ class AdminDashboardView(APIView):
 
             batch_overview = []
             for b in batches:
-                student_count = BatchEnrollment.objects.filter(
-                    batch=b, status=BatchEnrollment.Status.ACTIVE
-                ).count()
+                student_count = BatchEnrollment.objects.filter(batch=b).count()
 
-                # Current week = number of weeks since start_date
-                current_week = 1
-                if b.start_date:
-                    delta = (timezone.now().date() - b.start_date).days
-                    current_week = max(1, (delta // 7) + 1)
-
-                # Total weeks in batch
-                total_weeks = b.batch_weeks.count()
-
-                # Progress: use the same helper as the batch list serializer
                 relevant_enrollments = list(
                     BatchEnrollment.objects.filter(
                         batch=b,
@@ -139,28 +127,15 @@ class AdminDashboardView(APIView):
                 )
                 progress_pct = average_week_based_progress_percent(relevant_enrollments) if relevant_enrollments else 0.0
 
-                # Next unlock date (next BatchWeek not yet unlocked)
-                next_week = (
-                    BatchWeek.objects
-                    .filter(batch=b, unlock_date__gt=now)
-                    .order_by("unlock_date")
-                    .first()
-                )
-                next_unlock = next_week.unlock_date.isoformat() if next_week else None
-
                 batch_overview.append({
                     "id": b.id,
                     "name": b.name,
                     "course_name": b.course.title if b.course else None,
                     "student_count": student_count,
-                    "current_week": current_week,
-                    "total_weeks": total_weeks,
                     "progress_pct": round(progress_pct),
-                    "next_unlock_date": next_unlock,
                     "status": b.status,
                 })
 
-            # ── C. Pending Actions ────────────────────────────────────────
             pending_tests = (
                 TestSubmission.objects
                 .filter(
@@ -283,26 +258,6 @@ class AdminDashboardView(APIView):
                 for ls in upcoming_sessions
             ]
 
-            # ── G. Recent Chat Messages ────────────────────────────────────
-            recent_chats = (
-                BatchChatMessage.objects
-                .filter(batch_id__in=batch_ids)
-                .select_related("sender", "batch")
-                .order_by("-sent_at")[:10]
-            )
-
-            recent_messages = [
-                {
-                    "id": m.id,
-                    "batch_id": m.batch_id,
-                    "batch_name": m.batch.name,
-                    "sender_name": m.sender.fullname if m.sender else "Unknown",
-                    "message": (m.message[:100] + "…") if len(m.message) > 100 else m.message,
-                    "sent_at": m.sent_at.isoformat(),
-                }
-                for m in recent_chats
-            ]
-
             return format_success_response(
                 message="Dashboard data retrieved successfully",
                 data={
@@ -311,7 +266,6 @@ class AdminDashboardView(APIView):
                     "pending_actions": pending_actions,
                     "student_performance": performance,
                     "upcoming_events": upcoming_events,
-                    "recent_messages": recent_messages,
                 },
             )
 

@@ -8,6 +8,7 @@ import { useQuery } from '@tanstack/react-query';
 import { dashboardApi, AdminDashboardData } from '@/lib/dashboard-api';
 import { useNavigate } from 'react-router-dom';
 import { Skeleton } from '@/components/ui/skeleton';
+import { Loader2 } from 'lucide-react';
 import {
   BookOpen,
   Users,
@@ -61,24 +62,7 @@ function formatRelative(dateStr: string): string {
   }
 }
 
-// ─── Skeleton loader ──────────────────────────────────────────────────────────
 
-function DashboardSkeleton() {
-  return (
-    <div className="space-y-6 animate-pulse">
-      <div className="h-10 w-64 rounded-lg bg-muted" />
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
-        {Array.from({ length: 5 }).map((_, i) => (
-          <div key={i} className="h-32 rounded-2xl bg-muted" />
-        ))}
-      </div>
-      <div className="grid gap-6 lg:grid-cols-3">
-        <div className="lg:col-span-2 h-80 rounded-2xl bg-muted" />
-        <div className="h-80 rounded-2xl bg-muted" />
-      </div>
-    </div>
-  );
-}
 
 // ─── Summary stat card ────────────────────────────────────────────────────────
 
@@ -135,7 +119,13 @@ function AdminDashboard() {
     refetchInterval: 60_000,
   });
 
-  if (isLoading) return <DashboardSkeleton />;
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center min-h-[60vh]">
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+      </div>
+    );
+  }
 
   if (error || !data) {
     return (
@@ -246,7 +236,6 @@ function AdminDashboard() {
                     <tr className="border-b border-border">
                       <th className="text-left pr-3 py-3 text-sm font-semibold text-muted-foreground">Batch</th>
                       <th className="text-center px-3 py-3 text-sm font-semibold text-muted-foreground hidden sm:table-cell">Students</th>
-                      <th className="text-center px-3 py-3 text-sm font-semibold text-muted-foreground hidden md:table-cell">Week</th>
                       <th className="text-left px-3 py-3 text-sm font-semibold text-muted-foreground">Progress</th>
                       <th className="text-right pl-3 py-3 text-sm font-semibold text-muted-foreground">Action</th>
                     </tr>
@@ -272,11 +261,7 @@ function AdminDashboard() {
                             <span className="font-medium">{b.student_count}</span>
                           </div>
                         </td>
-                        <td className="text-center px-3 py-3 hidden md:table-cell">
-                          <Badge variant="outline" className="text-xs font-mono">
-                            W{b.current_week}{b.total_weeks > 0 ? `/${b.total_weeks}` : ''}
-                          </Badge>
-                        </td>
+
                         <td className="px-3 py-3">
                           <div className="flex items-center gap-2 min-w-[100px]">
                             <Progress value={b.progress_pct} className="h-1.5 flex-1" />
