@@ -49,6 +49,7 @@ from apps.courses.views import (
     BatchClassSessionCompletionView,
     ScheduledWebinarListCreateView,
     ScheduledWebinarDetailView,
+    AdminDashboardView,
 )
 from apps.courses.views.chat_views import (
     ChatBatchListView,
@@ -70,6 +71,9 @@ from apps.courses.views.live_session_views import (
 )
 
 urlpatterns = [
+    # Dashboard
+    path("dashboard/", AdminDashboardView.as_view(), name="admin-dashboard"),
+
     # Video Uploads
     path("courses/upload/init/", InitMultipartUploadView.as_view(), name="upload-init"),
     path("courses/upload/complete/", CompleteMultipartUploadView.as_view(), name="upload-complete"),

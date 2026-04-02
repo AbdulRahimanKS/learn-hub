@@ -72,6 +72,8 @@ from .live_session_views import (
     LiveSessionDetailView,
 )
 
+from .dashboard_views import AdminDashboardView
+
 __all__ = [
     'CourseListView',
     'CourseMySummaryView',
@@ -127,4 +129,6 @@ __all__ = [
     'LiveSessionDetailView',
     'BatchStudentWeekUnlockToggleView',
     'BatchStudentBulkUpdateView',
+
+    'AdminDashboardView',
 ]

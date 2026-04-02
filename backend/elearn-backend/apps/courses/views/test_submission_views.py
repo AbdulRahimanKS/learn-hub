@@ -358,6 +358,7 @@ class TestSubmissionDetailView(generics.RetrieveUpdateAPIView):
 @extend_schema(tags=["Test Submissions"], summary="Trigger AI evaluation for a specific test submission", description="Allows a teacher to trigger AI evaluation for a specific test submission.")
 class TriggerAIEvaluationView(APIView):
     permission_classes = [IsSuperAdminAdminOrTeacher]
+    serializer_class = TestSubmissionSerializer
 
     def post(self, request, batch_id, pk):
         try:
