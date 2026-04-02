@@ -136,77 +136,21 @@ class AdminDashboardView(APIView):
                     "status": b.status,
                 })
 
-            pending_tests = (
-                TestSubmission.objects
-                .filter(
-                    enrollment__batch_id__in=batch_ids,
-                    status=TestSubmission.Status.PENDING,
-                )
-                .select_related(
-                    "enrollment__student",
-                    "batch_weekly_test__batch_week__batch",
-                )
-                .order_by("-submitted_at")[:5]
-            )
-
-            pending_review = (
-                TestSubmission.objects
-                .filter(
-                    enrollment__batch_id__in=batch_ids,
-                    status=TestSubmission.Status.PENDING_REVIEW,
-                )
-                .select_related(
-                    "enrollment__student",
-                    "batch_weekly_test__batch_week__batch",
-                )
-                .order_by("-submitted_at")[:5]
-            )
-
-            today_start = now.replace(hour=0, minute=0, second=0, microsecond=0)
-            today_end = today_start + timedelta(days=1)
-            live_today = (
-                LiveSession.objects
-                .filter(
-                    batch_id__in=batch_ids,
-                    scheduled_at__gte=today_start,
-                    scheduled_at__lt=today_end,
-                )
-                .select_related("batch")
-                .order_by("scheduled_at")[:5]
-            )
-
-            def _sub_brief(s):
-                bwt = s.batch_weekly_test
-                bw = bwt.batch_week if bwt else None
-                return {
-                    "submission_id": s.id,
-                    "student_name": s.enrollment.student.fullname,
-                    "batch_name": bw.batch.name if bw else "",
-                    "batch_id": bw.batch.id if bw else None,
-                    "week_number": bw.week_number if bw else None,
-                    "submitted_at": s.submitted_at.isoformat(),
-                    "status": s.status,
-                }
-
-            pending_actions = {
-                "pending_tests": [_sub_brief(s) for s in pending_tests],
-                "pending_review": [_sub_brief(s) for s in pending_review],
-                "live_today": [
-                    {
-                        "id": ls.id,
-                        "title": ls.title,
-                        "batch_name": ls.batch.name if ls.batch else "",
-                        "batch_id": ls.batch.id if ls.batch else None,
-                        "scheduled_at": ls.scheduled_at.isoformat(),
-                        "meeting_room": ls.meeting_room,
-                    }
-                    for ls in live_today
-                ],
-            }
-
-            # ── D. Student Performance Overview ──────────────────────────
             performance = []
-            for b in batch_qs.filter(status=Batch.Status.ACTIVE)[:8]:
+            active_batches_with_data = (
+                batch_qs
+                .filter(status=Batch.Status.ACTIVE)
+                .annotate(
+                    published_count=Count(
+                        'enrollments__test_submissions', 
+                        filter=Q(enrollments__test_submissions__status=TestSubmission.Status.PUBLISHED)
+                    )
+                )
+                .filter(published_count__gt=0)
+                .order_by("-created_at")[:10]
+            )
+
+            for b in active_batches_with_data:
                 agg = (
                     TestSubmission.objects
                     .filter(
@@ -232,7 +176,6 @@ class AdminDashboardView(APIView):
                     "total_submissions": total,
                 })
 
-            # ── E. Upcoming Events (next 14 days) ─────────────────────────
             upcoming_sessions = (
                 LiveSession.objects
                 .filter(
@@ -263,7 +206,6 @@ class AdminDashboardView(APIView):
                 data={
                     "summary_stats": summary_stats,
                     "batch_overview": batch_overview,
-                    "pending_actions": pending_actions,
                     "student_performance": performance,
                     "upcoming_events": upcoming_events,
                 },

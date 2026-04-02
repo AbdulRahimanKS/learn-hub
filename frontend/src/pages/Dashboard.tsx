@@ -137,8 +137,7 @@ function AdminDashboard() {
     );
   }
 
-  const { summary_stats: stats, batch_overview, pending_actions, student_performance, upcoming_events } = data;
-  const totalPending = (pending_actions.pending_tests.length + pending_actions.pending_review.length);
+  const { summary_stats: stats, batch_overview, student_performance, upcoming_events } = data;
 
   return (
     <div className="space-y-7 pb-8">
@@ -345,29 +344,14 @@ function AdminDashboard() {
               <div key={p.batch_id} className="group">
                 <div className="flex items-center justify-between mb-1.5">
                   <div className="flex items-center gap-2 min-w-0">
-                    <div className="h-2 w-2 rounded-full bg-primary flex-shrink-0" />
                     <span className="text-base font-medium text-foreground truncate">{p.batch_name}</span>
-                    <span className="text-sm text-muted-foreground shrink-0">{p.total_submissions} submissions</span>
+                    <span className="text-sm text-muted-foreground shrink-0">{p.total_submissions} evaluated</span>
                   </div>
-                  <div className="flex items-center gap-3 shrink-0 ml-3">
-                    <div className="text-right">
-                      <p className="text-base font-bold text-foreground tabular-nums">{p.avg_marks}%</p>
-                      <p className="text-sm text-muted-foreground">avg</p>
-                    </div>
-                    <div className="text-right">
-                      <p className={`text-base font-bold tabular-nums ${p.pass_percent >= 70 ? 'text-emerald-500' : 'text-orange-500'}`}>{p.pass_percent}%</p>
-                      <p className="text-sm text-muted-foreground">pass</p>
-                    </div>
-                  </div>
+                  <span className="text-sm font-bold tabular-nums text-foreground shrink-0 ml-3">
+                    {p.pass_percent}% pass
+                  </span>
                 </div>
-                <div className="flex gap-1.5 items-center">
-                  <Progress value={p.avg_marks} className="h-1.5 flex-1" />
-                  {p.pass_percent >= 70 ? (
-                    <CheckCircle2 className="h-3.5 w-3.5 text-emerald-500 shrink-0" />
-                  ) : (
-                    <Target className="h-3.5 w-3.5 text-orange-500 shrink-0" />
-                  )}
-                </div>
+                <Progress value={p.pass_percent} className="h-1.5 w-full" />
               </div>
             ))}
           </CardContent>

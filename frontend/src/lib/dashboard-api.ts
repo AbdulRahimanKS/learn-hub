@@ -14,34 +14,9 @@ export interface DashboardBatchOverview {
   course_name: string | null;
   student_count: number;
   progress_pct: number;
-  next_unlock_date: string | null;
   status: string;
 }
 
-export interface DashboardPendingSubmission {
-  submission_id: number;
-  student_name: string;
-  batch_name: string;
-  batch_id: number | null;
-  week_number: number | null;
-  submitted_at: string;
-  status: string;
-}
-
-export interface DashboardLiveToday {
-  id: number;
-  title: string;
-  batch_name: string;
-  batch_id: number | null;
-  scheduled_at: string;
-  meeting_room: string;
-}
-
-export interface DashboardPendingActions {
-  pending_tests: DashboardPendingSubmission[];
-  pending_review: DashboardPendingSubmission[];
-  live_today: DashboardLiveToday[];
-}
 
 export interface DashboardPerformance {
   batch_id: number;
@@ -74,7 +49,6 @@ export interface DashboardChatMessage {
 export interface AdminDashboardData {
   summary_stats: DashboardSummaryStats;
   batch_overview: DashboardBatchOverview[];
-  pending_actions: DashboardPendingActions;
   student_performance: DashboardPerformance[];
   upcoming_events: DashboardEvent[];
   recent_messages: DashboardChatMessage[];
