@@ -54,10 +54,64 @@ export interface AdminDashboardData {
   recent_messages: DashboardChatMessage[];
 }
 
+export interface StudentDashboardSession {
+  id: number;
+  title: string;
+  duration_label: string;
+  completed: boolean;
+}
+
+export interface StudentDashboardFocus {
+  enrollment_id: number;
+  batch_id: number;
+  batch_name: string;
+  course_id: number | null;
+  course_title: string | null;
+  week_id: number;
+  week_number: number;
+  week_title: string | null;
+  week_progress_pct: number;
+  videos_completed: number;
+  videos_total: number;
+  has_weekly_test: boolean;
+  overall_progress_pct: number;
+  sessions: StudentDashboardSession[];
+}
+
+export interface StudentDashboardStats {
+  avg_score_pct: number | null;
+  sessions_completed: number;
+  graded_tests: number;
+}
+
+export interface StudentDashboardUpcoming {
+  id: string;
+  type: 'live_session' | 'webinar';
+  title: string;
+  subtitle: string;
+  scheduled_at: string;
+  batch_id: number | null;
+  course_id: number | null;
+}
+
+export interface StudentDashboardData {
+  active_batches: number;
+  focus: StudentDashboardFocus | null;
+  stats: StudentDashboardStats;
+  upcoming: StudentDashboardUpcoming[];
+}
+
 export const dashboardApi = {
   getAdminDashboard: async (): Promise<AdminDashboardData> => {
     const response = await apiClient.get<{ data: AdminDashboardData; success: boolean; message: string }>(
       '/api/courses/v1/dashboard/'
+    );
+    return response.data.data;
+  },
+
+  getStudentDashboard: async (): Promise<StudentDashboardData> => {
+    const response = await apiClient.get<{ data: StudentDashboardData; success: boolean; message: string }>(
+      '/api/courses/v1/dashboard/student/'
     );
     return response.data.data;
   },

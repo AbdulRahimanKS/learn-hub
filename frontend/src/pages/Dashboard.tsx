@@ -5,9 +5,8 @@ import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
 import { Badge } from '@/components/ui/badge';
 import { useQuery } from '@tanstack/react-query';
-import { dashboardApi, AdminDashboardData } from '@/lib/dashboard-api';
+import { dashboardApi, AdminDashboardData, StudentDashboardData } from '@/lib/dashboard-api';
 import { useNavigate } from 'react-router-dom';
-import { Skeleton } from '@/components/ui/skeleton';
 import { Loader2 } from 'lucide-react';
 import {
   BookOpen,
@@ -25,14 +24,9 @@ import {
   MessageSquare,
   Upload,
   Plus,
-  Zap,
   BarChart3,
   CheckCircle2,
   ChevronRight,
-  Activity,
-  Layers,
-  Bell,
-  Target,
 } from 'lucide-react';
 import { format, parseISO, isToday, isTomorrow } from 'date-fns';
 
@@ -410,27 +404,76 @@ function AdminDashboard() {
   );
 }
 
-// ─── Student dashboard (unchanged) ───────────────────────────────────────────
-
-const weeklyVideos = [
-  { id: 1, title: 'Introduction to Python', duration: '45:00', completed: true },
-  { id: 2, title: 'Variables and Data Types', duration: '38:00', completed: true },
-  { id: 3, title: 'Control Flow Statements', duration: '52:00', completed: false },
-  { id: 4, title: 'Functions and Modules', duration: '41:00', completed: false },
-];
-
-const upcomingEvents = [
-  { id: 1, title: 'Live Q&A Session', type: 'live', date: 'Today, 3:00 PM' },
-  { id: 2, title: 'Weekly Assessment', type: 'assessment', date: 'Tomorrow, 10:00 AM' },
-  { id: 3, title: 'Python Advanced Webinar', type: 'webinar', date: 'Feb 5, 2:00 PM' },
-];
+// ─── Student dashboard ─────────────────────────────────────────────────────────
 
 function StudentDashboard() {
   const { user } = useAuth();
   const navigate = useNavigate();
 
+  const { data, isLoading, error } = useQuery<StudentDashboardData>({
+    queryKey: ['student-dashboard'],
+    queryFn: dashboardApi.getStudentDashboard,
+    refetchInterval: 60_000,
+  });
+
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center min-h-[60vh]">
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+      </div>
+    );
+  }
+
+  if (error || !data) {
+    return (
+      <div className="flex flex-col items-center justify-center py-20 gap-4">
+        <AlertTriangle className="h-12 w-12 text-destructive opacity-70" />
+        <p className="text-muted-foreground text-sm">Failed to load dashboard. Please refresh.</p>
+        <Button variant="outline" size="sm" onClick={() => window.location.reload()}>Retry</Button>
+      </div>
+    );
+  }
+
+  const { focus, stats, upcoming } = data;
+
+  const openCourseForFocus = () => {
+    if (!focus) return;
+    if (focus.course_id != null) {
+      navigate(`/courses/${focus.course_id}?batch_id=${focus.batch_id}`);
+    } else {
+      navigate('/courses');
+    }
+  };
+
+  const weekHeadline =
+    focus &&
+    [focus.course_title || focus.batch_name, `Week ${focus.week_number}`].filter(Boolean).join(' · ');
+
+  const weekSubtitle = focus
+    ? focus.videos_total > 0
+      ? `${focus.videos_completed} of ${focus.videos_total} videos completed`
+      : focus.has_weekly_test
+        ? 'Weekly assessment available in this week'
+        : 'No videos scheduled for this week yet'
+    : '';
+
+  const assessmentHint =
+    focus?.has_weekly_test && focus.videos_total > 0 && focus.videos_completed < focus.videos_total
+      ? 'Complete all videos to unlock the weekly assessment'
+      : focus?.has_weekly_test
+        ? 'Weekly assessment is part of this week'
+        : 'Work through this week’s sessions at your own pace';
+
+  const navigateUpcoming = (ev: StudentDashboardData['upcoming'][0]) => {
+    if (ev.type === 'live_session') {
+      navigate('/live-sessions');
+      return;
+    }
+    navigate('/webinars');
+  };
+
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 pb-8">
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h1 className="font-display text-3xl font-bold text-foreground">
@@ -438,123 +481,208 @@ function StudentDashboard() {
           </h1>
           <p className="mt-1 text-muted-foreground">Continue your learning journey</p>
         </div>
-        <div className="flex items-center gap-2">
-          <Badge variant="outline" className="px-3 py-1.5">
-            <Award className="h-4 w-4 mr-1.5" />
-            Week 3
-          </Badge>
+        <div className="flex items-center gap-2 flex-wrap">
+          {focus ? (
+            <Badge variant="outline" className="px-3 py-1.5">
+              <Award className="h-4 w-4 mr-1.5" />
+              Week {focus.week_number}
+            </Badge>
+          ) : null}
+          {data.active_batches > 1 ? (
+            <Badge variant="secondary" className="px-3 py-1.5">
+              {data.active_batches} active batches
+            </Badge>
+          ) : null}
         </div>
       </div>
 
-      {/* Progress Overview */}
+      {/* Progress overview */}
       <Card className="shadow-card gradient-primary text-primary-foreground">
         <CardContent className="p-6">
-          <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+          {focus ? (
+            <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+              <div>
+                <p className="text-primary-foreground/80">Current week progress</p>
+                <h2 className="text-2xl font-bold mt-1 leading-tight">{weekHeadline}</h2>
+                <p className="text-primary-foreground/80 mt-2">{weekSubtitle}</p>
+              </div>
+              <div className="flex flex-col items-end gap-2">
+                <div className="text-3xl font-bold tabular-nums">{focus.week_progress_pct}%</div>
+                <Progress value={focus.week_progress_pct} className="w-32 h-2 bg-primary-foreground/20" />
+              </div>
+            </div>
+          ) : (
             <div>
-              <p className="text-primary-foreground/80">Current Week Progress</p>
-              <h2 className="text-2xl font-bold mt-1">Python Fundamentals - Week 3</h2>
-              <p className="text-primary-foreground/80 mt-2">2 of 4 videos completed</p>
+              <p className="text-primary-foreground/80">Overview</p>
+              <h2 className="text-2xl font-bold mt-1">No active enrollments</h2>
+              <p className="text-primary-foreground/80 mt-2 max-w-xl">
+                When you are enrolled in a batch, your current week and learning progress will show here.
+              </p>
             </div>
-            <div className="flex flex-col items-end gap-2">
-              <div className="text-3xl font-bold">50%</div>
-              <Progress value={50} className="w-32 h-2 bg-primary-foreground/20" />
-            </div>
-          </div>
+          )}
         </CardContent>
       </Card>
 
-      {/* Main Content Grid */}
       <div className="grid gap-6 lg:grid-cols-3">
         <Card className="shadow-card lg:col-span-2">
           <CardHeader>
-            <CardTitle>This Week's Content</CardTitle>
-            <CardDescription>Complete all videos to unlock the weekly assessment</CardDescription>
+            <CardTitle>This week&apos;s content</CardTitle>
+            <CardDescription>
+              {focus ? assessmentHint : 'Join a batch to see this week\'s lessons and activities'}
+            </CardDescription>
           </CardHeader>
           <CardContent>
-            <div className="space-y-3">
-              {weeklyVideos.map((video, index) => (
-                <div
-                  key={video.id}
-                  className={`flex items-center gap-4 p-4 rounded-lg border transition-colors ${
-                    video.completed ? 'bg-success/5 border-success/20' : 'bg-card hover:bg-muted/50 border-border'
-                  }`}
-                >
-                  <div className={`flex h-10 w-10 items-center justify-center rounded-full ${
-                    video.completed ? 'bg-success text-success-foreground' : 'bg-primary/10 text-primary'
-                  }`}>
-                    {video.completed ? '✓' : index + 1}
-                  </div>
-                  <div className="flex-1">
-                    <p className="font-medium text-foreground">{video.title}</p>
-                    <p className="text-sm text-muted-foreground flex items-center gap-1">
-                      <Clock className="h-3 w-3" />
-                      {video.duration}
-                    </p>
-                  </div>
-                  <Button variant={video.completed ? 'outline' : 'default'} size="sm">
-                    {video.completed ? 'Rewatch' : 'Watch'}
-                    <Play className="ml-2 h-4 w-4" />
+            {!focus || focus.sessions.length === 0 ? (
+              <div className="flex flex-col items-center justify-center py-14 text-muted-foreground">
+                <BookOpen className="h-10 w-10 opacity-35 mb-3 text-primary" />
+                <p className="text-sm font-medium text-foreground">No sessions for this week</p>
+                <p className="text-sm mt-1 text-center max-w-sm">
+                  Your instructor may still be adding content, or this week uses other activities.
+                </p>
+                {focus ? (
+                  <Button variant="outline" size="sm" className="mt-4" onClick={openCourseForFocus}>
+                    Open course
                   </Button>
-                </div>
-              ))}
-            </div>
+                ) : null}
+              </div>
+            ) : (
+              <div className="space-y-3">
+                {focus.sessions.map((video, index) => (
+                  <div
+                    key={video.id}
+                    className={`flex items-center gap-4 p-4 rounded-lg border transition-colors ${
+                      video.completed ? 'bg-success/5 border-success/20' : 'bg-card hover:bg-muted/50 border-border'
+                    }`}
+                  >
+                    <div
+                      className={`flex h-10 w-10 items-center justify-center rounded-full shrink-0 ${
+                        video.completed ? 'bg-success text-success-foreground' : 'bg-primary/10 text-primary'
+                      }`}
+                    >
+                      {video.completed ? '✓' : index + 1}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="font-medium text-foreground truncate">{video.title}</p>
+                      <p className="text-sm text-muted-foreground flex items-center gap-1">
+                        <Clock className="h-3 w-3 shrink-0" />
+                        {video.duration_label}
+                      </p>
+                    </div>
+                    <Button
+                      variant={video.completed ? 'outline' : 'default'}
+                      size="sm"
+                      className="shrink-0"
+                      onClick={openCourseForFocus}
+                    >
+                      {video.completed ? 'Rewatch' : 'Watch'}
+                      <Play className="ml-2 h-4 w-4" />
+                    </Button>
+                  </div>
+                ))}
+              </div>
+            )}
           </CardContent>
         </Card>
 
         <Card className="shadow-card">
           <CardHeader>
             <CardTitle>Upcoming</CardTitle>
-            <CardDescription>Your schedule</CardDescription>
+            <CardDescription>
+              {focus
+                ? 'Live sessions and webinars for the batch above · next two weeks'
+                : 'Across your active batches · next two weeks'}
+            </CardDescription>
           </CardHeader>
           <CardContent>
-            <div className="space-y-4">
-              {upcomingEvents.map((event) => (
-                <div key={event.id} className="flex items-start gap-3 p-4 rounded-xl bg-muted/40 border border-border hover:bg-accent/20 hover:shadow-sm transition-all">
-                  <div className={`p-2 rounded-lg ${
-                    event.type === 'live' ? 'bg-destructive/10' :
-                    event.type === 'assessment' ? 'bg-warning/10' : 'bg-primary/10'
-                  }`}>
-                    {event.type === 'live' ? (
-                      <Video className="h-4 w-4 text-destructive" />
-                    ) : event.type === 'assessment' ? (
-                      <ClipboardCheck className="h-4 w-4 text-warning" />
-                    ) : (
-                      <Calendar className="h-4 w-4 text-primary" />
-                    )}
-                  </div>
-                  <div>
-                    <p className="font-medium text-sm text-foreground">{event.title}</p>
-                    <p className="text-xs text-muted-foreground">{event.date}</p>
-                  </div>
-                </div>
-              ))}
-            </div>
+            {upcoming.length === 0 ? (
+              <div className="flex flex-col items-center justify-center py-12 text-muted-foreground">
+                <Calendar className="h-10 w-10 opacity-30 mb-3" />
+                <p className="text-sm font-medium text-foreground">Nothing scheduled</p>
+                <p className="text-xs mt-1 text-center max-w-[220px]">Live sessions and webinars from your batches appear here</p>
+              </div>
+            ) : (
+              <div className="space-y-4">
+                {upcoming.map(ev => (
+                  <button
+                    key={ev.id}
+                    type="button"
+                    className="w-full flex items-start gap-3 p-4 rounded-xl bg-muted/40 border border-border hover:bg-accent/20 hover:shadow-sm transition-all text-left"
+                    onClick={() => navigateUpcoming(ev)}
+                  >
+                    <div
+                      className={`p-2 rounded-lg shrink-0 ${
+                        ev.type === 'live_session' ? 'bg-destructive/10' : 'bg-primary/10'
+                      }`}
+                    >
+                      {ev.type === 'live_session' ? (
+                        <Video className="h-4 w-4 text-destructive" />
+                      ) : (
+                        <Calendar className="h-4 w-4 text-primary" />
+                      )}
+                    </div>
+                    <div className="min-w-0">
+                      <p className="font-medium text-sm text-foreground leading-snug">{ev.title}</p>
+                      {ev.subtitle ? (
+                        <p className="text-xs text-muted-foreground mt-0.5 truncate">{ev.subtitle}</p>
+                      ) : null}
+                      <p className="text-xs text-muted-foreground mt-1">{formatEventDate(ev.scheduled_at)}</p>
+                    </div>
+                  </button>
+                ))}
+              </div>
+            )}
           </CardContent>
         </Card>
       </div>
 
-      {/* Quick Stats */}
-      <div className="grid gap-4 sm:grid-cols-3">
-        {[
-          { label: 'Average Score', value: '87%', icon: TrendingUp, color: 'text-success' },
-          { label: 'Videos Watched', value: '18', icon: Play, color: 'text-primary' },
-          { label: 'Assessments Done', value: '6', icon: ClipboardCheck, color: 'text-accent-foreground' },
-        ].map((stat) => (
-          <Card key={stat.label} className="shadow-card">
-            <CardContent className="p-6">
-              <div className="flex items-center gap-4">
-                <div className="p-3 rounded-xl bg-primary/10">
-                  <stat.icon className={`h-6 w-6 ${stat.color}`} />
+      {data.active_batches > 0 ? (
+        <div className="grid gap-4 sm:grid-cols-3">
+          {[
+            {
+              label: 'Avg. on graded tests',
+              hint: focus
+                ? 'Published results · same batch as the week above'
+                : 'Published results · all active batches',
+              value: stats.avg_score_pct != null ? `${stats.avg_score_pct}%` : '—',
+              icon: TrendingUp,
+              color: 'text-success',
+            },
+            {
+              label: 'Class sessions done',
+              hint: focus
+                ? 'Marked complete in that batch'
+                : 'Marked complete across active batches',
+              value: String(stats.sessions_completed),
+              icon: CheckCircle2,
+              color: 'text-primary',
+            },
+            {
+              label: 'Weekly tests graded',
+              hint: focus
+                ? 'Returned scores in that batch'
+                : 'Returned scores across active batches',
+              value: String(stats.graded_tests),
+              icon: ClipboardCheck,
+              color: 'text-accent-foreground',
+            },
+          ].map(stat => (
+            <Card key={stat.label} className="shadow-card">
+              <CardContent className="p-6">
+                <div className="flex items-center gap-4">
+                  <div className="p-3 rounded-xl bg-primary/10">
+                    <stat.icon className={`h-6 w-6 ${stat.color}`} />
+                  </div>
+                  <div className="min-w-0">
+                    <p className="text-2xl font-bold text-foreground tabular-nums">{stat.value}</p>
+                    <p className="text-sm text-muted-foreground">{stat.label}</p>
+                    <p className="text-xs text-muted-foreground/80 mt-0.5">{stat.hint}</p>
+                  </div>
                 </div>
-                <div>
-                  <p className="text-2xl font-bold text-foreground">{stat.value}</p>
-                  <p className="text-sm text-muted-foreground">{stat.label}</p>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-        ))}
-      </div>
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+      ) : null}
     </div>
   );
 }

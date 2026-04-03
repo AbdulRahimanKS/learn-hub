@@ -396,12 +396,12 @@ export default function Courses() {
     }
   };
 
-  // ===================== Computed values (Sessions + Tests) =====================
-  const totalSessions = weeks.reduce((acc, w) => {
-    const sessionCount = w.class_sessions?.length || 0;
-    const testCount = w.weekly_test ? 1 : 0;
-    return acc + sessionCount + testCount;
-  }, 0);
+  // ===================== Computed values =====================
+  /** Class / video sessions only (batch or course weeks), not weekly tests. */
+  const videoSessionCount = weeks.reduce(
+    (acc, w) => acc + (w.class_sessions?.length || 0),
+    0
+  );
 
   /** Week-based progress from API (matches My Courses cards); not session-item counts. */
   const headerProgressPercent = Math.min(100, selectedCourse?.progress_percent ?? 0);
@@ -823,11 +823,15 @@ export default function Courses() {
                   <div className="flex flex-wrap items-center gap-3 md:gap-5 mt-4 md:mt-5">
                     <div className="flex items-center gap-1.5 md:gap-2 bg-white/10 backdrop-blur-md px-3 md:px-4 py-1.5 md:py-2 rounded-full border border-white/10 text-xs md:text-sm font-medium shadow-sm">
                       <LayoutGrid className="h-3.5 w-3.5 md:h-4 md:h-4" />
-                      <span>{weeks.length} Week{weeks.length !== 1 ? 's' : ''}</span>
+                      <span>
+                        {weeks.length} Week{weeks.length !== 1 ? 's' : ''}
+                      </span>
                     </div>
                     <div className="flex items-center gap-1.5 md:gap-2 bg-white/10 backdrop-blur-md px-3 md:px-4 py-1.5 md:py-2 rounded-full border border-white/10 text-xs md:text-sm font-medium shadow-sm">
                       <Video className="h-3.5 w-3.5 md:h-4 md:h-4" />
-                      <span>{totalSessions} Session{totalSessions !== 1 ? 's' : ''}</span>
+                      <span>
+                        {videoSessionCount} Session{videoSessionCount !== 1 ? 's' : ''}
+                      </span>
                     </div>
                   </div>
                 </div>
