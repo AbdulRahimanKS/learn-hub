@@ -514,8 +514,20 @@ function StudentDashboard() {
           </CardHeader>
           <CardContent className="pt-0">
             {!focus || !focus.weekly_progress || focus.weekly_progress.length === 0 ? (
-              <div className="rounded-xl border border-border bg-muted/40 px-6 py-12 text-center">
-                <p className="text-muted-foreground">No weeks have been published for this batch yet.</p>
+              <div className="flex flex-col items-center justify-center py-14 text-muted-foreground rounded-xl border border-border bg-muted/40">
+                <div className="h-16 w-16 rounded-full bg-muted/60 flex items-center justify-center mb-4">
+                  <BookOpen className="h-8 w-8 opacity-40 text-foreground" />
+                </div>
+                <p className="text-base font-medium text-foreground">
+                  {data.active_batches === 0
+                    ? 'No active enrollments'
+                    : 'No weekly progress yet'}
+                </p>
+                <p className="text-sm mt-1 text-center max-w-sm px-4">
+                  {data.active_batches === 0
+                    ? 'You are not enrolled in any active batch yet.'
+                    : 'No weeks have been published for this batch yet.'}
+                </p>
               </div>
             ) : (
               <div className="space-y-4">
