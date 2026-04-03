@@ -10,6 +10,8 @@ from utils.progress_utils import (
     week_fully_complete,
     week_has_deliverables,
     week_based_progress_percent,
+    count_consecutive_completed_weeks,
+    count_deliverable_weeks,
 )
 
 from apps.courses.models import (
@@ -377,11 +379,50 @@ class StudentDashboardView(APIView):
                 )
                 videos_total = len(sessions)
                 videos_done = len(completed_ids)
-                week_video_pct = (
-                    round((videos_done / videos_total) * 100) if videos_total else 0
-                )
                 has_test = BatchWeeklyTest.objects.filter(batch_week=focus_week).exists()
                 course = focus_enrollment.batch.course
+                overall_progress = week_based_progress_percent(focus_enrollment)
+                weeks_completed = count_consecutive_completed_weeks(focus_enrollment)
+                total_weeks = count_deliverable_weeks(focus_enrollment.batch)
+
+                weekly_progress = []
+                for week in BatchWeek.objects.filter(batch=focus_enrollment.batch).order_by("week_number"):
+                    total_vids = BatchClassSession.objects.filter(batch_week=week).count()
+                    watched_vids = StudentSessionView.objects.filter(
+                        enrollment=focus_enrollment,
+                        batch_session__batch_week=week,
+                        is_completed=True,
+                    ).count()
+                    weekly_test = BatchWeeklyTest.objects.filter(batch_week=week).first()
+                    if weekly_test:
+                        submission = (
+                            TestSubmission.objects.filter(
+                                enrollment=focus_enrollment,
+                                batch_weekly_test=weekly_test,
+                                status=TestSubmission.Status.PUBLISHED,
+                            )
+                            .order_by("-submitted_at")
+                            .first()
+                        )
+                        test_attempted = submission is not None
+                        test_passed = submission.is_passed if submission else False
+                    else:
+                        test_attempted = False
+                        test_passed = False
+                    weekly_progress.append(
+                        {
+                            "week_id": week.id,
+                            "week_number": week.week_number,
+                            "title": week.title,
+                            "videos_watched": watched_vids,
+                            "total_videos": total_vids,
+                            "has_test": weekly_test is not None,
+                            "test_attempted": test_attempted,
+                            "test_passed": test_passed,
+                            "is_passed": week_fully_complete(focus_enrollment, week),
+                        }
+                    )
+
                 focus_payload = {
                     "enrollment_id": focus_enrollment.id,
                     "batch_id": focus_enrollment.batch_id,
@@ -391,11 +432,12 @@ class StudentDashboardView(APIView):
                     "week_id": focus_week.id,
                     "week_number": focus_week.week_number,
                     "week_title": focus_week.title or None,
-                    "week_progress_pct": week_video_pct,
+                    "week_progress_pct": overall_progress,
                     "videos_completed": videos_done,
                     "videos_total": videos_total,
                     "has_weekly_test": has_test,
-                    "overall_progress_pct": week_based_progress_percent(focus_enrollment),
+                    "weeks_completed": weeks_completed,
+                    "total_weeks": total_weeks,
                     "sessions": [
                         {
                             "id": s.id,
@@ -405,6 +447,7 @@ class StudentDashboardView(APIView):
                         }
                         for s in sessions
                     ],
+                    "weekly_progress": weekly_progress,
                 }
 
             # Hero "focus" is one batch/week; stats + upcoming match that batch when we have

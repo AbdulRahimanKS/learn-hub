@@ -61,6 +61,18 @@ export interface StudentDashboardSession {
   completed: boolean;
 }
 
+export interface StudentDashboardWeeklyProgressRow {
+  week_id: number;
+  week_number: number;
+  title: string;
+  videos_watched: number;
+  total_videos: number;
+  has_test: boolean;
+  test_attempted: boolean;
+  test_passed: boolean;
+  is_passed: boolean;
+}
+
 export interface StudentDashboardFocus {
   enrollment_id: number;
   batch_id: number;
@@ -74,8 +86,10 @@ export interface StudentDashboardFocus {
   videos_completed: number;
   videos_total: number;
   has_weekly_test: boolean;
-  overall_progress_pct: number;
+  weeks_completed: number;
+  total_weeks: number;
   sessions: StudentDashboardSession[];
+  weekly_progress: StudentDashboardWeeklyProgressRow[];
 }
 
 export interface StudentDashboardStats {

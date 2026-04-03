@@ -75,9 +75,9 @@ interface StatCardProps {
 function StatCard({ label, value, icon: Icon, iconColor, iconBg, change, changeColor, urgent, onClick }: StatCardProps) {
   return (
     <Card
-      className={`relative overflow-hidden shadow-card hover:shadow-lg transition-all duration-300 cursor-pointer group ${
-        urgent ? 'border-orange-400/50 dark:border-orange-500/40' : ''
-      }`}
+      className={`relative overflow-hidden shadow-card transition-all duration-300 group ${
+        onClick ? 'hover:shadow-lg cursor-pointer' : ''
+      } ${urgent ? 'border-orange-400/50 dark:border-orange-500/40' : ''}`}
       onClick={onClick}
     >
       {urgent && (
@@ -155,7 +155,6 @@ function AdminDashboard() {
           iconColor="text-primary"
           iconBg="bg-primary/10"
           change="Actively enrolled"
-          onClick={() => navigate('/users')}
         />
         <StatCard
           label="Completed Students"
@@ -164,7 +163,6 @@ function AdminDashboard() {
           iconColor="text-emerald-500"
           iconBg="bg-emerald-500/10"
           change="Finished batches"
-          onClick={() => navigate('/users')}
         />
         <StatCard
           label="Active Courses"
@@ -173,7 +171,6 @@ function AdminDashboard() {
           iconColor="text-violet-500"
           iconBg="bg-violet-500/10"
           change="All active courses"
-          onClick={() => navigate('/admin-courses')}
         />
         <StatCard
           label="Total Batches"
@@ -182,7 +179,6 @@ function AdminDashboard() {
           iconColor="text-blue-500"
           iconBg="bg-blue-500/10"
           change="All time"
-          onClick={() => navigate('/batches')}
         />
         <StatCard
           label="Pending Evaluations"
@@ -234,7 +230,7 @@ function AdminDashboard() {
                     </tr>
                   </thead>
                   <tbody>
-                    {batch_overview.map((b, i) => (
+                    {batch_overview.map((b) => (
                       <tr
                         key={b.id}
                         className="border-b border-border/60 hover:bg-muted/30 transition-colors group cursor-pointer"
@@ -254,7 +250,6 @@ function AdminDashboard() {
                             <span className="font-medium">{b.student_count}</span>
                           </div>
                         </td>
-
                         <td className="px-3 py-3">
                           <div className="flex items-center gap-2 min-w-[100px]">
                             <Progress value={b.progress_pct} className="h-1.5 flex-1" />
@@ -280,7 +275,6 @@ function AdminDashboard() {
           </CardContent>
         </Card>
 
-        {/* F. Quick Actions */}
         <Card className="shadow-card">
           <CardHeader className="pb-3">
             <CardTitle>Quick Actions</CardTitle>
@@ -436,33 +430,8 @@ function StudentDashboard() {
 
   const { focus, stats, upcoming } = data;
 
-  const openCourseForFocus = () => {
-    if (!focus) return;
-    if (focus.course_id != null) {
-      navigate(`/courses/${focus.course_id}?batch_id=${focus.batch_id}`);
-    } else {
-      navigate('/courses');
-    }
-  };
-
   const weekHeadline =
-    focus &&
-    [focus.course_title || focus.batch_name, `Week ${focus.week_number}`].filter(Boolean).join(' · ');
-
-  const weekSubtitle = focus
-    ? focus.videos_total > 0
-      ? `${focus.videos_completed} of ${focus.videos_total} videos completed`
-      : focus.has_weekly_test
-        ? 'Weekly assessment available in this week'
-        : 'No videos scheduled for this week yet'
-    : '';
-
-  const assessmentHint =
-    focus?.has_weekly_test && focus.videos_total > 0 && focus.videos_completed < focus.videos_total
-      ? 'Complete all videos to unlock the weekly assessment'
-      : focus?.has_weekly_test
-        ? 'Weekly assessment is part of this week'
-        : 'Work through this week’s sessions at your own pace';
+    focus && (focus.course_title || focus.batch_name);
 
   const navigateUpcoming = (ev: StudentDashboardData['upcoming'][0]) => {
     if (ev.type === 'live_session') {
@@ -482,12 +451,6 @@ function StudentDashboard() {
           <p className="mt-1 text-muted-foreground">Continue your learning journey</p>
         </div>
         <div className="flex items-center gap-2 flex-wrap">
-          {focus ? (
-            <Badge variant="outline" className="px-3 py-1.5">
-              <Award className="h-4 w-4 mr-1.5" />
-              Week {focus.week_number}
-            </Badge>
-          ) : null}
           {data.active_batches > 1 ? (
             <Badge variant="secondary" className="px-3 py-1.5">
               {data.active_batches} active batches
@@ -498,17 +461,19 @@ function StudentDashboard() {
 
       {/* Progress overview */}
       <Card className="shadow-card gradient-primary text-primary-foreground">
-        <CardContent className="p-6">
+        <CardContent className="p-4 md:p-5">
           {focus ? (
-            <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
-              <div>
-                <p className="text-primary-foreground/80">Current week progress</p>
-                <h2 className="text-2xl font-bold mt-1 leading-tight">{weekHeadline}</h2>
-                <p className="text-primary-foreground/80 mt-2">{weekSubtitle}</p>
+            <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
+              <div className="min-w-0">
+                <p className="text-primary-foreground/80 text-sm">Current week progress</p>
+                <h2 className="text-xl md:text-2xl font-bold mt-1 leading-tight truncate">{weekHeadline}</h2>
+                <p className="mt-3 text-primary-foreground/85 text-sm font-medium">
+                  {focus.videos_completed} of {focus.videos_total} videos completed
+                </p>
               </div>
-              <div className="flex flex-col items-end gap-2">
+              <div className="flex flex-col items-end gap-2 shrink-0">
                 <div className="text-3xl font-bold tabular-nums">{focus.week_progress_pct}%</div>
-                <Progress value={focus.week_progress_pct} className="w-32 h-2 bg-primary-foreground/20" />
+                <Progress value={focus.week_progress_pct} className="w-28 md:w-32 h-2 bg-primary-foreground/20" />
               </div>
             </div>
           ) : (
@@ -525,58 +490,70 @@ function StudentDashboard() {
 
       <div className="grid gap-6 lg:grid-cols-3">
         <Card className="shadow-card lg:col-span-2">
-          <CardHeader>
-            <CardTitle>This week&apos;s content</CardTitle>
-            <CardDescription>
-              {focus ? assessmentHint : 'Join a batch to see this week\'s lessons and activities'}
-            </CardDescription>
+          <CardHeader className="pb-3">
+            <div className="flex items-center justify-between">
+              <div>
+                <CardTitle className="flex items-center gap-2 text-xl font-display font-black">
+                  <Award className="h-5 w-5 text-primary" />
+                  Weekly Progress
+                </CardTitle>
+                <CardDescription className="mt-0.5">Complete each week's content to unlock the next</CardDescription>
+              </div>
+              {focus ? (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="h-10 shrink-0 gap-1.5 rounded-xl border-border bg-background font-bold"
+                  onClick={() => navigate('/progress')}
+                >
+                  View All
+                  <ChevronRight className="h-4 w-4" />
+                </Button>
+              ) : null}
+            </div>
           </CardHeader>
-          <CardContent>
-            {!focus || focus.sessions.length === 0 ? (
-              <div className="flex flex-col items-center justify-center py-14 text-muted-foreground">
-                <BookOpen className="h-10 w-10 opacity-35 mb-3 text-primary" />
-                <p className="text-sm font-medium text-foreground">No sessions for this week</p>
-                <p className="text-sm mt-1 text-center max-w-sm">
-                  Your instructor may still be adding content, or this week uses other activities.
-                </p>
-                {focus ? (
-                  <Button variant="outline" size="sm" className="mt-4" onClick={openCourseForFocus}>
-                    Open course
-                  </Button>
-                ) : null}
+          <CardContent className="pt-0">
+            {!focus || !focus.weekly_progress || focus.weekly_progress.length === 0 ? (
+              <div className="rounded-xl border border-border bg-muted/40 px-6 py-12 text-center">
+                <p className="text-muted-foreground">No weeks have been published for this batch yet.</p>
               </div>
             ) : (
-              <div className="space-y-3">
-                {focus.sessions.map((video, index) => (
+              <div className="space-y-4">
+                {focus.weekly_progress.slice(0, 4).map((w) => (
                   <div
-                    key={video.id}
-                    className={`flex items-center gap-4 p-4 rounded-lg border transition-colors ${
-                      video.completed ? 'bg-success/5 border-success/20' : 'bg-card hover:bg-muted/50 border-border'
-                    }`}
+                    key={w.week_id}
+                    className="group flex flex-col gap-3 rounded-xl border border-border bg-muted/40 p-4 transition-all hover:bg-accent/20 hover:shadow-sm sm:flex-row sm:items-center sm:justify-between"
                   >
-                    <div
-                      className={`flex h-10 w-10 items-center justify-center rounded-full shrink-0 ${
-                        video.completed ? 'bg-success text-success-foreground' : 'bg-primary/10 text-primary'
-                      }`}
-                    >
-                      {video.completed ? '✓' : index + 1}
+                    <div className="flex min-w-0 flex-1 items-start gap-3">
+                      <div
+                        className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-lg text-sm font-black transition-colors ${
+                          w.is_passed
+                            ? 'bg-success/10 text-success group-hover:bg-success/15'
+                            : 'bg-primary/10 text-primary group-hover:bg-primary/15'
+                        }`}
+                      >
+                        {w.is_passed ? <CheckCircle2 className="h-5 w-5" /> : <span className="font-black">{w.week_number}</span>}
+                      </div>
+                      <div className="min-w-0 flex-1 space-y-1">
+                        <div className="flex flex-wrap items-center gap-2">
+                          <p className="truncate font-medium text-foreground">Week {w.week_number}: {w.title || 'Untitled'}</p>
+                          {w.is_passed ? (
+                            <Badge
+                              variant="outline"
+                              className="rounded-lg border-success/30 bg-success/10 px-2 py-0.5 text-[10px] font-black text-success shadow-sm"
+                            >
+                              Passed
+                            </Badge>
+                          ) : null}
+                        </div>
+                        <div className="flex flex-wrap items-center gap-2 text-[10px] text-muted-foreground">
+                          <span className="inline-flex items-center gap-1 rounded-md bg-muted px-2 py-0.5 font-medium">
+                            <Video className="h-3 w-3 shrink-0" />
+                            {w.videos_watched}/{w.total_videos} videos
+                          </span>
+                        </div>
+                      </div>
                     </div>
-                    <div className="flex-1 min-w-0">
-                      <p className="font-medium text-foreground truncate">{video.title}</p>
-                      <p className="text-sm text-muted-foreground flex items-center gap-1">
-                        <Clock className="h-3 w-3 shrink-0" />
-                        {video.duration_label}
-                      </p>
-                    </div>
-                    <Button
-                      variant={video.completed ? 'outline' : 'default'}
-                      size="sm"
-                      className="shrink-0"
-                      onClick={openCourseForFocus}
-                    >
-                      {video.completed ? 'Rewatch' : 'Watch'}
-                      <Play className="ml-2 h-4 w-4" />
-                    </Button>
                   </div>
                 ))}
               </div>
