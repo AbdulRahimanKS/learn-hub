@@ -932,10 +932,13 @@ export default function Progress() {
                     const hasWeeklyTest = !!week.weekly_test;
                     const testPassed = !!weeklyTest?.is_passed;
                     const testAttempted = !!weeklyTest?.has_attempted;
+                    /** Match backend `week_has_deliverables` / course detail: empty shells are not "passed". */
+                    const hasDeliverables = totalWeekVids > 0 || hasWeeklyTest;
                     const videosComplete =
                       totalWeekVids === 0 || completedWeekVids >= totalWeekVids;
                     const testRequirementMet = !hasWeeklyTest || testPassed;
-                    const weekComplete = videosComplete && testRequirementMet;
+                    const weekComplete =
+                      hasDeliverables && videosComplete && testRequirementMet;
                     /* Match course page: use student_lock_status, not calendar-only is_unlocked */
                     const studentLocked =
                       week.student_lock_status != null

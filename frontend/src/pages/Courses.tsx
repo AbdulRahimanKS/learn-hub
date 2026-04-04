@@ -921,10 +921,25 @@ export default function Courses() {
                     });
                     
                     const completedCount = sessions.filter((s: ClassSession) => s.is_completed).length;
-                    const allDone = sessions.length > 0 && completedCount === sessions.length;
-                    const progressPct = sessions.length > 0 ? (completedCount / sessions.length) * 100 : 0;
-                    const weeklyTestWithPass = week.weekly_test as { is_passed?: boolean } | null | undefined;
-                    const isPass = weeklyTestWithPass?.is_passed;
+                    const hasWeeklyTest = !!week.weekly_test;
+                    const testPassed = !!week.weekly_test?.is_passed;
+                    /** Matches backend `week_fully_complete`: all sessions done (if any); weekly test passed when present. */
+                    const sessionsComplete =
+                      sessions.length === 0 || completedCount === sessions.length;
+                    const hasDeliverables = sessions.length > 0 || hasWeeklyTest;
+                    const testRequirementMet = !hasWeeklyTest || testPassed;
+                    const weekFullyComplete =
+                      hasDeliverables && sessionsComplete && testRequirementMet;
+                    const lessonsOnlyComplete =
+                      hasDeliverables &&
+                      sessionsComplete &&
+                      hasWeeklyTest &&
+                      !testPassed;
+                    const totalProgressUnits = sessions.length + (hasWeeklyTest ? 1 : 0);
+                    const doneProgressUnits =
+                      completedCount + (hasWeeklyTest && testPassed ? 1 : 0);
+                    const progressPct =
+                      totalProgressUnits > 0 ? (doneProgressUnits / totalProgressUnits) * 100 : 0;
 
                     return (
                       <div
@@ -946,12 +961,18 @@ export default function Courses() {
                               'flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold',
                               locked
                                 ? 'bg-muted text-muted-foreground'
-                                : allDone
+                                : weekFullyComplete
                                 ? 'bg-emerald-500/20 text-emerald-500'
                                 : 'bg-primary/10 text-primary'
                             )}
                           >
-                            {locked ? <Lock className="h-3.5 w-3.5" /> : allDone ? <Award className="h-4 w-4" /> : week.week_number}
+                            {locked ? (
+                              <Lock className="h-3.5 w-3.5" />
+                            ) : weekFullyComplete ? (
+                              <Award className="h-4 w-4" />
+                            ) : (
+                              week.week_number
+                            )}
                           </div>
                           <div className="flex-1 min-w-0">
                             <div className="flex items-center gap-2 flex-wrap">
@@ -966,25 +987,35 @@ export default function Courses() {
                                   <Lock className="w-2.5 h-2.5 mr-1" /> Locked
                                 </Badge>
                               )}
-                              {allDone && (
+                              {!locked && weekFullyComplete && (
                                 <Badge className="bg-emerald-500/20 text-emerald-400 border-emerald-500/30 text-[10px] h-5 px-2 font-semibold shadow-[0_0_10px_rgba(16,185,129,0.1)]">
                                   Completed
                                 </Badge>
                               )}
+                              {!locked && lessonsOnlyComplete && (
+                                <Badge
+                                  variant="outline"
+                                  className="bg-sky-500/10 text-sky-600 border-sky-500/25 text-[10px] h-5 px-2 font-semibold"
+                                >
+                                  Lessons complete
+                                </Badge>
+                              )}
                             </div>
-                            {sessions.length > 0 && !locked && (
+                            {hasDeliverables && !locked && (
                               <div className="flex items-center gap-3 mt-1">
                                 <div className="flex-1 h-1 rounded-full bg-border overflow-hidden max-w-[120px]">
                                   <div
                                     className={cn(
                                       'h-full rounded-full transition-all duration-500',
-                                      allDone ? 'bg-emerald-500' : 'bg-primary'
+                                      weekFullyComplete ? 'bg-emerald-500' : 'bg-primary'
                                     )}
                                     style={{ width: `${progressPct}%` }}
                                   />
                                 </div>
                                 <span className="text-xs text-muted-foreground font-medium">
-                                  {completedCount} / {sessions.length} lessons complete
+                                  {hasWeeklyTest || sessions.length === 0
+                                    ? `${doneProgressUnits} / ${totalProgressUnits} complete`
+                                    : `${completedCount} / ${sessions.length} lessons complete`}
                                 </span>
                               </div>
                             )}
@@ -1203,7 +1234,7 @@ export default function Courses() {
                                     >
                                       {locked ? (
                                         <Lock className="h-5 w-5 text-muted-foreground" />
-                                      ) : isPass ? (
+                                      ) : testPassed ? (
                                         <Award className="h-5 w-5 text-emerald-400 drop-shadow-[0_0_5px_rgba(52,211,153,0.5)]" />
                                       ) : (
                                         <FlaskConical className="h-5 w-5" />
@@ -1228,7 +1259,7 @@ export default function Courses() {
                                               })()
                                             : 'Pass previous assessment to unlock'
                                           : "Test your understanding of this week's lessons"}
-                                        {isPass ? (
+                                        {testPassed ? (
                                           <Badge className="bg-emerald-500/20 text-emerald-400 border-emerald-500/30 text-[10px] h-5 px-2 font-semibold shadow-[0_0_10px_rgba(16,185,129,0.1)]">
                                             Passed
                                           </Badge>
@@ -1239,7 +1270,7 @@ export default function Courses() {
                                             | undefined;
                                           const latest = weeklyTest?.latest_submission;
                                           if (!latest) return null;
-                                          if (latest.status === 'published' && !isPass) {
+                                          if (latest.status === 'published' && !testPassed) {
                                             return (
                                               <Badge className="bg-rose-500/20 text-rose-400 border-rose-500/30 text-[10px] h-5 px-2 font-semibold shadow-[0_0_10px_rgba(244,63,94,0.1)]">
                                                 Failed
@@ -1302,7 +1333,7 @@ export default function Courses() {
                                         </Button>
                                       );
                                     })()}
-                                    {!isPass &&
+                                    {!testPassed &&
                                       (() => {
                                         const weeklyTest = week.weekly_test as (WeeklyTest & {
                                           has_attempted?: boolean;
@@ -1316,11 +1347,9 @@ export default function Courses() {
                                         const label = locked
                                           ? 'Locked'
                                           : hasAttempted
-                                            ? isPass
-                                              ? 'Passed'
-                                              : latestStatus === 'published'
-                                                ? 'Retake Test'
-                                                : 'View Submission'
+                                            ? latestStatus === 'published'
+                                              ? 'Retake Test'
+                                              : 'View Submission'
                                             : !allSessionsCompleted
                                               ? 'Complete Lessons'
                                               : 'Take Test';
@@ -1343,7 +1372,7 @@ export default function Courses() {
                                               setActiveTest(weeklyTest);
                                               setActiveTestWeek(week.id);
                                               if (hasAttempted) {
-                                                if (!isPass && latestStatus === 'published') {
+                                                if (!testPassed && latestStatus === 'published') {
                                                   setIsTestSubmissionOpen(true);
                                                 } else {
                                                   setIsResultsOpen(true);

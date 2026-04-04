@@ -591,7 +591,7 @@ function StudentDashboard() {
               </div>
             ) : (
               <div className="space-y-4">
-                {upcoming.map(ev => (
+                {upcoming.slice(0, 4).map(ev => (
                   <button
                     key={ev.id}
                     type="button"

@@ -66,6 +66,10 @@ export interface WeeklyTest {
   updated_by?: number;
   created_at?: string;
   updated_at?: string;
+  /** Batch student view: published submission with passing score */
+  is_passed?: boolean;
+  has_attempted?: boolean;
+  latest_submission?: { status?: string; marks_obtained?: number | null } | null;
 }
 
 export interface CourseWeek {

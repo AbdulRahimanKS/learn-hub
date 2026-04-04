@@ -450,9 +450,6 @@ class StudentDashboardView(APIView):
                     "weekly_progress": weekly_progress,
                 }
 
-            # Hero "focus" is one batch/week; stats + upcoming match that batch when we have
-            # a focus enrollment so the dashboard is consistent. If there is no focus row
-            # (e.g. no weeks yet), fall back to all active enrollments / batches.
             if focus_enrollment:
                 stats_enrollment_ids = [focus_enrollment.id]
                 upcoming_batch_ids = [focus_enrollment.batch_id]
@@ -530,7 +527,7 @@ class StudentDashboardView(APIView):
                     )
 
             upcoming.sort(key=lambda x: x["scheduled_at"])
-            upcoming = upcoming[:12]
+            upcoming = upcoming[:4]
 
             return format_success_response(
                 message="Student dashboard data retrieved successfully",
