@@ -7,8 +7,7 @@ import { Label } from '@/components/ui/label';
 import { ModeToggle } from '@/components/mode-toggle';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { UserRole } from '@/types';
+
 import { GraduationCap, Shield, User, BookOpen, Loader2, Eye, EyeOff } from 'lucide-react';
 
 export default function Login() {
@@ -20,20 +19,14 @@ export default function Login() {
   const [passwordError, setPasswordError] = useState('');
   const [loginError, setLoginError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
-  const [selectedRole, setSelectedRole] = useState<UserRole>('student');
   const [showPassword, setShowPassword] = useState(false);
   const [rememberMe, setRememberMe] = useState(false);
 
-  // Load saved credentials on mount
   useEffect(() => {
     const savedEmail = localStorage.getItem('remembered_email');
-    const savedRole = localStorage.getItem('remembered_role');
     if (savedEmail) {
       setEmail(savedEmail);
       setRememberMe(true);
-      if (savedRole) {
-        setSelectedRole(savedRole as UserRole);
-      }
     }
   }, []);
 
@@ -67,16 +60,14 @@ export default function Login() {
     setIsLoading(true);
     setLoginError('');
     
-    const result = await login(email, password, selectedRole);
+    const result = await login(email, password);
     
     if (result.success) {
       // Save credentials if remember me is checked
       if (rememberMe) {
         localStorage.setItem('remembered_email', email);
-        localStorage.setItem('remembered_role', selectedRole);
       } else {
         localStorage.removeItem('remembered_email');
-        localStorage.removeItem('remembered_role');
       }
       navigate('/dashboard');
     } else {
@@ -148,35 +139,10 @@ export default function Login() {
 
           <Card className="border-0 shadow-card rounded-3xl">
             <CardHeader className="space-y-1 pb-4">
-              <CardTitle className="text-xl">Choose your role</CardTitle>
-              <CardDescription>Select how you want to sign in</CardDescription>
+              <CardTitle className="text-xl">Sign In</CardTitle>
+              <CardDescription>Enter your credentials to access your account</CardDescription>
             </CardHeader>
             <CardContent>
-              <Tabs value={selectedRole} onValueChange={(v) => setSelectedRole(v as UserRole)}>
-                <TabsList className="grid w-full grid-cols-3 mb-6 p-1 bg-muted/50 rounded-xl h-12">
-                  <TabsTrigger 
-                    value="student" 
-                    className="gap-2 h-full rounded-lg data-[state=active]:gradient-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-md transition-all duration-300"
-                  >
-                    <User className="h-4 w-4" />
-                    <span className="hidden sm:inline">Student</span>
-                  </TabsTrigger>
-                  <TabsTrigger 
-                    value="teacher" 
-                    className="gap-2 h-full rounded-lg data-[state=active]:gradient-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-md transition-all duration-300"
-                  >
-                    <BookOpen className="h-4 w-4" />
-                    <span className="hidden sm:inline">Teacher</span>
-                  </TabsTrigger>
-                  <TabsTrigger 
-                    value="admin" 
-                    className="gap-2 h-full rounded-lg data-[state=active]:gradient-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-md transition-all duration-300"
-                  >
-                    <Shield className="h-4 w-4" />
-                    <span className="hidden sm:inline">Admin</span>
-                  </TabsTrigger>
-                </TabsList>
-              </Tabs>
 
               <form onSubmit={handleSubmit} className="space-y-4" noValidate>
                 <div className="space-y-2">

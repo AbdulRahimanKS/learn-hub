@@ -40,7 +40,6 @@ class LoginView(APIView):
 
         email = serializer.validated_data.get("email").lower()
         password = serializer.validated_data.get("password")
-        expected_role = serializer.validated_data.get("expected_role", "")
 
         try:
             user = User.objects.filter(email=email, is_deleted=False).first()
@@ -61,14 +60,6 @@ class LoginView(APIView):
                     detail="Account is disabled",
                     status_code=status.HTTP_401_UNAUTHORIZED
                 )
-
-            if expected_role:
-                user_role = user.user_type.name if user.user_type else None
-                if user_role != expected_role:
-                    raise ServiceError(
-                        detail=f"These are not valid {expected_role.lower()} credentials",
-                        status_code=status.HTTP_401_UNAUTHORIZED
-                    )
 
             refresh = RefreshToken.for_user(user)
             

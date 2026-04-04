@@ -6,7 +6,7 @@ import { getUserProfile } from '@/lib/user-api';
 interface AuthContextType {
   user: User | null;
   isAuthenticated: boolean;
-  login: (email: string, password: string, expectedRole: UserRole) => Promise<{ success: boolean; error?: string }>;
+  login: (email: string, password: string) => Promise<{ success: boolean; error?: string }>;
   logout: () => void;
   updateUser: (data: Partial<User>) => void;
 }
@@ -70,16 +70,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   }, []);
 
-  const login = async (email: string, password: string, expectedRole: UserRole): Promise<{ success: boolean; error?: string }> => {
+  const login = async (email: string, password: string): Promise<{ success: boolean; error?: string }> => {
     try {
-      // Map frontend role to backend role format
-      const backendRoleMap: Record<UserRole, string> = {
-        'admin': 'Admin',
-        'teacher': 'Teacher',
-        'student': 'Student',
-      };
-      
-      const response = await apiLoginUser(email, password, backendRoleMap[expectedRole]);
+      const response = await apiLoginUser(email, password);
       
       // Map backend role to frontend role
       const backendRole = response.data.role?.toUpperCase() || '';
