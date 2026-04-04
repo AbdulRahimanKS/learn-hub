@@ -30,7 +30,7 @@ SECRET_KEY = os.getenv("SECRET_KEY")
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = os.getenv("DEBUG", "True") == "True"
 
-ALLOWED_HOSTS = ['*']
+ALLOWED_HOSTS = ["localhost", "178.104.111.10", "192.168.1.14", "lms.redtenx.com", "lms-api.redtenx.com"]
 
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
 GROQ_API_KEY = os.getenv("GROQ_API_KEY")
@@ -77,7 +77,19 @@ MIDDLEWARE = [
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
 ]
 
-CORS_ALLOW_ALL_ORIGINS = True
+CORS_ALLOW_ALL_ORIGINS = False
+
+CORS_ALLOWED_ORIGINS = [
+    "https://lms.redtenx.com",
+    "http://178.104.111.10:8080",
+]
+
+CSRF_TRUSTED_ORIGINS = [
+    "https://lms-api.redtenx.com",
+    "https://lms.redtenx.com",
+    "http://178.104.111.10:8080",
+    "http://178.104.111.10:8000",
+]
 
 ROOT_URLCONF = 'config.urls'
 ASGI_APPLICATION = 'config.asgi.application'

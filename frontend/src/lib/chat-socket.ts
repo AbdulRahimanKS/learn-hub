@@ -1,5 +1,29 @@
 import { ChatMessage } from './chat-api';
 
+/**
+ * WebSocket origin (scheme + host + port, no path).
+ * 1) VITE_WS_BASE_URL if set — e.g. wss://api.example.com or ws://178.104.111.10:8000
+ * 2) Else derive from VITE_API_BASE_URL (http→ws, https→wss, same host/port as REST)
+ * 3) Else page origin host with :8000 and ws/wss from the page
+ */
+function getWebSocketBaseUrl(): string {
+  const explicit = import.meta.env.VITE_WS_BASE_URL?.trim();
+  if (explicit) {
+    return explicit.replace(/\/$/, '');
+  }
+
+  const apiBase =
+    import.meta.env.VITE_API_BASE_URL?.trim() || 'http://127.0.0.1:8000';
+  try {
+    const u = new URL(apiBase);
+    const wsProtocol = u.protocol === 'https:' ? 'wss:' : 'ws:';
+    return `${wsProtocol}//${u.host}`;
+  } catch {
+    const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+    return `${protocol}//${window.location.hostname}:8000`;
+  }
+}
+
 type MessageCallback = (message: ChatMessage) => void;
 type MessageDeletedCallback = (messageId: number) => void;
 type ConnectionStatusCallback = (isConnected: boolean) => void;
@@ -26,17 +50,9 @@ class ChatSocketClient {
   private initSocket() {
     if (!this.batchId) return;
 
-    // Use ws:// for http and wss:// for https
-    const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-    // Use the standard backend API URL base, but replace http with ws
-    // Fallback to localhost if not available
-    const host = import.meta.env.VITE_API_URL 
-      ? new URL(import.meta.env.VITE_API_URL).host 
-      : (window.location.hostname + ':8000');
-    
-    // Pass token in URL if backend implements JWT auth in ASGI
+    const base = getWebSocketBaseUrl();
     const token = localStorage.getItem('access_token') || '';
-    const wsUrl = `${protocol}//${host}/ws/chat/batch/${this.batchId}/?token=${token}`;
+    const wsUrl = `${base}/ws/chat/batch/${this.batchId}/?token=${encodeURIComponent(token)}`;
 
     this.socket = new WebSocket(wsUrl);
 
