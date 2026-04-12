@@ -62,12 +62,12 @@ export function ImageCropperModal({
 
   return (
     <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
-      <DialogContent className="sm:max-w-md">
+      <DialogContent className="max-w-[95vw] sm:max-w-md rounded-2xl p-4 sm:p-6 overflow-hidden">
         <DialogHeader>
-          <DialogTitle>Adjust Image</DialogTitle>
+          <DialogTitle className="text-xl">Adjust Image</DialogTitle>
         </DialogHeader>
         
-        <div className="relative w-full h-[300px] bg-black/10 rounded-md overflow-hidden my-4">
+        <div className="relative w-full h-[70vw] sm:h-[300px] max-h-[400px] min-h-[250px] bg-black/10 rounded-xl overflow-hidden my-4">
           <Cropper
             image={imageSrc}
             crop={crop}
@@ -81,8 +81,8 @@ export function ImageCropperModal({
           />
         </div>
 
-        <div className="flex items-center gap-4 my-2">
-          <ZoomIn className="w-4 h-4 text-muted-foreground" />
+        <div className="flex items-center gap-4 py-2">
+          <ZoomIn className="w-5 h-5 text-muted-foreground" />
           <Slider
             value={[zoom]}
             min={1}
@@ -93,13 +93,13 @@ export function ImageCropperModal({
           />
         </div>
 
-        <DialogFooter className="sm:justify-between">
-          <Button variant="outline" onClick={onClose}>
+        <DialogFooter className="flex flex-col-reverse sm:flex-row gap-2 mt-4">
+          <Button variant="outline" onClick={onClose} className="w-full sm:w-auto">
             Cancel
           </Button>
-          <Button onClick={processCrop} disabled={isProcessing} className="gap-2">
+          <Button onClick={processCrop} disabled={isProcessing} className="w-full sm:w-auto gap-2">
             <Crop className="w-4 h-4" />
-            {isProcessing ? 'Processing...' : 'Save Photo'}
+            {isProcessing ? 'Processing' : 'Save Photo'}
           </Button>
         </DialogFooter>
       </DialogContent>

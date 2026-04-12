@@ -95,10 +95,10 @@ export default function Schedule() {
         {/* Header */}
         <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           <div>
-            <h1 className="font-display text-3xl font-bold text-foreground">My Schedule</h1>
-            <p className="mt-1 text-muted-foreground">View your upcoming classes and deadlines</p>
+            <h1 className="font-display text-2xl sm:text-3xl font-bold text-foreground">My Schedule</h1>
+            <p className="mt-1 text-sm sm:text-base text-muted-foreground">View your upcoming classes and deadlines</p>
           </div>
-          <Button variant="outline">
+          <Button variant="outline" className="w-full sm:w-auto">
             <Bell className="h-4 w-4 mr-2" />
             Set Reminders
           </Button>
@@ -119,24 +119,28 @@ export default function Schedule() {
                 {todayEvents.map((event) => (
                   <div
                     key={event.id}
-                    className="flex items-center gap-4 p-4 rounded-xl border border-border hover:bg-muted/50 transition-colors"
+                    className="flex flex-col sm:flex-row sm:items-center gap-3 sm:gap-4 p-3 sm:p-4 rounded-xl border border-border bg-muted/20 sm:bg-transparent hover:bg-muted/50 transition-colors"
                   >
-                    <div className={`p-3 rounded-xl ${getEventBadgeColor(event.type)}`}>
-                      {getEventIcon(event.type)}
+                    <div className="flex items-center gap-3 sm:gap-4 flex-1">
+                      <div className={`p-2.5 sm:p-3 rounded-xl shrink-0 ${getEventBadgeColor(event.type)}`}>
+                        {getEventIcon(event.type)}
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <h3 className="font-semibold text-sm sm:text-base text-foreground truncate">{event.title}</h3>
+                        <p className="text-xs sm:text-sm text-muted-foreground truncate">{event.description}</p>
+                      </div>
                     </div>
-                    <div className="flex-1">
-                      <h3 className="font-semibold text-foreground">{event.title}</h3>
-                      <p className="text-sm text-muted-foreground">{event.description}</p>
+                    <div className="flex items-center justify-between sm:flex-col sm:items-end sm:text-right gap-2 border-t sm:border-t-0 pt-3 sm:pt-0 border-border/50">
+                      <div>
+                        <p className="font-bold sm:font-medium text-sm sm:text-base text-foreground">{event.time}</p>
+                        <Badge variant="outline" className="mt-0.5 sm:mt-1 capitalize text-[10px] h-5">
+                          {event.type}
+                        </Badge>
+                      </div>
+                      <Button variant={event.type === 'live' ? 'gradient' : 'outline'} size="sm" className="h-8 sm:h-9 px-4 text-xs font-bold">
+                        {event.type === 'live' ? 'Join' : event.type === 'assessment' ? 'Start' : 'Watch'}
+                      </Button>
                     </div>
-                    <div className="text-right">
-                      <p className="font-medium text-foreground">{event.time}</p>
-                      <Badge variant="outline" className="mt-1 capitalize">
-                        {event.type}
-                      </Badge>
-                    </div>
-                    <Button variant={event.type === 'live' ? 'gradient' : 'outline'} size="sm">
-                      {event.type === 'live' ? 'Join' : event.type === 'assessment' ? 'Start' : 'Watch'}
-                    </Button>
                   </div>
                 ))}
               </div>
@@ -227,22 +231,22 @@ export default function Schedule() {
             <CardDescription>What's next in your learning journey</CardDescription>
           </CardHeader>
           <CardContent>
-            <div className="space-y-3">
+            <div className="space-y-2.5 sm:space-y-3">
               {upcomingEvents.map((event) => (
                 <div
                   key={event.id}
-                  className="flex items-center gap-4 p-3 rounded-lg hover:bg-muted/50 transition-colors"
+                  className="flex items-center gap-3 sm:gap-4 p-2.5 sm:p-3 rounded-xl border border-transparent hover:bg-muted/50 transition-colors"
                 >
-                  <div className={`p-2 rounded-lg ${getEventBadgeColor(event.type)}`}>
+                  <div className={`p-2 rounded-lg shrink-0 ${getEventBadgeColor(event.type)}`}>
                     {getEventIcon(event.type)}
                   </div>
                   <div className="flex-1 min-w-0">
-                    <p className="font-medium text-foreground truncate">{event.title}</p>
-                    <p className="text-sm text-muted-foreground">{event.description}</p>
+                    <p className="font-semibold text-sm text-foreground truncate">{event.title}</p>
+                    <p className="text-xs text-muted-foreground truncate">{event.description}</p>
                   </div>
-                  <div className="text-right text-sm">
-                    <p className="font-medium text-foreground">{event.date}</p>
-                    {event.time && <p className="text-muted-foreground">{event.time}</p>}
+                  <div className="text-right text-[11px] sm:text-sm shrink-0">
+                    <p className="font-bold sm:font-medium text-foreground">{event.date}</p>
+                    {event.time && <p className="text-muted-foreground font-medium">{event.time}</p>}
                   </div>
                 </div>
               ))}

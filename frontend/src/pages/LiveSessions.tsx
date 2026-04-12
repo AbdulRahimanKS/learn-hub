@@ -231,22 +231,22 @@ export default function LiveSessions() {
         {/* Header */}
         <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           <div>
-            <h1 className="font-display text-3xl font-bold text-foreground">Live Sessions</h1>
-            <p className="mt-1 text-muted-foreground">
+            <h1 className="font-display text-2xl sm:text-3xl font-bold text-foreground">Live Sessions</h1>
+            <p className="mt-1 text-sm sm:text-base text-muted-foreground">
                {isStudent ? 'View and join your live classes' : 'Schedule and manage live classes'}
             </p>
           </div>
           
           {isAdminOrTeacher && (
-            <Button onClick={openCreateDialog} variant="gradient" className="gap-2">
+            <Button onClick={openCreateDialog} variant="gradient" className="gap-2 w-full sm:w-auto">
               <Plus className="h-4 w-4" />
               Schedule Live Session
             </Button>
           )}
         </div>
 
-        {/* Batch Selection (Admins and Students have specific batches) */}
-        <div className="flex min-w-0 flex-col items-center justify-between gap-4 p-5 sm:flex-row sm:items-center rounded-2xl bg-card border shadow-sm">
+        {/* Batch Selection */}
+        <div className="flex min-w-0 flex-col gap-4 p-4 sm:p-5 sm:flex-row sm:items-center sm:justify-between rounded-2xl bg-card border shadow-sm">
           <div className="flex min-w-0 items-center gap-3">
             <div className="w-10 h-10 rounded-xl bg-primary/10 text-primary flex items-center justify-center shrink-0">
                <BookOpen className="w-5 h-5" />
@@ -268,7 +268,7 @@ export default function LiveSessions() {
               selectedLabel={selectedBatchName}
               onValueChange={handleLiveBatchChange}
               placeholder="Select course batch"
-              className="h-11 border-primary text-primary"
+              className="h-10 sm:h-11 border-primary text-primary text-xs sm:text-sm"
             />
           </div>
         </div>
@@ -277,13 +277,13 @@ export default function LiveSessions() {
         <div className="space-y-6">
           {isAdminOrTeacher ? (
             <Tabs value={activeTab} onValueChange={(val) => { setActiveTab(val); setCurrentPage(1); }} className="w-full space-y-6">
-              <TabsList className="bg-background p-1 border border-border/50 rounded-lg w-fit">
-                <TabsTrigger value="upcoming" className="gap-2 min-w-32 px-4 text-sm">
-                  <CalendarIcon className="h-4 w-4" />
+              <TabsList className="h-10 sm:h-12 bg-background p-1 border border-border/50 rounded-lg flex w-full sm:w-fit">
+                <TabsTrigger value="upcoming" className="flex-1 sm:flex-initial gap-2 min-w-0 sm:min-w-32 px-3 sm:px-4 text-[13px] sm:text-sm transition-all">
+                  <CalendarIcon className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
                   Upcoming
                 </TabsTrigger>
-                <TabsTrigger value="past" className="gap-2 min-w-32 px-4 text-sm">
-                  <Clock className="h-4 w-4" />
+                <TabsTrigger value="past" className="flex-1 sm:flex-initial gap-2 min-w-0 sm:min-w-32 px-3 sm:px-4 text-[13px] sm:text-sm transition-all">
+                  <Clock className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
                   Past
                 </TabsTrigger>
               </TabsList>
@@ -588,64 +588,65 @@ function SessionList({ sessions, loading, isAdmin, onEdit, onDelete, onJoin, act
         const canEdit = isAdmin && !isPast && !session.can_join;
 
         return (
-          <div key={session.id} className="group flex flex-col gap-4 rounded-xl border border-border bg-muted/40 p-4 transition-all hover:bg-accent/20 hover:shadow-sm sm:flex-row sm:items-center sm:justify-between">
-              {/* Left: Icon */}
-              <div className="flex shrink-0">
-                <div 
-                   className={cn(
-                     "h-12 w-12 rounded-xl flex items-center justify-center transition-colors",
-                     session.can_join 
-                      ? "bg-primary/10 text-primary hover:bg-primary hover:text-primary-foreground cursor-pointer" 
-                      : "bg-muted text-muted-foreground"
-                   )}
-                   onClick={() => session.can_join && onJoin(session)}
-                >
-                  {session.can_join ? <PlayCircleIcon className="h-6 w-6" /> : <VideoIcon className="h-6 w-6" />}
+          <div key={session.id} className="group flex flex-col gap-4 rounded-xl border border-border bg-muted/20 sm:bg-muted/40 p-3.5 sm:p-4 transition-all hover:bg-accent/20 hover:shadow-sm sm:flex-row sm:items-center sm:justify-between">
+              {/* Top/Left: Icon & Content */}
+              <div className="flex items-center gap-3 sm:gap-4 flex-1 min-w-0">
+                <div className="shrink-0">
+                  <div 
+                     className={cn(
+                       "h-11 w-11 sm:h-12 sm:w-12 rounded-xl flex items-center justify-center transition-colors",
+                       session.can_join 
+                        ? "bg-primary/10 text-primary hover:bg-primary hover:text-primary-foreground cursor-pointer" 
+                        : "bg-muted text-muted-foreground"
+                     )}
+                     onClick={() => session.can_join && onJoin(session)}
+                  >
+                    {session.can_join ? <PlayCircleIcon className="h-5 w-5 sm:h-6 sm:w-6" /> : <VideoIcon className="h-5 w-5 sm:h-6 sm:w-6" />}
+                  </div>
                 </div>
-              </div>
 
-              {/* Middle: Content */}
-              <div className="flex-1 min-w-0 text-center sm:text-left">
-                <div className="flex flex-col sm:flex-row sm:items-center gap-2 mb-1">
-                  <h3 className="font-bold text-foreground truncate text-lg">{session.title}</h3>
-                  {session.is_live && (
-                    <Badge className="w-fit mx-auto sm:mx-0 bg-primary text-primary-foreground animate-pulse border-none text-[10px] h-5 px-2">
-                      Live Now
-                    </Badge>
+                <div className="flex-1 min-w-0">
+                  <div className="flex flex-wrap items-center gap-2 mb-0.5">
+                    <h3 className="font-bold text-foreground truncate text-base sm:text-lg">{session.title}</h3>
+                    {session.is_live && (
+                      <Badge className="w-fit bg-primary text-primary-foreground animate-pulse border-none text-[10px] h-4.5 px-2">
+                        Live Now
+                      </Badge>
+                    )}
+                  </div>
+                  
+                  {session.description && (
+                    <p className="text-xs sm:text-sm text-muted-foreground line-clamp-1 mb-1.5 sm:mb-2">
+                      {session.description}
+                    </p>
                   )}
-                </div>
-                
-                {session.description && (
-                  <p className="text-sm text-muted-foreground line-clamp-1 mb-2">
-                    {session.description}
-                  </p>
-                )}
-                
-                <div className="flex flex-wrap items-center justify-center sm:justify-start gap-4 text-xs font-medium text-muted-foreground">
-                  <div className="flex items-center gap-1.5">
-                    <CalendarIcon className="h-3.5 w-3.5" />
-                    <span>{format(new Date(session.scheduled_at), "MMM d, yyyy")}</span>
-                  </div>
-                  <div className="flex items-center gap-1.5">
-                    <Clock className="h-3.5 w-3.5" />
-                    <span>{format(new Date(session.scheduled_at), "h:mm a")}</span>
-                  </div>
-                  <div className="flex items-center gap-1.5">
-                    <Clock className="h-3.5 w-3.5" />
-                    <span>{session.duration_mins} mins</span>
+                  
+                  <div className="flex flex-wrap items-center gap-3 sm:gap-4 text-[10px] sm:text-xs font-medium text-muted-foreground">
+                    <div className="flex items-center gap-1.5">
+                      <CalendarIcon className="h-3 w-3 sm:h-3.5 sm:w-3.5" />
+                      <span>{format(new Date(session.scheduled_at), "MMM d, yyyy")}</span>
+                    </div>
+                    <div className="flex items-center gap-1.5">
+                      <Clock className="h-3 w-3 sm:h-3.5 sm:w-3.5" />
+                      <span>{format(new Date(session.scheduled_at), "h:mm a")}</span>
+                    </div>
+                    <div className="flex items-center gap-1.5">
+                      <Clock className="h-3 w-3 sm:h-3.5 sm:w-3.5" />
+                      <span>{session.duration_mins} mins</span>
+                    </div>
                   </div>
                 </div>
               </div>
 
-              {/* Right: Actions */}
-              <div className="flex items-center gap-3 shrink-0 ml-auto w-full sm:w-auto justify-center sm:justify-end border-t border-border/50 pt-4 sm:border-t-0 sm:pt-0">
+              {/* Bottom/Right: Actions */}
+              <div className="flex items-center justify-between sm:justify-end gap-3 shrink-0 border-t border-border/50 pt-3 sm:border-t-0 sm:pt-0">
                 {canEdit && (
                   <div className="flex items-center gap-1">
-                    <Button variant="ghost" size="icon" className="h-9 w-9 rounded-xl text-muted-foreground hover:bg-accent hover:text-foreground" onClick={() => onEdit(session)}>
-                      <Edit className="h-4 w-4" />
+                    <Button variant="ghost" size="icon" className="h-8 w-8 sm:h-9 sm:w-9 rounded-xl text-muted-foreground hover:bg-accent hover:text-foreground" onClick={() => onEdit(session)}>
+                      <Edit className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
                     </Button>
-                    <Button variant="ghost" size="icon" className="h-9 w-9 rounded-xl text-muted-foreground hover:bg-destructive/10 hover:text-destructive" onClick={() => onDelete(session)}>
-                      <Trash2 className="h-4 w-4" />
+                    <Button variant="ghost" size="icon" className="h-8 w-8 sm:h-9 sm:w-9 rounded-xl text-muted-foreground hover:bg-destructive/10 hover:text-destructive" onClick={() => onDelete(session)}>
+                      <Trash2 className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
                     </Button>
                   </div>
                 )}
@@ -655,22 +656,22 @@ function SessionList({ sessions, loading, isAdmin, onEdit, onDelete, onJoin, act
                     onClick={() => onJoin(session)}
                     variant="gradient" 
                     size="sm" 
-                    className="h-10 rounded-xl px-6 font-bold shadow-none hover:shadow-none"
+                    className="h-9 sm:h-10 grow sm:grow-0 rounded-xl px-5 sm:px-6 font-bold shadow-none hover:shadow-none text-xs sm:text-sm"
                   >
-                    <Play className="h-3.5 w-3.5 fill-current" />
+                    <Play className="h-3.5 w-3.5 sm:h-4 sm:w-4 fill-current" />
                     Join Now
                   </Button>
                 ) : (
                   <Button 
                     variant="secondary" 
                     size="sm" 
-                    className="h-10 rounded-xl px-6 cursor-not-allowed font-bold opacity-70"
+                    className="h-9 sm:h-10 grow sm:grow-0 rounded-xl px-4 sm:px-6 cursor-not-allowed font-bold opacity-70 text-xs sm:text-sm"
                     disabled
                   >
                     {isUpcoming ? (
-                      <><Clock className="h-3.5 w-3.5" /> Upcoming</>
+                      <><Clock className="h-3.5 w-3.5 sm:h-4 sm:w-4" /> Upcoming</>
                     ) : (
-                      <><Info className="h-3.5 w-3.5" /> Ended</>
+                      <><Info className="h-3.5 w-3.5 sm:h-4 sm:w-4" /> Ended</>
                     )}
                   </Button>
                 )}

@@ -112,11 +112,11 @@ export default function VerifyOTP() {
       </div>
 
       {/* Right Side - Form */}
-      <div className="flex-1 flex items-center justify-center p-6 lg:p-12 bg-muted">
+      <div className="flex-1 flex items-center justify-center p-4 sm:p-6 lg:p-12 bg-muted">
         <div className="w-full max-w-md space-y-8 animate-in fade-in slide-in-from-right-10 duration-500">
           <div className="text-center lg:text-left space-y-2">
-            <h2 className="text-3xl font-bold tracking-tight">Verify OTP</h2>
-            <p className="text-muted-foreground">
+            <h2 className="text-2xl sm:text-3xl font-bold tracking-tight">Verify OTP</h2>
+            <p className="text-sm sm:text-base text-muted-foreground">
               We've sent a 6-digit code to <span className="font-semibold text-foreground">{email}</span>
             </p>
           </div>

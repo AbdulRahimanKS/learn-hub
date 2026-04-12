@@ -58,24 +58,24 @@ export function WeeklyTestResults({
 
   return (
     <Dialog open={open} onOpenChange={(v) => !v && onClose()}>
-      <DialogContent className="flex max-h-[92vh] max-w-3xl flex-col overflow-hidden rounded-[28px] border border-primary/25 bg-background p-0 text-foreground shadow-2xl [&>button]:right-4 [&>button]:top-4 [&>button]:z-[60] [&>button]:text-primary-foreground [&>button]:opacity-90 [&>button]:ring-offset-transparent [&>button]:hover:bg-white/10 [&>button]:hover:text-primary-foreground [&>button]:hover:opacity-100 data-[state=open]:[&>button]:bg-transparent data-[state=open]:[&>button]:text-primary-foreground">
+      <DialogContent className="flex h-[95vh] sm:h-auto max-h-[95vh] sm:max-h-[92vh] w-[98vw] sm:w-full max-w-3xl flex-col overflow-hidden rounded-2xl sm:rounded-[28px] border border-primary/25 bg-background p-0 text-foreground shadow-2xl [&>button]:right-4 [&>button]:top-4 [&>button]:z-[60] [&>button]:text-primary-foreground [&>button]:opacity-90 [&>button]:ring-offset-transparent [&>button]:hover:bg-white/10 [&>button]:hover:text-primary-foreground [&>button]:hover:opacity-100 data-[state=open]:[&>button]:bg-transparent data-[state=open]:[&>button]:text-primary-foreground">
         {/* Header — match WeeklyTestSubmission / MCQ modal */}
-        <div className="relative flex-none overflow-hidden border-b border-white/10 gradient-primary px-6 pb-4 pt-7 text-primary-foreground">
+        <div className="relative flex-none overflow-hidden border-b border-white/10 gradient-primary px-4 sm:px-6 pb-3 sm:pb-4 pt-5 sm:pt-7 text-primary-foreground">
           <div className="pointer-events-none absolute inset-0 overflow-hidden">
             <div className="absolute right-0 top-0 h-40 w-40 rounded-full bg-white/5 blur-3xl" />
             <div className="absolute bottom-0 left-0 h-28 w-28 rounded-full bg-primary/20 blur-2xl" />
           </div>
-          <div className="relative z-10 flex flex-col gap-5 md:flex-row md:items-start md:justify-between">
-            <div className="min-w-0 space-y-3">
+          <div className="relative z-10 flex flex-col gap-3 sm:gap-5 md:flex-row md:items-start md:justify-between">
+            <div className="min-w-0 space-y-2 sm:space-y-3">
               <div>
-                <div className="mb-3 inline-flex items-center gap-2 rounded-full border border-white/15 bg-white/10 px-3 py-1 text-xs font-semibold text-primary-foreground backdrop-blur-md">
-                  <HelpCircle className="h-3.5 w-3.5 shrink-0" />
+                <div className="mb-2 sm:mb-3 inline-flex items-center gap-2 rounded-full border border-white/15 bg-white/10 px-2.5 py-1 text-[10px] sm:text-xs font-semibold text-primary-foreground backdrop-blur-md">
+                  <HelpCircle className="h-3 w-3 sm:h-3.5 sm:w-3.5 shrink-0" />
                   Weekly assessment
                 </div>
-                <DialogTitle className="mb-1.5 text-2xl font-bold tracking-tight text-primary-foreground capitalize">
+                <DialogTitle className="mb-1 text-lg sm:text-2xl font-bold tracking-tight text-primary-foreground capitalize">
                   {testTitle}
                 </DialogTitle>
-                <DialogDescription className="text-[15px] text-primary-foreground/80">
+                <DialogDescription className="text-xs sm:text-[15px] text-primary-foreground/80">
                   Submitted {submission.submitted_at && format(new Date(submission.submitted_at), 'MMMM do, yyyy')}
                 </DialogDescription>
                 <div className="mt-3">
@@ -95,37 +95,41 @@ export function WeeklyTestResults({
             </div>
 
             {isPublished && (
-              <div className="relative shrink-0">
-                <div className="relative flex min-w-[130px] flex-col items-center justify-center rounded-2xl border border-white/15 bg-white/10 p-4 shadow-sm backdrop-blur-md">
-                  <p className="mb-1 text-[10px] font-semibold tracking-tight text-primary-foreground/60">
-                    Total score
-                  </p>
-                  <div className="flex items-baseline gap-1">
-                    <span className="text-3xl font-bold tabular-nums tracking-tight text-primary-foreground">
-                      {formatTestScorePercent(score)}
-                    </span>
-                    <span className="text-sm font-semibold text-primary-foreground/50">%</span>
+              <div className="relative shrink-0 w-full sm:w-auto">
+                <div className="relative flex min-w-[130px] flex-row sm:flex-col items-center justify-between sm:justify-center rounded-2xl border border-white/15 bg-white/10 p-3 sm:p-4 shadow-sm backdrop-blur-md">
+                  <div className="text-left sm:text-center">
+                    <p className="mb-0.5 sm:mb-1 text-[10px] font-semibold tracking-tight text-primary-foreground/60">
+                      Total score
+                    </p>
+                    <div className="flex items-baseline gap-1">
+                      <span className="text-2xl sm:text-3xl font-bold tabular-nums tracking-tight text-primary-foreground">
+                        {formatTestScorePercent(score)}
+                      </span>
+                      <span className="text-xs sm:text-sm font-semibold text-primary-foreground/50">%</span>
+                    </div>
                   </div>
-                  <div
-                    className={cn(
-                      'mt-2 h-1 w-full overflow-hidden rounded-full bg-white/10',
-                      isPassed ? 'shadow-[0_0_10px_rgba(52,211,153,0.12)]' : 'shadow-[0_0_10px_rgba(244,63,94,0.12)]',
-                    )}
-                  >
+                  <div className="hidden sm:block w-full">
                     <div
                       className={cn(
-                        'h-full rounded-full transition-all duration-1000',
-                        isPassed ? 'bg-emerald-400' : 'bg-rose-400',
+                        'mt-2 h-1 w-full overflow-hidden rounded-full bg-white/10',
+                        isPassed ? 'shadow-[0_0_10px_rgba(52,211,153,0.12)]' : 'shadow-[0_0_10px_rgba(244,63,94,0.12)]',
                       )}
-                      style={{
-                        width: `${Math.min(100, Math.max(0, Number(score) || 0))}%`,
-                      }}
-                    />
+                    >
+                      <div
+                        className={cn(
+                          'h-full rounded-full transition-all duration-1000',
+                          isPassed ? 'bg-emerald-400' : 'bg-rose-400',
+                        )}
+                        style={{
+                          width: `${Math.min(100, Math.max(0, Number(score) || 0))}%`,
+                        }}
+                      />
+                    </div>
                   </div>
                 </div>
                 {isPassed && (
-                  <div className="absolute -bottom-1.5 -right-1.5 rounded-full border-2 border-background bg-emerald-500 p-1 text-white shadow-lg">
-                    <CheckCircle className="h-3 w-3" />
+                  <div className="absolute -bottom-1 -right-1 sm:-bottom-1.5 sm:-right-1.5 rounded-full border-2 border-background bg-emerald-500 p-0.5 sm:p-1 text-white shadow-lg">
+                    <CheckCircle className="h-2.5 w-2.5 sm:h-3 sm:w-3" />
                   </div>
                 )}
               </div>
@@ -133,11 +137,11 @@ export function WeeklyTestResults({
           </div>
         </div>
 
-        <div className="flex-1 overflow-y-auto bg-background p-4 md:p-6 space-y-6 scrollbar-hide">
+        <div className="flex-1 overflow-y-auto bg-background p-3.5 sm:p-6 space-y-5 sm:space-y-6 scrollbar-hide">
           {isPublished && String(submission.grader_remarks || '').trim() && (
             <Card className="border border-primary/20 bg-primary/[0.04] rounded-2xl">
-              <CardContent className="p-4 md:p-5 space-y-2">
-                <Label className="text-[11px] font-semibold text-primary">Overall feedback</Label>
+              <CardContent className="p-3.5 sm:p-5 space-y-2">
+                <Label className="text-[10px] sm:text-[11px] font-semibold text-primary uppercase tracking-tight">Overall feedback</Label>
                 <p className="text-sm leading-relaxed text-foreground/90 whitespace-pre-wrap">
                   {submission.grader_remarks}
                 </p>
@@ -173,8 +177,8 @@ export function WeeklyTestResults({
                     "bg-card border border-border/60 rounded-2xl overflow-hidden group transition-all",
                     !answer.is_attended && "opacity-80 border-dashed border-border"
                   )}>
-                    <CardContent className="p-4 md:p-5 space-y-4">
-                      <div className="flex flex-col md:flex-row md:items-start justify-between gap-3">
+                    <CardContent className="p-3.5 sm:p-5 space-y-4">
+                      <div className="flex flex-col md:flex-row md:items-start justify-between gap-2.5 sm:gap-3">
                         <div className="space-y-1">
                           <div className="flex items-center gap-2">
                             <Label className="pointer-events-none text-xs font-semibold tracking-tight text-indigo-600 dark:text-blue-400">
@@ -191,12 +195,12 @@ export function WeeklyTestResults({
                           </h4>
                         </div>
                         {isPublished && answer.is_attended && (
-                          <div className="text-right shrink-0">
-                            <div className="flex items-baseline justify-end gap-1 font-semibold text-lg text-foreground">
+                          <div className="flex md:flex-col items-center md:items-end justify-between md:justify-start gap-4 md:gap-1 shrink-0">
+                            <div className="flex items-baseline justify-end gap-1 font-semibold text-base sm:text-lg text-foreground">
                               {answer.marks_obtained ?? 0}
-                              <span className="text-muted-foreground text-xs font-semibold">/ {answer.max_marks}</span>
+                              <span className="text-muted-foreground text-[10px] sm:text-xs font-semibold">/ {answer.max_marks}</span>
                             </div>
-                            <div className="mt-1.5 h-1 w-20 bg-muted rounded-full ml-auto overflow-hidden">
+                            <div className="h-1 w-16 sm:w-20 bg-muted rounded-full overflow-hidden shrink-0">
                                <div 
                                  className="h-full bg-emerald-500 transition-all duration-700"
                                  style={{ width: `${( (answer.marks_obtained || 0) / answer.max_marks) * 100}%` }}
@@ -209,7 +213,7 @@ export function WeeklyTestResults({
                       {/* Submitted Answer Text/Status */}
                       {(!answer.is_attended || answer.answer_text) && (
                         <div className={cn(
-                          "p-3 rounded-xl border font-medium whitespace-pre-wrap leading-relaxed shadow-sm text-[12px]",
+                          "p-3 rounded-xl border font-medium whitespace-pre-wrap leading-relaxed shadow-sm text-[11px] sm:text-[12px]",
                           answer.is_attended 
                             ? "bg-background border-border/60 text-foreground/80"
                             : "bg-muted/30 border-dashed border-border text-muted-foreground italic"
@@ -324,10 +328,10 @@ export function WeeklyTestResults({
 
                       {/* Per-question feedback (published) */}
                       {isPublished && String(answer.ai_feedback || '').trim() && (
-                        <div className="relative pt-3 flex flex-col gap-2">
+                        <div className="relative pt-3 flex flex-col gap-1.5 sm:gap-2">
                            <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-border to-transparent" />
-                           <Label className="text-[10px] font-semibold text-primary">Feedback</Label>
-                           <p className="text-[13px] text-primary font-semibold leading-relaxed whitespace-pre-wrap">
+                           <Label className="text-[10px] font-semibold text-primary uppercase tracking-tight">Feedback</Label>
+                           <p className="text-[12px] sm:text-[13px] text-primary font-semibold leading-relaxed whitespace-pre-wrap">
                              {answer.ai_feedback}
                            </p>
                         </div>

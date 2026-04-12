@@ -122,27 +122,29 @@ export default function Login() {
       </div>
 
       {/* Right Panel - Login Form */}
-      <div className="flex-1 flex items-center justify-center p-6 lg:p-12 bg-muted">
+      <div className="flex-1 flex items-center justify-center p-4 sm:p-6 lg:p-12 bg-muted">
         <div className="w-full max-w-md space-y-8 animate-fade-in">
-          {/* Mobile Logo */}
-          <div className="flex items-center justify-center gap-3 lg:hidden mb-8">
-            <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-primary/10">
-              <GraduationCap className="h-7 w-7 text-primary" />
+          {/* Mobile Logo & Actions */}
+          <div className="flex items-center justify-center lg:hidden mb-8 relative">
+            <div className="flex items-center justify-center gap-3">
+              <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-primary/10">
+                <GraduationCap className="h-7 w-7 text-primary" />
+              </div>
+              <span className="font-display text-2xl font-bold text-foreground">EduLearn</span>
             </div>
-            <span className="font-display text-2xl font-bold text-foreground">EduLearn</span>
           </div>
 
           <div className="text-center lg:text-left">
-            <h2 className="font-display text-3xl font-bold text-foreground">Welcome back</h2>
-            <p className="mt-2 text-muted-foreground">Sign in to continue your learning journey</p>
+            <h2 className="font-display text-2xl sm:text-3xl font-bold text-foreground">Welcome back</h2>
+            <p className="mt-2 text-sm sm:text-base text-muted-foreground">Sign in to continue your learning journey</p>
           </div>
 
           <Card className="border-0 shadow-card rounded-3xl">
-            <CardHeader className="space-y-1 pb-4">
-              <CardTitle className="text-xl">Sign In</CardTitle>
-              <CardDescription>Enter your credentials to access your account</CardDescription>
+            <CardHeader className="p-5 sm:p-8 space-y-1 pb-4">
+              <CardTitle className="text-lg sm:text-xl">Sign In</CardTitle>
+              <CardDescription className="text-xs sm:text-sm">Enter your credentials to access your account</CardDescription>
             </CardHeader>
-            <CardContent>
+            <CardContent className="p-5 sm:p-8 pt-0 sm:pt-0">
 
               <form onSubmit={handleSubmit} className="space-y-4" noValidate>
                 <div className="space-y-2">

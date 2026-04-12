@@ -306,8 +306,8 @@ export default function Progress() {
     <div className="space-y-6">
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div className="flex-1">
-          <h1 className="font-display text-3xl font-bold text-foreground">Student Progress</h1>
-          <p className="mt-1 text-muted-foreground">Track student performance across batches</p>
+          <h1 className="font-display text-2xl sm:text-3xl font-bold text-foreground">Student Progress</h1>
+          <p className="mt-1 text-sm sm:text-base text-muted-foreground">Track student performance across batches</p>
         </div>
         
         {/* Export Button */}
@@ -332,55 +332,55 @@ export default function Progress() {
       </div>
 
       {stats && (
-        <div className="grid gap-4 sm:grid-cols-4">
+        <div className="grid gap-4 grid-cols-2 lg:grid-cols-4">
           <Card className="shadow-card">
-            <CardContent className="p-6">
-              <div className="flex items-center gap-4">
-                <div className="p-3 rounded-xl bg-primary/10">
-                  <UserPlus className="h-6 w-6 text-primary" />
+            <CardContent className="p-4 sm:p-6">
+              <div className="flex flex-col sm:flex-row items-center gap-3 sm:gap-4 text-center sm:text-left">
+                <div className="p-2 sm:p-3 rounded-xl bg-primary/10 shrink-0">
+                  <UserPlus className="h-5 w-5 sm:h-6 sm:w-6 text-primary" />
                 </div>
-                <div>
-                  <p className="text-2xl font-bold text-foreground">{stats.total}</p>
-                  <p className="text-sm font-medium text-muted-foreground">Total Enrolled</p>
+                <div className="min-w-0">
+                  <p className="text-xl sm:text-2xl font-bold text-foreground tabular-nums">{stats.total}</p>
+                  <p className="text-[10px] sm:text-sm font-medium text-muted-foreground uppercase tracking-tight sm:normal-case">Total Enrolled</p>
                 </div>
               </div>
             </CardContent>
           </Card>
           <Card className="shadow-card">
-            <CardContent className="p-6">
-              <div className="flex items-center gap-4">
-                <div className="p-3 rounded-xl bg-success/10">
-                  <CheckCircle className="h-6 w-6 text-success" />
+            <CardContent className="p-4 sm:p-6">
+              <div className="flex flex-col sm:flex-row items-center gap-3 sm:gap-4 text-center sm:text-left">
+                <div className="p-2 sm:p-3 rounded-xl bg-success/10 shrink-0">
+                  <CheckCircle className="h-5 w-5 sm:h-6 sm:w-6 text-success" />
                 </div>
-                <div>
-                  <p className="text-2xl font-bold text-foreground">{stats.completed}</p>
-                  <p className="text-sm font-medium text-muted-foreground">Completed Course</p>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-          <Card className="shadow-card">
-            <CardContent className="p-6">
-              <div className="flex items-center gap-4">
-                <div className="p-3 rounded-xl bg-info/10">
-                  <Users className="h-6 w-6 text-info" />
-                </div>
-                <div>
-                  <p className="text-2xl font-bold text-foreground">{stats.active}</p>
-                  <p className="text-sm font-medium text-muted-foreground">Active Learners</p>
+                <div className="min-w-0">
+                  <p className="text-xl sm:text-2xl font-bold text-foreground tabular-nums">{stats.completed}</p>
+                  <p className="text-[10px] sm:text-sm font-medium text-muted-foreground uppercase tracking-tight sm:normal-case">Completed Course</p>
                 </div>
               </div>
             </CardContent>
           </Card>
           <Card className="shadow-card">
-            <CardContent className="p-6">
-              <div className="flex items-center gap-4">
-                <div className="p-3 rounded-xl bg-destructive/10">
-                  <UserX className="h-6 w-6 text-destructive" />
+            <CardContent className="p-4 sm:p-6">
+              <div className="flex flex-col sm:flex-row items-center gap-3 sm:gap-4 text-center sm:text-left">
+                <div className="p-2 sm:p-3 rounded-xl bg-info/10 shrink-0">
+                  <Users className="h-5 w-5 sm:h-6 sm:w-6 text-info" />
                 </div>
-                <div>
-                  <p className="text-2xl font-bold text-foreground">{stats.dropped}</p>
-                  <p className="text-sm font-medium text-muted-foreground">Dropped / Pending</p>
+                <div className="min-w-0">
+                  <p className="text-xl sm:text-2xl font-bold text-foreground tabular-nums">{stats.active}</p>
+                  <p className="text-[10px] sm:text-sm font-medium text-muted-foreground uppercase tracking-tight sm:normal-case">Active Learners</p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+          <Card className="shadow-card">
+            <CardContent className="p-4 sm:p-6">
+              <div className="flex flex-col sm:flex-row items-center gap-3 sm:gap-4 text-center sm:text-left">
+                <div className="p-2 sm:p-3 rounded-xl bg-destructive/10 shrink-0">
+                  <UserX className="h-5 w-5 sm:h-6 sm:w-6 text-destructive" />
+                </div>
+                <div className="min-w-0">
+                  <p className="text-xl sm:text-2xl font-bold text-foreground tabular-nums">{stats.dropped}</p>
+                  <p className="text-[10px] sm:text-sm font-medium text-muted-foreground uppercase tracking-tight sm:normal-case">Dropped / Pending</p>
                 </div>
               </div>
             </CardContent>
@@ -394,7 +394,7 @@ export default function Progress() {
           <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <Input 
             placeholder="Search students by name or email..." 
-            className="pl-10 h-10"
+            className="pl-10 h-10 sm:h-11 text-sm rounded-xl"
             value={search}
             onChange={(e) => setSearch(e.target.value)} 
           />
@@ -407,7 +407,7 @@ export default function Progress() {
             onReady={() => setLoading(false)}
             placeholder="Filter by batch"
             triggerIcon={<Filter className="h-4 w-4 text-primary" />}
-            className="h-10 border-primary text-primary"
+            className="h-10 sm:h-11 border-primary text-primary text-xs sm:text-sm"
           />
         </div>
       </div>
@@ -816,8 +816,8 @@ export default function Progress() {
       {/* Header with Batch Selector */}
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h1 className="font-display text-3xl font-bold text-foreground">My Progress</h1>
-          <p className="mt-1 text-muted-foreground">Track your learning journey for this program</p>
+          <h1 className="font-display text-2xl sm:text-3xl font-bold text-foreground">My Progress</h1>
+          <p className="mt-1 text-sm sm:text-base text-muted-foreground">Track your learning journey for this program</p>
         </div>
         <div className="w-full min-w-0 shrink-0 sm:w-[min(280px,100%)] sm:max-w-[280px]">
           <BatchFilterCombobox
@@ -827,7 +827,7 @@ export default function Progress() {
             onReady={() => setLoading(false)}
             placeholder="Select course batch"
             triggerIcon={<BookOpen className="h-4 w-4 text-primary" />}
-            className="h-10 border-primary text-primary"
+            className="h-10 sm:h-11 border-primary text-primary text-xs sm:text-sm"
           />
         </div>
       </div>
@@ -844,12 +844,12 @@ export default function Progress() {
               <div className="absolute top-0 right-0 h-64 w-64 rounded-full bg-white/5 blur-3xl" />
               <div className="absolute bottom-0 left-0 h-32 w-32 rounded-full bg-primary/20 blur-2xl" />
             </div>
-            <CardContent className="relative z-10 p-6 md:p-8">
-              <div className="grid gap-8 sm:grid-cols-3 sm:gap-6">
+            <CardContent className="relative z-10 p-5 sm:p-8">
+              <div className="grid gap-6 sm:grid-cols-3 sm:gap-6">
                 <div className="sm:border-r sm:border-white/20 sm:pr-6">
-                  <p className="text-sm font-semibold text-primary-foreground/80">Overall progress</p>
+                  <p className="text-xs sm:text-sm font-semibold text-primary-foreground/80">Overall progress</p>
                   <div className="mt-1.5 flex items-end gap-2">
-                    <p className="font-display text-4xl font-black md:text-5xl">{studentStats.overallProgress}%</p>
+                    <p className="font-display text-3xl sm:text-5xl font-black tabular-nums">{studentStats.overallProgress}%</p>
                   </div>
                   <div className="mt-3 h-2 w-full max-w-full overflow-hidden rounded-full border border-white/10 bg-white/10">
                     <div
@@ -859,17 +859,17 @@ export default function Progress() {
                   </div>
                 </div>
                 <div className="sm:border-r sm:border-white/20 sm:pr-6">
-                  <p className="text-sm font-semibold text-primary-foreground/80">Videos watched</p>
+                  <p className="text-xs sm:text-sm font-semibold text-primary-foreground/80">Videos watched</p>
                   <div className="mt-1.5 flex items-baseline gap-1">
-                    <p className="font-display text-3xl font-black md:text-4xl">{studentStats.videosWatched}</p>
-                    <p className="text-lg font-bold text-primary-foreground/60">/{studentStats.totalVideos}</p>
+                    <p className="font-display text-2xl sm:text-4xl font-black tabular-nums">{studentStats.videosWatched}</p>
+                    <p className="text-sm sm:text-lg font-bold text-primary-foreground/60">/{studentStats.totalVideos}</p>
                   </div>
                 </div>
                 <div>
-                  <p className="text-sm font-semibold text-primary-foreground/80">Tests passed</p>
+                  <p className="text-xs sm:text-sm font-semibold text-primary-foreground/80">Tests passed</p>
                   <div className="mt-1.5 flex items-baseline gap-1">
-                    <p className="font-display text-3xl font-black md:text-4xl">{studentStats.testsPassed}</p>
-                    <p className="text-lg font-bold text-primary-foreground/60">/{studentStats.totalTests}</p>
+                    <p className="font-display text-2xl sm:text-4xl font-black tabular-nums">{studentStats.testsPassed}</p>
+                    <p className="text-sm sm:text-lg font-bold text-primary-foreground/60">/{studentStats.totalTests}</p>
                   </div>
                 </div>
               </div>
@@ -878,9 +878,9 @@ export default function Progress() {
 
           {/* Weekly Progress Card */}
           <Card className="shadow-card">
-            <CardHeader className="pb-3">
+            <CardHeader className="pb-0">
               <div className="flex items-center justify-between">
-                <div>
+                <div className="min-w-0">
                   <CardTitle className="flex items-center gap-2 text-xl font-display font-black">
                     <Award className="h-5 w-5 text-primary" />
                     Weekly Progress
@@ -906,7 +906,7 @@ export default function Progress() {
                 )}
               </div>
             </CardHeader>
-            <CardContent className="pt-0">
+            <CardContent className="pt-3 pb-4 sm:pt-4 sm:pb-6">
               {weeks.length === 0 ? (
                 <div className="rounded-xl border border-border bg-muted/40 px-6 py-12 text-center">
                   <p className="text-muted-foreground">No weeks have been published for this batch yet.</p>
@@ -950,7 +950,7 @@ export default function Progress() {
                       <div
                         key={week.id}
                         className={cn(
-                          'group flex flex-col gap-3 rounded-xl border border-border bg-muted/40 p-4 transition-all hover:bg-accent/20 hover:shadow-sm sm:flex-row sm:items-center sm:justify-between',
+                          'group flex flex-col gap-3 rounded-xl border border-border bg-muted/40 p-3.5 sm:p-4 transition-all hover:bg-accent/20 hover:shadow-sm sm:flex-row sm:items-center sm:justify-between',
                           studentLocked && 'opacity-80',
                         )}
                       >
@@ -1053,27 +1053,29 @@ export default function Progress() {
 
           {/* Assessment list — same row pattern as Assessments page (student view) */}
           <Card className="mt-6 shadow-card">
-            <CardHeader className="flex flex-col gap-1 sm:flex-row sm:items-start sm:justify-between">
-              <div>
-                <CardTitle className="flex items-center gap-2 text-xl font-display font-bold">
-                  <FileText className="h-5 w-5 text-primary" />
-                  Assessments
-                </CardTitle>
-                <CardDescription className="mt-0.5">
-                  Review your test submissions and scores
-                </CardDescription>
+            <CardHeader className="pb-0">
+              <div className="flex items-center justify-between">
+                <div className="min-w-0">
+                  <CardTitle className="flex items-center gap-2 text-xl font-display font-bold">
+                    <FileText className="h-5 w-5 text-primary" />
+                    Assessments
+                  </CardTitle>
+                  <CardDescription className="mt-0.5">
+                    Review your test submissions and scores
+                  </CardDescription>
+                </div>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="h-10 shrink-0 gap-1.5 rounded-xl border-border bg-background font-bold"
+                  onClick={() => navigate('/assessments')}
+                >
+                  View All
+                  <ChevronRight className="h-4 w-4" />
+                </Button>
               </div>
-              <Button
-                variant="outline"
-                size="sm"
-                className="h-10 shrink-0 gap-1.5 rounded-xl border-border bg-background font-bold sm:mt-0"
-                onClick={() => navigate('/assessments')}
-              >
-                View All
-                <ChevronRight className="h-4 w-4" />
-              </Button>
             </CardHeader>
-            <CardContent>
+            <CardContent className="pt-3 pb-4 sm:pt-4 sm:pb-6">
               {isSubmissionsLoading ? (
                 <div className="flex items-center justify-center py-16">
                   <Loader2 className="h-8 w-8 animate-spin text-primary" />
@@ -1099,7 +1101,7 @@ export default function Progress() {
                     return (
                       <div
                         key={assessment.id}
-                        className="group flex flex-col gap-4 rounded-xl border border-border bg-muted/40 p-4 transition-all hover:bg-accent/20 hover:shadow-sm sm:flex-row sm:items-center sm:justify-between"
+                        className="group flex flex-col gap-4 rounded-xl border border-border bg-muted/40 p-3.5 sm:p-4 transition-all hover:bg-accent/20 hover:shadow-sm sm:flex-row sm:items-center sm:justify-between"
                       >
                         <div className="flex min-w-0 flex-1 items-start gap-3">
                           <div

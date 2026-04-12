@@ -442,13 +442,13 @@ function StudentDashboard() {
   };
 
   return (
-    <div className="space-y-6 pb-8">
+    <div className="space-y-4 sm:space-y-6 pb-8">
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h1 className="font-display text-3xl font-bold text-foreground">
+          <h1 className="font-display text-2xl sm:text-3xl font-bold text-foreground">
             Welcome back, {user?.name?.split(' ')[0]}!
           </h1>
-          <p className="mt-1 text-muted-foreground">Continue your learning journey</p>
+          <p className="mt-1 text-sm sm:text-base text-muted-foreground">Continue your learning journey</p>
         </div>
         <div className="flex items-center gap-2 flex-wrap">
           {data.active_batches > 1 ? (
@@ -465,15 +465,15 @@ function StudentDashboard() {
           {focus ? (
             <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
               <div className="min-w-0">
-                <p className="text-primary-foreground/80 text-sm">Current week progress</p>
-                <h2 className="text-xl md:text-2xl font-bold mt-1 leading-tight truncate">{weekHeadline}</h2>
+                <p className="text-primary-foreground/80 text-xs sm:text-sm">Current week progress</p>
+                <h2 className="text-lg sm:text-xl md:text-2xl font-bold mt-1 leading-tight truncate">{weekHeadline}</h2>
                 <p className="mt-3 text-primary-foreground/85 text-sm font-medium">
                   {focus.videos_completed} of {focus.videos_total} videos completed
                 </p>
               </div>
               <div className="flex flex-col items-end gap-2 shrink-0">
-                <div className="text-3xl font-bold tabular-nums">{focus.week_progress_pct}%</div>
-                <Progress value={focus.week_progress_pct} className="w-28 md:w-32 h-2 bg-primary-foreground/20" />
+                <div className="text-2xl sm:text-3xl font-bold tabular-nums">{focus.week_progress_pct}%</div>
+                <Progress value={focus.week_progress_pct} className="w-24 sm:w-28 md:w-32 h-2 bg-primary-foreground/20" />
               </div>
             </div>
           ) : (
@@ -488,31 +488,31 @@ function StudentDashboard() {
         </CardContent>
       </Card>
 
-      <div className="grid gap-6 lg:grid-cols-3">
+      <div className="grid gap-4 sm:gap-6 lg:grid-cols-3">
         <Card className="shadow-card lg:col-span-2">
-          <CardHeader className="pb-3">
+          <CardHeader className="p-4 sm:p-6 pb-2 sm:pb-3">
             <div className="flex items-center justify-between">
               <div>
-                <CardTitle className="flex items-center gap-2 text-xl font-display font-black">
+                <CardTitle className="flex items-center gap-2 text-lg sm:text-xl font-display font-black">
                   <Award className="h-5 w-5 text-primary" />
                   Weekly Progress
                 </CardTitle>
-                <CardDescription className="mt-0.5">Complete each week's content to unlock the next</CardDescription>
+                <CardDescription className="mt-0.5 text-xs sm:text-sm">Complete each week's content to unlock the next</CardDescription>
               </div>
               {focus ? (
                 <Button
                   variant="outline"
                   size="sm"
-                  className="h-10 shrink-0 gap-1.5 rounded-xl border-border bg-background font-bold"
+                  className="h-9 sm:h-10 shrink-0 gap-1 sm:gap-1.5 rounded-xl border-border bg-background font-bold text-xs sm:text-sm"
                   onClick={() => navigate('/progress')}
                 >
                   View All
-                  <ChevronRight className="h-4 w-4" />
+                  <ChevronRight className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
                 </Button>
               ) : null}
             </div>
           </CardHeader>
-          <CardContent className="pt-0">
+          <CardContent className="p-4 sm:p-6 pt-0 sm:pt-0">
             {!focus || !focus.weekly_progress || focus.weekly_progress.length === 0 ? (
               <div className="flex flex-col items-center justify-center py-14 text-muted-foreground rounded-xl border border-border bg-muted/40">
                 <div className="h-16 w-16 rounded-full bg-muted/60 flex items-center justify-center mb-4">
@@ -548,7 +548,7 @@ function StudentDashboard() {
                       </div>
                       <div className="min-w-0 flex-1 space-y-1">
                         <div className="flex flex-wrap items-center gap-2">
-                          <p className="truncate font-medium text-foreground">Week {w.week_number}: {w.title || 'Untitled'}</p>
+                          <p className="truncate font-medium text-foreground text-sm sm:text-base">Week {w.week_number}: {w.title || 'Untitled'}</p>
                           {w.is_passed ? (
                             <Badge
                               variant="outline"
@@ -574,15 +574,15 @@ function StudentDashboard() {
         </Card>
 
         <Card className="shadow-card">
-          <CardHeader>
-            <CardTitle>Upcoming</CardTitle>
-            <CardDescription>
+          <CardHeader className="p-4 sm:p-6 pb-2 sm:pb-3">
+            <CardTitle className="text-lg sm:text-xl">Upcoming</CardTitle>
+            <CardDescription className="mt-0.5 text-xs sm:text-sm">
               {focus
                 ? 'Live sessions and webinars for the batch above · next two weeks'
                 : 'Across your active batches · next two weeks'}
             </CardDescription>
           </CardHeader>
-          <CardContent>
+          <CardContent className="p-4 sm:p-6 pt-0 sm:pt-0">
             {upcoming.length === 0 ? (
               <div className="flex flex-col items-center justify-center py-12 text-muted-foreground">
                 <Calendar className="h-10 w-10 opacity-30 mb-3" />
@@ -656,13 +656,13 @@ function StudentDashboard() {
             },
           ].map(stat => (
             <Card key={stat.label} className="shadow-card">
-              <CardContent className="p-6">
+              <CardContent className="p-4 sm:p-6">
                 <div className="flex items-center gap-4">
                   <div className="p-3 rounded-xl bg-primary/10">
                     <stat.icon className={`h-6 w-6 ${stat.color}`} />
                   </div>
                   <div className="min-w-0">
-                    <p className="text-2xl font-bold text-foreground tabular-nums">{stat.value}</p>
+                    <p className="text-xl sm:text-2xl font-bold text-foreground tabular-nums">{stat.value}</p>
                     <p className="text-sm text-muted-foreground">{stat.label}</p>
                     <p className="text-xs text-muted-foreground/80 mt-0.5">{stat.hint}</p>
                   </div>

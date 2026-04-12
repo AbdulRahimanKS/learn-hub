@@ -337,72 +337,65 @@ export default function SpecialSessions() {
     const isLocked = isUpcoming && !isAdminOrTeacher;
     
     return (
-      <div className="group flex flex-col gap-4 rounded-xl border border-border bg-muted/40 p-4 transition-all hover:bg-accent/20 hover:shadow-sm sm:flex-row sm:items-center sm:justify-between">
-          {/* Left: Icon */}
-          <div className="flex shrink-0">
-            <div 
-              className={cn(
-                "h-12 w-12 rounded-xl flex items-center justify-center transition-colors",
-                isLocked ? "bg-muted text-muted-foreground" : "bg-primary/10 text-primary hover:bg-primary hover:text-primary-foreground cursor-pointer"
-              )}
-              onClick={() => !isLocked && webinar.video_presigned_url && setPlayingVideoUrl(webinar.video_presigned_url)}
-            >
-              {isLocked ? <LockIcon className="h-6 w-6" /> : <PlayCircleIcon className="h-6 w-6" />}
+      <div className="group flex flex-col gap-4 rounded-xl border border-border bg-muted/20 sm:bg-muted/40 p-3 sm:p-4 transition-all hover:bg-accent/20 hover:shadow-sm sm:flex-row sm:items-center sm:justify-between">
+          {/* Top/Left: Icon & Title */}
+          <div className="flex items-center gap-3 sm:gap-4 flex-1 min-w-0">
+            <div className="shrink-0">
+              <div 
+                className={cn(
+                  "h-11 w-11 sm:h-12 sm:w-12 rounded-xl flex items-center justify-center transition-colors",
+                  isLocked ? "bg-muted text-muted-foreground" : "bg-primary/10 text-primary hover:bg-primary hover:text-primary-foreground cursor-pointer"
+                )}
+                onClick={() => !isLocked && webinar.video_presigned_url && setPlayingVideoUrl(webinar.video_presigned_url)}
+              >
+                {isLocked ? <LockIcon className="h-5 w-5 sm:h-6 sm:w-6" /> : <PlayCircleIcon className="h-5 w-5 sm:h-6 sm:w-6" />}
+              </div>
             </div>
-          </div>
 
-          {/* Middle: Content */}
-          <div className="flex-1 min-w-0 text-center sm:text-left">
-            <div className="flex flex-col sm:flex-row sm:items-center gap-2 mb-1">
-              <h3 className="font-bold text-foreground truncate text-lg">{webinar.title}</h3>
-              <Badge variant="outline" className="w-fit mx-auto sm:mx-0 text-[10px] h-5 bg-background font-semibold border-primary/20 text-primary">
-                {webinar.session_type === 'special_session' ? 'Special' : 'Webinar'}
-              </Badge>
-            </div>
-            
-            {webinar.description && (
-              <p className="text-sm text-muted-foreground line-clamp-1 mb-2">
-                {webinar.description}
-              </p>
-            )}
-            
-            <div className="flex flex-wrap items-center justify-center sm:justify-start gap-4 text-xs font-medium text-muted-foreground">
-              <div className="flex items-center gap-1.5">
-                <Clock className="h-3.5 w-3.5" />
-                <span>{webinar.duration_secs > 0 ? (
-                    `${Math.floor(webinar.duration_secs / 3600).toString().padStart(2, '0')}:${(Math.floor(webinar.duration_secs % 3600 / 60)).toString().padStart(2, '0')}:${(webinar.duration_secs % 60).toString().padStart(2, '0')}`
-                  ) : '00:00:00'}</span>
+            <div className="flex-1 min-w-0">
+              <div className="flex flex-wrap items-center gap-2 mb-0.5">
+                <h3 className="font-bold text-foreground truncate text-base sm:text-lg">{webinar.title}</h3>
+                <Badge variant="outline" className="w-fit text-[10px] h-4.5 bg-background font-semibold border-primary/20 text-primary">
+                  {webinar.session_type === 'special_session' ? 'Special' : 'Webinar'}
+                </Badge>
               </div>
-              <div className="flex items-center gap-1.5">
-                <Calendar className="h-3.5 w-3.5" />
-                <span>{format(new Date(webinar.unlock_at), "MMM d, yyyy")}</span>
+              
+              {webinar.description && (
+                <p className="text-xs sm:text-sm text-muted-foreground line-clamp-1 mb-1.5 sm:mb-2">
+                  {webinar.description}
+                </p>
+              )}
+              
+              <div className="flex flex-wrap items-center gap-3 sm:gap-4 text-[10px] sm:text-xs font-medium text-muted-foreground">
+                <div className="flex items-center gap-1.5">
+                  <Clock className="h-3 w-3 sm:h-3.5 sm:w-3.5" />
+                  <span>{webinar.duration_secs > 0 ? (
+                      `${Math.floor(webinar.duration_secs / 3600).toString().padStart(2, '0')}:${(Math.floor(webinar.duration_secs % 3600 / 60)).toString().padStart(2, '0')}:${(webinar.duration_secs % 60).toString().padStart(2, '0')}`
+                    ) : '00:00:00'}</span>
+                </div>
+                <div className="flex items-center gap-1.5">
+                  <Calendar className="h-3 w-3 sm:h-3.5 sm:w-3.5" />
+                  <span>{format(new Date(webinar.unlock_at), "MMM d, yyyy")}</span>
+                </div>
+                <div className="flex items-center gap-1.5 text-primary">
+                  <Clock className="h-3 w-3 sm:h-3.5 sm:w-3.5" />
+                  <span>{isUpcoming ? 'Available at ' : 'Released at '}{format(new Date(webinar.unlock_at), "h:mm a")}</span>
+                </div>
               </div>
-              {isUpcoming && (
-                <div className="flex items-center gap-1.5 text-primary">
-                  <Clock className="h-3.5 w-3.5" />
-                  <span>Available at {format(new Date(webinar.unlock_at), "h:mm a")}</span>
-                </div>
-              )}
-              {!isUpcoming && (
-                <div className="flex items-center gap-1.5 text-primary">
-                  <Clock className="h-3.5 w-3.5" />
-                  <span>Released at {format(new Date(webinar.unlock_at), "h:mm a")}</span>
-                </div>
-              )}
             </div>
           </div>
 
           {/* Right: Actions */}
-          <div className="flex items-center gap-3 shrink-0 ml-auto w-full sm:w-auto justify-center sm:justify-end border-t border-border/50 pt-4 sm:border-t-0 sm:pt-0">
+          <div className="flex items-center justify-between sm:justify-end gap-3 shrink-0 border-t border-border/50 pt-3 sm:border-t-0 sm:pt-0">
             {canEdit && isAdminOrTeacher && (
               <div className="flex items-center gap-1">
                 {isUpcoming && (
-                  <Button variant="ghost" size="icon" className="h-9 w-9 rounded-xl text-muted-foreground hover:bg-accent hover:text-foreground" onClick={() => handleOpenModal(webinar)}>
-                    <Edit className="h-4 w-4" />
+                  <Button variant="ghost" size="icon" className="h-8 w-8 sm:h-9 sm:w-9 rounded-xl text-muted-foreground hover:bg-accent hover:text-foreground" onClick={() => handleOpenModal(webinar)}>
+                    <Edit className="h-3.5 w-3.5" />
                   </Button>
                 )}
-                <Button variant="ghost" size="icon" className="h-9 w-9 rounded-xl text-muted-foreground hover:bg-destructive/10 hover:text-destructive" onClick={() => setDeleteWebinarId(webinar.id)}>
-                  <Trash2 className="h-4 w-4" />
+                <Button variant="ghost" size="icon" className="h-8 w-8 sm:h-9 sm:w-9 rounded-xl text-muted-foreground hover:bg-destructive/10 hover:text-destructive" onClick={() => setDeleteWebinarId(webinar.id)}>
+                  <Trash2 className="h-3.5 w-3.5" />
                 </Button>
               </div>
             )}
@@ -412,7 +405,7 @@ export default function SpecialSessions() {
                 onClick={() => webinar.video_presigned_url && setPlayingVideoUrl(webinar.video_presigned_url)}
                 variant="gradient" 
                 size="sm" 
-                className="h-10 rounded-xl px-6 font-bold shadow-none hover:shadow-none"
+                className="h-9 sm:h-10 grow sm:grow-0 rounded-xl px-5 sm:px-6 font-bold shadow-none hover:shadow-none"
                 disabled={!webinar.video_presigned_url}
               >
                 <Play className="h-3.5 w-3.5 fill-current" />
@@ -422,7 +415,7 @@ export default function SpecialSessions() {
               <Button 
                 variant="outline"
                 size="sm" 
-                className="h-10 rounded-xl border-border/70 bg-muted/40 px-5 text-muted-foreground cursor-not-allowed font-semibold opacity-90"
+                className="h-9 sm:h-10 grow sm:grow-0 rounded-xl border-border/70 bg-muted/40 px-4 sm:px-5 text-muted-foreground cursor-not-allowed font-semibold opacity-90"
                 disabled
               >
                 <LockIcon className="h-3.5 w-3.5" />
@@ -440,12 +433,12 @@ export default function SpecialSessions() {
         {/* Header */}
         <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           <div>
-            <h1 className="font-display text-3xl font-bold text-foreground">Special Sessions</h1>
-            <p className="mt-1 text-muted-foreground">Access exclusive workshops, guest lectures, and special course content</p>
+            <h1 className="font-display text-2xl sm:text-3xl font-bold text-foreground">Special Sessions</h1>
+            <p className="mt-1 text-sm sm:text-base text-muted-foreground">Access exclusive workshops, guest lectures, and special course content</p>
           </div>
           
           {isAdminOrTeacher && (
-            <Button onClick={() => handleOpenModal()} variant="gradient" className="gap-2">
+            <Button onClick={() => handleOpenModal()} variant="gradient" className="gap-2 w-full sm:w-auto">
               <Plus className="h-4 w-4" />
               Add Session
             </Button>
@@ -453,7 +446,7 @@ export default function SpecialSessions() {
         </div>
 
         {/* Batch Selection */}
-        <div className="flex min-w-0 flex-col items-center justify-between gap-4 p-5 sm:flex-row sm:items-center rounded-2xl bg-card border shadow-sm">
+        <div className="flex min-w-0 flex-col gap-4 p-4 sm:p-5 sm:flex-row sm:items-center sm:justify-between rounded-2xl bg-card border shadow-sm">
           <div className="flex min-w-0 items-center gap-3">
             <div className="w-10 h-10 rounded-xl bg-primary/10 text-primary flex items-center justify-center shrink-0">
                <BookOpen className="w-5 h-5" />
@@ -477,16 +470,16 @@ export default function SpecialSessions() {
               defaultSelectFirst={selectedBatchId === null}
               onReady={() => setLoadingBatches(false)}
               placeholder="Select course batch"
-              className="h-11 border-primary text-primary"
+              className="h-10 sm:h-11 border-primary text-primary text-xs sm:text-sm"
             />
           </div>
         </div>
 
         {/* Main Content */}
         <Tabs defaultValue="available" value={activeTab} onValueChange={setActiveTab} className="w-full space-y-6">
-          <TabsList className="bg-background p-1 border border-border/50 rounded-lg w-fit">
-            <TabsTrigger value="available" className="gap-2 min-w-32 px-4 transition-all">
-              <Archive className="h-4 w-4" />
+          <TabsList className="h-10 sm:h-12 bg-background p-1 border border-border/50 rounded-lg flex w-full sm:w-fit">
+            <TabsTrigger value="available" className="flex-1 sm:flex-initial gap-2 min-w-0 sm:min-w-32 px-3 sm:px-4 transition-all text-xs sm:text-sm">
+              <Archive className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
               Available
               {availableTotal > 0 && (
                 <Badge variant="secondary" className="ml-1 h-5 min-w-5 flex items-center justify-center p-0 text-[10px]">
@@ -494,8 +487,8 @@ export default function SpecialSessions() {
                 </Badge>
               )}
             </TabsTrigger>
-            <TabsTrigger value="upcoming" className="gap-2 min-w-32 px-4 transition-all">
-              <Clock className="h-4 w-4" />
+            <TabsTrigger value="upcoming" className="flex-1 sm:flex-initial gap-2 min-w-0 sm:min-w-32 px-3 sm:px-4 transition-all text-xs sm:text-sm">
+              <Clock className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
               Upcoming
               {upcomingTotal > 0 && (
                 <Badge variant="secondary" className="ml-1 h-5 min-w-5 flex items-center justify-center p-0 text-[10px]">

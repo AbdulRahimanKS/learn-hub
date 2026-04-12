@@ -97,17 +97,17 @@ export default function Settings() {
     <DashboardLayout>
       <div className="space-y-6 max-w-4xl mx-auto">
         <div>
-          <h1 className="font-display text-3xl font-bold text-foreground">Settings</h1>
-          <p className="mt-1 text-muted-foreground">Manage your account preferences</p>
+          <h1 className="font-display text-2xl sm:text-3xl font-bold text-foreground">Settings</h1>
+          <p className="mt-1 text-sm sm:text-base text-muted-foreground">Manage your account preferences</p>
         </div>
 
         <Tabs value={currentTab} onValueChange={handleTabChange} className="space-y-6">
-          <TabsList className="bg-background p-1 border border-border/50 rounded-lg w-fit">
-            <TabsTrigger value="profile" className="gap-2 w-32">
+          <TabsList className="bg-background p-1 border border-border/50 rounded-lg w-full sm:w-fit flex">
+            <TabsTrigger value="profile" className="gap-2 flex-1 sm:w-32">
               <User className="h-4 w-4" />
               Profile
             </TabsTrigger>
-            <TabsTrigger value="security" className="gap-2 w-32">
+            <TabsTrigger value="security" className="gap-2 flex-1 sm:w-32">
               <Lock className="h-4 w-4" />
               Security
             </TabsTrigger>
@@ -115,14 +115,14 @@ export default function Settings() {
 
           <TabsContent value="profile">
             <Card className="shadow-card">
-              <CardHeader>
-                <CardTitle>Profile Information</CardTitle>
-                <CardDescription>Update your personal details</CardDescription>
+              <CardHeader className="p-5 sm:p-6 pb-2 sm:pb-3">
+                <CardTitle className="text-lg sm:text-xl">Profile Information</CardTitle>
+                <CardDescription className="text-xs sm:text-sm">Update your personal details</CardDescription>
               </CardHeader>
-              <CardContent className="space-y-8">
+              <CardContent className="p-5 sm:p-6 pt-0 sm:pt-0 space-y-6 sm:space-y-8">
                 {/* Avatar */}
-                <div className="flex items-center gap-6">
-                  <Avatar className="h-20 w-20 ring-4 ring-primary/10">
+                <div className="flex flex-col sm:flex-row items-center sm:items-start gap-5 sm:gap-6 text-center sm:text-left">
+                  <Avatar className="h-20 w-20 ring-4 ring-primary/10 shrink-0">
                      <AvatarImage src={avatarPreview} alt={user?.name} className="object-cover" />
                      <AvatarFallback className="bg-muted">
                         <User className="h-8 w-8 text-muted-foreground/50" />
@@ -175,11 +175,11 @@ export default function Settings() {
 
           <TabsContent value="security">
             <Card className="shadow-card">
-              <CardHeader>
-                <CardTitle>Security Settings</CardTitle>
-                <CardDescription>Manage your account security</CardDescription>
+              <CardHeader className="p-5 sm:p-6 pb-2 sm:pb-3">
+                <CardTitle className="text-lg sm:text-xl">Security Settings</CardTitle>
+                <CardDescription className="text-xs sm:text-sm">Manage your account security</CardDescription>
               </CardHeader>
-              <CardContent className="space-y-6">
+              <CardContent className="p-5 sm:p-6 pt-0 sm:pt-0 space-y-6">
                 <SecurityForm />
               </CardContent>
             </Card>
@@ -314,7 +314,7 @@ function ProfileForm({ user, avatarFile, setAvatarPreview }: { user: any, avatar
 
   return (
     <Form {...form}>
-      <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+      <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-5 sm:space-y-6">
         <div className="grid gap-4 sm:grid-cols-2">
             <FormField
               control={form.control}
@@ -444,7 +444,7 @@ function ProfileForm({ user, avatarFile, setAvatarPreview }: { user: any, avatar
           )}
         />
 
-        <Button type="submit" variant="gradient" disabled={isSubmitting}>
+        <Button type="submit" variant="gradient" className="w-full sm:w-auto" disabled={isSubmitting}>
            <Save className="h-4 w-4 mr-2" />
            {isSubmitting ? 'Saving...' : 'Save Changes'}
         </Button>
@@ -556,7 +556,7 @@ function SecurityForm() {
           />
         </div>
 
-        <Button type="submit" variant="gradient" disabled={isSubmitting}>
+        <Button type="submit" variant="gradient" className="w-full sm:w-auto" disabled={isSubmitting}>
             <Lock className="h-4 w-4 mr-2" />
             {isSubmitting ? 'Updating...' : 'Update Password'}
         </Button>

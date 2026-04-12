@@ -7,7 +7,7 @@ import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { useAuth } from '@/contexts/AuthContext';
 import { cn } from '@/lib/utils';
-import { Send, Users, MessageSquare, Search, Paperclip, Download, Loader2, X, Trash2 } from 'lucide-react';
+import { Send, Users, MessageSquare, Search, Paperclip, Download, Loader2, X, Trash2, ChevronLeft } from 'lucide-react';
 import { chatApi, ChatMessage } from '@/lib/chat-api';
 import { chatSocket } from '@/lib/chat-socket';
 import { CircularProgressbar, buildStyles } from 'react-circular-progressbar';
@@ -38,6 +38,7 @@ export default function Chat() {
   const [selectedBatch, setSelectedBatch] = useState<Batch | null>(null);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
+  const [showChatOnMobile, setShowChatOnMobile] = useState(false);
   
   // Input states
   const [message, setMessage] = useState('');
@@ -335,9 +336,12 @@ export default function Chat() {
       <div className="h-[calc(100vh-8rem)]">
         <div className="flex flex-col h-full gap-6 lg:flex-row">
           {/* Sidebar - Batch List */}
-          <Card className="shadow-card flex h-full min-h-0 flex-shrink-0 flex-col lg:max-h-full lg:w-80">
+          <Card className={cn(
+            "shadow-card flex h-full min-h-0 flex-shrink-0 flex-col lg:w-80 transition-all",
+            showChatOnMobile ? "hidden lg:flex" : "flex w-full"
+          )}>
             <CardHeader className="pb-3 flex-shrink-0">
-              <CardTitle className="flex items-center gap-2">
+              <CardTitle className="flex items-center gap-2 text-lg sm:text-xl">
                 <Users className="h-5 w-5" />
                 Batch Chats
               </CardTitle>
@@ -367,12 +371,15 @@ export default function Chat() {
                       <button
                         key={batch.id}
                         type="button"
-                        onClick={() => setSelectedBatch(batch)}
+                        onClick={() => {
+                          setSelectedBatch(batch);
+                          setShowChatOnMobile(true);
+                        }}
                         title={batch.name}
                         className={cn(
-                          'w-full min-w-0 max-w-full overflow-hidden flex items-center gap-2 p-3 rounded-lg transition-colors text-left',
+                          'w-full min-w-0 max-w-full overflow-hidden flex items-center gap-2 p-3 sm:p-3.5 rounded-lg transition-colors text-left',
                           selectedBatch?.id === batch.id
-                            ? 'bg-primary text-primary-foreground'
+                            ? 'bg-primary text-primary-foreground shadow-md'
                             : 'hover:bg-muted'
                         )}
                       >
@@ -409,15 +416,27 @@ export default function Chat() {
           </Card>
 
           {/* Chat Area */}
-          <Card className="shadow-card flex-1 flex flex-col min-h-0 bg-background">
+          <Card className={cn(
+            "shadow-card flex-1 flex flex-col min-h-0 bg-background transition-all rounded-2xl overflow-hidden",
+            !showChatOnMobile ? "hidden lg:flex" : "flex w-full"
+          )}>
             {selectedBatch ? (
               <>
-                <CardHeader className="border-b flex-shrink-0 bg-background/50 backdrop-blur-md min-w-0 py-4">
-                  <div className="flex min-w-0 items-center justify-between gap-2">
-                    <div className="min-w-0 flex-1 space-y-1">
-                      <CardTitle className="truncate" title={selectedBatch.name}>
-                        {selectedBatch.name}
-                      </CardTitle>
+                <CardHeader className="border-b flex-shrink-0 bg-background/50 backdrop-blur-md min-w-0 py-3 px-4 sm:py-4 sm:px-6">
+                  <div className="flex min-w-0 items-center justify-between gap-3">
+                    <div className="flex min-w-0 items-center gap-2 sm:gap-3 flex-1">
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-9 w-9 lg:hidden shrink-0 rounded-full hover:bg-muted bg-muted/20 transition-colors -ml-1"
+                        onClick={() => setShowChatOnMobile(false)}
+                      >
+                        <ChevronLeft className="h-6 w-6 text-foreground" />
+                      </Button>
+                      <div className="min-w-0 flex-1 space-y-0.5">
+                        <CardTitle className="truncate text-base sm:text-lg" title={selectedBatch.name}>
+                          {selectedBatch.name}
+                        </CardTitle>
                       <div>
                         <Badge
                           variant="outline"
@@ -444,7 +463,8 @@ export default function Chat() {
                       ) : null}
                     </div>
                   </div>
-                </CardHeader>
+                </div>
+              </CardHeader>
                 
                 {/* Messages View */}
                 <ScrollArea 
@@ -475,7 +495,7 @@ export default function Chat() {
                         {msgs.map((msg) => {
                           // Never rely on is_current_user from WebSocket (it reflects the sender only).
                           const isCurrentUser =
-                            (user?.id != null && msg.sender?.id === user.id) ||
+                            (user?.id != null && String(msg.sender?.id) === String(user.id)) ||
                             (!!user?.email && msg.sender?.email === user.email);
                           return (
                           <div
@@ -504,10 +524,10 @@ export default function Chat() {
                                 </span>
                               )}
                             </div>
-                            <div className={cn(
-                              'max-w-[75%] lg:max-w-[60%]',
-                              isCurrentUser && 'text-right'
-                            )}>
+                             <div className={cn(
+                               'max-w-[85%] sm:max-w-[75%] lg:max-w-[60%]',
+                               isCurrentUser && 'text-right'
+                             )}>
                               <div className={cn("flex items-baseline gap-2 mb-1", isCurrentUser && 'justify-end')}>
                                 <span className={cn(
                                   'text-sm font-medium',

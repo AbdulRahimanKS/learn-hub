@@ -78,15 +78,15 @@ export default function Notifications() {
 
   return (
     <DashboardLayout>
-      <div className="space-y-6 max-w-4xl mx-auto">
+      <div className="space-y-4 sm:space-y-6 max-w-4xl mx-auto">
         <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
           <div>
-            <h1 className="font-display text-3xl font-bold text-foreground">Notifications</h1>
-            <p className="mt-1 text-muted-foreground">Your notification history.</p>
+            <h1 className="font-display text-2xl sm:text-3xl font-bold text-foreground">Notifications</h1>
+            <p className="mt-1 text-sm sm:text-base text-muted-foreground">Your notification history.</p>
           </div>
           {notifications.some(n => !n.is_read) && (
-            <Button variant="outline" onClick={markAllRead} className="shrink-0">
-              <Check className="h-4 w-4 mr-2" /> Mark all as read
+            <Button variant="outline" onClick={markAllRead} size="sm" className="h-9 sm:h-10 shrink-0 text-xs sm:text-sm">
+              <Check className="h-3.5 w-3.5 sm:h-4 sm:w-4 mr-1.5 sm:mr-2" /> Mark all as read
             </Button>
           )}
         </div>
@@ -97,12 +97,12 @@ export default function Notifications() {
               <Loader2 className="h-8 w-8 animate-spin text-primary" />
             </div>
           ) : notifications.length === 0 ? (
-            <div className="flex flex-col items-center justify-center py-24 text-muted-foreground">
-              <div className="bg-muted/50 w-20 h-20 rounded-full flex items-center justify-center mb-5 ring-4 ring-muted">
-                <Bell className="h-10 w-10 opacity-60" />
+            <div className="flex flex-col items-center justify-center py-16 sm:py-24 text-muted-foreground">
+              <div className="bg-muted/50 w-16 h-16 sm:w-20 sm:h-20 rounded-full flex items-center justify-center mb-4 sm:mb-5 ring-4 ring-muted">
+                <Bell className="h-8 w-8 sm:h-10 sm:h-10 opacity-60" />
               </div>
-              <p className="text-lg font-semibold text-foreground">You're all caught up</p>
-              <p className="text-sm mt-1">New alerts and updates will appear here.</p>
+              <p className="text-base sm:text-lg font-semibold text-foreground">You're all caught up</p>
+              <p className="text-xs sm:text-sm mt-1">New alerts and updates will appear here.</p>
             </div>
           ) : (
             <>
@@ -114,14 +114,14 @@ export default function Notifications() {
                     <div
                       key={notif.id}
                       onClick={() => handleNotificationClick(notif)}
-                      className={`group flex gap-4 p-5 transition-colors cursor-pointer hover:bg-muted/40 ${!notif.is_read ? 'bg-muted/30' : ''}`}
+                      className={`group flex gap-3 sm:gap-4 p-4 sm:p-5 transition-colors cursor-pointer hover:bg-muted/40 ${!notif.is_read ? 'bg-muted/30' : ''}`}
                     >
                       <div className={`flex-shrink-0 w-10 h-10 rounded-lg flex items-center justify-center bg-muted/50 ${style.iconClass}`}>
                         <Icon className="h-5 w-5" strokeWidth={1.5} />
                       </div>
                       <div className="flex-1 min-w-0">
                         <div className="flex flex-wrap items-center gap-2">
-                          <p className={`font-semibold text-base ${!notif.is_read ? 'text-foreground' : 'text-foreground/85'}`}>
+                          <p className={`font-semibold text-sm sm:text-base ${!notif.is_read ? 'text-foreground' : 'text-foreground/85'}`}>
                             {notif.title}
                           </p>
                           {!notif.is_read && (
@@ -144,7 +144,7 @@ export default function Notifications() {
               </div>
 
               {totalPages > 1 && (
-                <div className="flex items-center justify-center gap-2 px-5 py-4 bg-muted/20 border-t border-border/60">
+                <div className="flex items-center justify-center gap-2 px-4 sm:px-5 py-3 sm:py-4 bg-muted/20 border-t border-border/60">
                   <Button
                     variant="outline"
                     size="sm"

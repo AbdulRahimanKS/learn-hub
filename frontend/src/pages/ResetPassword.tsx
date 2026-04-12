@@ -95,7 +95,7 @@ export default function ResetPassword() {
         </div>
 
         {/* Right Side - Success Message */}
-        <div className="flex-1 flex items-center justify-center p-6 lg:p-12 bg-muted">
+        <div className="flex-1 flex items-center justify-center p-4 sm:p-6 lg:p-12 bg-muted">
           <div className="w-full max-w-md animate-in fade-in slide-in-from-right-10 duration-500">
             <Card className="border-border/50 shadow-2xl backdrop-blur-xl bg-card/80">
               <CardContent className="pt-10 pb-10 text-center space-y-6">
@@ -153,11 +153,11 @@ export default function ResetPassword() {
       </div>
 
       {/* Right Side - Form */}
-      <div className="flex-1 flex items-center justify-center p-6 lg:p-12 bg-muted">
+      <div className="flex-1 flex items-center justify-center p-4 sm:p-6 lg:p-12 bg-muted">
         <div className="w-full max-w-md space-y-8 animate-in fade-in slide-in-from-right-10 duration-500">
           <div className="text-center lg:text-left space-y-2">
-            <h2 className="text-3xl font-bold tracking-tight">Reset Password</h2>
-            <p className="text-muted-foreground">
+            <h2 className="text-2xl sm:text-3xl font-bold tracking-tight">Reset Password</h2>
+            <p className="text-sm sm:text-base text-muted-foreground">
               Create a new strong password for your account
             </p>
           </div>

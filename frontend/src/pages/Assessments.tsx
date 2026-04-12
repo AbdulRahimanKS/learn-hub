@@ -284,21 +284,21 @@ export default function Assessments() {
       {/* Header */}
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h1 className="font-display text-3xl font-bold text-foreground">Assessments</h1>
-          <p className="mt-1 text-muted-foreground">Manage and evaluate student test submissions</p>
+          <h1 className="font-display text-2xl sm:text-3xl font-bold text-foreground">Assessments</h1>
+          <p className="mt-1 text-sm sm:text-base text-muted-foreground">Manage and evaluate student test submissions</p>
         </div>
       </div>
 
       {/* Selection Filter Pattern */}
-      <div className="flex min-w-0 flex-col items-center justify-between gap-4 p-5 sm:flex-row sm:items-center rounded-2xl bg-card border shadow-sm">
+      <div className="flex min-w-0 flex-col gap-3 p-4 sm:p-5 sm:flex-row sm:items-center sm:justify-between rounded-2xl bg-card border shadow-sm">
         <div className="flex min-w-0 items-center gap-3">
-          <div className="w-10 h-10 rounded-xl bg-primary/10 text-primary flex items-center justify-center shrink-0">
-             <BookOpen className="w-5 h-5" />
+          <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-xl bg-primary/10 text-primary flex items-center justify-center shrink-0">
+             <BookOpen className="w-4.5 h-4.5 sm:w-5 sm:h-5" />
           </div>
           <div className="min-w-0">
-            <p className="text-sm font-medium text-muted-foreground">Course Batch</p>
+            <p className="text-[11px] sm:text-sm font-medium text-muted-foreground">Course Batch</p>
             <h3
-              className="truncate font-bold text-foreground"
+              className="truncate font-bold text-sm sm:text-base text-foreground"
               title={selectedBatchName || undefined}
             >
               {selectedBatchName || 'Select a batch'}
@@ -306,8 +306,8 @@ export default function Assessments() {
           </div>
         </div>
         
-        <div className="flex min-w-0 w-full flex-1 items-center gap-3 sm:w-auto sm:justify-end">
-          <div className="w-[min(180px,100%)] shrink-0">
+        <div className="flex min-w-0 w-full flex-1 flex-col sm:flex-row items-center gap-2 sm:gap-3 sm:w-auto sm:justify-end">
+          <div className="w-full sm:w-[150px] shrink-0">
             <Select
               value={selectedWeek}
               onValueChange={(val) => {
@@ -316,7 +316,7 @@ export default function Assessments() {
                 setPublishedPage(1);
               }}
             >
-              <SelectTrigger className="h-11 max-w-full rounded-xl border-primary text-primary">
+              <SelectTrigger className="h-9 sm:h-11 max-w-full rounded-xl border-primary text-primary text-xs sm:text-sm">
                 <SelectValue placeholder="All Weeks" />
               </SelectTrigger>
               <SelectContent className="rounded-xl">
@@ -340,7 +340,7 @@ export default function Assessments() {
               selectedLabel={selectedBatchName}
               onValueChange={handleAssessmentBatchChange}
               placeholder="Select a batch"
-              className="h-11 border-primary text-primary"
+              className="h-9 sm:h-11 border-primary text-primary text-xs sm:text-sm"
             />
           </div>
         </div>
@@ -371,15 +371,15 @@ export default function Assessments() {
             boxClass: 'bg-success/10',
           },
         ].map((stat, i) => (
-          <Card key={i} className="shadow-card transition-shadow hover:shadow-lg">
-            <CardContent className="p-6">
-              <div className="flex items-center justify-between gap-4">
+          <Card key={i} className="shadow-card transition-shadow hover:shadow-lg overflow-hidden">
+            <CardContent className="p-3 sm:p-5">
+              <div className="flex items-center justify-between gap-3 sm:gap-4">
                 <div className="min-w-0">
-                  <p className="text-sm text-muted-foreground">{stat.label}</p>
-                  <p className="mt-1 text-3xl font-bold text-foreground">{stat.value}</p>
+                  <p className="text-[10px] sm:text-xs font-semibold uppercase tracking-wider text-muted-foreground">{stat.label}</p>
+                  <p className="mt-0.5 text-lg sm:text-2xl font-black text-foreground tabular-nums">{stat.value}</p>
                 </div>
-                <div className={cn('shrink-0 rounded-xl p-3', stat.boxClass)}>
-                  <stat.icon className={cn('h-6 w-6', stat.iconClass)} />
+                <div className={cn('shrink-0 rounded-xl p-2', stat.boxClass)}>
+                  <stat.icon className={cn('h-4 w-4 sm:h-5 sm:w-5', stat.iconClass)} />
                 </div>
               </div>
             </CardContent>
@@ -388,17 +388,17 @@ export default function Assessments() {
       </div>
 
       <Card className="shadow-card">
-        <CardHeader className="pb-2">
+        <CardHeader className="pb-0">
           <CardTitle>Student submissions</CardTitle>
           <CardDescription>Review pending work and published results for the selected batch and week.</CardDescription>
         </CardHeader>
-        <CardContent>
+        <CardContent className="px-3 pt-3 pb-4 sm:px-6 sm:pt-4 sm:py-6">
           <Tabs defaultValue="review" className="space-y-6">
-            <TabsList className="h-10 w-fit rounded-lg border border-border/50 bg-background p-1">
-              <TabsTrigger value="review" className="h-8 w-40 rounded-md text-xs font-bold">
+            <TabsList className="h-9 w-fit rounded-lg border border-border/50 bg-background p-1">
+              <TabsTrigger value="review" className="h-7 w-32 sm:w-40 rounded-md text-[10px] sm:text-xs font-bold">
                 Pending Review
               </TabsTrigger>
-              <TabsTrigger value="published" className="h-8 w-40 rounded-md text-xs font-bold">
+              <TabsTrigger value="published" className="h-7 w-32 sm:w-40 rounded-md text-[10px] sm:text-xs font-bold">
                 Published Results
               </TabsTrigger>
             </TabsList>
@@ -431,7 +431,7 @@ export default function Assessments() {
                         return (
                       <div
                         key={item.id}
-                        className="group flex flex-col gap-4 rounded-xl border border-border bg-muted/40 p-4 transition-all hover:bg-accent/20 hover:shadow-sm xl:flex-row xl:items-center xl:justify-between"
+                        className="group flex flex-col gap-4 rounded-xl border border-border bg-muted/40 p-3.5 sm:p-4 transition-all hover:bg-accent/20 hover:shadow-sm xl:flex-row xl:items-center xl:justify-between"
                       >
                         <div className="flex min-w-0 flex-1 items-center gap-3">
                           <StudentSubmissionAvatar name={item.student_name} photoUrl={item.student_profile_picture} />
@@ -582,7 +582,7 @@ export default function Assessments() {
                       return (
                       <div
                         key={item.id}
-                        className="group flex flex-col gap-4 rounded-xl border border-border bg-muted/40 p-4 transition-all hover:bg-accent/20 hover:shadow-sm sm:flex-row sm:items-center sm:justify-between"
+                        className="group flex flex-col gap-4 rounded-xl border border-border bg-muted/20 sm:bg-muted/40 p-3 sm:p-4 transition-all hover:bg-accent/20 hover:shadow-sm sm:flex-row sm:items-center sm:justify-between"
                       >
                         <div className="flex min-w-0 flex-1 items-center gap-3">
                           <StudentSubmissionAvatar
@@ -675,21 +675,21 @@ export default function Assessments() {
       {/* Header */}
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h1 className="font-display text-3xl font-bold text-foreground">My Results</h1>
-          <p className="mt-1 text-muted-foreground">Track your performance and review feedback</p>
+          <h1 className="font-display text-2xl sm:text-3xl font-bold text-foreground">My Results</h1>
+          <p className="mt-1 text-sm sm:text-base text-muted-foreground">Track your performance and review feedback</p>
         </div>
       </div>
 
       {/* Selection Filter Pattern */}
-      <div className="flex min-w-0 flex-col items-center justify-between gap-4 p-5 sm:flex-row sm:items-center rounded-2xl bg-card border shadow-sm">
+      <div className="flex min-w-0 flex-col gap-3 p-4 sm:p-5 sm:flex-row sm:items-center sm:justify-between rounded-2xl bg-card border shadow-sm">
         <div className="flex min-w-0 items-center gap-3">
-          <div className="w-10 h-10 rounded-xl bg-primary/10 text-primary flex items-center justify-center shrink-0">
-             <BookOpen className="w-5 h-5" />
+          <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-xl bg-primary/10 text-primary flex items-center justify-center shrink-0">
+             <BookOpen className="w-4.5 h-4.5 sm:w-5 sm:h-5" />
           </div>
           <div className="min-w-0">
-            <p className="text-sm font-medium text-muted-foreground">Course Batch</p>
+            <p className="text-[11px] sm:text-sm font-medium text-muted-foreground">Course Batch</p>
             <h3
-              className="truncate font-bold text-foreground"
+              className="truncate font-bold text-sm sm:text-base text-foreground"
               title={selectedBatchName || undefined}
             >
               {selectedBatchName || 'Select a batch'}
@@ -697,10 +697,10 @@ export default function Assessments() {
           </div>
         </div>
         
-        <div className="flex min-w-0 w-full flex-1 items-center gap-3 sm:w-auto sm:justify-end">
-          <div className="w-[min(180px,100%)] shrink-0">
+        <div className="flex min-w-0 w-full flex-1 flex-col sm:flex-row items-center gap-2 sm:gap-3 sm:w-auto sm:justify-end">
+          <div className="w-full sm:w-[150px] shrink-0">
             <Select value={selectedWeek} onValueChange={(val) => { setSelectedWeek(val); setCurrentPage(1); }}>
-              <SelectTrigger className="h-11 max-w-full rounded-xl border-primary text-primary">
+              <SelectTrigger className="h-9 sm:h-11 max-w-full rounded-xl border-primary text-primary text-xs sm:text-sm">
                 <SelectValue placeholder="All Weeks" />
               </SelectTrigger>
               <SelectContent className="rounded-xl">
@@ -724,14 +724,14 @@ export default function Assessments() {
               selectedLabel={selectedBatchName}
               onValueChange={handleAssessmentBatchChange}
               placeholder="Select a batch"
-              className="h-11 border-primary text-primary"
+              className="h-9 sm:h-11 border-primary text-primary text-xs sm:text-sm"
             />
           </div>
         </div>
       </div>
 
       {/* Student Stats — Dashboard-style: label + value + icon */}
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+      <div className="grid gap-3 sm:gap-4 sm:grid-cols-2 lg:grid-cols-3">
         {[
           {
             label: 'Completed Tests',
@@ -755,15 +755,15 @@ export default function Assessments() {
             boxClass: 'bg-primary/10',
           },
         ].map((stat, i) => (
-          <Card key={i} className="shadow-card transition-shadow hover:shadow-lg">
-            <CardContent className="p-6">
-              <div className="flex items-center justify-between gap-4">
+          <Card key={i} className="shadow-card transition-shadow hover:shadow-lg overflow-hidden">
+            <CardContent className="p-3 sm:p-5">
+              <div className="flex items-center justify-between gap-3">
                 <div className="min-w-0">
-                  <p className="text-sm text-muted-foreground">{stat.label}</p>
-                  <p className="mt-1 text-3xl font-bold text-foreground">{stat.value}</p>
+                  <p className="text-[10px] sm:text-xs font-semibold uppercase tracking-wider text-muted-foreground">{stat.label}</p>
+                  <p className="mt-0.5 text-lg sm:text-2xl font-black text-foreground tabular-nums">{stat.value}</p>
                 </div>
-                <div className={cn('shrink-0 rounded-xl p-3', stat.boxClass)}>
-                  <stat.icon className={cn('h-6 w-6', stat.iconClass)} />
+                <div className={cn('shrink-0 rounded-xl p-2', stat.boxClass)}>
+                  <stat.icon className={cn('h-4 w-4 sm:h-5 sm:w-5', stat.iconClass)} />
                 </div>
               </div>
             </CardContent>
@@ -773,13 +773,13 @@ export default function Assessments() {
 
       {/* Main panel — matches Dashboard “Recent Submissions” card + row styling */}
       <Card className="shadow-card">
-        <CardHeader className="flex flex-col gap-1 sm:flex-row sm:items-start sm:justify-between">
+        <CardHeader className="pb-0">
           <div>
             <CardTitle>Your assessments</CardTitle>
             <CardDescription>Latest submissions and scores for the selected batch and week.</CardDescription>
           </div>
         </CardHeader>
-        <CardContent>
+        <CardContent className="px-3 pt-3 pb-4 sm:px-6 sm:pt-4 sm:pb-6">
           {isLoading ? (
             <div className="flex items-center justify-center py-16">
               <Loader2 className="h-8 w-8 animate-spin text-primary" />
@@ -805,12 +805,12 @@ export default function Assessments() {
                 return (
                 <div
                   key={assessment.id}
-                  className="group flex flex-col gap-4 rounded-xl border border-border bg-muted/40 p-4 transition-all hover:bg-accent/20 hover:shadow-sm sm:flex-row sm:items-center sm:justify-between"
+                  className="group flex flex-col gap-3 rounded-xl border border-border bg-muted/20 sm:bg-muted/40 p-3 sm:p-4 transition-all hover:bg-accent/20 hover:shadow-sm sm:flex-row sm:items-center sm:justify-between"
                 >
                   <div className="flex min-w-0 flex-1 items-start gap-3">
                     <div
                       className={cn(
-                        'shrink-0 rounded-lg p-2.5 transition-colors',
+                        'shrink-0 rounded-lg p-2 sm:p-2.5 transition-colors',
                         assessment.status === 'published'
                           ? 'bg-success/10 text-success group-hover:bg-success/15'
                           : 'bg-warning/10 text-warning group-hover:bg-warning/15',
@@ -824,7 +824,7 @@ export default function Assessments() {
                     </div>
                     <div className="min-w-0 space-y-1">
                       <div className="flex items-center gap-2">
-                        <p className="font-medium text-foreground">{assessment.test_title}</p>
+                        <p className="text-sm sm:text-base font-medium text-foreground">{assessment.test_title}</p>
                         {assessment.status === 'published' ? (
                           <Badge
                             variant="outline"
@@ -846,17 +846,17 @@ export default function Assessments() {
                           </Badge>
                         )}
                       </div>
-                      <div className="flex flex-wrap items-center gap-2">
+                      <div className="flex flex-wrap items-center gap-1.5 sm:gap-2">
                         <Badge
                           variant="outline"
-                          className="border-border px-2 text-[10px] font-semibold text-muted-foreground"
+                          className="border-border px-1.5 py-0 text-[10px] font-semibold text-muted-foreground"
                         >
                           Week {assessment.week_number}
                         </Badge>
-                        <span className="rounded bg-muted px-2 py-0.5 text-[10px] font-medium text-muted-foreground">
+                        <span className="rounded bg-muted px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground">
                           Attempt {assessment.attempt_number}
                         </span>
-                        <span className="rounded bg-muted px-2 py-0.5 text-[10px] font-medium text-muted-foreground">
+                        <span className="rounded bg-muted px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground">
                           Submitted {assessment.submitted_at && format(new Date(assessment.submitted_at), 'MMM d, h:mm a')}
                         </span>
                       </div>
@@ -864,11 +864,11 @@ export default function Assessments() {
                   </div>
                   <div className="flex shrink-0 flex-col items-stretch gap-3 sm:flex-row sm:items-center sm:justify-end sm:gap-4">
                     {assessment.status === 'published' ? (
-                      <div className="flex flex-col items-end gap-1 sm:text-right">
-                        <p className="text-xs font-semibold text-foreground">
+                      <div className="flex flex-col items-start sm:items-end gap-0.5 sm:text-right">
+                        <p className="text-xs font-bold text-foreground">
                           Score: {Number(assessment.marks_obtained ?? 0).toFixed(1)}%
                         </p>
-                        <p className="text-[11px] font-medium text-muted-foreground">
+                        <p className="text-[10px] font-medium text-muted-foreground">
                           Pass percentage: {passPercentage.toFixed(0)}%
                         </p>
                       </div>

@@ -86,7 +86,7 @@ export function SessionMcqPractice({ sessionTitle, questions, onClose }: Session
 
   if (isFinished) {
     return (
-      <div className="mx-auto w-full max-w-md px-6 py-8 text-center">
+      <div className="mx-auto w-full max-w-md px-4 sm:px-6 py-6 sm:py-8 text-center">
         <div className="mb-4 flex justify-center">
           <div className={cn(
             "p-4 rounded-full",
@@ -99,18 +99,26 @@ export function SessionMcqPractice({ sessionTitle, questions, onClose }: Session
             )}
           </div>
         </div>
-        <h2 className="mb-1 text-2xl font-bold text-foreground">Practice Complete!</h2>
-        <p className="text-4xl font-black mb-4 text-primary">{score} / {questions.length}</p>
+        <h2 className="mb-1 text-xl sm:text-2xl font-bold text-foreground">Practice Complete!</h2>
+        <p className="text-3xl sm:text-4xl font-black mb-4 text-primary">{score} / {questions.length}</p>
         <p className="mb-8 text-sm leading-relaxed text-muted-foreground">
           {score === questions.length 
             ? "Excellent! You've successfully completed the practice with a perfect score." 
             : "Great effort! Keep practicing to master all concepts from this session."}
         </p>
-        <div className="flex gap-4">
-          <Button variant="outline" size="sm" className="h-10 flex-1" onClick={handleReset}>
-            <RotateCcw className="w-3.5 h-3.5 mr-2" /> Try Again
+        <div className="flex flex-col sm:flex-row gap-3 sm:gap-4 mt-2">
+          <Button 
+            variant="outline" 
+            className="h-11 flex-1 rounded-xl font-bold border-2" 
+            onClick={handleReset}
+          >
+            <RotateCcw className="w-4 h-4 mr-2" /> Try Again
           </Button>
-          <Button variant="gradient" size="sm" className="h-10 flex-1 rounded-xl font-bold shadow-none hover:shadow-none" onClick={onClose}>
+          <Button 
+            variant="gradient" 
+            className="h-11 flex-1 rounded-xl font-bold border-2 border-transparent shadow-md hover:shadow-lg transition-all" 
+            onClick={onClose}
+          >
             Close
           </Button>
         </div>
@@ -139,7 +147,7 @@ export function SessionMcqPractice({ sessionTitle, questions, onClose }: Session
             ))}
           </div>
         </div>
-        <h3 className="text-lg font-bold leading-relaxed text-foreground md:text-xl">
+        <h3 className="text-base sm:text-lg font-bold leading-relaxed text-foreground md:text-xl">
           {currentQuestion.is_fill_in_the_blank 
             ? currentQuestion.text.split('[blank]').map((part, i, arr) => (
                 <span key={i} className="inline">
@@ -163,7 +171,7 @@ export function SessionMcqPractice({ sessionTitle, questions, onClose }: Session
       </div>
       
       {/* Content Area */}
-      <div className="min-h-[240px]">
+      <div className="min-h-[200px] sm:min-h-[240px]">
         {currentQuestion.is_fill_in_the_blank ? (
           <div className="space-y-5 animate-in fade-in slide-in-from-bottom-4">
             <div className="space-y-2">
@@ -174,7 +182,7 @@ export function SessionMcqPractice({ sessionTitle, questions, onClose }: Session
                 onChange={(e) => !showFeedback && setFillInBlankAnswer(e.target.value)}
                 placeholder="Write the answer here..."
                 className={cn(
-                  'h-12 rounded-md border border-input bg-background text-base text-foreground focus-visible:border-primary/50 focus-visible:ring-primary/20',
+                  'h-10 sm:h-12 rounded-lg border border-input bg-background text-sm sm:text-base text-foreground focus-visible:border-primary/50 focus-visible:ring-primary/20',
                   showFeedback &&
                     (isFillBlankAnswerCorrect(currentQuestion, fillInBlankAnswer)
                       ? 'border-emerald-500/50 bg-emerald-500/10'
@@ -209,20 +217,20 @@ export function SessionMcqPractice({ sessionTitle, questions, onClose }: Session
                           : 'The correct answer is:'}
                     </p>
                     {!correct && acceptable.length === 0 && (
-                      <p className="mt-0.5 text-base font-medium">—</p>
+                      <p className="mt-0.5 text-sm sm:text-base font-medium">—</p>
                     )}
                     {!correct && acceptable.length === 1 && (
-                      <p className="mt-0.5 text-base font-medium">{acceptable[0]}</p>
+                      <p className="mt-0.5 text-sm sm:text-base font-medium">{acceptable[0]}</p>
                     )}
                     {!correct && multiple && (
-                      <ul className="mt-2 list-disc space-y-1 pl-5 text-base font-medium marker:text-current">
+                      <ul className="mt-2 list-disc space-y-1 pl-5 text-sm sm:text-base font-medium marker:text-current">
                         {acceptable.map((a, i) => (
                           <li key={`${i}-${a}`}>{a}</li>
                         ))}
                       </ul>
                     )}
                     {correct && !multiple && acceptable.length === 1 && (
-                      <p className="mt-0.5 text-base font-medium opacity-90">{acceptable[0]}</p>
+                      <p className="mt-0.5 text-sm sm:text-base font-medium opacity-90">{acceptable[0]}</p>
                     )}
                   </div>
                 </div>
@@ -260,7 +268,7 @@ export function SessionMcqPractice({ sessionTitle, questions, onClose }: Session
                   <Label
                     htmlFor={choice.id.toString()}
                     className={cn(
-                      'flex cursor-pointer items-center gap-3 rounded-md p-3 transition-all',
+                      'flex cursor-pointer items-center gap-2 sm:gap-3 rounded-lg p-2.5 sm:p-3 transition-all',
                       showFeedback ? 'cursor-default' : '',
                       statusClass
                     )}
@@ -269,9 +277,9 @@ export function SessionMcqPractice({ sessionTitle, questions, onClose }: Session
                       value={choice.id.toString()}
                       id={choice.id.toString()}
                       disabled={showFeedback}
-                      className="shrink-0 border-border text-primary data-[state=checked]:border-primary"
+                      className="shrink-0 border-border text-primary data-[state=checked]:border-primary h-4 w-4 sm:h-5 sm:w-5"
                     />
-                    <span className="min-w-0 flex-1 text-base font-medium text-inherit">{choice.text}</span>
+                    <span className="min-w-0 flex-1 text-sm sm:text-base font-medium text-inherit">{choice.text}</span>
                     {showFeedback && (
                       <div className="ml-auto shrink-0">
                         {isCorrect && <CheckCircle2 className="h-5 w-5 text-emerald-500" />}

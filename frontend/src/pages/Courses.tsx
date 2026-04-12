@@ -438,52 +438,47 @@ export default function Courses() {
           <>
             <div className="flex items-start justify-between gap-4">
               <div>
-                <h1 className="font-display text-3xl font-bold text-foreground">My Courses</h1>
-                <p className="mt-1 text-muted-foreground">Continue learning and tracking your subjects</p>
+                <h1 className="font-display text-2xl sm:text-3xl font-bold text-foreground">My Courses</h1>
+                <p className="mt-1 text-sm sm:text-base text-muted-foreground">Continue learning and tracking your subjects</p>
               </div>
-              {loadingCourses && (
-                <div className="flex items-center text-muted-foreground mt-1">
-                  <Loader2 className="h-4 w-4 animate-spin text-primary" />
-                </div>
-              )}
             </div>
 
             {/* Summary cards */}
             <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
               <Card className="shadow-card">
-                <CardContent className="p-6">
+                <CardContent className="p-4 sm:p-6">
                   <div className="flex items-center gap-4">
                     <div className="p-3 rounded-xl bg-success/10">
                       <BookOpen className="h-6 w-6 text-success" />
                     </div>
                     <div>
-                      <p className="text-2xl font-bold text-foreground">{summary.active_count}</p>
+                      <p className="text-xl sm:text-2xl font-bold text-foreground tabular-nums">{summary.active_count}</p>
                       <p className="text-sm text-muted-foreground">Active Courses</p>
                     </div>
                   </div>
                 </CardContent>
               </Card>
               <Card className="shadow-card">
-                <CardContent className="p-6">
+                <CardContent className="p-4 sm:p-6">
                   <div className="flex items-center gap-4">
                     <div className="p-3 rounded-xl bg-primary/10">
                       <Award className="h-6 w-6 text-primary" />
                     </div>
                     <div>
-                      <p className="text-2xl font-bold text-foreground">{summary.completed_count}</p>
+                      <p className="text-xl sm:text-2xl font-bold text-foreground tabular-nums">{summary.completed_count}</p>
                       <p className="text-sm text-muted-foreground">Completed</p>
                     </div>
                   </div>
                 </CardContent>
               </Card>
               <Card className="shadow-card">
-                <CardContent className="p-6">
+                <CardContent className="p-4 sm:p-6">
                   <div className="flex items-center gap-4">
                     <div className="p-3 rounded-xl bg-info/10">
                       <LayoutGrid className="h-6 w-6 text-info" />
                     </div>
                     <div>
-                      <p className="text-2xl font-bold text-foreground">
+                      <p className="text-xl sm:text-2xl font-bold text-foreground tabular-nums">
                         {summary.active_count + summary.completed_count}
                       </p>
                       <p className="text-sm text-muted-foreground">Total Courses</p>
@@ -501,12 +496,12 @@ export default function Courses() {
                   placeholder="Search courses..."
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
-                  className="pl-10"
+                  className="pl-10 h-10 sm:h-11 text-sm sm:text-base"
                 />
               </div>
-              <div className="w-[180px] shrink-0">
+              <div className="w-full sm:w-[180px] shrink-0">
                 <Select value={statusFilter} onValueChange={(v: 'all' | 'active' | 'completed') => setStatusFilter(v)}>
-                  <SelectTrigger className="border-primary text-primary">
+                  <SelectTrigger className="border-primary text-primary h-10 sm:h-11">
                     <Filter className="h-4 w-4 mr-2" />
                     <SelectValue placeholder="Filter by status" />
                   </SelectTrigger>
@@ -553,7 +548,7 @@ export default function Courses() {
                   return (
                     <Card
                       key={course.id}
-                      className="flex flex-col shadow-card hover:shadow-lg transition-all duration-300 cursor-pointer group"
+                      className="flex flex-col shadow-card hover:shadow-lg transition-all duration-300 cursor-pointer group rounded-2xl overflow-hidden"
                       onClick={() => handleSelectCourse(course)}
                     >
                       <div className="relative aspect-video w-full overflow-hidden rounded-t-xl bg-muted flex items-center justify-center">
@@ -569,9 +564,9 @@ export default function Courses() {
                         <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent opacity-60" />
                       </div>
 
-                      <div className="flex-1 px-5 pt-5 pb-4 flex flex-col gap-4">
+                      <div className="flex-1 p-4 sm:p-5 flex flex-col gap-3 sm:gap-4">
                         <div className="flex items-start justify-between gap-3">
-                          <h3 className="text-xl line-clamp-1 font-bold leading-snug flex-1 min-w-0" title={course.title}>
+                          <h3 className="text-lg sm:text-xl line-clamp-1 font-bold leading-snug flex-1 min-w-0" title={course.title}>
                             {course.title}
                           </h3>
                           {course.batch_status && (
@@ -590,13 +585,13 @@ export default function Courses() {
                           )}
                         </div>
                         {course.batch_name && (
-                          <p className="text-base text-muted-foreground flex items-center gap-1.5">
+                          <p className="text-sm sm:text-base text-muted-foreground flex items-center gap-1.5">
                             <Layers className="h-4 w-4 text-primary/70 shrink-0" />
                             <span className="truncate font-medium">{course.batch_name}</span>
                           </p>
                         )}
                         {course.description && (
-                          <p className="line-clamp-2 text-sm text-muted-foreground leading-relaxed" title={course.description}>
+                          <p className="line-clamp-2 text-xs sm:text-sm text-muted-foreground leading-relaxed" title={course.description}>
                             {course.description}
                           </p>
                         )}
@@ -620,27 +615,26 @@ export default function Courses() {
                         )}
                       </div>
 
-                      <div className="px-5 pt-1 pb-3">
-                        <div className="bg-muted/30 border border-border/50 rounded-xl px-3 py-3">
-                          <div className="flex items-center justify-between gap-3 text-sm text-muted-foreground">
-                            <div className="flex items-center gap-1.5 min-w-0">
-                              <BookOpen className="h-4 w-4 text-primary/70 shrink-0" />
+                      <div className="px-4 sm:px-5 pb-3">
+                        <div className="bg-muted/30 border border-border/50 rounded-xl px-3 py-2.5 sm:py-3">
+                          <div className="flex items-center justify-between gap-3 text-[10px] sm:text-sm text-muted-foreground">
+                            <div className="flex items-center gap-1 sm:gap-1.5 min-w-0">
+                              <BookOpen className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-primary/70 shrink-0" />
                               <span className="capitalize truncate">{course.difficulty_level}</span>
                             </div>
-                            <div className="flex items-center gap-1.5 min-w-0">
-                              <Calendar className="h-4 w-4 text-primary/70 shrink-0" />
+                            <div className="flex items-center gap-1 sm:gap-1.5 min-w-0">
+                              <Calendar className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-primary/70 shrink-0" />
                               <span className="truncate">
                                 {totalWeeks} {totalWeeks === 1 ? 'Week' : 'Weeks'}
                               </span>
                             </div>
-                            <div className="flex items-center gap-1.5 min-w-0 justify-end">
-                              <Calendar className="h-4 w-4 text-primary/70 shrink-0" />
+                            <div className="flex items-center gap-1 sm:gap-1.5 min-w-0 justify-end">
+                              <Calendar className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-primary/70 shrink-0" />
                               <span className="truncate">
                                 {course.batch_start_date
                                   ? new Date(course.batch_start_date).toLocaleDateString('en-US', {
                                       day: 'numeric',
                                       month: 'short',
-                                      year: 'numeric',
                                     })
                                   : '—'}
                               </span>
@@ -771,7 +765,7 @@ export default function Courses() {
             </Dialog>
 
             {/* ===== HEADER BANNER WITH OVERALL PROGRESS ===== */}
-            <div className="rounded-2xl overflow-hidden gradient-primary text-primary-foreground p-5 md:p-8 relative shadow-card border border-primary/20">
+            <div className="rounded-2xl overflow-hidden gradient-primary text-primary-foreground p-4 sm:p-6 md:p-8 relative shadow-card border border-primary/20">
               {/* Decorative gradients */}
               <div className="absolute inset-0 overflow-hidden pointer-events-none">
                 <div className="absolute top-0 right-0 w-64 h-64 bg-white/5 rounded-full blur-3xl" />
@@ -781,7 +775,7 @@ export default function Courses() {
               <div className="relative flex flex-col lg:flex-row lg:items-center gap-6 md:gap-8">
                 {/* Left: Course info */}
                 <div className="flex-1 min-w-0">
-                  <h1 className="text-xl md:text-2xl lg:text-3xl font-bold tracking-tight leading-snug">
+                  <h1 className="text-lg sm:text-xl md:text-2xl lg:text-3xl font-bold tracking-tight leading-snug">
                     {selectedCourse.title}
                   </h1>
                   
@@ -891,15 +885,15 @@ export default function Courses() {
               </div>
             ) : (
               <Card className="overflow-hidden border-border/60 shadow-card">
-                <CardHeader className="flex flex-col gap-1 space-y-0 border-b border-border/50 bg-muted/25 px-5 py-4 md:px-6 md:py-5">
-                  <CardTitle className="text-lg font-bold tracking-tight md:text-xl">
+                <CardHeader className="flex flex-col gap-1 space-y-0 border-b border-border/50 bg-muted/25 px-4 sm:px-5 py-3.5 sm:py-4 md:px-6 md:py-5">
+                  <CardTitle className="text-base sm:text-lg font-bold tracking-tight md:text-xl">
                     Course weeks
                   </CardTitle>
-                  <CardDescription className="mt-1 text-sm">
+                  <CardDescription className="mt-1 text-xs sm:text-sm">
                     Expand a week to view lessons and weekly assessments
                   </CardDescription>
                 </CardHeader>
-                <CardContent className="space-y-2 p-3 md:space-y-3 md:p-4">
+                <CardContent className="space-y-2 p-2 sm:p-3 md:space-y-3 md:p-4">
                   {weeks.map(week => {
                     const lockInfo = getWeekLockInfo(week);
                     const locked = lockInfo.is_locked;
@@ -949,7 +943,7 @@ export default function Courses() {
                         {/* Week Header */}
                         <button
                           className={cn(
-                            'w-full text-left px-5 py-4 flex items-center gap-3 transition-colors',
+                            'w-full text-left px-4 sm:px-5 py-3 sm:py-4 flex items-center gap-3 transition-colors',
                             locked ? 'opacity-90' : 'hover:bg-[hsl(var(--muted)_/_0.55)]',
                             isExpanded ? 'bg-[hsl(var(--muted)_/_0.5)]' : ''
                           )}
@@ -976,7 +970,7 @@ export default function Courses() {
                           </div>
                           <div className="flex-1 min-w-0">
                             <div className="flex items-center gap-2 flex-wrap">
-                              <h3 className="font-bold text-base text-foreground">
+                              <h3 className="font-bold text-sm sm:text-base text-foreground">
                                 Week {week.week_number}
                                 {week.title && week.title !== `Week ${week.week_number}` && (
                                   <span className="text-muted-foreground font-medium ml-1">– {week.title}</span>
@@ -1046,9 +1040,9 @@ export default function Courses() {
                           <div className="border-t border-border/40">
                             {/* Session List Header */}
                             {sessions.length > 0 && (
-                              <div className="flex items-center gap-2 px-5 py-3 bg-muted/10">
+                              <div className="flex items-center gap-2 px-4 sm:px-5 py-2.5 sm:py-3 bg-muted/10">
                                 <Monitor className="h-4 w-4 text-primary" />
-                                <span className="font-semibold text-sm">Lessons</span>
+                                <span className="font-semibold text-xs sm:text-sm">Lessons</span>
                                 <ChevronDown className="h-3.5 w-3.5 text-muted-foreground ml-auto" />
                               </div>
                             )}
@@ -1071,7 +1065,7 @@ export default function Courses() {
                                     <div
                                       key={session.id}
                                       className={cn(
-                                        'flex flex-col sm:flex-row items-center gap-3 sm:gap-4 px-4 sm:px-5 py-3.5 transition-all group',
+                                        'flex flex-col sm:flex-row items-center gap-2 sm:gap-4 px-3 sm:px-5 py-3 sm:py-3.5 transition-all group',
                                         locked
                                           ? 'opacity-60 cursor-not-allowed'
                                           : completed
@@ -1219,16 +1213,16 @@ export default function Courses() {
                               {week.weekly_test ? (
                                 <div
                                   className={cn(
-                                    'flex items-center justify-between rounded-xl px-5 py-4 border transition-all',
+                                    'flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between rounded-xl px-4 py-4 sm:px-5 border transition-all',
                                     locked
                                       ? 'bg-muted/30 border-border/50 opacity-70'
                                       : 'bg-card border-border/50 hover:bg-muted/30'
                                   )}
                                 >
-                                  <div className="flex items-center gap-4">
+                                  <div className="flex items-center gap-3 sm:gap-4">
                                     <div
                                       className={cn(
-                                        'w-10 h-10 rounded-xl flex items-center justify-center shadow-sm',
+                                        'w-10 h-10 shrink-0 rounded-xl flex items-center justify-center shadow-sm',
                                         locked ? 'bg-muted' : 'bg-primary/20 text-primary'
                                       )}
                                     >
@@ -1240,75 +1234,79 @@ export default function Courses() {
                                         <FlaskConical className="h-5 w-5" />
                                       )}
                                     </div>
-                                    <div>
+                                    <div className="min-w-0 text-left">
                                       <p className="font-bold text-sm text-foreground flex items-center gap-2">
                                         {week.weekly_test.title || 'Weekly Assessment'}
                                       </p>
-                                      <p className="text-xs text-muted-foreground mt-0.5 flex items-center gap-2">
-                                        {locked
-                                          ? lockInfo.reason === 'date_locked'
-                                            ? (() => {
-                                                const unlockDate = (lockInfo as { unlock_date?: string }).unlock_date;
-                                                return unlockDate
-                                                  ? `Unlocks ${new Date(unlockDate).toLocaleDateString('en-US', {
-                                                      month: 'short',
-                                                      day: 'numeric',
-                                                      year: 'numeric',
-                                                    })}`
-                                                  : 'Unlocks soon';
-                                              })()
-                                            : 'Pass previous assessment to unlock'
-                                          : "Test your understanding of this week's lessons"}
-                                        {testPassed ? (
-                                          <Badge className="bg-emerald-500/20 text-emerald-400 border-emerald-500/30 text-[10px] h-5 px-2 font-semibold shadow-[0_0_10px_rgba(16,185,129,0.1)]">
-                                            Passed
-                                          </Badge>
-                                        ) : (() => {
-                                          const weeklyTest = week.weekly_test as
-                                            | { latest_submission?: { status: string; marks_obtained?: number } }
-                                            | null
-                                            | undefined;
-                                          const latest = weeklyTest?.latest_submission;
-                                          if (!latest) return null;
-                                          if (latest.status === 'published' && !testPassed) {
-                                            return (
-                                              <Badge className="bg-rose-500/20 text-rose-400 border-rose-500/30 text-[10px] h-5 px-2 font-semibold shadow-[0_0_10px_rgba(244,63,94,0.1)]">
-                                                Failed
-                                              </Badge>
-                                            );
-                                          }
-                                          if (latest.status !== 'published') {
-                                            return (
-                                              <Badge className="bg-blue-500/10 text-blue-500 border-blue-500/20 text-[10px] h-5 px-2 font-semibold shadow-[0_0_10px_rgba(59,130,246,0.05)]">
-                                                {formatStatusLabel(latest.status)}
-                                              </Badge>
-                                            );
-                                          }
-                                          return null;
-                                        })()}
-                                        
-                                        {(() => {
-                                          const weeklyTest = week.weekly_test as
-                                            | { latest_submission?: { status: string; marks_obtained?: number } }
-                                            | null
-                                            | undefined;
-                                          const latest = weeklyTest?.latest_submission;
-                                          if (
-                                            latest?.status === 'published' &&
-                                            formatTestScorePercent(latest.marks_obtained) !== '—'
-                                          ) {
-                                            return (
-                                              <span className="text-[10px] font-bold text-foreground">
-                                                Score: {formatTestScorePercent(latest.marks_obtained)}%
-                                              </span>
-                                            );
-                                          }
-                                          return null;
-                                        })()}
-                                      </p>
+                                      <div className="flex flex-wrap items-center gap-x-2 gap-y-1.5 mt-1.5">
+                                        <p className="text-[11px] sm:text-xs text-muted-foreground leading-snug">
+                                          {locked
+                                            ? lockInfo.reason === 'date_locked'
+                                              ? (() => {
+                                                  const unlockDate = (lockInfo as { unlock_date?: string }).unlock_date;
+                                                  return unlockDate
+                                                    ? `Unlocks ${new Date(unlockDate).toLocaleDateString('en-US', {
+                                                        month: 'short',
+                                                        day: 'numeric',
+                                                        year: 'numeric',
+                                                      })}`
+                                                    : 'Unlocks soon';
+                                                })()
+                                              : 'Pass previous assessment to unlock'
+                                            : "Test your understanding of lessons"}
+                                        </p>
+                                        <div className="flex items-center gap-2">
+                                          {testPassed ? (
+                                            <Badge className="bg-emerald-500/20 text-emerald-400 border-emerald-500/30 text-[10px] h-5 px-2 font-semibold shadow-[0_0_10px_rgba(16,185,129,0.1)]">
+                                              Passed
+                                            </Badge>
+                                          ) : (() => {
+                                            const weeklyTest = week.weekly_test as
+                                              | { latest_submission?: { status: string; marks_obtained?: number } }
+                                              | null
+                                              | undefined;
+                                            const latest = weeklyTest?.latest_submission;
+                                            if (!latest) return null;
+                                            if (latest.status === 'published' && !testPassed) {
+                                              return (
+                                                <Badge className="bg-rose-500/20 text-rose-400 border-rose-500/30 text-[10px] h-5 px-2 font-semibold shadow-[0_0_10px_rgba(244,63,94,0.1)]">
+                                                  Failed
+                                                </Badge>
+                                              );
+                                            }
+                                            if (latest.status !== 'published') {
+                                              return (
+                                                <Badge className="bg-blue-500/10 text-blue-500 border-blue-500/20 text-[10px] h-5 px-2 font-semibold shadow-[0_0_10px_rgba(59,130,246,0.05)]">
+                                                  {formatStatusLabel(latest.status)}
+                                                </Badge>
+                                              );
+                                            }
+                                            return null;
+                                          })()}
+                                          
+                                          {(() => {
+                                            const weeklyTest = week.weekly_test as
+                                              | { latest_submission?: { status: string; marks_obtained?: number } }
+                                              | null
+                                              | undefined;
+                                            const latest = weeklyTest?.latest_submission;
+                                            if (
+                                              latest?.status === 'published' &&
+                                              formatTestScorePercent(latest.marks_obtained) !== '—'
+                                            ) {
+                                              return (
+                                                <span className="text-[10px] font-bold text-foreground bg-muted/50 px-2 py-0.5 rounded-md border border-border/50">
+                                                  Score: {formatTestScorePercent(latest.marks_obtained)}%
+                                                </span>
+                                              );
+                                            }
+                                            return null;
+                                          })()}
+                                        </div>
+                                      </div>
                                     </div>
                                   </div>
-                                  <div className="flex items-center gap-2">
+                                  <div className="flex items-center gap-2 w-full sm:w-auto mt-2 sm:mt-0">
                                     {(() => {
                                       const weeklyTest = week.weekly_test as (WeeklyTest & {
                                         has_attempted?: boolean;
@@ -1321,9 +1319,10 @@ export default function Courses() {
                                         <Button
                                           size="sm"
                                           variant="outline"
-                                          className="font-bold rounded-full h-9 px-4 text-xs"
+                                          className="flex-1 sm:flex-initial font-bold rounded-full h-8 sm:h-9 px-4 text-xs"
                                           onClick={(e) => {
                                             e.stopPropagation();
+                                            if (!weeklyTest) return;
                                             setActiveTest(weeklyTest);
                                             setActiveTestWeek(week.id);
                                             setIsResultsOpen(true);
@@ -1343,7 +1342,6 @@ export default function Courses() {
                                         const hasAttempted = !!weeklyTest?.has_attempted;
                                         const latestStatus = weeklyTest?.latest_submission?.status;
                                         const disabled = locked || (!allSessionsCompleted && !hasAttempted);
-
                                         const label = locked
                                           ? 'Locked'
                                           : hasAttempted
@@ -1353,7 +1351,6 @@ export default function Courses() {
                                             : !allSessionsCompleted
                                               ? 'Complete Lessons'
                                               : 'Take Test';
-
                                         return (
                                           <Button
                                             size="sm"
@@ -1361,7 +1358,7 @@ export default function Courses() {
                                             disabled={disabled}
                                             title={locked ? 'This week is locked' : undefined}
                                             className={cn(
-                                              'font-bold rounded-full h-9 px-6 text-xs transition-all',
+                                              'flex-1 sm:flex-initial font-bold rounded-full h-8 sm:h-9 px-6 text-xs transition-all',
                                               disabled
                                                 ? 'border border-border bg-muted text-muted-foreground cursor-not-allowed hover:!scale-100 hover:!shadow-none'
                                                 : 'border-0 shadow-md',
@@ -1396,18 +1393,18 @@ export default function Courses() {
                                   </div>
                                 </div>
                               ) : (
-                                <div className="flex flex-col gap-3 rounded-xl border border-border/50 bg-[hsl(var(--muted)_/_0.3)] px-5 py-5 sm:flex-row sm:items-center sm:gap-4">
-                                  <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border border-border/40 bg-background/40 text-primary/85 shadow-sm">
+                                <div className="flex flex-col gap-3 rounded-xl border border-border/50 bg-[hsl(var(--muted)_/_0.3)] px-4 sm:px-5 py-4 sm:py-5 sm:flex-row sm:items-center sm:gap-4">
+                                  <div className="flex h-10 w-10 sm:h-11 sm:w-11 shrink-0 items-center justify-center rounded-xl border border-border/40 bg-background/40 text-primary/85 shadow-sm">
                                     <FlaskConical className="h-5 w-5" aria-hidden />
                                   </div>
                                   <div className="min-w-0 text-left">
                                     <p className="text-sm font-semibold text-foreground">No weekly assessment</p>
                                     <p className="mt-1 text-xs leading-relaxed text-muted-foreground">
                                       {isCalendarLocked
-                                        ? "This week hasn't opened on the calendar yet. Your instructor may still add a weekly assessment before it unlocks."
+                                        ? "This week hasn't opened yet. Assessment may be added later."
                                         : locked
                                           ? 'No weekly assessment is listed for this week.'
-                                          : "This week doesn't include a scheduled test — continue with your lessons."}
+                                          : "This week doesn't include a scheduled test."}
                                     </p>
                                   </div>
                                 </div>
