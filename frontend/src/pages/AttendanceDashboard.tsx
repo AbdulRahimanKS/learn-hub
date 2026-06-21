@@ -337,7 +337,10 @@ export default function AttendanceDashboard() {
                               border: '1px solid hsl(var(--border))',
                               borderRadius: '0.75rem',
                               fontSize: 12,
+                              color: 'hsl(var(--popover-foreground))',
                             }}
+                            labelStyle={{ color: 'hsl(var(--popover-foreground))' }}
+                            itemStyle={{ color: 'hsl(var(--popover-foreground))' }}
                           />
                         </PieChart>
                       </ResponsiveContainer>

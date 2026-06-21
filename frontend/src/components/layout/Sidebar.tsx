@@ -89,6 +89,7 @@ const studentNavItems: NavItemDef[] = [
   { icon: BookOpen, label: 'My Courses', path: '/courses' },
   { icon: ClipboardCheck, label: 'Assessments', path: '/assessments' },
   { icon: BarChart3, label: 'My Progress', path: '/progress' },
+  { icon: ClipboardList, label: 'My Attendance', path: '/attendance/my' },
   { icon: Video, label: 'Live Sessions', path: '/live-sessions' },
   { icon: PlayCircle, label: 'Special Sessions', path: '/special-sessions' },
   { icon: MessageSquare, label: 'Chat', path: '/chat' },
