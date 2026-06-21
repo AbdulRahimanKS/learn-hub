@@ -164,12 +164,12 @@ export default function FeePayments() {
               className="h-10 sm:h-11 border-primary text-primary text-xs sm:text-sm"
               defaultSelectFirst={false}
             />
-            <Select value={methodFilter} onValueChange={(v) => { setMethodFilter(v as PaymentMethod | ''); setCurrentPage(1); }}>
+            <Select value={methodFilter || 'all'} onValueChange={(v) => { setMethodFilter(v === 'all' ? '' : v as PaymentMethod); setCurrentPage(1); }}>
               <SelectTrigger className="h-10 sm:h-11 w-[160px] rounded-xl text-sm">
                 <SelectValue placeholder="All Methods" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="">All Methods</SelectItem>
+                <SelectItem value="all">All Methods</SelectItem>
                 <SelectItem value="upi">UPI</SelectItem>
                 <SelectItem value="bank_transfer">Bank Transfer</SelectItem>
                 <SelectItem value="cash">Cash</SelectItem>
@@ -177,12 +177,12 @@ export default function FeePayments() {
                 <SelectItem value="other">Other</SelectItem>
               </SelectContent>
             </Select>
-            <Select value={statusFilter} onValueChange={(v) => { setStatusFilter(v as PaymentStatus | ''); setCurrentPage(1); }}>
+            <Select value={statusFilter || 'all'} onValueChange={(v) => { setStatusFilter(v === 'all' ? '' : v as PaymentStatus); setCurrentPage(1); }}>
               <SelectTrigger className="h-10 sm:h-11 w-[160px] rounded-xl text-sm">
                 <SelectValue placeholder="All Statuses" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="">All Statuses</SelectItem>
+                <SelectItem value="all">All Statuses</SelectItem>
                 <SelectItem value="verified">Verified</SelectItem>
                 <SelectItem value="pending_verification">Pending</SelectItem>
                 <SelectItem value="rejected">Rejected</SelectItem>

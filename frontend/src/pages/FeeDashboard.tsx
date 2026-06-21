@@ -132,15 +132,15 @@ export default function FeeDashboard() {
             onValueChange={handleBatchChange}
             placeholder="All Batches"
             triggerIcon={<Filter className="h-4 w-4 text-primary" />}
-            className="h-10 border-primary text-primary text-xs"
+            className="h-10 w-[200px] border-primary text-primary text-xs"
             defaultSelectFirst={false}
           />
-          <Select value={courseId} onValueChange={setCourseId}>
+          <Select value={courseId || 'all'} onValueChange={(v) => setCourseId(v === 'all' ? '' : v)}>
             <SelectTrigger className="h-10 w-[180px] rounded-xl text-xs">
               <SelectValue placeholder="All Courses" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="">All Courses</SelectItem>
+              <SelectItem value="all">All Courses</SelectItem>
               <SelectItem value="1">Full Stack Development</SelectItem>
               <SelectItem value="2">Data Science</SelectItem>
             </SelectContent>

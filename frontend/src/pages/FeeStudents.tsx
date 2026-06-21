@@ -165,15 +165,15 @@ export default function FeeStudents() {
             onValueChange={handleBatchChange}
             placeholder="All Batches"
             triggerIcon={<Filter className="h-4 w-4 text-primary" />}
-            className="h-10 sm:h-11 border-primary text-primary text-xs sm:text-sm"
+            className="h-10 sm:h-11 w-full sm:w-[200px] border-primary text-primary text-xs sm:text-sm"
             defaultSelectFirst={false}
           />
-          <Select value={statusFilter} onValueChange={(v) => { setStatusFilter(v as FeeStatus | ''); setCurrentPage(1); }}>
+          <Select value={statusFilter || 'all'} onValueChange={(v) => { setStatusFilter(v === 'all' ? '' : v as FeeStatus); setCurrentPage(1); }}>
             <SelectTrigger className="h-10 sm:h-11 w-full sm:w-[160px] rounded-xl text-sm">
               <SelectValue placeholder="All Statuses" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="">All Statuses</SelectItem>
+              <SelectItem value="all">All Statuses</SelectItem>
               <SelectItem value="paid">Paid</SelectItem>
               <SelectItem value="partial">Partial</SelectItem>
               <SelectItem value="pending">Pending</SelectItem>

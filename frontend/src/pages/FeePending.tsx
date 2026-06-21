@@ -95,12 +95,12 @@ export default function FeePending() {
             className="h-10 border-primary text-primary text-xs"
             defaultSelectFirst={false}
           />
-          <Select value={statusFilter} onValueChange={(v) => setStatusFilter(v as PendingStatus | '')}>
+          <Select value={statusFilter || 'all'} onValueChange={(v) => setStatusFilter(v === 'all' ? '' : v as PendingStatus)}>
             <SelectTrigger className="h-10 w-[160px] rounded-xl text-sm">
               <SelectValue placeholder="All Statuses" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="">All Statuses</SelectItem>
+              <SelectItem value="all">All Statuses</SelectItem>
               <SelectItem value="overdue">Overdue</SelectItem>
               <SelectItem value="due_today">Due Today</SelectItem>
               <SelectItem value="due_soon">Due Soon</SelectItem>
