@@ -30,6 +30,9 @@ import WebinarManagement from "./pages/WebinarManagement";
 import StudentWebinars from "./pages/StudentWebinars";
 import SpecialSessions from "./pages/SpecialSessions";
 import Notifications from "./pages/Notifications";
+import AttendanceDashboard from "./pages/AttendanceDashboard";
+import BatchAttendance from "./pages/BatchAttendance";
+import StudentAttendance from "./pages/StudentAttendance";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -76,7 +79,10 @@ function AppRoutes() {
       <Route path="/settings" element={<ProtectedRoute><Settings /></ProtectedRoute>} />
       <Route path="/email-config" element={<ProtectedRoute><EmailConfig /></ProtectedRoute>} />
       <Route path="/notifications" element={<ProtectedRoute><Notifications /></ProtectedRoute>} />
-      
+      <Route path="/attendance/dashboard" element={<ProtectedRoute><AttendanceDashboard /></ProtectedRoute>} />
+      <Route path="/attendance/batch" element={<ProtectedRoute><BatchAttendance /></ProtectedRoute>} />
+      <Route path="/attendance/student" element={<ProtectedRoute><StudentAttendance /></ProtectedRoute>} />
+
       <Route path="/access-denied" element={<AccessDenied />} />
       <Route path="*" element={<NotFound />} />
     </Routes>
