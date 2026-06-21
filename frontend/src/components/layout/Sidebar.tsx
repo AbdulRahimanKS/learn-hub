@@ -20,6 +20,9 @@ import {
   PlayCircle,
   ClipboardList,
   UserCheck,
+  Wallet,
+  Receipt,
+  Clock,
 } from 'lucide-react';
 
 // ─── Nav item type definitions ────────────────────────────────────────────────
@@ -41,6 +44,21 @@ interface NavGroupDef {
 }
 
 type NavItemDef = NavLinkDef | NavGroupDef;
+
+// ─── Fee Management group (Admin only) ───────────────────────────────────────
+
+const feeGroup: NavGroupDef = {
+  type: 'group',
+  icon: Wallet,
+  label: 'Fee Management',
+  paths: ['/fees/dashboard', '/fees/students', '/fees/payments', '/fees/pending'],
+  children: [
+    { icon: LayoutDashboard, label: 'Dashboard',    path: '/fees/dashboard' },
+    { icon: Users,           label: 'Students',     path: '/fees/students' },
+    { icon: Receipt,         label: 'Payments',     path: '/fees/payments' },
+    { icon: Clock,           label: 'Pending Fees', path: '/fees/pending' },
+  ],
+};
 
 // ─── Attendance group (Admin + Teacher only) ──────────────────────────────────
 
@@ -66,6 +84,7 @@ const adminNavItems: NavItemDef[] = [
   { icon: ClipboardCheck, label: 'Assessments', path: '/assessments' },
   { icon: BarChart3, label: 'Progress', path: '/progress' },
   attendanceGroup,
+  feeGroup,
   { icon: Video, label: 'Live Sessions', path: '/live-sessions' },
   { icon: PlayCircle, label: 'Special Sessions', path: '/special-sessions' },
   { icon: MessageSquare, label: 'Chat', path: '/chat' },
@@ -90,6 +109,7 @@ const studentNavItems: NavItemDef[] = [
   { icon: ClipboardCheck, label: 'Assessments', path: '/assessments' },
   { icon: BarChart3, label: 'My Progress', path: '/progress' },
   { icon: ClipboardList, label: 'My Attendance', path: '/attendance/my' },
+  { icon: Wallet, label: 'My Fees', path: '/fees/my' },
   { icon: Video, label: 'Live Sessions', path: '/live-sessions' },
   { icon: PlayCircle, label: 'Special Sessions', path: '/special-sessions' },
   { icon: MessageSquare, label: 'Chat', path: '/chat' },

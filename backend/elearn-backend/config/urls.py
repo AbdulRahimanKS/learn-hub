@@ -33,6 +33,9 @@ urlpatterns = [
 
     # Courses
     path("api/courses/v1/", include("apps.courses.urls")),
+
+    # Fees
+    path("api/fees/v1/", include("apps.fees.urls")),
 ]
 
 # Serve media files in development

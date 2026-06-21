@@ -34,6 +34,12 @@ import AttendanceDashboard from "./pages/AttendanceDashboard";
 import BatchAttendance from "./pages/BatchAttendance";
 import StudentAttendance from "./pages/StudentAttendance";
 import MyAttendance from "./pages/MyAttendance";
+import FeeDashboard from "./pages/FeeDashboard";
+import FeeStudents from "./pages/FeeStudents";
+import FeeStudentDetail from "./pages/FeeStudentDetail";
+import FeePayments from "./pages/FeePayments";
+import FeePending from "./pages/FeePending";
+import MyFees from "./pages/MyFees";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -84,6 +90,12 @@ function AppRoutes() {
       <Route path="/attendance/batch" element={<ProtectedRoute><BatchAttendance /></ProtectedRoute>} />
       <Route path="/attendance/student" element={<ProtectedRoute><StudentAttendance /></ProtectedRoute>} />
       <Route path="/attendance/my" element={<ProtectedRoute><MyAttendance /></ProtectedRoute>} />
+      <Route path="/fees/dashboard" element={<ProtectedRoute><FeeDashboard /></ProtectedRoute>} />
+      <Route path="/fees/students" element={<ProtectedRoute><FeeStudents /></ProtectedRoute>} />
+      <Route path="/fees/students/:feeStudentId" element={<ProtectedRoute><FeeStudentDetail /></ProtectedRoute>} />
+      <Route path="/fees/payments" element={<ProtectedRoute><FeePayments /></ProtectedRoute>} />
+      <Route path="/fees/pending" element={<ProtectedRoute><FeePending /></ProtectedRoute>} />
+      <Route path="/fees/my" element={<ProtectedRoute><MyFees /></ProtectedRoute>} />
 
       <Route path="/access-denied" element={<AccessDenied />} />
       <Route path="*" element={<NotFound />} />
