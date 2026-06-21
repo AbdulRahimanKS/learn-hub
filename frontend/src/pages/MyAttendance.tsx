@@ -400,16 +400,75 @@ export default function MyAttendance() {
             </Card>
 
             {/* ── B. Attendance trend chart ── */}
-            {trendData.length >= 2 && (
-              <Card className="shadow-card">
-                <CardHeader className="pb-3">
-                  <CardTitle className="flex items-center gap-2">
-                    <TrendingUp className="h-5 w-5 text-primary" />
-                    Attendance Trend
-                  </CardTitle>
-                  <CardDescription>Your video completion percentage week by week</CardDescription>
-                </CardHeader>
-                <CardContent className="pt-0">
+            <Card className="shadow-card">
+              <CardHeader className="pb-3">
+                <div className="flex items-start justify-between gap-2">
+                  <div>
+                    <CardTitle className="flex items-center gap-2">
+                      <TrendingUp className="h-5 w-5 text-primary" />
+                      Attendance Trend
+                    </CardTitle>
+                    <CardDescription className="mt-1">
+                      Your video completion percentage week by week
+                    </CardDescription>
+                  </div>
+                  {trendData.length > 0 && (
+                    <Badge
+                      variant="outline"
+                      className="shrink-0 text-xs font-semibold tabular-nums border-primary/30 text-primary bg-primary/5"
+                    >
+                      {trendData.length} week{trendData.length !== 1 ? 's' : ''}
+                    </Badge>
+                  )}
+                </div>
+              </CardHeader>
+              <CardContent className="pt-0">
+                {trendData.length === 0 ? (
+                  /* No weeks unlocked yet */
+                  <div className="flex flex-col items-center justify-center gap-3 py-12 text-center">
+                    <div className="h-14 w-14 rounded-full bg-muted/60 flex items-center justify-center">
+                      <TrendingUp className="h-6 w-6 text-muted-foreground/50" />
+                    </div>
+                    <div>
+                      <p className="text-sm font-semibold text-foreground">No data yet</p>
+                      <p className="text-xs text-muted-foreground mt-0.5">
+                        Start watching sessions — your trend will appear here as you progress through weeks.
+                      </p>
+                    </div>
+                  </div>
+                ) : trendData.length === 1 ? (
+                  /* Only one week — show a preview bar + hint */
+                  <div className="space-y-4 py-4">
+                    <div className="flex items-center gap-4">
+                      <span className="w-8 shrink-0 text-xs font-bold text-muted-foreground tabular-nums">
+                        {trendData[0].weekLabel}
+                      </span>
+                      <div className="flex-1 h-3 rounded-full bg-muted overflow-hidden">
+                        <div
+                          className={cn(
+                            'h-full rounded-full transition-all duration-700',
+                            trendData[0].attendancePercent >= 90
+                              ? 'bg-success'
+                              : trendData[0].attendancePercent >= 75
+                              ? 'bg-primary'
+                              : trendData[0].attendancePercent >= 50
+                              ? 'bg-orange-500'
+                              : 'bg-destructive',
+                          )}
+                          style={{ width: `${trendData[0].attendancePercent}%` }}
+                        />
+                      </div>
+                      <span className="w-10 shrink-0 text-right text-xs font-bold tabular-nums text-foreground">
+                        {trendData[0].attendancePercent}%
+                      </span>
+                    </div>
+                    <p className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                      <TrendingUp className="h-3.5 w-3.5 shrink-0" />
+                      Complete more weeks to see your attendance trend chart.
+                    </p>
+                  </div>
+                ) : (
+                  /* 2+ weeks — full area chart */
                   <ResponsiveContainer width="100%" height={200}>
                     <AreaChart data={trendData} margin={{ top: 5, right: 10, left: -20, bottom: 5 }}>
                       <defs>
@@ -444,9 +503,9 @@ export default function MyAttendance() {
                       />
                     </AreaChart>
                   </ResponsiveContainer>
-                </CardContent>
-              </Card>
-            )}
+                )}
+              </CardContent>
+            </Card>
 
             {/* ── C. Attention banner if below threshold ── */}
             {totalSessions > 0 && overallPct < ATTENDANCE_THRESHOLD && (
